@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { DB_EMOTION_STATE_GET_LATEST, EMOTION_PACKS_GET } from '@shared/constants'
+import { DB_EMOTION_STATE_GET, EMOTION_PACKS_GET } from '@shared/constants'
 
-const { ipcMainHandleMock, getLatestEmotionStateMock, listAvailablePacksMock } = vi.hoisted(() => ({
+const { ipcMainHandleMock, getEmotionStateMock, listAvailablePacksMock } = vi.hoisted(() => ({
   ipcMainHandleMock: vi.fn(),
-  getLatestEmotionStateMock: vi.fn(),
+  getEmotionStateMock: vi.fn(),
   listAvailablePacksMock: vi.fn()
 }))
 
@@ -15,7 +15,7 @@ vi.mock('electron', () => ({
 
 vi.mock('@main/db/DatabaseService', () => ({
   default: {
-    getLatestEmotionState: getLatestEmotionStateMock
+    getEmotionState: getEmotionStateMock
   }
 }))
 
@@ -28,7 +28,7 @@ vi.mock('@main/services/emotion/EmotionAssetService', () => ({
 describe('registerEmotionHandlers', () => {
   beforeEach(() => {
     ipcMainHandleMock.mockReset()
-    getLatestEmotionStateMock.mockReset()
+    getEmotionStateMock.mockReset()
     listAvailablePacksMock.mockReset()
   })
 
@@ -39,7 +39,7 @@ describe('registerEmotionHandlers', () => {
 
     const registeredChannels = ipcMainHandleMock.mock.calls.map(([channel]) => channel)
     expect(registeredChannels).toContain(EMOTION_PACKS_GET)
-    expect(registeredChannels).toContain(DB_EMOTION_STATE_GET_LATEST)
+    expect(registeredChannels).toContain(DB_EMOTION_STATE_GET)
   })
 
   it('reads the latest emotion state from DatabaseService', async () => {
@@ -50,16 +50,16 @@ describe('registerEmotionHandlers', () => {
         updatedAt: 1710000000000
       }
     }
-    getLatestEmotionStateMock.mockReturnValue(snapshot)
+    getEmotionStateMock.mockReturnValue(snapshot)
 
     const { registerEmotionHandlers } = await import('../emotion')
     registerEmotionHandlers()
 
     const handler = ipcMainHandleMock.mock.calls.find(
-      ([channel]) => channel === DB_EMOTION_STATE_GET_LATEST
+      ([channel]) => channel === DB_EMOTION_STATE_GET
     )?.[1]
 
     await expect(handler({})).resolves.toEqual(snapshot)
-    expect(getLatestEmotionStateMock).toHaveBeenCalledTimes(1)
+    expect(getEmotionStateMock).toHaveBeenCalledTimes(1)
   })
 })

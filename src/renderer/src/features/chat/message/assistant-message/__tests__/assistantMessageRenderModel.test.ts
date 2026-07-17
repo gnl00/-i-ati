@@ -219,7 +219,7 @@ describe('mapAssistantMessage', () => {
     expect(renderState.header.emotionIntensity).toBe(0.9)
   })
 
-  it('keeps unified emotion precedence over later tool segment fallbacks', () => {
+  it('keeps unified emotion precedence over later tool segment derivation', () => {
     const renderState = mapAssistantMessage({
       committedMessage: {
         role: 'assistant',
@@ -228,7 +228,7 @@ describe('mapAssistantMessage', () => {
           label: 'calm',
           emoji: '😌',
           intensity: 0.2,
-          source: 'fallback'
+          source: 'computed'
         },
         segments: []
       },

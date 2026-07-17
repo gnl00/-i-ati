@@ -69,7 +69,6 @@ export type AwakeSnapshot = {
     }
     accumulated: Array<{
       label: string
-      description: string
       intensity: number
       decay: number
       updated_at: number

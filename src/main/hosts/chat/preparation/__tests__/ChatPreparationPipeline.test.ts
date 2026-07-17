@@ -30,7 +30,7 @@ vi.mock('@main/db/DatabaseService', () => ({
     getChatByUuid: vi.fn(),
     getMessagesByChatId: vi.fn(),
     getMessagesByChatUuid: vi.fn(),
-    getEmotionStateByChatId: vi.fn(() => undefined),
+    getEmotionState: vi.fn(() => undefined),
     getWorkContextByChatUuid: vi.fn(() => undefined),
     listRecentSmartMessageCandidateSummaries: vi.fn(() => []),
     saveMessage: vi.fn(),

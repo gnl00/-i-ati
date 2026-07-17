@@ -30,7 +30,6 @@ describe('EmotionToolsProcessor', () => {
       accumulated: [
         {
           label: 'fear',
-          description: 'Lingering worry about packaging stability',
           intensity: 2,
           decay: 0.95
         }
@@ -46,7 +45,6 @@ describe('EmotionToolsProcessor', () => {
     expect(result.accumulated).toEqual([
       {
         label: 'fear',
-        description: 'Lingering worry about packaging stability',
         intensity: 2,
         decay: 0.95
       }
@@ -70,7 +68,6 @@ describe('EmotionToolsProcessor', () => {
       accumulated: [
         {
           label: 'fear',
-          description: 'bad',
           intensity: 9,
           decay: 0.95
         }

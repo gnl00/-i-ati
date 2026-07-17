@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron'
-import { DB_EMOTION_STATE_GET_LATEST, EMOTION_PACKS_GET } from '@shared/constants'
+import { DB_EMOTION_STATE_GET, EMOTION_PACKS_GET } from '@shared/constants'
 import { chatDb } from '@main/db/chat'
 import { emotionAssetService } from '@main/services/emotion/EmotionAssetService'
 
@@ -8,7 +8,7 @@ export function registerEmotionHandlers(): void {
     return emotionAssetService.listAvailablePacks()
   })
 
-  ipcMain.handle(DB_EMOTION_STATE_GET_LATEST, async () => {
-    return chatDb.getLatestEmotionState()
+  ipcMain.handle(DB_EMOTION_STATE_GET, async () => {
+    return chatDb.getEmotionState()
   })
 }

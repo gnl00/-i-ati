@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { DB_EMOTION_STATE_GET_LATEST, PROVIDER_FETCH_MODELS } from '@shared/constants'
-import { invokeDbEmotionStateGetLatest, invokeProviderFetchModels } from '..'
+import { DB_EMOTION_STATE_GET, PROVIDER_FETCH_MODELS } from '@shared/constants'
+import { invokeDbEmotionStateGet, invokeProviderFetchModels } from '..'
 
 describe('ipcInvoker emotion state calls', () => {
   const ipcRenderer = {
@@ -22,9 +22,9 @@ describe('ipcInvoker emotion state calls', () => {
     }
     ipcRenderer.invoke.mockResolvedValue(snapshot)
 
-    await expect(invokeDbEmotionStateGetLatest()).resolves.toEqual(snapshot)
+    await expect(invokeDbEmotionStateGet()).resolves.toEqual(snapshot)
 
-    expect(ipcRenderer.invoke).toHaveBeenCalledWith(DB_EMOTION_STATE_GET_LATEST)
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith(DB_EMOTION_STATE_GET)
   })
 
   it('invokes the provider fetch models channel with the selected account', async () => {

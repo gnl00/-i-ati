@@ -1,15 +1,14 @@
 import { extractContentFromSegments } from '@main/services/messages/MessageSegmentContent'
 import type { ConversationStore } from '@main/agent/contracts'
 import { chatDb } from '@main/db/chat'
-import EmotionInferenceService from '@main/services/emotion/EmotionInferenceService'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 import { escapeXmlAttribute } from '@shared/utils/xml'
 import {
-  buildNextEmotionStateSnapshot,
   extractEmotionToolStateFromSegments,
-  hasVisibleAssistantText
+  transitionEmotionState
 } from '@main/services/emotion/emotion-state'
 import type { HostRunInputState } from '../preparation'
+import { createLogger } from '@main/logging/LogService'
 
 type RunStoppedBoundaryOptions = {
   submissionId?: string
@@ -17,6 +16,7 @@ type RunStoppedBoundaryOptions = {
 }
 
 const RUN_STOPPED_DEFAULT_REASON = 'user_cancelled'
+const logger = createLogger('ChatStepStore')
 
 const buildRunStoppedBoundaryContent = (reason: string): string => [
   `<run_boundary status="stopped" reason="${escapeXmlAttribute(reason)}">`,
@@ -188,12 +188,12 @@ export class ChatStepStore implements ConversationStore {
       : finalAssistantMessage.body.content
 
     const emotionToolState = extractEmotionToolStateFromSegments(finalAssistantMessage.body)
-    const emotionFromTool = emotionToolState?.emotion
-    const fallbackEmotion = emotionFromTool
-      ? undefined
-      : hasVisibleAssistantText(content)
-        ? await EmotionInferenceService.infer(content)
-        : null
+    const transitionTime = Date.now()
+    const emotionPreview = transitionEmotionState({
+      previous: chatDb.getEmotionState(),
+      reported: emotionToolState,
+      now: transitionTime
+    })
 
     const updated: MessageEntity = {
       ...finalAssistantMessage,
@@ -201,8 +201,7 @@ export class ChatStepStore implements ConversationStore {
       body: {
         ...finalAssistantMessage.body,
         content,
-        ...(emotionFromTool ? { emotion: emotionFromTool } : {}),
-        ...(!emotionFromTool && fallbackEmotion ? { emotion: fallbackEmotion } : {}),
+        emotion: emotionPreview.presentation,
         typewriterCompleted: true
       }
     }
@@ -214,13 +213,14 @@ export class ChatStepStore implements ConversationStore {
       this.attachMessageToChat(chatEntity, updated.id)
     }
 
-    if (updated.chatId && updated.chatUuid && updated.body.emotion) {
-      const previousState = chatDb.getEmotionStateByChatId(updated.chatId)
-      const nextState = buildNextEmotionStateSnapshot(previousState, updated.body.emotion, {
-        accumulated: emotionToolState?.accumulated
+    const emotionTransition = chatDb.transitionEmotionState(
+      previous => transitionEmotionState({
+        previous,
+        reported: emotionToolState,
+        now: transitionTime
       })
-      chatDb.upsertEmotionState(updated.chatId, updated.chatUuid, nextState)
-    }
+    )
+    logger.info('emotion_state.transition', emotionTransition.diagnostics)
 
     return updated
   }

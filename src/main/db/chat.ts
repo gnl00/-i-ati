@@ -36,13 +36,16 @@ export const chatDb = {
   updateMessage: (data: MessageEntity): void => DatabaseService.updateMessage(data),
   patchMessageUiState: (id: number, uiState: MessageUiStatePatch): void => DatabaseService.patchMessageUiState(id, uiState),
   deleteMessage: (id: number): void => DatabaseService.deleteMessage(id),
-  getEmotionStateByChatId: (chatId: number): EmotionStateSnapshot | undefined =>
-    DatabaseService.getEmotionStateByChatId(chatId),
-  getEmotionStateByChatUuid: (chatUuid: string): EmotionStateSnapshot | undefined =>
-    DatabaseService.getEmotionStateByChatUuid(chatUuid),
-  getLatestEmotionState: (): EmotionStateSnapshot | undefined => DatabaseService.getLatestEmotionState(),
-  upsertEmotionState: (chatId: number, chatUuid: string, state: EmotionStateSnapshot): void =>
-    DatabaseService.upsertEmotionState(chatId, chatUuid, state),
+  getEmotionState: (): EmotionStateSnapshot | undefined => DatabaseService.getEmotionState(),
+  upsertEmotionState: (state: EmotionStateSnapshot): void =>
+    DatabaseService.upsertEmotionState(state),
+  transitionEmotionState: <T extends {
+    state: EmotionStateSnapshot
+    changed: boolean
+  }>(
+    transition: (previous: EmotionStateSnapshot | undefined) => T
+  ): T => DatabaseService.transitionEmotionState(transition),
+  clearEmotionState: (): void => DatabaseService.clearEmotionState(),
   getWorkContextByChatUuid: (chatUuid: string) => DatabaseService.getWorkContextByChatUuid(chatUuid),
   upsertWorkContext: (chatId: number, chatUuid: string, content: string) =>
     DatabaseService.upsertWorkContext(chatId, chatUuid, content),

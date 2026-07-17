@@ -413,7 +413,6 @@ const buildEmotionSnapshot = (state: EmotionStateSnapshot | undefined): AwakeSna
       .slice(0, 5)
       .map(entry => ({
         label: entry.label,
-        description: entry.description,
         intensity: entry.intensity,
         decay: entry.decay,
         updated_at: entry.updatedAt
@@ -582,10 +581,10 @@ export class AwakeSnapshotService {
     }
   }
 
-  private buildEmotion(chatId: number | undefined): AwakeSnapshot['emotion'] {
+  private buildEmotion(_chatId: number | undefined): AwakeSnapshot['emotion'] {
     try {
       return buildEmotionSnapshot(
-        chatId ? chatDb.getEmotionStateByChatId(chatId) : undefined
+        chatDb.getEmotionState()
       )
     } catch {
       return fallbackEmotion()

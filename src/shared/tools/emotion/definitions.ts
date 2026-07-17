@@ -34,21 +34,16 @@ export const emotionTools = [
           accumulated: {
             type: 'array',
             maxItems: 5,
-            description: 'Rewrite the current lingering inner emotional residue as a concise merged list. Merge semantically similar entries instead of appending duplicates.',
+            description: 'Rewrite the current lingering inner emotional residue as a compact label-level list. Include at most one entry per label.',
             items: {
               type: 'object',
               additionalProperties: false,
-              required: ['label', 'description', 'intensity', 'decay'],
+              required: ['label', 'intensity', 'decay'],
               properties: {
                 label: {
                   type: 'string',
                   enum: EMOTION_LABELS,
                   description: 'Canonical emotion label for this lingering residue.'
-                },
-                description: {
-                  type: 'string',
-                  maxLength: 80,
-                  description: 'Short description of what is still emotionally lingering. Prefer one concise cause or residue phrase.'
                 },
                 intensity: {
                   type: 'integer',

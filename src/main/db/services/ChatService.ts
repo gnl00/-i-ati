@@ -128,24 +128,25 @@ export class ChatService {
     this.requireMessageRepository().deleteMessage(id)
   }
 
-  getEmotionStateByChatId(chatId: number): EmotionStateSnapshot | undefined {
-    return this.requireEmotionStateRepository().getEmotionStateByChatId(chatId)
+  getEmotionState(): EmotionStateSnapshot | undefined {
+    return this.requireEmotionStateRepository().getEmotionState()
   }
 
-  getEmotionStateByChatUuid(chatUuid: string): EmotionStateSnapshot | undefined {
-    return this.requireEmotionStateRepository().getEmotionStateByChatUuid(chatUuid)
+  upsertEmotionState(state: EmotionStateSnapshot): void {
+    this.requireEmotionStateRepository().upsertEmotionState(state)
   }
 
-  getLatestEmotionState(): EmotionStateSnapshot | undefined {
-    return this.requireEmotionStateRepository().getLatestEmotionState()
+  transitionEmotionState<T extends {
+    state: EmotionStateSnapshot
+    changed: boolean
+  }>(
+    transition: (previous: EmotionStateSnapshot | undefined) => T
+  ): T {
+    return this.requireEmotionStateRepository().transitionEmotionState(transition)
   }
 
-  upsertEmotionState(chatId: number, chatUuid: string, state: EmotionStateSnapshot): void {
-    this.requireEmotionStateRepository().upsertEmotionState(chatId, chatUuid, state)
-  }
-
-  deleteEmotionState(chatId: number): void {
-    this.requireEmotionStateRepository().deleteEmotionState(chatId)
+  clearEmotionState(): void {
+    this.requireEmotionStateRepository().clearEmotionState()
   }
 
   getWorkContextByChatId(chatId: number): WorkContextRecord | undefined {

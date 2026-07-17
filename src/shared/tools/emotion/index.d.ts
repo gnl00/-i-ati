@@ -1,6 +1,5 @@
 export type EmotionAccumulatedArg = {
   label?: string
-  description?: string
   intensity?: number
   decay?: number
 }

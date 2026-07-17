@@ -212,24 +212,25 @@ class DatabaseService {
     this.requireChatService().updateMessage(data)
   }
 
-  public getEmotionStateByChatId(chatId: number): EmotionStateSnapshot | undefined {
-    return this.requireChatService().getEmotionStateByChatId(chatId)
+  public getEmotionState(): EmotionStateSnapshot | undefined {
+    return this.requireChatService().getEmotionState()
   }
 
-  public getEmotionStateByChatUuid(chatUuid: string): EmotionStateSnapshot | undefined {
-    return this.requireChatService().getEmotionStateByChatUuid(chatUuid)
+  public upsertEmotionState(state: EmotionStateSnapshot): void {
+    this.requireChatService().upsertEmotionState(state)
   }
 
-  public getLatestEmotionState(): EmotionStateSnapshot | undefined {
-    return this.requireChatService().getLatestEmotionState()
+  public transitionEmotionState<T extends {
+    state: EmotionStateSnapshot
+    changed: boolean
+  }>(
+    transition: (previous: EmotionStateSnapshot | undefined) => T
+  ): T {
+    return this.requireChatService().transitionEmotionState(transition)
   }
 
-  public upsertEmotionState(chatId: number, chatUuid: string, state: EmotionStateSnapshot): void {
-    this.requireChatService().upsertEmotionState(chatId, chatUuid, state)
-  }
-
-  public deleteEmotionState(chatId: number): void {
-    this.requireChatService().deleteEmotionState(chatId)
+  public clearEmotionState(): void {
+    this.requireChatService().clearEmotionState()
   }
 
   public getWorkContextByChatId(chatId: number): import('../repositories/WorkContextRepository').WorkContextRecord | undefined {

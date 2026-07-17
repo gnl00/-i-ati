@@ -2,38 +2,46 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   saveMessageMock,
+  updateMessageMock,
   getMessageByIdMock,
   updateChatMock,
   getChatByIdMock,
   getChatByUuidMock,
-  getEmotionStateByChatIdMock,
-  upsertEmotionStateMock
+  getEmotionStateMock,
+  upsertEmotionStateMock,
+  transitionEmotionStateMock,
+  logInfoMock
 } = vi.hoisted(() => ({
   saveMessageMock: vi.fn(),
+  updateMessageMock: vi.fn(),
   getMessageByIdMock: vi.fn(),
   updateChatMock: vi.fn(),
   getChatByIdMock: vi.fn(),
   getChatByUuidMock: vi.fn(),
-  getEmotionStateByChatIdMock: vi.fn(),
-  upsertEmotionStateMock: vi.fn()
+  getEmotionStateMock: vi.fn(),
+  upsertEmotionStateMock: vi.fn(),
+  transitionEmotionStateMock: vi.fn(),
+  logInfoMock: vi.fn()
 }))
 
 vi.mock('@main/db/DatabaseService', () => ({
   default: {
     saveMessage: saveMessageMock,
+    updateMessage: updateMessageMock,
     getMessageById: getMessageByIdMock,
     updateChat: updateChatMock,
     getChatById: getChatByIdMock,
     getChatByUuid: getChatByUuidMock,
-    getEmotionStateByChatId: getEmotionStateByChatIdMock,
-    upsertEmotionState: upsertEmotionStateMock
+    getEmotionState: getEmotionStateMock,
+    upsertEmotionState: upsertEmotionStateMock,
+    transitionEmotionState: transitionEmotionStateMock
   }
 }))
 
-vi.mock('@main/services/emotion/EmotionInferenceService', () => ({
-  default: {
-    infer: vi.fn(async () => null)
-  }
+vi.mock('@main/logging/LogService', () => ({
+  createLogger: () => ({
+    info: logInfoMock
+  })
 }))
 
 import { ChatStepStore } from '../ChatStepStore'
@@ -43,6 +51,7 @@ describe('ChatStepStore.finalizeAssistantMessage', () => {
   beforeEach(() => {
     saveMessageMock.mockReset()
     saveMessageMock.mockReturnValue(102)
+    updateMessageMock.mockReset()
     getMessageByIdMock.mockReset()
     getMessageByIdMock.mockReturnValue(undefined)
     updateChatMock.mockReset()
@@ -50,8 +59,22 @@ describe('ChatStepStore.finalizeAssistantMessage', () => {
     getChatByIdMock.mockReturnValue(undefined)
     getChatByUuidMock.mockReset()
     getChatByUuidMock.mockReturnValue(undefined)
-    getEmotionStateByChatIdMock.mockReset()
+    getEmotionStateMock.mockReset()
     upsertEmotionStateMock.mockReset()
+    transitionEmotionStateMock.mockReset()
+    logInfoMock.mockReset()
+    transitionEmotionStateMock.mockImplementation((
+      transition: (previous: EmotionStateSnapshot | undefined) => {
+        state: EmotionStateSnapshot
+        changed: boolean
+      }
+    ) => {
+      const result = transition(getEmotionStateMock())
+      if (result.changed) {
+        upsertEmotionStateMock(result.state)
+      }
+      return result
+    })
   })
 
   it('persists media content for vision-capable llm models', () => {
@@ -230,6 +253,250 @@ describe('ChatStepStore.finalizeAssistantMessage', () => {
     }))
   })
 
+  it('persists a neutral computed baseline when the first assistant turn omits emotion_report', async () => {
+    const store = new ChatStepStore()
+    const chatEntity = {
+      id: 1,
+      uuid: 'chat-1',
+      title: 'Chat',
+      messages: [],
+      createTime: 1,
+      updateTime: 1
+    } as unknown as ChatEntity
+    const result = await store.finalizeAssistantMessage(chatEntity, {
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: 'hello',
+        segments: []
+      }
+    } as MessageEntity)
+
+    expect(result.body.emotion).toMatchObject({
+      label: 'neutral',
+      intensity: 5,
+      source: 'computed'
+    })
+    expect(upsertEmotionStateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        current: expect.objectContaining({ label: 'neutral', intensity: 5 }),
+        history: []
+      })
+    )
+  })
+
+  it('uses bounded reducer output for message presentation and persistence', async () => {
+    getEmotionStateMock.mockReturnValue({
+      current: { label: 'neutral', intensity: 5, updatedAt: 100 },
+      background: { label: 'neutral', intensity: 5, driftFactor: 0.1, updatedAt: 100 },
+      accumulated: [],
+      history: []
+    })
+    const store = new ChatStepStore()
+    const chatEntity = {
+      id: 1,
+      uuid: 'chat-1',
+      title: 'Chat',
+      messages: [],
+      createTime: 1,
+      updateTime: 1
+    } as unknown as ChatEntity
+    const result = await store.finalizeAssistantMessage(chatEntity, {
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: 'surprising',
+        segments: [{
+          type: 'toolCall',
+          name: 'emotion_report',
+          content: {
+            toolName: 'emotion_report',
+            result: {
+              success: true,
+              label: 'surprise',
+              intensity: 10
+            }
+          }
+        }]
+      }
+    } as MessageEntity)
+
+    expect(result.body.emotion).toMatchObject({
+      label: 'surprise',
+      intensity: 7,
+      source: 'tool'
+    })
+    expect(upsertEmotionStateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        current: expect.objectContaining({ label: 'surprise', intensity: 7 })
+      })
+    )
+    expect(logInfoMock).toHaveBeenCalledWith('emotion_state.transition', expect.objectContaining({
+      mode: 'reported',
+      requested: { label: 'surprise', intensity: 10 },
+      resolved: { label: 'surprise', intensity: 7 },
+      intensityBounded: true
+    }))
+    expect(JSON.stringify(logInfoMock.mock.calls)).not.toContain('description')
+  })
+
+  it('settles a tool-only emotion report through the atomic transition boundary', async () => {
+    const store = new ChatStepStore()
+    const chatEntity = {
+      id: 1,
+      uuid: 'chat-1',
+      title: 'Chat',
+      messages: [],
+      createTime: 1,
+      updateTime: 1
+    } as unknown as ChatEntity
+
+    const result = await store.finalizeAssistantMessage(chatEntity, {
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: '',
+        segments: [{
+          type: 'toolCall',
+          name: 'emotion_report',
+          content: {
+            toolName: 'emotion_report',
+            result: {
+              success: true,
+              label: 'happiness',
+              intensity: 6
+            }
+          }
+        }]
+      }
+    } as MessageEntity)
+
+    expect(result.body.emotion).toMatchObject({
+      label: 'happiness',
+      intensity: 6,
+      source: 'tool'
+    })
+    expect(transitionEmotionStateMock).toHaveBeenCalledOnce()
+    expect(upsertEmotionStateMock).toHaveBeenCalledOnce()
+  })
+
+  it('commits emotion after updating an existing assistant message', async () => {
+    const store = new ChatStepStore()
+    const chatEntity = {
+      id: 1,
+      uuid: 'chat-1',
+      title: 'Chat',
+      messages: [101],
+      createTime: 1,
+      updateTime: 1
+    } as unknown as ChatEntity
+
+    await store.finalizeAssistantMessage(chatEntity, {
+      id: 101,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: 'hello',
+        segments: []
+      }
+    } as MessageEntity)
+
+    expect(updateMessageMock).toHaveBeenCalledOnce()
+    expect(transitionEmotionStateMock).toHaveBeenCalledOnce()
+    expect(updateMessageMock.mock.invocationCallOrder[0])
+      .toBeLessThan(transitionEmotionStateMock.mock.invocationCallOrder[0])
+  })
+
+  it('leaves emotion unchanged when updating an existing assistant message fails', async () => {
+    updateMessageMock.mockImplementation(() => {
+      throw new Error('update failed')
+    })
+    const store = new ChatStepStore()
+    const chatEntity = {
+      id: 1,
+      uuid: 'chat-1',
+      title: 'Chat',
+      messages: [101],
+      createTime: 1,
+      updateTime: 1
+    } as unknown as ChatEntity
+
+    await expect(store.finalizeAssistantMessage(chatEntity, {
+      id: 101,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: 'hello',
+        segments: []
+      }
+    } as MessageEntity)).rejects.toThrow('update failed')
+
+    expect(transitionEmotionStateMock).toHaveBeenCalledTimes(0)
+    expect(upsertEmotionStateMock).toHaveBeenCalledTimes(0)
+  })
+
+  it('leaves emotion unchanged when saving a new assistant message fails', async () => {
+    saveMessageMock.mockImplementation(() => {
+      throw new Error('save failed')
+    })
+    const store = new ChatStepStore()
+    const chatEntity = {
+      id: 1,
+      uuid: 'chat-1',
+      title: 'Chat',
+      messages: [],
+      createTime: 1,
+      updateTime: 1
+    } as unknown as ChatEntity
+
+    await expect(store.finalizeAssistantMessage(chatEntity, {
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: 'hello',
+        segments: []
+      }
+    } as MessageEntity)).rejects.toThrow('save failed')
+
+    expect(transitionEmotionStateMock).toHaveBeenCalledTimes(0)
+    expect(upsertEmotionStateMock).toHaveBeenCalledTimes(0)
+  })
+
+  it('leaves emotion unchanged when attaching a new assistant message fails', async () => {
+    updateChatMock.mockImplementation(() => {
+      throw new Error('attach failed')
+    })
+    const store = new ChatStepStore()
+    const chatEntity = {
+      id: 1,
+      uuid: 'chat-1',
+      title: 'Chat',
+      messages: [],
+      createTime: 1,
+      updateTime: 1
+    } as unknown as ChatEntity
+
+    await expect(store.finalizeAssistantMessage(chatEntity, {
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: 'hello',
+        segments: []
+      }
+    } as MessageEntity)).rejects.toThrow('attach failed')
+
+    expect(saveMessageMock).toHaveBeenCalledOnce()
+    expect(transitionEmotionStateMock).toHaveBeenCalledTimes(0)
+    expect(upsertEmotionStateMock).toHaveBeenCalledTimes(0)
+  })
+
   it('preserves the latest persisted chat title when attaching a message', async () => {
     const store = new ChatStepStore()
     const staleChatEntity = {
@@ -320,6 +587,7 @@ describe('ChatStepStore.finalizeAssistantMessage', () => {
 
     expect(result).toBeUndefined()
     expect(saveMessageMock).toHaveBeenCalledTimes(0)
+    expect(transitionEmotionStateMock).toHaveBeenCalledTimes(0)
   })
 
   it('settles aborted assistant messages when current run already has tool messages', async () => {
@@ -364,6 +632,7 @@ describe('ChatStepStore.finalizeAssistantMessage', () => {
     } as MessageEntity, [toolResultMessage])
 
     expect(result?.id).toBe(102)
+    expect(transitionEmotionStateMock).toHaveBeenCalledOnce()
     expect(saveMessageMock).toHaveBeenCalledWith(expect.objectContaining({
       body: expect.objectContaining({
         role: 'assistant',

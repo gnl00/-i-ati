@@ -41,7 +41,10 @@ vi.mock('@main/db/DatabaseService', () => ({
     getSkills: vi.fn(() => []),
     updateMessage: vi.fn(),
     updateChat: vi.fn(),
-    saveRunEvent: vi.fn()
+    saveRunEvent: vi.fn(),
+    transitionEmotionState: vi.fn((
+      transition: (previous: EmotionStateSnapshot | undefined) => unknown
+    ) => transition(undefined))
   }
 }))
 
@@ -49,12 +52,6 @@ vi.mock('@main/services/skills/SkillService', () => ({
   SkillService: {
     listSkills: vi.fn(),
     getSkillContent: vi.fn()
-  }
-}))
-
-vi.mock('@main/services/emotion/EmotionInferenceService', () => ({
-  default: {
-    infer: vi.fn(async () => null)
   }
 }))
 

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   getWorkContextByChatUuidMock,
-  getEmotionStateByChatIdMock,
+  getEmotionStateMock,
   listRecentSmartMessageCandidateSummariesMock,
   getAllMemoriesMock,
   searchMemoriesMock,
@@ -11,7 +11,7 @@ const {
   getActivityDateKeyMock
 } = vi.hoisted(() => ({
   getWorkContextByChatUuidMock: vi.fn(),
-  getEmotionStateByChatIdMock: vi.fn(),
+  getEmotionStateMock: vi.fn(),
   listRecentSmartMessageCandidateSummariesMock: vi.fn(),
   getAllMemoriesMock: vi.fn(),
   searchMemoriesMock: vi.fn(),
@@ -23,7 +23,7 @@ const {
 vi.mock('@main/db/DatabaseService', () => ({
   default: {
     getWorkContextByChatUuid: getWorkContextByChatUuidMock,
-    getEmotionStateByChatId: getEmotionStateByChatIdMock,
+    getEmotionState: getEmotionStateMock,
     listRecentSmartMessageCandidateSummaries: listRecentSmartMessageCandidateSummariesMock
   }
 }))
@@ -70,7 +70,7 @@ describe('AwakeSnapshotService', () => {
         '- Use ephemeral user message.'
       ].join('\n')
     })
-    getEmotionStateByChatIdMock.mockReturnValue({
+    getEmotionStateMock.mockReturnValue({
       current: {
         label: 'curiosity',
         intensity: 6,
@@ -84,7 +84,6 @@ describe('AwakeSnapshotService', () => {
       },
       accumulated: [{
         label: 'concern',
-        description: 'Lingering worry about prompt cache',
         intensity: 2,
         decay: 0.95,
         updatedAt: 110
@@ -219,7 +218,10 @@ describe('AwakeSnapshotService', () => {
     expect(snapshot.emotion.summary).toContain('Current carry-over: curiosity (6)')
     expect(snapshot.emotion.summary).toContain('Accumulated emotional residue')
     expect(snapshot.emotion.baseline).not.toHaveProperty('updated_at')
-    expect(snapshot.emotion.accumulated[0].description).toContain('prompt cache')
+    expect(snapshot.emotion.accumulated[0]).toMatchObject({
+      label: 'concern',
+      intensity: 2
+    })
     const journalActivity = snapshot.recent_activities.find(item => item.source === 'activity_journal')
     const compressedActivity = snapshot.recent_activities.find(item => item.source === 'compressed_summary')
     expect(journalActivity).toEqual(

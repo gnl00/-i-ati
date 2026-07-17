@@ -186,13 +186,12 @@ class AppDatabase {
     )
 
     this.db.exec(`
-      CREATE TABLE IF NOT EXISTS emotion_states (
-        chat_id INTEGER PRIMARY KEY,
-        chat_uuid TEXT NOT NULL,
+      CREATE TABLE IF NOT EXISTS app_emotion_state (
+        scope TEXT PRIMARY KEY,
         state_json TEXT NOT NULL,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
-        FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
+        CHECK (scope = 'app')
       )
     `)
 

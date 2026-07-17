@@ -1,5 +1,5 @@
-import { invokeDbEmotionStateGetLatest } from '@renderer/infrastructure/ipc'
+import { invokeDbEmotionStateGet } from '@renderer/infrastructure/ipc'
 
-export const getLatestEmotionState = async (): Promise<EmotionStateSnapshot | undefined> => {
-  return await invokeDbEmotionStateGetLatest()
+export const getEmotionState = async (): Promise<EmotionStateSnapshot | undefined> => {
+  return await invokeDbEmotionStateGet()
 }

@@ -273,8 +273,8 @@ server-side 生成上下文化检索 query。输入信号包括：
 来源优先级：
 
 1. 本轮成功的 `emotion_report`
-2. finalize fallback classifier
-3. computed neutral fallback
+2. persisted current 的 computed carry-over
+3. 首轮 `neutral / 5 / computed` baseline
 
 `awake_state.emotion.baseline` 和 `message.body.emotion` 属于不同语义层。
 
@@ -284,7 +284,6 @@ server-side 生成上下文化检索 query。输入信号包括：
 type EmotionPresentationSource =
   | 'awake_carryover'
   | 'tool'
-  | 'fallback'
   | 'computed'
 ```
 
@@ -298,11 +297,22 @@ type EmotionPresentationSource =
 - lingering emotional residue 需要重写
 - 模型需要明确更新本轮情绪结算
 
-系统仍保留 finalize fallback：
+finalize 使用 deterministic reducer：
 
-- 有成功 `emotion_report` 时使用 tool 结果
-- 无成功 `emotion_report` 时从最终 assistant 文本推断当前情绪
-- `accumulated` 在无 tool rewrite 时按 decay 保留
+- 成功的 `emotion_report` 提供唯一的新语义情绪
+- emotion state、message presentation 与 asset catalog 共享 13-label ontology
+- reported intensity 相对 previous current 执行 `±2` 限速
+- 省略 tool 时 current 延续 persisted baseline
+- 首轮缺少 persisted state 时建立 `neutral / 5 / computed`
+- `accumulated` 在缺少 tool rewrite 时按 decay 保留并最终淘汰
+- message presentation 使用 reducer 产出的 bounded current
+- transition diagnostics 记录 mode、强度约束与状态动作
+- accumulated 仅携带 label、intensity、decay 与时间戳
+
+语义权威与 reducer 职责见
+[ADR-0005](../../decisions/0005-emotion-semantic-authority.md)。
+App-level emotion ownership 见
+[ADR-0006](../../decisions/0006-app-level-emotion-state.md)。
 
 ### 4. UI 展示阶段
 
@@ -414,7 +424,7 @@ type EmotionPresentationSource =
 
 保留：
 
-- `ChatStepStore.finalizeAssistantMessage()` 的 tool/fallback 更新链路
+- `ChatStepStore.finalizeAssistantMessage()` 的 tool/computed 更新链路
 - `EmotionStateSnapshot` 持久化
 
 ## Acceptance Criteria
@@ -431,6 +441,8 @@ type EmotionPresentationSource =
 - `chat_meta` 和兼容 `session_meta` 保留稳定 chat 标识字段，省略 `last_active_at`。
 - emotion baseline 与本轮 final emotion 明确分离。
 - `emotion_report` 成为可选状态写入工具。
+- tool 省略表示 persisted awake baseline 在本轮保持准确。
+- final message emotion 与 reducer bounded current 对齐。
 - thinking 模型在普通回答结束前无需因强制 emotion tail-call 进入额外 continuation。
 - mood notes 字段预留，后续可接入独立存储和后台 reflection。
 - `awake` 作为 server-side bootstrap 行为实现，模型可见 tool registry 中不注册 `awake`。

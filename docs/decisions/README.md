@@ -12,3 +12,5 @@ Use sequential names such as `0001-chat-runtime-host-boundary.md`.
 - [0002: Prompt cache ordering](0002-prompt-cache-ordering.md) — Accepted
 - [0003: Provider database split](0003-provider-database-split.md) — Accepted
 - [0004: Chat message FTS5 search](0004-chat-message-fts5-search.md) — Accepted
+- [0005: Emotion semantic authority](0005-emotion-semantic-authority.md) — Accepted
+- [0006: App-level emotion state ownership](0006-app-level-emotion-state.md) — Accepted

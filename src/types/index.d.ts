@@ -421,7 +421,7 @@ declare interface ChatEmotionState {
   intensity?: number
   reason?: string
   stateText?: string
-  source: 'tool' | 'fallback'
+  source: 'tool' | 'computed'
 }
 
 declare interface EmotionStateEntry {
@@ -432,7 +432,6 @@ declare interface EmotionStateEntry {
 
 declare interface EmotionAccumulatedEntry {
   label: string
-  description: string
   intensity: number
   decay: number
   updatedAt: number

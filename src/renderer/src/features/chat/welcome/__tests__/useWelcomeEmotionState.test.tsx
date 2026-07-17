@@ -8,12 +8,12 @@ import {
   WELCOME_EMOTION_FALLBACK
 } from '../useWelcomeEmotionState'
 
-const { getLatestEmotionStateMock } = vi.hoisted(() => ({
-  getLatestEmotionStateMock: vi.fn()
+const { getEmotionStateMock } = vi.hoisted(() => ({
+  getEmotionStateMock: vi.fn()
 }))
 
 vi.mock('@renderer/infrastructure/persistence/EmotionStateRepository', () => ({
-  getLatestEmotionState: getLatestEmotionStateMock
+  getEmotionState: getEmotionStateMock
 }))
 
 const flushPromises = async (): Promise<void> => {
@@ -37,7 +37,7 @@ describe('useWelcomeEmotionState', () => {
     document.body.appendChild(container)
     root = createRoot(container)
     latestEmotion = undefined
-    getLatestEmotionStateMock.mockReset()
+    getEmotionStateMock.mockReset()
   })
 
   afterEach(async () => {
@@ -48,7 +48,7 @@ describe('useWelcomeEmotionState', () => {
   })
 
   it('starts from the welcome emotion fallback', async () => {
-    getLatestEmotionStateMock.mockReturnValue(new Promise(() => {}))
+    getEmotionStateMock.mockReturnValue(new Promise(() => {}))
 
     await act(async () => {
       root.render(<Probe />)
@@ -58,7 +58,7 @@ describe('useWelcomeEmotionState', () => {
   })
 
   it('maps the latest snapshot current emotion', async () => {
-    getLatestEmotionStateMock.mockResolvedValue({
+    getEmotionStateMock.mockResolvedValue({
       current: {
         label: ' Happiness ',
         intensity: 8.6,
@@ -80,7 +80,7 @@ describe('useWelcomeEmotionState', () => {
   })
 
   it('falls back for unsupported labels', async () => {
-    getLatestEmotionStateMock.mockResolvedValue({
+    getEmotionStateMock.mockResolvedValue({
       current: {
         label: 'unknown',
         intensity: 8,
@@ -99,7 +99,7 @@ describe('useWelcomeEmotionState', () => {
   })
 
   it('falls back when loading fails', async () => {
-    getLatestEmotionStateMock.mockRejectedValue(new Error('failed'))
+    getEmotionStateMock.mockRejectedValue(new Error('failed'))
 
     await act(async () => {
       root.render(<Probe />)

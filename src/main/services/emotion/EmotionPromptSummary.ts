@@ -26,7 +26,7 @@ export function buildEmotionStateSummary(state: EmotionStateSnapshot | undefined
   if (accumulatedEntries.length > 0) {
     lines.push('- Accumulated emotional residue (newest -> oldest):')
     for (const entry of accumulatedEntries) {
-      lines.push(`  - ${entry.label} (${formatIntensity(entry.intensity)}): ${entry.description} | decay=${entry.decay}`)
+      lines.push(`  - ${entry.label} (${formatIntensity(entry.intensity)}) | decay=${entry.decay}`)
     }
   }
 

@@ -8,8 +8,8 @@ export class EmotionPromptProvider {
     return buildEmotionSystemPrompt()
   }
 
-  buildContext(chatId?: number): ChatMessage | null {
-    const content = buildEmotionContextContent(this.buildSummary(chatId))
+  buildContext(_chatId?: number): ChatMessage | null {
+    const content = buildEmotionContextContent(this.buildSummary())
     if (!content.trim()) {
       return null
     }
@@ -22,10 +22,8 @@ export class EmotionPromptProvider {
     }
   }
 
-  private buildSummary(chatId?: number): string {
-    const state = chatId
-      ? chatDb.getEmotionStateByChatId(chatId)
-      : undefined
+  private buildSummary(): string {
+    const state = chatDb.getEmotionState()
 
     return buildEmotionStateSummary(state)
   }

@@ -16,14 +16,11 @@ vi.mock('@main/db/DatabaseService', () => ({
     updateChat: vi.fn(),
     getChatById: vi.fn(),
     getChatByUuid: vi.fn(),
-    getEmotionStateByChatId: vi.fn(),
-    upsertEmotionState: vi.fn()
-  }
-}))
-
-vi.mock('@main/services/emotion/EmotionInferenceService', () => ({
-  default: {
-    infer: vi.fn(async () => null)
+    getEmotionState: vi.fn(),
+    upsertEmotionState: vi.fn(),
+    transitionEmotionState: vi.fn((
+      transition: (previous: EmotionStateSnapshot | undefined) => unknown
+    ) => transition(undefined))
   }
 }))
 

@@ -26,7 +26,6 @@ import {
 const DEFAULT_INTENSITY = 5
 const MAX_STATE_TEXT_LENGTH = 64
 const MAX_REASON_LENGTH = 160
-const MAX_ACCUMULATED_DESCRIPTION_LENGTH = 80
 const MIN_ACCUMULATED_DECAY = 0.9
 const MAX_ACCUMULATED_DECAY = 0.99
 
@@ -115,20 +114,17 @@ function normalizeAccumulated(
     return new Error('accumulated must be an array when provided.')
   }
 
-  const normalized = value.map((entry, index) => {
+  const normalized = value.map((entry, index): {
+    label: string
+    intensity: number
+    decay: number
+  } | Error => {
     const label = normalizeEmotionLabel(entry?.label)
-    const description = entry?.description?.trim()
     const intensity = entry?.intensity
     const decay = entry?.decay
 
     if (!label) {
       return new Error(`accumulated[${index}].label must be one of the supported emotion labels.`)
-    }
-    if (!description) {
-      return new Error(`accumulated[${index}].description is required.`)
-    }
-    if (description.length > MAX_ACCUMULATED_DESCRIPTION_LENGTH) {
-      return new Error(`accumulated[${index}].description must be at most ${MAX_ACCUMULATED_DESCRIPTION_LENGTH} characters.`)
     }
     if (typeof intensity !== 'number' || !Number.isInteger(intensity) || intensity < 1 || intensity > 5) {
       return new Error(`accumulated[${index}].intensity must be an integer between 1 and 5.`)
@@ -141,7 +137,6 @@ function normalizeAccumulated(
 
     return {
       label,
-      description,
       intensity: normalizedIntensity,
       decay
     }
@@ -152,5 +147,19 @@ function normalizeAccumulated(
     return firstError
   }
 
-  return normalized as EmotionReportArgs['accumulated']
+  const validEntries = normalized.filter((entry): entry is {
+    label: string
+    intensity: number
+    decay: number
+  } => !(entry instanceof Error))
+  const strongestByLabel = new Map<string, typeof validEntries[number]>()
+  for (const entry of validEntries) {
+    const existing = strongestByLabel.get(entry.label)
+    if (!existing || entry.intensity > existing.intensity) {
+      strongestByLabel.set(entry.label, entry)
+    }
+  }
+  return [...strongestByLabel.values()]
+    .sort((a, b) => b.intensity - a.intensity)
+    .slice(0, 5)
 }

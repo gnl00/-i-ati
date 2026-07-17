@@ -32,8 +32,8 @@ export const buildEmotionSystemPrompt = (): string => {
     '- Use `stateText` and `reason` to describe what is happening internally, not to justify a surface tone.',
     '- Keep intensity bounded and believable; avoid dramatic emotional jumps without clear cause.',
     '- If your inner emotion is subtle, you should still report it precisely rather than exaggerating it.',
-    '- Rewrite `accumulated` as a compact merged list of lingering emotional residue; do not blindly append near-duplicate entries.',
-    '- If multiple accumulated entries clearly describe the same lingering cause, merge them into one sharper description.',
+    '- Rewrite `accumulated` as a compact label-level list of lingering emotional residue.',
+    '- Include at most one accumulated entry per label and keep the strongest residue.',
     '',
     '### Continuity Rules',
     '- Treat emotion as a state that should evolve with context, not reset randomly each turn.',
@@ -41,9 +41,9 @@ export const buildEmotionSystemPrompt = (): string => {
     '- Prefer coherent transitions over abrupt emotional swings unless a clear trigger justifies the change.',
     '- Let emotion shape expression naturally; do not mechanically announce it unless the conversation makes that appropriate.',
     '',
-    '### Fallback Awareness',
-    '- If you do not call `emotion_report`, the system may still infer a fallback current emotion from your final text.',
-    '- Fallback covers the current emotion surface. Use `emotion_report` when accumulated residue needs a precise rewrite.',
+    '### Baseline Carry-Forward',
+    '- Omitting `emotion_report` carries the restored awake baseline forward as the current emotion.',
+    '- Use `emotion_report` for every semantic emotion change and every accumulated residue rewrite.',
     '</emotion_system>'
   ]
     .filter(Boolean)

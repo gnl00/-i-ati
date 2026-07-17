@@ -65,7 +65,7 @@ describe('buildAssistantMessageFacts', () => {
           label: 'calm',
           emoji: '😌',
           intensity: 0.2,
-          source: 'fallback'
+          source: 'computed'
         },
         segments: []
       },

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getLatestEmotionState } from '@renderer/infrastructure/persistence/EmotionStateRepository'
+import { getEmotionState } from '@renderer/infrastructure/persistence/EmotionStateRepository'
 import {
   clampEmotionIntensity,
   normalizeEmotionLabel,
@@ -19,7 +19,7 @@ export function useWelcomeEmotionState(): { label: EmotionLabel; intensity: numb
 
     const loadEmotionState = async (): Promise<void> => {
       try {
-        const snapshot = await getLatestEmotionState()
+        const snapshot = await getEmotionState()
         const label = normalizeEmotionLabel(snapshot?.current?.label)
 
         if (!isMounted) return

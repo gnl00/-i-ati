@@ -91,12 +91,6 @@ vi.mock('@main/agent', () => ({
   agent: generateTitleMock
 }))
 
-vi.mock('@main/services/emotion/EmotionInferenceService', () => ({
-  default: {
-    infer: vi.fn(async () => null)
-  }
-}))
-
 vi.mock('@main/services/userInfo/UserInfoService', () => ({
   default: {
     getUserInfo: vi.fn(async () => ({
@@ -164,8 +158,11 @@ vi.mock('@main/db/DatabaseService', () => ({
       .mockReturnValue(103),
     updateChat: updateChatMock,
     updateMessage: updateMessageMock,
-    getEmotionStateByChatId: vi.fn(() => null),
+    getEmotionState: vi.fn(() => null),
     upsertEmotionState: vi.fn(),
+    transitionEmotionState: vi.fn((
+      transition: (previous: EmotionStateSnapshot | undefined) => unknown
+    ) => transition(undefined)),
     getActiveCompressedSummariesByChatId: vi.fn(() => []),
     getSkills: vi.fn(() => []),
     getConfigValue: vi.fn(() => undefined),

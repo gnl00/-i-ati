@@ -1,8 +1,7 @@
 import {
   clampEmotionIntensity,
   normalizeEmotionLabel,
-  pickEmotionEmoji,
-  scoreToEmotionIntensity
+  pickEmotionEmoji
 } from '@shared/emotion/emotionAssetCatalog'
 
 const EMOTION_TOOL_NAME = 'emotion_report'
@@ -20,12 +19,32 @@ type ExtractedEmotionToolState = {
   accumulated?: EmotionStateSnapshot['accumulated']
 }
 
-export function extractEmotionFromToolSegments(message: ChatMessage): ChatEmotionState | undefined {
-  return extractEmotionToolStateFromSegments(message)?.emotion
+export type EmotionTransitionInput = {
+  previous?: EmotionStateSnapshot
+  reported?: ExtractedEmotionToolState
+  now: number
 }
 
-export function hasVisibleAssistantText(content: string | VLMContent[] | undefined): content is string {
-  return typeof content === 'string' && content.trim().length > 0
+export type EmotionTransitionResult = {
+  state: EmotionStateSnapshot
+  changed: boolean
+  presentation: ChatEmotionState
+  diagnostics: EmotionTransitionDiagnostics
+}
+
+export type EmotionTransitionDiagnostics = {
+  mode: 'reported' | 'carried_forward' | 'initialized'
+  previous?: { label: string; intensity: number }
+  requested?: { label: string; intensity: number }
+  resolved: { label: string; intensity: number }
+  intensityBounded: boolean
+  backgroundAction: 'held' | 'drifted' | 'promoted' | 'initialized'
+  accumulatedAction: 'rewritten' | 'decayed' | 'evicted' | 'empty'
+  evictedCount: number
+}
+
+export function extractEmotionFromToolSegments(message: ChatMessage): ChatEmotionState | undefined {
+  return extractEmotionToolStateFromSegments(message)?.emotion
 }
 
 export function extractEmotionToolStateFromSegments(message: ChatMessage): ExtractedEmotionToolState | undefined {
@@ -52,7 +71,6 @@ export function extractEmotionToolStateFromSegments(message: ChatMessage): Extra
       emoji?: string
       accumulated?: Array<{
         label?: string
-        description?: string
         intensity?: number
         decay?: number
       }>
@@ -91,92 +109,146 @@ export function extractEmotionToolStateFromSegments(message: ChatMessage): Extra
   return undefined
 }
 
-export function buildFallbackEmotionState(
-  label: string | undefined,
-  score?: number
-): ChatEmotionState {
-  const intensity = scoreToEmotionIntensity(score)
-
-  return {
-    label: normalizeEmotionLabel(label) || 'neutral',
-    emoji: pickEmotionEmoji(label, intensity),
-    intensity,
-    ...(typeof score === 'number' ? { score } : {}),
-    source: 'fallback'
-  }
-}
-
 export function deriveEmotionIntensity(emotion: ChatEmotionState): number {
   if (typeof emotion.intensity === 'number' && Number.isFinite(emotion.intensity)) {
     return clampEmotionIntensity(Math.round(emotion.intensity))
   }
 
-  if (typeof emotion.score === 'number' && Number.isFinite(emotion.score)) {
-    return scoreToEmotionIntensity(emotion.score)
-  }
-
   return DEFAULT_BACKGROUND_INTENSITY
 }
 
-export function buildNextEmotionStateSnapshot(
-  previous: EmotionStateSnapshot | undefined,
-  emotion: ChatEmotionState,
-  options: {
-    now?: number
-    accumulated?: EmotionStateSnapshot['accumulated']
-  } = {}
-): EmotionStateSnapshot {
-  const now = options.now ?? Date.now()
-  const intensity = deriveEmotionIntensity(emotion)
+export function transitionEmotionState(input: EmotionTransitionInput): EmotionTransitionResult {
+  const { previous, reported, now } = input
+  const baselineEmotion: ChatEmotionState = previous
+    ? {
+      label: previous.current.label,
+      emoji: pickEmotionEmoji(previous.current.label, previous.current.intensity),
+      intensity: previous.current.intensity,
+      source: 'computed'
+    }
+    : {
+      label: 'neutral',
+      emoji: pickEmotionEmoji('neutral', DEFAULT_BACKGROUND_INTENSITY),
+      intensity: DEFAULT_BACKGROUND_INTENSITY,
+      source: 'computed'
+    }
+  const reportedEmotion = reported?.emotion
+  const requestedIntensity = reportedEmotion
+    ? deriveEmotionIntensity(reportedEmotion)
+    : baselineEmotion.intensity!
+  const intensity = previous && reportedEmotion
+    ? clampEmotionIntensity(Math.max(
+      previous.current.intensity - 2,
+      Math.min(previous.current.intensity + 2, requestedIntensity)
+    ))
+    : requestedIntensity
+  const presentation: ChatEmotionState = reportedEmotion
+    ? {
+      ...reportedEmotion,
+      emoji: pickEmotionEmoji(reportedEmotion.label, intensity),
+      intensity
+    }
+    : baselineEmotion
   const current: EmotionStateEntry = {
-    label: emotion.label,
+    label: presentation.label,
     intensity,
-    updatedAt: now
+    updatedAt: reportedEmotion || !previous ? now : previous.current.updatedAt
   }
 
   const previousBackground = previous?.background
-  const background = previousBackground
-    ? buildNextBackgroundState(previousBackground, current, now)
+  const backgroundTransition = previousBackground
+    ? reportedEmotion
+      ? buildNextBackgroundState(previous, current, now)
+      : { state: previousBackground, action: 'held' as const }
     : {
-      label: current.label,
-      intensity: clampBackgroundIntensity(current.intensity),
-      driftFactor: DEFAULT_BACKGROUND_DRIFT_FACTOR,
-      updatedAt: now
+      state: {
+        label: current.label,
+        intensity: clampBackgroundIntensity(current.intensity),
+        driftFactor: DEFAULT_BACKGROUND_DRIFT_FACTOR,
+        updatedAt: now
+      },
+      action: 'initialized' as const
     }
 
-  const accumulated = normalizePersistedAccumulatedEntries(
-    options.accumulated ?? decayAccumulatedEntries(previous?.accumulated, now),
-    now
-  )
+  const accumulatedTransition = buildNextAccumulatedState(previous?.accumulated, reported, now)
 
-  const nextHistoryEntry: EmotionStateHistoryEntry = {
-    label: current.label,
-    intensity: current.intensity,
-    timestamp: now,
-    source: emotion.source
+  const history = reportedEmotion
+    ? [...(previous?.history || []), {
+      label: current.label,
+      intensity: current.intensity,
+      timestamp: now,
+      source: 'tool' as const
+    }].slice(-DEFAULT_HISTORY_LIMIT)
+    : previous?.history || []
+
+  const state = {
+    current,
+    background: backgroundTransition.state,
+    accumulated: accumulatedTransition.entries,
+    history
   }
 
-  const history = [...(previous?.history || []), nextHistoryEntry]
-    .slice(-DEFAULT_HISTORY_LIMIT)
-
   return {
-    current,
-    background,
-    accumulated,
-    history
+    state,
+    changed: !previous || !areEmotionStatesEquivalent(previous, state),
+    presentation,
+    diagnostics: {
+      mode: reportedEmotion ? 'reported' : previous ? 'carried_forward' : 'initialized',
+      ...(previous ? {
+        previous: {
+          label: previous.current.label,
+          intensity: previous.current.intensity
+        }
+      } : {}),
+      ...(reportedEmotion ? {
+        requested: {
+          label: reportedEmotion.label,
+          intensity: requestedIntensity
+        }
+      } : {}),
+      resolved: {
+        label: current.label,
+        intensity: current.intensity
+      },
+      intensityBounded: Boolean(reportedEmotion && requestedIntensity !== intensity),
+      backgroundAction: backgroundTransition.action,
+      accumulatedAction: accumulatedTransition.action,
+      evictedCount: accumulatedTransition.evictedCount
+    }
   }
 }
 
 function buildNextBackgroundState(
-  previous: EmotionStateSnapshot['background'],
+  previousState: EmotionStateSnapshot,
   current: EmotionStateEntry,
   now: number
-): EmotionStateSnapshot['background'] {
+): {
+  state: EmotionStateSnapshot['background']
+  action: EmotionTransitionDiagnostics['backgroundAction']
+} {
+  const previous = previousState.background
   if (previous.label !== current.label) {
-    return {
-      ...previous,
-      updatedAt: now
+    const recentMatchingReports = previousState.history
+      .slice(-2)
+      .every((entry) => entry.source === 'tool' && entry.label === current.label)
+
+    if (previousState.history.length >= 2 && recentMatchingReports) {
+      const direction = current.intensity === previous.intensity
+        ? 0
+        : current.intensity > previous.intensity ? 1 : -1
+
+      return {
+        state: {
+          label: current.label,
+          intensity: clampBackgroundIntensity(previous.intensity + (direction * previous.driftFactor)),
+          driftFactor: previous.driftFactor,
+          updatedAt: now
+        },
+        action: 'promoted'
+      }
     }
+
+    return { state: { ...previous }, action: 'held' }
   }
 
   const direction = current.intensity === previous.intensity
@@ -184,9 +256,39 @@ function buildNextBackgroundState(
     : current.intensity > previous.intensity ? 1 : -1
 
   return {
-    ...previous,
-    intensity: clampBackgroundIntensity(previous.intensity + (direction * previous.driftFactor)),
-    updatedAt: now
+    state: {
+      ...previous,
+      intensity: clampBackgroundIntensity(previous.intensity + (direction * previous.driftFactor)),
+      updatedAt: now
+    },
+    action: direction === 0 ? 'held' : 'drifted'
+  }
+}
+
+function buildNextAccumulatedState(
+  previous: EmotionStateSnapshot['accumulated'] | undefined,
+  reported: ExtractedEmotionToolState | undefined,
+  now: number
+): {
+  entries: EmotionStateSnapshot['accumulated']
+  action: EmotionTransitionDiagnostics['accumulatedAction']
+  evictedCount: number
+} {
+  if (reported?.accumulated) {
+    const entries = normalizePersistedAccumulatedEntries(reported.accumulated, now)
+    return { entries, action: 'rewritten', evictedCount: 0 }
+  }
+
+  if (!previous?.length) {
+    return { entries: [], action: 'empty', evictedCount: 0 }
+  }
+
+  const entries = normalizePersistedAccumulatedEntries(decayAccumulatedEntries(previous, now), now)
+  const evictedCount = previous.length - entries.length
+  return {
+    entries,
+    action: evictedCount > 0 ? 'evicted' : 'decayed',
+    evictedCount
   }
 }
 
@@ -203,15 +305,15 @@ function decayAccumulatedEntries(
       const decay = typeof entry.decay === 'number' && Number.isFinite(entry.decay)
         ? entry.decay
         : DEFAULT_ACCUMULATED_DECAY
-      const intensity = clampEmotionAccumulatedIntensity(entry.intensity * decay)
+      const decayedIntensity = entry.intensity * decay
 
-      if (intensity < 0.25) {
+      if (decayedIntensity < 0.25) {
         return null
       }
 
       return {
         ...entry,
-        intensity,
+        intensity: clampEmotionAccumulatedIntensity(decayedIntensity),
         updatedAt: now
       }
     })
@@ -222,24 +324,29 @@ function normalizePersistedAccumulatedEntries(
   entries: EmotionStateSnapshot['accumulated'],
   now: number
 ): EmotionStateSnapshot['accumulated'] {
-  return entries
-    .map((entry) => ({
+  const strongestByLabel = new Map<string, EmotionAccumulatedEntry>()
+  for (const entry of entries) {
+    const normalized: EmotionAccumulatedEntry = {
       label: normalizeEmotionLabel(entry.label) || 'neutral',
-      description: entry.description.trim(),
       intensity: clampEmotionAccumulatedIntensity(entry.intensity),
       decay: typeof entry.decay === 'number' && Number.isFinite(entry.decay)
         ? entry.decay
         : DEFAULT_ACCUMULATED_DECAY,
       updatedAt: now
-    }))
-    .filter((entry) => entry.description.length > 0)
+    }
+    const existing = strongestByLabel.get(normalized.label)
+    if (!existing || normalized.intensity > existing.intensity) {
+      strongestByLabel.set(normalized.label, normalized)
+    }
+  }
+  return [...strongestByLabel.values()]
+    .sort((a, b) => b.intensity - a.intensity)
     .slice(0, 5)
 }
 
 function normalizeAccumulatedEntries(
   entries: Array<{
     label?: string
-    description?: string
     intensity?: number
     decay?: number
   }> | undefined
@@ -251,15 +358,12 @@ function normalizeAccumulatedEntries(
   const normalizedEntries = entries
     .map((entry): EmotionAccumulatedEntry | null => {
       const label = normalizeEmotionLabel(entry.label)
-      const description = entry.description?.trim()
-
-      if (!label || !description || typeof entry.intensity !== 'number') {
+      if (!label || typeof entry.intensity !== 'number') {
         return null
       }
 
       return {
         label,
-        description,
         intensity: clampEmotionAccumulatedIntensity(entry.intensity),
         decay: typeof entry.decay === 'number' && Number.isFinite(entry.decay)
           ? entry.decay
@@ -268,17 +372,22 @@ function normalizeAccumulatedEntries(
       }
     })
     .filter((entry): entry is EmotionAccumulatedEntry => entry !== null)
-    .slice(0, 5)
-
-  return normalizedEntries
+  return normalizePersistedAccumulatedEntries(normalizedEntries, Date.now())
 }
 
 function clampEmotionAccumulatedIntensity(value: number): number {
-  return Math.max(1, Math.min(5, value))
+  return Math.max(0.25, Math.min(5, value))
 }
 
 function clampBackgroundIntensity(value: number): number {
   return Math.max(3, Math.min(7, value))
+}
+
+function areEmotionStatesEquivalent(
+  previous: EmotionStateSnapshot,
+  next: EmotionStateSnapshot
+): boolean {
+  return JSON.stringify(previous) === JSON.stringify(next)
 }
 
 export { EMOTION_TOOL_NAME }
