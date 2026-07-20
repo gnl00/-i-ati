@@ -23,8 +23,13 @@ import { getProviderIcon } from '@renderer/shared/lib/providerIcons'
 import { ProviderIconPicker } from './ProviderIconPicker'
 import { groupProviderEntries } from './providerEntryList'
 import {
+    providerConfigInputClassName,
+    providerConfigSelectTriggerClassName,
+    providerFieldLabelClassName,
+    providerRevealButtonClassName
+} from './providerControlStyles'
+import {
     SettingsSidePanel,
-    settingsInputClassName,
     settingsOutlineButtonClassName,
     settingsPrimaryButtonClassName,
     settingsScrollbarClassName,
@@ -176,19 +181,19 @@ const ProviderSettingsSidebar: React.FC<ProviderSettingsSidebarProps> = ({
                             <div className="grid grid-cols-2 gap-x-2.5 gap-y-2">
                                 {/* Name + Adapter — same row */}
                                 <div className="space-y-1">
-                                    <Label htmlFor="provider-name" className="text-[10.5px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">Name</Label>
+                                    <Label htmlFor="provider-name" className={providerFieldLabelClassName}>Name</Label>
                                     <Input
                                         id="provider-name"
                                         placeholder="OpenAI"
-                                        className={cn(settingsInputClassName, 'h-8 text-[12.5px] w-full')}
+                                        className={providerConfigInputClassName}
                                         value={addProvider.displayName}
                                         onChange={event => addProvider.onDisplayNameChange(event.target.value)}
                                     />
                                 </div>
                                 <div className="space-y-1">
-                                    <Label htmlFor="adapterPluginId" className="text-[10.5px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">Adapter</Label>
+                                    <Label htmlFor="adapterPluginId" className={providerFieldLabelClassName}>Adapter</Label>
                                     <Select value={addProvider.adapterPluginId} onValueChange={addProvider.onAdapterPluginIdChange}>
-                                        <SelectTrigger id="adapterPluginId" className={cn(settingsInputClassName, 'h-8 text-[12.5px] w-full')}>
+                                        <SelectTrigger id="adapterPluginId" className={providerConfigSelectTriggerClassName}>
                                             <SelectValue placeholder="Select adapter" />
                                         </SelectTrigger>
                                         <SelectContent className="bg-white/95 dark:bg-gray-900/95 rounded-lg shadow-xs backdrop-blur font-medium">
@@ -210,11 +215,11 @@ const ProviderSettingsSidebar: React.FC<ProviderSettingsSidebarProps> = ({
 
                                 {/* API Base URL — full width */}
                                 <div className="col-span-2 space-y-1">
-                                    <Label htmlFor="apiUrl" className="text-[10.5px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">API Base URL</Label>
+                                    <Label htmlFor="apiUrl" className={providerFieldLabelClassName}>API Base URL</Label>
                                     <Input
                                         id="apiUrl"
                                         placeholder="https://api.openai.com"
-                                        className={cn(settingsInputClassName, 'h-8 text-[12.5px] w-full')}
+                                        className={providerConfigInputClassName}
                                         value={addProvider.apiUrl}
                                         onChange={event => addProvider.onApiUrlChange(event.target.value)}
                                     />
@@ -222,27 +227,22 @@ const ProviderSettingsSidebar: React.FC<ProviderSettingsSidebarProps> = ({
 
                                 {/* API Key — full width */}
                                 <div className="col-span-2 space-y-1">
-                                    <Label htmlFor="apiKey" className="text-[10.5px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">API Key</Label>
+                                    <Label htmlFor="apiKey" className={providerFieldLabelClassName}>API Key</Label>
                                     <div className="relative w-full">
                                         <Input
                                             id="apiKey"
                                             type={addProvider.showApiKey ? 'text' : 'password'}
                                             placeholder="sk-********"
-                                            className={cn(settingsInputClassName, 'h-8 text-[12.5px] w-full pr-9 dark:text-gray-200')}
+                                            className={cn(providerConfigInputClassName, 'pr-9')}
                                             value={addProvider.apiKey}
                                             onChange={event => addProvider.onApiKeyChange(event.target.value)}
                                         />
                                         <button
                                             type="button"
                                             onClick={addProvider.onToggleShowApiKey}
-                                            className={cn(
-                                                'absolute right-2 top-1/2 -translate-y-1/2',
-                                                'flex items-center justify-center p-1 rounded',
-                                                'text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300',
-                                                'hover:bg-gray-100 dark:hover:bg-gray-700/50',
-                                                'transition-colors duration-150'
-                                            )}
-                                            tabIndex={-1}
+                                            aria-label={addProvider.showApiKey ? 'Hide API key' : 'Reveal API key'}
+                                            aria-pressed={addProvider.showApiKey}
+                                            className={providerRevealButtonClassName}
                                         >
                                             <span className={cn(
                                                 'transition-all duration-300 ease-in-out',
