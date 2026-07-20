@@ -3,6 +3,7 @@ import path from 'node:path'
 import { app } from 'electron'
 import { v4 as uuidv4 } from 'uuid'
 import { chatDb } from '@main/db/chat'
+import { resolvePersistedToolResultMessages } from '@main/orchestration/chat/toolResultCompaction'
 import type { MainAgentRunInput } from '../preparation'
 import { normalizePermissionApprovalMode } from '@tools/approval'
 
@@ -45,7 +46,10 @@ export class ChatSessionStore {
 
   loadHistoryMessages(chat: ChatEntity): MessageEntity[] {
     if (chat.uuid) {
-      return chatDb.getMessagesByChatUuid(chat.uuid)
+      return resolvePersistedToolResultMessages(
+        chatDb.getMessagesByChatUuid(chat.uuid),
+        chatDb
+      )
     }
     return []
   }

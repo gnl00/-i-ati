@@ -12,6 +12,11 @@ import {
 import { serializeError } from '@main/utils/serializeError'
 import { ChatRenderMapper } from './ChatRenderMapper'
 import { ChatRenderOutput } from './ChatRenderOutput'
+import { ToolResultResolutionStore } from './ToolResultResolutionStore'
+import {
+  rawToolResultContentResolver,
+  type ToolResultContentResolver
+} from './ToolResultContentResolver'
 
 export class ChatRenderResponder implements HostRenderEventSink {
   private readonly mapper = new ChatRenderMapper()
@@ -22,14 +27,20 @@ export class ChatRenderResponder implements HostRenderEventSink {
     private readonly emitter: import('@main/agent/contracts').RunEventEmitter,
     messageEntities: MessageEntity[],
     assistantDraft: MessageEntity,
-    stepStore = new ChatStepStore()
+    stepStore = new ChatStepStore(),
+    toolResultContentResolver: ToolResultContentResolver = rawToolResultContentResolver,
+    resolutions?: ToolResultResolutionStore,
+    signal?: AbortSignal
   ) {
     this.output = new ChatRenderOutput(
       emitter,
       messageEntities,
       assistantDraft,
       stepStore,
-      this.mapper
+      this.mapper,
+      toolResultContentResolver,
+      resolutions,
+      signal
     )
   }
 
@@ -122,11 +133,12 @@ export class ChatRenderResponder implements HostRenderEventSink {
         })
         return
 
-      case 'host.tool.result.available':
+      case 'host.tool.result.available': {
+        const resolvedContent = await this.handleToolResult(event.result)
         if (event.result.status === 'success') {
           this.emitter.emit(RUN_TOOL_EVENTS.TOOL_EXECUTION_COMPLETED, {
             toolCallId: event.result.toolCallId,
-            result: event.result.content,
+            result: resolvedContent,
             cost: event.result.cost ?? 0,
             ...(event.result.executionStartedAt !== undefined ? {
               executionStartedAt: event.result.executionStartedAt
@@ -143,16 +155,16 @@ export class ChatRenderResponder implements HostRenderEventSink {
             )))
           })
         }
-        await this.handleToolResult(event.result)
         return
+      }
 
       case 'host.usage.updated':
         return
     }
   }
 
-  private async handleToolResult(result: ToolResultFact): Promise<void> {
-    this.output.appendToolResult(result)
+  private async handleToolResult(result: ToolResultFact): Promise<string> {
+    return await this.output.appendToolResult(result)
   }
 
   private buildBody(

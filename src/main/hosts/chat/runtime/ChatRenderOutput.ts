@@ -6,6 +6,8 @@ import type { AgentRenderMessageState } from '@main/hosts/shared/render'
 import { ChatEventMapper } from '../mapping/ChatEventMapper'
 import { ChatStepStore } from '../persistence/ChatStepStore'
 import { ChatRenderMapper } from './ChatRenderMapper'
+import { ToolResultResolutionStore } from './ToolResultResolutionStore'
+import type { ToolResultContentResolver } from './ToolResultContentResolver'
 
 const hasPersistableAssistantPayload = (body: ChatMessage): boolean => {
   const hasContent = typeof body.content === 'string'
@@ -18,6 +20,18 @@ const hasPersistableAssistantPayload = (body: ChatMessage): boolean => {
   return hasContent || hasSegments || hasToolCalls
 }
 
+const parseToolCallArguments = (rawArguments: string | undefined): unknown => {
+  if (!rawArguments) {
+    return undefined
+  }
+
+  try {
+    return JSON.parse(rawArguments)
+  } catch {
+    return rawArguments
+  }
+}
+
 export class ChatRenderOutput {
   readonly messageEvents: ChatEventMapper
   private readonly mapper: ChatRenderMapper
@@ -27,7 +41,10 @@ export class ChatRenderOutput {
     private readonly messageEntities: MessageEntity[],
     private readonly assistantDraft: MessageEntity,
     private readonly stepStore = new ChatStepStore(),
-    mapper = new ChatRenderMapper()
+    mapper = new ChatRenderMapper(),
+    private readonly toolResultContentResolver: ToolResultContentResolver,
+    private readonly resolutions = new ToolResultResolutionStore(),
+    private readonly signal?: AbortSignal
   ) {
     this.messageEvents = new ChatEventMapper(emitter)
     this.mapper = mapper
@@ -146,15 +163,16 @@ export class ChatRenderOutput {
     } satisfies MessageEntity)
   }
 
-  appendToolResult(result: ToolResultFact): void {
+  async appendToolResult(result: ToolResultFact): Promise<string> {
+    const rawContent = projectToolResultContentForDisplay({
+      content: result.content,
+      error: result.error
+    })
     const toolMessage: ChatMessage = {
       role: 'tool',
       name: result.toolName,
       toolCallId: result.toolCallId,
-      content: projectToolResultContentForDisplay({
-        content: result.content,
-        error: result.error
-      }),
+      content: rawContent,
       segments: []
     }
 
@@ -164,6 +182,29 @@ export class ChatRenderOutput {
       this.assistantDraft.chatUuid
     )
     this.messageEntities.push(entity)
+
+    let resolvedContent = rawContent
+    if (entity.id != null) {
+      const toolCall = this.assistantDraft.body.toolCalls
+        ?.find(candidate => candidate.id === result.toolCallId)
+      try {
+        const resolutionInput = {
+          messageId: entity.id,
+          result,
+          rawContent,
+          args: parseToolCallArguments(toolCall?.function.arguments),
+          signal: this.signal
+        }
+        const resolved = await this.toolResultContentResolver.resolve(resolutionInput)
+        resolvedContent = resolved.content
+      } catch {
+        resolvedContent = rawContent
+      }
+    }
+
+    entity.body.content = resolvedContent
+    this.resolutions.set(result, resolvedContent)
     this.messageEvents.emitToolResultAttached(result.toolCallId, entity)
+    return resolvedContent
   }
 }

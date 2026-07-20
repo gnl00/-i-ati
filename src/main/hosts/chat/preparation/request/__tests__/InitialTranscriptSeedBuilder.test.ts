@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { InitialTranscriptSeedBuilder } from '../InitialTranscriptSeedBuilder'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
+import type {
+  ReadyToolResultCompaction
+} from '@main/orchestration/chat/toolResultCompaction/ToolResultCompactionOverlay'
 
 describe('InitialTranscriptSeedBuilder', () => {
   it('maps user, assistant, tool, and reasoning messages to transcript seed', () => {
@@ -93,6 +96,118 @@ describe('InitialTranscriptSeedBuilder', () => {
       reasoning: undefined,
       toolCalls: undefined
     }])
+  })
+
+  it('uses a ready compaction for a persisted tool result', () => {
+    const builder = new InitialTranscriptSeedBuilder()
+    const message = {
+      role: 'tool',
+      content: 'raw result',
+      toolCallId: 'call-compact',
+      name: 'web_fetch',
+      segments: []
+    } as ChatMessage
+    const compaction = {
+      messageId: 42,
+      toolName: 'web_fetch',
+      toolCallId: 'call-compact',
+      content: 'balanced result',
+      originalHash: 'hash-42',
+      level: 'balanced',
+      compactorId: 'web-document',
+      compactorVersion: 1,
+      updatedAt: 10
+    } as const
+
+    const seed = builder.build([message], new Map([[message, compaction]]))
+
+    expect(seed[0]).toMatchObject({
+      kind: 'tool',
+      content: 'balanced result'
+    })
+  })
+
+  it('keeps raw tool content when no ready compaction matches', () => {
+    const builder = new InitialTranscriptSeedBuilder()
+    const message = {
+      role: 'tool',
+      content: 'raw result',
+      toolCallId: 'call-raw',
+      name: 'web_fetch',
+      segments: []
+    } as ChatMessage
+    const otherMessage = {
+      ...message,
+      toolCallId: 'other-call'
+    } as ChatMessage
+    const compaction = {
+      messageId: 42,
+      toolName: 'web_fetch',
+      toolCallId: 'other-call',
+      content: 'other result',
+      originalHash: 'hash-42',
+      level: 'balanced',
+      compactorId: 'web-document',
+      compactorVersion: 1,
+      updatedAt: 10
+    } as const
+
+    const seed = builder.build([message], new Map([[otherMessage, compaction]]))
+
+    expect(seed[0]).toMatchObject({
+      kind: 'tool',
+      content: 'raw result'
+    })
+  })
+
+  it('keeps repeated tool-call IDs associated with their source messages', () => {
+    const builder = new InitialTranscriptSeedBuilder()
+    const firstMessage = {
+      role: 'tool',
+      content: 'first raw result',
+      toolCallId: 'repeated-call',
+      name: 'web_fetch',
+      segments: []
+    } as ChatMessage
+    const secondMessage = {
+      ...firstMessage,
+      content: 'second raw result'
+    } as ChatMessage
+    const firstCompaction = {
+      messageId: 41,
+      toolName: 'web_fetch',
+      toolCallId: 'repeated-call',
+      content: 'first compact result',
+      originalHash: 'hash-41',
+      level: 'balanced',
+      compactorId: 'web-document',
+      compactorVersion: 1,
+      updatedAt: 10
+    } as const
+    const secondCompaction = {
+      messageId: 42,
+      toolName: 'web_fetch',
+      toolCallId: 'repeated-call',
+      content: 'second compact result',
+      originalHash: 'hash-42',
+      level: 'balanced',
+      compactorId: 'web-document',
+      compactorVersion: 1,
+      updatedAt: 20
+    } as const
+
+    const seed = builder.build(
+      [firstMessage, secondMessage],
+      new Map<ChatMessage, ReadyToolResultCompaction>([
+        [firstMessage, firstCompaction],
+        [secondMessage, secondCompaction]
+      ])
+    )
+
+    expect(seed.map(message => message.content)).toEqual([
+      'first compact result',
+      'second compact result'
+    ])
   })
 
   it('keeps hidden vision observation source in user transcript seed', () => {

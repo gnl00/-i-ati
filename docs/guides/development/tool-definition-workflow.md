@@ -22,9 +22,27 @@ For executable embedded tools:
 - Export it with `satisfies ToolDefinition[]`.
 - Add the group to `src/shared/tools/definitions/index.ts`.
 - Add metadata in `src/shared/tools/<tool-group>/metadata.ts` and include it from `src/shared/tools/metadata.ts`.
+- Declare `resultCompaction` in metadata when the tool result requires persisted
+  cold-replay compaction. Set `enabled`, `level`, `compactorId`, and the
+  `modelInputPolicy`; register the matching compactor in the main-process
+  tool-result compactor registry.
+- Keep model selection inside `CompactAgent` and domain extraction instructions
+  inside the compactor implementation. Semantic profiles can use the reusable
+  agent; deterministic compaction remains available as a bounded fallback.
+- Keep dynamic tool data inside the structured untrusted-source envelope.
+  Define an input budget before model dispatch and propagate the parent run
+  abort signal. Use `redact-secrets` for content that can contain credentials.
+- Inject the production scheduler from the run composition root through the
+  host-owned `ToolResultContentResolver` contract. Render modules and Node test
+  modules should stay free of eager embedded-tool and Electron imports.
 - Add the processor in `src/main/tools/<tool-group>/...Processor.ts`.
 - Register the handler in `src/main/tools/index.ts`.
 - Add tests for the definition, metadata, processor behavior, and handler registration path.
+  Compaction metadata also requires scheduler routing, compactor behavior,
+  model success and fallback coverage, positive-size-gain handling, active-loop
+  resolution, renderer resolution, immutable raw facts, execution metrics,
+  input budgets, secret redaction, cancellation, atomic claim behavior, and
+  historical replay selection coverage.
 
 For model-output tools used only to constrain a maintenance request:
 - Keep the definition under `src/shared/tools/<tool-group>/definitions.ts` and export it with `satisfies ToolDefinition`.

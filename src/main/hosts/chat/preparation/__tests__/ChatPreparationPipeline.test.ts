@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('node:fs/promises', () => ({
@@ -30,6 +31,8 @@ vi.mock('@main/db/DatabaseService', () => ({
     getChatByUuid: vi.fn(),
     getMessagesByChatId: vi.fn(),
     getMessagesByChatUuid: vi.fn(),
+    getMessageByIds: vi.fn(() => []),
+    getReadyToolResultCompactionsByMessageIds: vi.fn(() => []),
     getEmotionState: vi.fn(() => undefined),
     getWorkContextByChatUuid: vi.fn(() => undefined),
     listRecentSmartMessageCandidateSummaries: vi.fn(() => []),
@@ -65,7 +68,14 @@ vi.mock('@shared/prompts', () => ({
 
 vi.mock('@tools/registry', () => ({
   embeddedToolsRegistry: {
-    getAllTools: vi.fn(() => [])
+    getAllTools: vi.fn(() => []),
+    getToolMetadata: vi.fn(() => ({
+      resultCompaction: {
+        enabled: true,
+        level: 'balanced',
+        compactorId: 'web-document'
+      }
+    }))
   }
 }))
 
@@ -204,6 +214,8 @@ describe('ChatPreparationPipeline', () => {
     ;(DatabaseService.getChatByUuid as any).mockReturnValue(undefined)
     ;(DatabaseService.getMessagesByChatId as any).mockReturnValue([])
     ;(DatabaseService.getMessagesByChatUuid as any).mockReturnValue(historyMessages)
+    ;(DatabaseService.getMessageByIds as any).mockReturnValue([])
+    ;(DatabaseService.getReadyToolResultCompactionsByMessageIds as any).mockReturnValue([])
     ;(DatabaseService.saveMessage as any).mockReturnValueOnce(101)
     ;(DatabaseService.updateChat as any).mockReset()
     ;(DatabaseService.getPlugins as any).mockReturnValue([{
@@ -330,6 +342,202 @@ describe('ChatPreparationPipeline', () => {
         content: 'hello'
       })
     ]))
+  })
+
+  it('uses raw persisted tool content when a ready compaction hash belongs to older content', async () => {
+    const rawToolMessage = {
+      id: 21,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'tool',
+        name: 'web_fetch',
+        toolCallId: 'call-fetch',
+        content: 'rewritten imported raw result',
+        segments: []
+      }
+    } as MessageEntity
+    const toolHistory = [
+      {
+        id: 20,
+        chatId: 1,
+        chatUuid: 'chat-1',
+        body: {
+          role: 'assistant',
+          content: '',
+          segments: [],
+          toolCalls: [{
+            id: 'call-fetch',
+            index: 0,
+            type: 'function',
+            function: { name: 'web_fetch', arguments: '{}' }
+          }]
+        }
+      },
+      rawToolMessage
+    ] as MessageEntity[]
+    ;(DatabaseService.getMessagesByChatUuid as any).mockReturnValue(toolHistory)
+    ;(DatabaseService.getMessageByIds as any).mockReturnValue([rawToolMessage])
+    ;(DatabaseService.getReadyToolResultCompactionsByMessageIds as any).mockReturnValue([{
+      messageId: 21,
+      toolName: 'web_fetch',
+      toolCallId: 'call-fetch',
+      content: 'stale compact result',
+      originalHash: createHash('sha256').update('legacy raw result').digest('hex'),
+      level: 'balanced',
+      compactorId: 'web-document',
+      compactorVersion: 1,
+      updatedAt: 10
+    }])
+
+    const prepared = await new ChatPreparationPipeline().prepare(input, { emit: vi.fn() } as any)
+    const toolSeed = prepared.runSpec.initialTranscriptSeed.find(message =>
+      message.kind === 'tool' && message.toolCallId === 'call-fetch'
+    )
+
+    expect(toolSeed?.content).toBe('rewritten imported raw result')
+  })
+
+  it('uses compact tool content when its hash matches the persisted raw content', async () => {
+    const rawToolMessage = {
+      id: 21,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'tool',
+        name: 'web_fetch',
+        toolCallId: 'call-fetch',
+        content: 'current raw result',
+        segments: []
+      }
+    } as MessageEntity
+    const toolHistory = [
+      {
+        id: 20,
+        chatId: 1,
+        chatUuid: 'chat-1',
+        body: {
+          role: 'assistant',
+          content: '',
+          segments: [],
+          toolCalls: [{
+            id: 'call-fetch',
+            index: 0,
+            type: 'function',
+            function: { name: 'web_fetch', arguments: '{}' }
+          }]
+        }
+      },
+      rawToolMessage
+    ] as MessageEntity[]
+    ;(DatabaseService.getMessagesByChatUuid as any).mockReturnValue(toolHistory)
+    ;(DatabaseService.getMessageByIds as any).mockReturnValue([rawToolMessage])
+    ;(DatabaseService.getReadyToolResultCompactionsByMessageIds as any).mockReturnValue([{
+      messageId: 21,
+      toolName: 'web_fetch',
+      toolCallId: 'call-fetch',
+      content: 'current compact result',
+      originalHash: createHash('sha256').update('current raw result').digest('hex'),
+      level: 'balanced',
+      compactorId: 'web-document',
+      compactorVersion: 1,
+      updatedAt: 10
+    }])
+
+    const prepared = await new ChatPreparationPipeline().prepare(input, { emit: vi.fn() } as any)
+    const toolSeed = prepared.runSpec.initialTranscriptSeed.find(message =>
+      message.kind === 'tool' && message.toolCallId === 'call-fetch'
+    )
+
+    expect(toolSeed?.content).toBe('current compact result')
+  })
+
+  it('resolves repeated tool-call IDs by persisted message identity', async () => {
+    const firstToolMessage = {
+      id: 21,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'tool',
+        name: 'web_fetch',
+        toolCallId: 'repeated-call',
+        content: 'first raw result',
+        segments: []
+      }
+    } as MessageEntity
+    const secondToolMessage = {
+      id: 23,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'tool',
+        name: 'web_fetch',
+        toolCallId: 'repeated-call',
+        content: 'second raw result',
+        segments: []
+      }
+    } as MessageEntity
+    const assistantToolCall = (id: number): MessageEntity => ({
+      id,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: '',
+        segments: [],
+        toolCalls: [{
+          id: 'repeated-call',
+          index: 0,
+          type: 'function',
+          function: { name: 'web_fetch', arguments: '{}' }
+        }]
+      }
+    })
+    const toolHistory = [
+      assistantToolCall(20),
+      firstToolMessage,
+      assistantToolCall(22),
+      secondToolMessage
+    ]
+    ;(DatabaseService.getMessagesByChatUuid as any).mockReturnValue(toolHistory)
+    ;(DatabaseService.getMessageByIds as any).mockReturnValue([
+      firstToolMessage,
+      secondToolMessage
+    ])
+    ;(DatabaseService.getReadyToolResultCompactionsByMessageIds as any).mockReturnValue([
+      {
+        messageId: 21,
+        toolName: 'web_fetch',
+        toolCallId: 'repeated-call',
+        content: 'first compact result',
+        originalHash: createHash('sha256').update('first raw result').digest('hex'),
+        level: 'balanced',
+        compactorId: 'web-document',
+        compactorVersion: 1,
+        updatedAt: 10
+      },
+      {
+        messageId: 23,
+        toolName: 'web_fetch',
+        toolCallId: 'repeated-call',
+        content: 'second compact result',
+        originalHash: createHash('sha256').update('second raw result').digest('hex'),
+        level: 'balanced',
+        compactorId: 'web-document',
+        compactorVersion: 1,
+        updatedAt: 20
+      }
+    ])
+
+    const prepared = await new ChatPreparationPipeline().prepare(input, { emit: vi.fn() } as any)
+    const repeatedToolSeeds = prepared.runSpec.initialTranscriptSeed.filter(message =>
+      message.kind === 'tool' && message.toolCallId === 'repeated-call'
+    )
+
+    expect(repeatedToolSeeds.map(message => message.content)).toEqual([
+      'first compact result',
+      'second compact result'
+    ])
   })
 
   it('adds hidden vision observation after visible image user message', async () => {

@@ -12,6 +12,12 @@ import type { ScheduleTaskStatus } from '@shared/tools/schedule'
 import type { Plan, PlanStatus, PlanStep } from '@shared/task-planner/schemas'
 import { createLogger } from '@main/logging/LogService'
 import type { HistorySearchArgs, HistorySearchItem } from '@tools/history/index.d'
+import type { ToolResultCompactionLevel } from '../dao/ToolResultCompactionDao'
+import type {
+  CreateToolResultCompaction,
+  ToolResultCompaction,
+  ToolResultCompactionExecution
+} from '../mappers/ToolResultCompactionMapper'
 
 
 /**
@@ -255,6 +261,54 @@ class DatabaseService {
 
   public deleteMessage(id: number): void {
     this.requireChatService().deleteMessage(id)
+  }
+
+  public createPendingToolResultCompaction(input: CreateToolResultCompaction): number {
+    return this.requireChatService().createPendingToolResultCompaction(input)
+  }
+
+  public markToolResultCompactionRunning(id: number): boolean {
+    return this.requireChatService().markToolResultCompactionRunning(id)
+  }
+
+  public markToolResultCompactionReady(
+    id: number,
+    content: string,
+    compactedCharacters: number,
+    estimatedTokens: number,
+    execution?: ToolResultCompactionExecution
+  ): void {
+    this.requireChatService().markToolResultCompactionReady(
+      id,
+      content,
+      compactedCharacters,
+      estimatedTokens,
+      execution
+    )
+  }
+
+  public markToolResultCompactionFailed(id: number, errorCode: string): void {
+    this.requireChatService().markToolResultCompactionFailed(id, errorCode)
+  }
+
+  public getReadyToolResultCompactionsByMessageIds(messageIds: number[]): ToolResultCompaction[] {
+    return this.requireChatService().getReadyToolResultCompactionsByMessageIds(messageIds)
+  }
+
+  public getToolResultCompaction(
+    messageId: number,
+    level: ToolResultCompactionLevel,
+    originalHash: string,
+    compactorId?: string,
+    compactorVersion?: number
+  ): ToolResultCompaction | undefined {
+    return this.requireChatService().getToolResultCompaction(
+      messageId,
+      level,
+      originalHash,
+      compactorId,
+      compactorVersion
+    )
   }
 
   // ==================== Task Planner Methods ====================

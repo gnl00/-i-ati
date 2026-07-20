@@ -19,6 +19,7 @@ import { TaskPlanDao } from '../dao/TaskPlanDao'
 import { ScheduledTaskDao } from '../dao/ScheduledTaskDao'
 import { SmartMessageDao } from '../dao/SmartMessageDao'
 import { TodoDao } from '../dao/TodoDao'
+import { ToolResultCompactionDao } from '../dao/ToolResultCompactionDao'
 import { TaskPlanRepository } from '../repositories/TaskPlanRepository'
 import { ScheduledTaskRepository } from '../repositories/ScheduledTaskRepository'
 import { ChatRepository } from '../repositories/ChatRepository'
@@ -35,6 +36,7 @@ import { RunEventRepository } from '../repositories/RunEventRepository'
 import { AssistantRepository } from '../repositories/AssistantRepository'
 import { SmartMessageRepository } from '../repositories/SmartMessageRepository'
 import { TodoRepository } from '../repositories/TodoRepository'
+import { ToolResultCompactionRepository } from '../repositories/ToolResultCompactionRepository'
 import { PluginBootstrapService } from '../services/PluginBootstrapService'
 import { McpServerMigrationService } from '../services/McpServerMigrationService'
 import { PluginManifestSyncService } from '../services/PluginManifestSyncService'
@@ -71,6 +73,7 @@ export class DbRuntime {
   private scheduledTaskRepo?: ScheduledTaskDao
   private smartMessageRepo?: SmartMessageDao
   private todoRepo?: TodoDao
+  private toolResultCompactionDao?: ToolResultCompactionDao
 
   private _chatRepository?: ChatRepository
   private _chatHostBindingRepository?: ChatHostBindingRepository
@@ -89,6 +92,7 @@ export class DbRuntime {
   private _assistantRepository?: AssistantRepository
   private _smartMessageRepository?: SmartMessageRepository
   private _pluginManifestSyncService?: PluginManifestSyncService
+  private _toolResultCompactionRepository?: ToolResultCompactionRepository
 
   initialize(): DbRuntimeInitializationStats {
     if (this.initialized && this.db) {
@@ -125,6 +129,7 @@ export class DbRuntime {
     this.scheduledTaskRepo = new ScheduledTaskDao(this.db)
     this.smartMessageRepo = new SmartMessageDao(this.db)
     this.todoRepo = new TodoDao(this.db)
+    this.toolResultCompactionDao = new ToolResultCompactionDao(this.db)
 
     this._chatRepository = new ChatRepository({
       hasDb: () => Boolean(this.db),
@@ -208,6 +213,10 @@ export class DbRuntime {
       hasDb: () => Boolean(this.db),
       getSmartMessageRepo: () => this.smartMessageRepo
     })
+    this._toolResultCompactionRepository = new ToolResultCompactionRepository({
+      hasDb: () => Boolean(this.db),
+      getToolResultCompactionDao: () => this.toolResultCompactionDao
+    })
 
     new McpServerMigrationService({
       configDao: () => this.configRepo,
@@ -258,6 +267,7 @@ export class DbRuntime {
     this.scheduledTaskRepo = undefined
     this.smartMessageRepo = undefined
     this.todoRepo = undefined
+    this.toolResultCompactionDao = undefined
     this._chatRepository = undefined
     this._chatHostBindingRepository = undefined
     this._messageRepository = undefined
@@ -275,6 +285,7 @@ export class DbRuntime {
     this._runEventRepository = undefined
     this._assistantRepository = undefined
     this._smartMessageRepository = undefined
+    this._toolResultCompactionRepository = undefined
     this.initialized = false
   }
 
@@ -344,6 +355,10 @@ export class DbRuntime {
 
   get smartMessageRepository(): SmartMessageRepository {
     return this.requireService(this._smartMessageRepository, 'Smart message repository')
+  }
+
+  get toolResultCompactionRepository(): ToolResultCompactionRepository {
+    return this.requireService(this._toolResultCompactionRepository, 'Tool result compaction repository')
   }
 
   private collectStats(): DbRuntimeInitializationStats {

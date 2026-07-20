@@ -1,6 +1,7 @@
 import { createHash } from 'crypto'
 import { appendFile } from 'fs/promises'
 import { LogFileManager } from '@main/logging/LogFileManager'
+import { redactSensitiveText } from '@shared/security/SensitiveTextRedactor'
 
 const DEFAULT_MAX_BODY_CHARS = 512 * 1024
 const REDACTED_KEYS = new Set(['authorization', 'apikey', 'api_key', 'token', 'cookie', 'set-cookie', 'x-api-key'])
@@ -79,7 +80,9 @@ const sanitizeDebugValue = (
   if (value == null) return value
 
   if (typeof value === 'string') {
-    return compressDataUrls(value, stats)
+    const redaction = redactSensitiveText(value)
+    stats.redactionCount += redaction.redactionCount
+    return compressDataUrls(redaction.content, stats)
   }
 
   if (typeof value === 'number' || typeof value === 'boolean') {

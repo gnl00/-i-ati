@@ -156,6 +156,60 @@ class AppDatabase {
     this.ensureColumn('messages', 'token_usage', 'TEXT')
 
     this.db.exec(`
+      CREATE TABLE IF NOT EXISTS tool_result_compactions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        message_id INTEGER NOT NULL,
+        tool_name TEXT NOT NULL,
+        tool_call_id TEXT,
+        level TEXT NOT NULL CHECK (level IN ('balanced', 'minimal')),
+        status TEXT NOT NULL CHECK (status IN ('pending', 'running', 'ready', 'failed')),
+        content TEXT,
+        original_hash TEXT NOT NULL,
+        original_characters INTEGER,
+        compacted_characters INTEGER,
+        estimated_tokens INTEGER,
+        execution_type TEXT CHECK (execution_type IN ('model', 'deterministic')),
+        model_id TEXT,
+        prompt_version TEXT,
+        prompt_tokens INTEGER,
+        completion_tokens INTEGER,
+        latency_ms INTEGER,
+        input_characters INTEGER,
+        sent_characters INTEGER,
+        input_truncated INTEGER,
+        redaction_count INTEGER,
+        compactor_id TEXT NOT NULL,
+        compactor_version INTEGER NOT NULL,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        last_error_code TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
+        UNIQUE (
+          message_id,
+          level,
+          compactor_id,
+          compactor_version,
+          original_hash
+        )
+      )
+    `)
+    this.ensureColumn(
+      'tool_result_compactions',
+      'execution_type',
+      "TEXT CHECK (execution_type IN ('model', 'deterministic'))"
+    )
+    this.ensureColumn('tool_result_compactions', 'model_id', 'TEXT')
+    this.ensureColumn('tool_result_compactions', 'prompt_version', 'TEXT')
+    this.ensureColumn('tool_result_compactions', 'prompt_tokens', 'INTEGER')
+    this.ensureColumn('tool_result_compactions', 'completion_tokens', 'INTEGER')
+    this.ensureColumn('tool_result_compactions', 'latency_ms', 'INTEGER')
+    this.ensureColumn('tool_result_compactions', 'input_characters', 'INTEGER')
+    this.ensureColumn('tool_result_compactions', 'sent_characters', 'INTEGER')
+    this.ensureColumn('tool_result_compactions', 'input_truncated', 'INTEGER')
+    this.ensureColumn('tool_result_compactions', 'redaction_count', 'INTEGER')
+
+    this.db.exec(`
       CREATE TABLE IF NOT EXISTS message_search_documents (
         message_id INTEGER PRIMARY KEY,
         chat_id INTEGER,
@@ -488,6 +542,10 @@ class AppDatabase {
       CREATE INDEX IF NOT EXISTS idx_chats_update_time ON chats(update_time DESC);
       CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id);
       CREATE INDEX IF NOT EXISTS idx_messages_chat_uuid ON messages(chat_uuid);
+      CREATE INDEX IF NOT EXISTS idx_tool_result_compactions_lookup
+        ON tool_result_compactions(message_id, level, status);
+      CREATE INDEX IF NOT EXISTS idx_tool_result_compactions_jobs
+        ON tool_result_compactions(status, updated_at);
       CREATE INDEX IF NOT EXISTS idx_message_search_documents_chat_id_created_at
         ON message_search_documents(chat_id, created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_message_search_documents_chat_uuid_created_at

@@ -1,7 +1,14 @@
 import type { ChatInitialTranscriptSeed } from '@main/agent/contracts'
+import type {
+  ReadyToolResultCompaction
+} from '@main/orchestration/chat/toolResultCompaction/ToolResultCompactionOverlay'
 
 export class InitialTranscriptSeedBuilder {
-  build(messages: ChatMessage[]): ChatInitialTranscriptSeed[] {
+  build(
+    messages: ChatMessage[],
+    readyCompactionByMessage: ReadonlyMap<ChatMessage, ReadyToolResultCompaction> = new Map(),
+    persistedRawToolContentByMessage: ReadonlyMap<ChatMessage, ChatMessage['content']> = new Map()
+  ): ChatInitialTranscriptSeed[] {
     return messages.map((message): ChatInitialTranscriptSeed => {
       const timestamp = message.createdAt
 
@@ -30,7 +37,9 @@ export class InitialTranscriptSeedBuilder {
         timestamp,
         toolCallId: message.toolCallId,
         toolName: message.name,
-        content: message.content
+        content: readyCompactionByMessage.get(message)?.content
+          ?? persistedRawToolContentByMessage.get(message)
+          ?? message.content
       }
     })
   }

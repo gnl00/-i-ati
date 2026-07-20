@@ -55,7 +55,10 @@ describe('RequestDebugLogger', () => {
       apiKey: 'secret',
       messages: [{
         role: 'user',
-        content: `see data:image/png;base64,${Buffer.from('image-bytes').toString('base64')}`
+        content: [
+          'API_TOKEN=embedded-secret',
+          `see data:image/png;base64,${Buffer.from('image-bytes').toString('base64')}`
+        ].join('\n')
       }]
     }
     const serializedBody = JSON.stringify(body)
@@ -64,9 +67,11 @@ describe('RequestDebugLogger', () => {
       serializedBody
     })
 
-    expect(result.summary.redactionCount).toBe(1)
+    expect(result.summary.redactionCount).toBe(2)
     expect(result.summary.mediaCount).toBe(1)
     expect(result.bodyText).toContain('"apiKey": "[REDACTED]"')
+    expect(result.bodyText).toContain('API_TOKEN=[REDACTED]')
+    expect(result.bodyText).not.toContain('embedded-secret')
     expect(result.bodyText).toContain('[media:image/png;base64 bytes=11 sha256=')
     expect(result.bodyText.includes(Buffer.from('image-bytes').toString('base64'))).toBe(false)
   })

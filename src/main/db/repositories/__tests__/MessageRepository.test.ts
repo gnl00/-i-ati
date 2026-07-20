@@ -190,6 +190,49 @@ describe('MessageRepository', () => {
     }))
   })
 
+  it('preserves raw tool content when a resolved compact view is updated', () => {
+    const messageRepo = createMessageRepo([{
+      id: 1,
+      chat_id: 7,
+      chat_uuid: 'chat-7',
+      body: JSON.stringify({
+        role: 'tool',
+        name: 'web_fetch',
+        content: 'raw tool output',
+        segments: []
+      }),
+      tokens: null,
+      token_usage: null
+    }])
+    const chatRepo = createChatRepo()
+    const messageSearchRepo = createMessageSearchRepo(messageRepo)
+    const repository = new MessageRepository({
+      hasDb: () => true,
+      getChatRepo: () => chatRepo as any,
+      getMessageRepo: () => messageRepo as any,
+      getMessageSearchRepo: () => messageSearchRepo as any
+    })
+
+    repository.updateMessage({
+      id: 1,
+      chatId: 7,
+      chatUuid: 'chat-7',
+      body: {
+        role: 'tool',
+        name: 'web_fetch',
+        content: 'compact tool output',
+        segments: [],
+        typewriterCompleted: true
+      }
+    } as MessageEntity)
+
+    expect(JSON.parse(messageRepo.rows[0].body)).toEqual(expect.objectContaining({
+      role: 'tool',
+      content: 'raw tool output',
+      typewriterCompleted: true
+    }))
+  })
+
   it('decrements chat msg_count when deleting a counted message', () => {
     const messageRepo = createMessageRepo([{
       id: 1,

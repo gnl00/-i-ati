@@ -30,7 +30,8 @@ export class DbAppServices {
       chatHostBindingRepository: () => runtime.chatHostBindingRepository,
       messageRepository: () => runtime.messageRepository,
       emotionStateRepository: () => runtime.emotionStateRepository,
-      workContextRepository: () => runtime.workContextRepository
+      workContextRepository: () => runtime.workContextRepository,
+      toolResultCompactionRepository: () => runtime.toolResultCompactionRepository
     })
     this.configService = new ConfigService({
       configRepository: () => runtime.configRepository,

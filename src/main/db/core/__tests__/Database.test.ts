@@ -129,4 +129,79 @@ describe('AppDatabase', () => {
       "ALTER TABLE message_search_documents ADD COLUMN searchable_text_folded TEXT NOT NULL DEFAULT ''"
     )
   })
+
+  it('creates tool result compaction storage and lookup indexes', async () => {
+    const { AppDatabase } = await import('../Database')
+
+    AppDatabase.getInstance().initialize()
+
+    const tableSql = dbExecMock.mock.calls
+      .map(([sql]) => sql)
+      .find((sql) =>
+        typeof sql === 'string' && sql.includes('CREATE TABLE IF NOT EXISTS tool_result_compactions')
+      )
+    const indexSql = dbExecMock.mock.calls
+      .map(([sql]) => sql)
+      .find((sql) =>
+        typeof sql === 'string' && sql.includes('idx_tool_result_compactions_lookup')
+      )
+    const migrationSql = dbExecMock.mock.calls
+      .map(([sql]) => sql)
+      .filter((sql) =>
+        typeof sql === 'string'
+        && sql.includes('ALTER TABLE tool_result_compactions ADD COLUMN')
+      )
+      .join('\n')
+
+    expect(tableSql).toContain('FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE')
+    expect(tableSql).toContain(
+      "execution_type TEXT CHECK (execution_type IN ('model', 'deterministic'))"
+    )
+    expect(tableSql).toContain('prompt_tokens INTEGER')
+    expect(tableSql).toContain('completion_tokens INTEGER')
+    expect(tableSql).toContain('latency_ms INTEGER')
+    expect(tableSql).toContain('input_characters INTEGER')
+    expect(tableSql).toContain('sent_characters INTEGER')
+    expect(tableSql).toContain('input_truncated INTEGER')
+    expect(tableSql).toContain('redaction_count INTEGER')
+    expect(migrationSql).toContain(
+      "ALTER TABLE tool_result_compactions ADD COLUMN execution_type TEXT CHECK (execution_type IN ('model', 'deterministic'))"
+    )
+    expect(migrationSql).toContain(
+      'ALTER TABLE tool_result_compactions ADD COLUMN model_id TEXT'
+    )
+    expect(migrationSql).toContain(
+      'ALTER TABLE tool_result_compactions ADD COLUMN prompt_version TEXT'
+    )
+    expect(migrationSql).toContain(
+      'ALTER TABLE tool_result_compactions ADD COLUMN prompt_tokens INTEGER'
+    )
+    expect(migrationSql).toContain(
+      'ALTER TABLE tool_result_compactions ADD COLUMN completion_tokens INTEGER'
+    )
+    expect(migrationSql).toContain(
+      'ALTER TABLE tool_result_compactions ADD COLUMN latency_ms INTEGER'
+    )
+    expect(migrationSql).toContain(
+      'ALTER TABLE tool_result_compactions ADD COLUMN input_characters INTEGER'
+    )
+    expect(migrationSql).toContain(
+      'ALTER TABLE tool_result_compactions ADD COLUMN sent_characters INTEGER'
+    )
+    expect(migrationSql).toContain(
+      'ALTER TABLE tool_result_compactions ADD COLUMN input_truncated INTEGER'
+    )
+    expect(migrationSql).toContain(
+      'ALTER TABLE tool_result_compactions ADD COLUMN redaction_count INTEGER'
+    )
+    expect(tableSql).toContain(
+      'UNIQUE (\n          message_id,\n          level,\n          compactor_id,\n          compactor_version,\n          original_hash'
+    )
+    expect(indexSql).toContain(
+      'idx_tool_result_compactions_lookup\n        ON tool_result_compactions(message_id, level, status)'
+    )
+    expect(indexSql).toContain(
+      'idx_tool_result_compactions_jobs\n        ON tool_result_compactions(status, updated_at)'
+    )
+  })
 })

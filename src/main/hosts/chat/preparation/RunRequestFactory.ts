@@ -16,12 +16,16 @@ import {
   SystemPromptComposer,
   UserInfoPromptProvider,
   InitialTranscriptSeedBuilder,
+  matchesToolResultCompactionOriginalContent,
+  selectConfiguredReadyToolResultCompactions,
+  selectPreferredReadyToolResultCompactions,
   ToolListBuilder
 } from './request'
 import { LoadedSkillsContextProvider } from './request/LoadedSkillsContextProvider'
 import type { HostRunInputState, RunEnvironment, StepBootstrap } from './types'
 import type { AgentRequestSpec } from '@main/agent/runtime/request/AgentRequestSpec'
 import type { ChatInitialTranscriptSeed } from '@main/agent/contracts'
+import { chatDb } from '@main/db/chat'
 
 const SCHEDULE_EXECUTION_INSTRUCTION = [
   '## Schedule Execution Context',
@@ -95,6 +99,61 @@ export class RunRequestFactory {
       .setMessages(step.messageBuffer)
       .setCompressionSummary(compressionSummary)
       .build()
+    const messageIdByBody = new Map(
+      step.messageBuffer
+        .filter((message): message is MessageEntity & { id: number } => message.id != null)
+        .map(message => [message.body, message.id] as const)
+    )
+    const retainedToolMessages = requestMessageBuild.chatMessages
+      .filter((message) => message.role === 'tool' && messageIdByBody.has(message))
+    const retainedToolMessageById = new Map(
+      retainedToolMessages.map(message => [
+        messageIdByBody.get(message) as number,
+        message
+      ] as const)
+    )
+    const toolMessageIds = [...retainedToolMessageById.keys()]
+    const persistedRawToolMessageById = new Map(
+      chatDb.getMessageByIds(toolMessageIds)
+        .filter((message): message is MessageEntity & { id: number } =>
+          message.id != null && message.body.role === 'tool'
+        )
+        .map(message => [message.id, message] as const)
+    )
+    const readyToolResultCompactions = toolMessageIds.length > 0
+      ? chatDb.getReadyToolResultCompactionsByMessageIds(toolMessageIds)
+      : []
+    const configuredReadyToolResultCompactions =
+      selectConfiguredReadyToolResultCompactions(readyToolResultCompactions)
+        .filter(compaction => matchesToolResultCompactionOriginalContent(
+          compaction,
+          persistedRawToolMessageById.get(compaction.messageId)?.body.content
+        ))
+    const readyToolResultCompactionByMessageId =
+      selectPreferredReadyToolResultCompactions(
+        configuredReadyToolResultCompactions,
+        compaction => compaction.messageId
+      )
+    const readyToolResultCompactionByMessage = new Map(
+      retainedToolMessages.flatMap((message) => {
+        const messageId = messageIdByBody.get(message)
+        const compaction = messageId == null
+          ? undefined
+          : readyToolResultCompactionByMessageId.get(messageId)
+        return compaction ? [[message, compaction] as const] : []
+      })
+    )
+    const persistedRawToolContentByMessage = new Map(
+      retainedToolMessages.flatMap((message) => {
+        const messageId = messageIdByBody.get(message)
+        const rawMessage = messageId == null
+          ? undefined
+          : persistedRawToolMessageById.get(messageId)
+        return rawMessage
+          ? [[message, rawMessage.body.content] as const]
+          : []
+      })
+    )
 
     return {
       requestSpec: {
@@ -110,7 +169,11 @@ export class RunRequestFactory {
         payloadExtensions: environment.modelContext.providerDefinition.payloadExtensions,
         requestOverrides: environment.modelContext.providerDefinition.requestOverrides
       },
-      initialTranscriptSeed: this.initialTranscriptSeedBuilder.build(requestMessageBuild.chatMessages)
+      initialTranscriptSeed: this.initialTranscriptSeedBuilder.build(
+        requestMessageBuild.chatMessages,
+        readyToolResultCompactionByMessage,
+        persistedRawToolContentByMessage
+      )
     }
   }
 

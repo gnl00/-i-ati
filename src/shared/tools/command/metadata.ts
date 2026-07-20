@@ -5,6 +5,12 @@ export const commandToolMetadata = {
     capability: 'command',
     riskLevel: 'dangerous',
     mutatesWorkspace: true,
-    subagent: 'allow'
+    subagent: 'allow',
+    resultCompaction: {
+      enabled: true,
+      level: 'balanced',
+      compactorId: 'command-output',
+      modelInputPolicy: 'redact-secrets'
+    }
   }
 } satisfies EmbeddedToolMetadataMap

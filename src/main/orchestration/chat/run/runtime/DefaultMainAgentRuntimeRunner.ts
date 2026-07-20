@@ -1,6 +1,7 @@
 import { ToolExecutor, type ToolExecutorConfig } from '@main/agent/tools'
 import type { ToolCallProps } from '@main/agent/contracts'
 import { DefaultAgentEventBus } from '@main/agent/runtime/events/AgentEventBus'
+import type { AgentEventSink } from '@main/agent/runtime/events/AgentEventSink'
 import { DefaultAgentRuntime } from '@main/agent/runtime/AgentRuntime'
 import { DefaultAgentLoopDependenciesFactory } from '@main/agent/runtime/AgentLoopDependenciesFactory'
 import { createDefaultRuntimeInfrastructure } from '@main/agent/runtime/RuntimeInfrastructure'
@@ -13,11 +14,13 @@ import {
   ChatToolSideEffectSink,
   ChatRenderResponder,
   DefaultMainAgentHostRequestBuilder,
-  MainAgentLoopInputBootstrapper
+  MainAgentLoopInputBootstrapper,
+  ResolvedToolResultTranscriptRecordFactory,
+  ToolResultResolutionStore,
+  type ToolResultContentResolver
 } from '@main/hosts/chat/runtime'
 import { ChatLoadedSkillsTranscriptContextProvider } from '@main/hosts/chat/runtime/LoadedSkillsTranscriptContextProvider'
 import { HostRenderEventForwarder, HostRenderEventMapper } from '@main/hosts/shared/render'
-import { AgentNotificationSink } from '@main/notifications/AgentNotificationSink'
 import { normalizePermissionApprovalMode } from '@tools/approval'
 import { DefaultAgentRunCompletionAdapter } from './AgentRunCompletionAdapter'
 import type {
@@ -38,6 +41,8 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
     private readonly completionAdapter = new DefaultAgentRunCompletionAdapter(),
     private readonly options: {
       modelStreamExecutor?: ModelStreamExecutor
+      toolResultContentResolver?: ToolResultContentResolver
+      notificationSinkFactory?: (chatTitle: string) => AgentEventSink
     } = {}
   ) {}
 
@@ -51,10 +56,15 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
     })
 
     const eventBus = new DefaultAgentEventBus()
+    const toolResultResolutions = new ToolResultResolutionStore()
     const chatResponder = new ChatRenderResponder(
       input.emitter,
       input.prepared.chatContext.messageEntities,
-      input.prepared.chatContext.assistantDraft
+      input.prepared.chatContext.assistantDraft,
+      undefined,
+      this.requireToolResultContentResolver(),
+      toolResultResolutions,
+      input.signal
     )
     const renderEventMapper = new HostRenderEventMapper()
     chatResponder.connectRenderStateSource(renderEventMapper)
@@ -69,8 +79,10 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
 
     // Register notification sink last so render pipeline completes even if notifications fail.
     // Only register for interactive desktop runs (source undefined/null); exclude 'schedule' and 'telegram'.
-    if (!input.runInput.input.source) {
-      eventBus.register(new AgentNotificationSink(input.prepared.chatContext.chat.title))
+    if (!input.runInput.input.source && this.options.notificationSinkFactory) {
+      eventBus.register(this.options.notificationSinkFactory(
+        input.prepared.chatContext.chat.title
+      ))
     }
 
     const runtime = new DefaultAgentRuntime({
@@ -89,6 +101,8 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
       agentLoop: new DefaultAgentLoop(),
       agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
         agentEventBus: eventBus,
+        transcriptRecordFactory:
+          new ResolvedToolResultTranscriptRecordFactory(toolResultResolutions),
         modelStreamExecutor: this.options.modelStreamExecutor,
         toolBatchAssembler: new DefaultToolBatchAssembler(
           runtimeInfrastructure.loopIdentityProvider,
@@ -117,6 +131,13 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
       }),
       stepCommitter: chatResponder
     }
+  }
+
+  private requireToolResultContentResolver(): ToolResultContentResolver {
+    if (!this.options.toolResultContentResolver) {
+      throw new Error('Tool result content resolver is required')
+    }
+    return this.options.toolResultContentResolver
   }
 
   private async executeToolCalls(

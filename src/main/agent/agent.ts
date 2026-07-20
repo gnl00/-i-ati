@@ -17,6 +17,7 @@ export interface AgentOptions {
     maxTokens?: number
     thinking?: UnifiedRequestThinkingOption
   }
+  signal?: AbortSignal
 }
 
 export interface AgentToolCallResult {
@@ -205,7 +206,7 @@ export async function agent(
         }
       })
 
-      const response = await unifiedChatRequest(request, null, () => {}, () => {})
+      const response = await unifiedChatRequest(request, options.signal ?? null, () => {}, () => {})
       usage = toUsage(usage, response?.usage)
 
       const toolCalls = response?.toolCalls ?? []

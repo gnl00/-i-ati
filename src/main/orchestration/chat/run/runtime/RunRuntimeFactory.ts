@@ -4,6 +4,8 @@ import { ChatAgentAdapter } from '@main/hosts/chat/ChatAgentAdapter'
 import { RunEventEmitterFactory, ToolConfirmationManager } from '../infrastructure'
 import { RunManager } from './RunManager'
 import { DefaultMainAgentRuntimeRunner } from './DefaultMainAgentRuntimeRunner'
+import { toolResultCompactionScheduler } from '@main/orchestration/chat/toolResultCompaction/ToolResultCompactionScheduler'
+import { AgentNotificationSink } from '@main/notifications/AgentNotificationSink'
 
 export type RunRuntimeDeps = {
   toolConfirmationManager: ToolConfirmationManager
@@ -19,7 +21,10 @@ export class RunRuntimeFactory {
     const eventEmitterFactory = new RunEventEmitterFactory()
     const chatAgentAdapter = new ChatAgentAdapter()
     const postRunJobService = new PostRunJobService(eventEmitterFactory)
-    const mainAgentRuntimeRunner = new DefaultMainAgentRuntimeRunner()
+    const mainAgentRuntimeRunner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
+      toolResultContentResolver: toolResultCompactionScheduler,
+      notificationSinkFactory: chatTitle => new AgentNotificationSink(chatTitle)
+    })
 
     const runManager = new RunManager({
       toolConfirmationManager,

@@ -356,7 +356,19 @@ export class MessageRepository {
 
     messageSearchRepo.runInTransaction(() => {
       const prev = messageRepo.getMessageById(data.id!)
-      const next = toMessageRow(data)
+      const prevBody = prev
+        ? toMessageEntity(prev).body
+        : undefined
+      const rawSafeData = prevBody?.role === 'tool' && data.body.role === 'tool'
+        ? {
+          ...data,
+          body: {
+            ...data.body,
+            content: prevBody.content
+          }
+        }
+        : data
+      const next = toMessageRow(rawSafeData)
       messageRepo.updateMessage(next)
 
       if (!prev) {

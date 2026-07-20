@@ -2,6 +2,12 @@ import { describe, expect, it, vi } from 'vitest'
 import type { ModelResponseChunk } from '@main/agent/runtime/model/ModelResponseChunk'
 import type { ModelStreamExecutor } from '@main/agent/runtime/model/ModelStreamExecutor'
 import { DefaultMainAgentRuntimeRunner } from '../DefaultMainAgentRuntimeRunner'
+
+const rawToolResultContentResolver = {
+  resolve: vi.fn(async ({ rawContent }: { rawContent: string }) => ({
+    content: rawContent
+  }))
+}
 import { AgentRun } from '../AgentRun'
 
 vi.mock('@main/logging/LogService', () => ({
@@ -147,7 +153,8 @@ describe('AgentRun runtime integration', () => {
     }
 
     const mainAgentRuntimeRunner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
-      modelStreamExecutor
+      modelStreamExecutor,
+      toolResultContentResolver: rawToolResultContentResolver
     })
 
     const emitter = {

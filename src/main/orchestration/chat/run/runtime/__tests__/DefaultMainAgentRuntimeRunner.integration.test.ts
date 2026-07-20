@@ -7,6 +7,12 @@ import DatabaseService from '@main/db/DatabaseService'
 import { SkillService } from '@main/services/skills/SkillService'
 import { DefaultMainAgentRuntimeRunner } from '../DefaultMainAgentRuntimeRunner'
 
+const rawToolResultContentResolver = {
+  resolve: vi.fn(async ({ rawContent }: { rawContent: string }) => ({
+    content: rawContent
+  }))
+}
+
 vi.mock('@main/logging/LogService', () => ({
   createLogger: vi.fn(() => ({
     debug: vi.fn(),
@@ -231,7 +237,8 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
       })
     }
     const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
-      modelStreamExecutor
+      modelStreamExecutor,
+      toolResultContentResolver: rawToolResultContentResolver
     })
 
     await runner.run({
@@ -309,7 +316,8 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
       })
     }
     const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
-      modelStreamExecutor
+      modelStreamExecutor,
+      toolResultContentResolver: rawToolResultContentResolver
     })
     const localPrepared = {
       ...prepared,
@@ -431,7 +439,8 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
       runtimeContext.setPermissionApprovalMode('auto')
     })
     const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
-      modelStreamExecutor
+      modelStreamExecutor,
+      toolResultContentResolver: rawToolResultContentResolver
     })
 
     await runner.run({
@@ -549,7 +558,8 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
       })
     }
     const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
-      modelStreamExecutor
+      modelStreamExecutor,
+      toolResultContentResolver: rawToolResultContentResolver
     })
 
     await runner.run({
@@ -624,7 +634,8 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
       setChatMeta: vi.fn()
     } as any
     const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
-      modelStreamExecutor
+      modelStreamExecutor,
+      toolResultContentResolver: rawToolResultContentResolver
     })
 
     await runner.run({
@@ -733,7 +744,8 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     } as any
 
     const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
-      modelStreamExecutor
+      modelStreamExecutor,
+      toolResultContentResolver: rawToolResultContentResolver
     })
 
     const result = await runner.run({
@@ -806,7 +818,8 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
       handle: vi.fn(async () => undefined)
     }
     const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
-      modelStreamExecutor
+      modelStreamExecutor,
+      toolResultContentResolver: rawToolResultContentResolver
     })
 
     await runner.run({
@@ -892,7 +905,8 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
       setChatMeta: vi.fn()
     } as any
     const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
-      modelStreamExecutor
+      modelStreamExecutor,
+      toolResultContentResolver: rawToolResultContentResolver
     })
 
     const result = await runner.run({

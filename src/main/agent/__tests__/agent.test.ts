@@ -151,6 +151,30 @@ describe('agent', () => {
     expect(createUnifiedRequestMock.mock.calls[0]?.[0]?.payloadExtensions?.thinking).toBeUndefined()
   })
 
+  it('forwards an abort signal to the unified request', async () => {
+    unifiedChatRequestMock.mockResolvedValue({
+      content: 'ok',
+      toolCalls: []
+    })
+    const controller = new AbortController()
+
+    await agent(
+      'compact-agent',
+      'Compact content',
+      [],
+      [{ role: 'user', content: 'input' }],
+      false,
+      {
+        model,
+        account,
+        providerDefinition,
+        signal: controller.signal
+      }
+    )
+
+    expect(unifiedChatRequestMock.mock.calls[0]?.[1]).toBe(controller.signal)
+  })
+
   it('uses direct tool definitions without registry lookup when provided', async () => {
     const directToolDefinitions = [{
       type: 'function',

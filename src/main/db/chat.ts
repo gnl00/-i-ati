@@ -1,5 +1,11 @@
 import DatabaseService from './DatabaseService'
 import type { HistorySearchArgs, HistorySearchItem } from '@tools/history/index.d'
+import type { ToolResultCompactionLevel } from './dao/ToolResultCompactionDao'
+import type {
+  CreateToolResultCompaction,
+  ToolResultCompaction,
+  ToolResultCompactionExecution
+} from './mappers/ToolResultCompactionMapper'
 
 export const chatDb = {
   saveChat: (data: ChatEntity): number => DatabaseService.saveChat(data),
@@ -36,6 +42,40 @@ export const chatDb = {
   updateMessage: (data: MessageEntity): void => DatabaseService.updateMessage(data),
   patchMessageUiState: (id: number, uiState: MessageUiStatePatch): void => DatabaseService.patchMessageUiState(id, uiState),
   deleteMessage: (id: number): void => DatabaseService.deleteMessage(id),
+  createPendingToolResultCompaction: (input: CreateToolResultCompaction): number =>
+    DatabaseService.createPendingToolResultCompaction(input),
+  markToolResultCompactionRunning: (id: number): boolean =>
+    DatabaseService.markToolResultCompactionRunning(id),
+  markToolResultCompactionReady: (
+    id: number,
+    content: string,
+    compactedCharacters: number,
+    estimatedTokens: number,
+    execution?: ToolResultCompactionExecution
+  ): void => DatabaseService.markToolResultCompactionReady(
+    id,
+    content,
+    compactedCharacters,
+    estimatedTokens,
+    execution
+  ),
+  markToolResultCompactionFailed: (id: number, errorCode: string): void =>
+    DatabaseService.markToolResultCompactionFailed(id, errorCode),
+  getReadyToolResultCompactionsByMessageIds: (messageIds: number[]): ToolResultCompaction[] =>
+    DatabaseService.getReadyToolResultCompactionsByMessageIds(messageIds),
+  getToolResultCompaction: (
+    messageId: number,
+    level: ToolResultCompactionLevel,
+    originalHash: string,
+    compactorId?: string,
+    compactorVersion?: number
+  ): ToolResultCompaction | undefined => DatabaseService.getToolResultCompaction(
+    messageId,
+    level,
+    originalHash,
+    compactorId,
+    compactorVersion
+  ),
   getEmotionState: (): EmotionStateSnapshot | undefined => DatabaseService.getEmotionState(),
   upsertEmotionState: (state: EmotionStateSnapshot): void =>
     DatabaseService.upsertEmotionState(state),

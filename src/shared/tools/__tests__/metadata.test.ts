@@ -46,4 +46,23 @@ describe('embeddedToolMetadata', () => {
     expect(embeddedToolMetadata.wiki_write.mutatesWorkspace).toBe(true)
     expect(embeddedToolMetadata.wiki_delete.mutatesWorkspace).toBe(true)
   })
+
+  it('declares web_fetch result compaction through tool metadata', () => {
+    expect(embeddedToolMetadata.web_fetch.resultCompaction).toEqual({
+      enabled: true,
+      level: 'balanced',
+      compactorId: 'web-document',
+      modelInputPolicy: 'redact-secrets'
+    })
+    expect(embeddedToolMetadata.web_search.resultCompaction).toBeUndefined()
+  })
+
+  it('declares execute_command balanced result compaction through tool metadata', () => {
+    expect(embeddedToolMetadata.execute_command.resultCompaction).toEqual({
+      enabled: true,
+      level: 'balanced',
+      compactorId: 'command-output',
+      modelInputPolicy: 'redact-secrets'
+    })
+  })
 })

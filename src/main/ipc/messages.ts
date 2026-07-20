@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import { chatDb } from '@main/db/chat'
 import { createLogger } from '@main/logging/LogService'
+import { resolvePersistedToolResultMessages } from '@main/orchestration/chat/toolResultCompaction'
 import {
   DB_MESSAGE_SAVE,
   DB_MESSAGE_GET_ALL,
@@ -23,22 +24,25 @@ export function registerMessageHandlers(): void {
 
   ipcMain.handle(DB_MESSAGE_GET_ALL, async (_event) => {
     logger.info('message.get_all')
-    return chatDb.getAllMessages()
+    return resolvePersistedToolResultMessages(chatDb.getAllMessages(), chatDb)
   })
 
   ipcMain.handle(DB_MESSAGE_GET_BY_ID, async (_event, id) => {
     logger.info('message.get_by_id', { id })
-    return chatDb.getMessageById(id)
+    const message = chatDb.getMessageById(id)
+    return message
+      ? resolvePersistedToolResultMessages([message], chatDb)[0]
+      : undefined
   })
 
   ipcMain.handle(DB_MESSAGE_GET_BY_IDS, async (_event, ids) => {
     logger.info('message.get_by_ids', { count: ids?.length ?? 0 })
-    return chatDb.getMessageByIds(ids)
+    return resolvePersistedToolResultMessages(chatDb.getMessageByIds(ids), chatDb)
   })
 
   const handleMessageGetByChatId = async (_event: Electron.IpcMainInvokeEvent, chatId: number) => {
     logger.info('message.get_by_chat_id', { chatId })
-    return chatDb.getMessagesByChatId(chatId)
+    return resolvePersistedToolResultMessages(chatDb.getMessagesByChatId(chatId), chatDb)
   }
 
   const handleMessageGetByChatUuid = async (
@@ -46,7 +50,7 @@ export function registerMessageHandlers(): void {
     chatUuid: string
   ) => {
     logger.info('message.get_by_chat_uuid', { chatUuid })
-    return chatDb.getMessagesByChatUuid(chatUuid)
+    return resolvePersistedToolResultMessages(chatDb.getMessagesByChatUuid(chatUuid), chatDb)
   }
 
   ipcMain.handle(DB_MESSAGE_GET_BY_CHAT_ID, handleMessageGetByChatId)

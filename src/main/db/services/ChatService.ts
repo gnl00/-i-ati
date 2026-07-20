@@ -4,6 +4,13 @@ import type { EmotionStateRepository } from '../repositories/EmotionStateReposit
 import type { MessageRepository } from '../repositories/MessageRepository'
 import type { WorkContextRecord, WorkContextRepository } from '../repositories/WorkContextRepository'
 import type { HistorySearchArgs, HistorySearchItem } from '@tools/history/index.d'
+import type { ToolResultCompactionLevel } from '../dao/ToolResultCompactionDao'
+import type {
+  CreateToolResultCompaction,
+  ToolResultCompaction,
+  ToolResultCompactionExecution
+} from '../mappers/ToolResultCompactionMapper'
+import type { ToolResultCompactionRepository } from '../repositories/ToolResultCompactionRepository'
 
 type ChatServiceDeps = {
   chatRepository: () => ChatRepository | undefined
@@ -11,6 +18,7 @@ type ChatServiceDeps = {
   messageRepository: () => MessageRepository | undefined
   emotionStateRepository: () => EmotionStateRepository | undefined
   workContextRepository: () => WorkContextRepository | undefined
+  toolResultCompactionRepository: () => ToolResultCompactionRepository | undefined
 }
 
 export class ChatService {
@@ -128,6 +136,54 @@ export class ChatService {
     this.requireMessageRepository().deleteMessage(id)
   }
 
+  createPendingToolResultCompaction(input: CreateToolResultCompaction): number {
+    return this.requireToolResultCompactionRepository().createPending(input)
+  }
+
+  markToolResultCompactionRunning(id: number): boolean {
+    return this.requireToolResultCompactionRepository().markRunning(id)
+  }
+
+  markToolResultCompactionReady(
+    id: number,
+    content: string,
+    compactedCharacters: number,
+    estimatedTokens: number,
+    execution?: ToolResultCompactionExecution
+  ): void {
+    this.requireToolResultCompactionRepository().markReady(
+      id,
+      content,
+      compactedCharacters,
+      estimatedTokens,
+      execution
+    )
+  }
+
+  markToolResultCompactionFailed(id: number, errorCode: string): void {
+    this.requireToolResultCompactionRepository().markFailed(id, errorCode)
+  }
+
+  getReadyToolResultCompactionsByMessageIds(messageIds: number[]): ToolResultCompaction[] {
+    return this.requireToolResultCompactionRepository().getReadyByMessageIds(messageIds)
+  }
+
+  getToolResultCompaction(
+    messageId: number,
+    level: ToolResultCompactionLevel,
+    originalHash: string,
+    compactorId?: string,
+    compactorVersion?: number
+  ): ToolResultCompaction | undefined {
+    return this.requireToolResultCompactionRepository().getByMessageLevelAndHash(
+      messageId,
+      level,
+      originalHash,
+      compactorId,
+      compactorVersion
+    )
+  }
+
   getEmotionState(): EmotionStateSnapshot | undefined {
     return this.requireEmotionStateRepository().getEmotionState()
   }
@@ -192,6 +248,12 @@ export class ChatService {
   private requireWorkContextRepository(): WorkContextRepository {
     const repository = this.deps.workContextRepository()
     if (!repository) throw new Error('Work context repository not initialized')
+    return repository
+  }
+
+  private requireToolResultCompactionRepository(): ToolResultCompactionRepository {
+    const repository = this.deps.toolResultCompactionRepository()
+    if (!repository) throw new Error('Tool result compaction repository not initialized')
     return repository
   }
 }

@@ -3,6 +3,14 @@ import type { AgentEvent } from '@main/agent/runtime/events/AgentEvent'
 import { HostRenderEventMapper } from '@main/hosts/shared/render'
 import { RUN_TOOL_EVENTS } from '@shared/run/tool-events'
 
+const { emitChatUpdatedMock } = vi.hoisted(() => ({
+  emitChatUpdatedMock: vi.fn()
+}))
+
+vi.mock('@main/db/chat', () => ({
+  chatDb: {}
+}))
+
 vi.mock('../../mapping/ChatEventMapper', () => ({
   ChatEventMapper: class {
     emitStreamPreviewUpdated = vi.fn()
@@ -11,6 +19,7 @@ vi.mock('../../mapping/ChatEventMapper', () => ({
     emitToolResultAttached = vi.fn()
     emitMessageUpdated = vi.fn()
     emitMessageSegmentUpdated = vi.fn()
+    emitChatUpdated = emitChatUpdatedMock
   }
 }))
 
@@ -27,6 +36,7 @@ vi.mock('../../persistence/ChatStepStore', () => ({
 }))
 
 import { ChatRenderResponder } from '../ChatRenderResponder'
+import { ChatToolSideEffectSink } from '../ChatToolSideEffectSink'
 
 const mapperByResponder = new WeakMap<ChatRenderResponder, HostRenderEventMapper>()
 
@@ -406,7 +416,24 @@ describe('ChatRenderResponder', () => {
     }
 
     const messageEntities = [placeholder]
-    const adapter = new ChatRenderResponder(emitter, messageEntities, placeholder)
+    const compactionScheduler = {
+      schedule: vi.fn(),
+      resolve: vi.fn(async ({ rawContent }) => ({
+        content: rawContent,
+        source: 'raw' as const,
+        reason: 'disabled' as const
+      }))
+    }
+    const controller = new AbortController()
+    const adapter = new ChatRenderResponder(
+      emitter,
+      messageEntities,
+      placeholder,
+      undefined,
+      compactionScheduler,
+      undefined,
+      controller.signal
+    )
 
     await dispatchAgentEvent(adapter, {
       type: 'step.completed',
@@ -423,7 +450,7 @@ describe('ChatRenderResponder', () => {
           type: 'function',
           function: {
             name: 'read',
-            arguments: '{}'
+            arguments: '{"path":"/tmp/test"}'
           },
           index: 0
         }],
@@ -457,6 +484,221 @@ describe('ChatRenderResponder', () => {
           })
         })
       ])
+    )
+    expect(compactionScheduler.resolve).toHaveBeenCalledWith(expect.objectContaining({
+      messageId: 900,
+      rawContent: '{"ok":true}',
+      args: {
+        path: '/tmp/test'
+      },
+      result: expect.objectContaining({
+        toolName: 'read',
+        toolCallId: 'tool-1'
+      }),
+      signal: controller.signal
+    }))
+  })
+
+  it('persists raw content before emitting and forwarding the resolved tool result', async () => {
+    const emitter = {
+      emit: vi.fn()
+    } as any
+    const assistantDraft: MessageEntity = {
+      id: 101,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: '',
+        segments: [],
+        toolCalls: [{
+          id: 'tool-1',
+          type: 'function',
+          function: {
+            name: 'web_fetch',
+            arguments: '{"url":"https://example.com"}'
+          }
+        }]
+      }
+    }
+    const persistedContents: unknown[] = []
+    const stepStore = {
+      persistToolResultMessage: vi.fn((
+        body: ChatMessage,
+        chatId?: number,
+        chatUuid?: string
+      ) => {
+        persistedContents.push(body.content)
+        return {
+          id: 900,
+          chatId,
+          chatUuid,
+          body
+        }
+      })
+    } as any
+    const compactionScheduler = {
+      schedule: vi.fn(),
+      resolve: vi.fn(async () => ({
+        content: 'compact result',
+        source: 'compact' as const,
+        reason: 'compacted' as const
+      }))
+    }
+    const messageEntities = [assistantDraft]
+    const responder = new ChatRenderResponder(
+      emitter,
+      messageEntities,
+      assistantDraft,
+      stepStore,
+      compactionScheduler
+    )
+    const result = {
+      status: 'success' as const,
+      stepId: 'step-1',
+      toolCallId: 'tool-1',
+      toolCallIndex: 0,
+      toolName: 'web_fetch',
+      content: 'raw result'
+    }
+
+    await responder.handle({
+      type: 'host.tool.result.available',
+      timestamp: 124,
+      result
+    })
+
+    expect(persistedContents).toEqual(['raw result'])
+    expect(messageEntities.at(-1)?.body.content).toBe('compact result')
+    expect(result.content).toBe('raw result')
+    expect(emitter.emit).toHaveBeenCalledWith(
+      RUN_TOOL_EVENTS.TOOL_EXECUTION_COMPLETED,
+      expect.objectContaining({
+        toolCallId: 'tool-1',
+        result: 'compact result'
+      })
+    )
+  })
+
+  it('preserves structured tool facts for downstream side-effect sinks', async () => {
+    emitChatUpdatedMock.mockClear()
+    const emitter = {
+      emit: vi.fn()
+    } as any
+    const assistantDraft: MessageEntity = {
+      id: 101,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: '',
+        segments: []
+      }
+    }
+    const compactionScheduler = {
+      schedule: vi.fn(),
+      resolve: vi.fn(async ({ rawContent }) => ({
+        content: rawContent,
+        source: 'raw' as const,
+        reason: 'disabled' as const
+      }))
+    }
+    const responder = new ChatRenderResponder(
+      emitter,
+      [assistantDraft],
+      assistantDraft,
+      undefined,
+      compactionScheduler
+    )
+    const sideEffectSink = new ChatToolSideEffectSink({
+      emitter,
+      chatUuid: 'chat-1',
+      getChatByUuid: () => ({
+        id: 1,
+        uuid: 'chat-1',
+        title: 'Updated title'
+      } as ChatEntity)
+    })
+    const result = {
+      status: 'success' as const,
+      stepId: 'step-1',
+      toolCallId: 'tool-title',
+      toolCallIndex: 0,
+      toolName: 'chat_set_title',
+      content: {
+        success: true,
+        title: 'Updated title'
+      }
+    }
+    const event = {
+      type: 'host.tool.result.available' as const,
+      timestamp: 124,
+      result
+    }
+
+    await responder.handle(event)
+    sideEffectSink.handle(event)
+
+    expect(result.content).toEqual({
+      success: true,
+      title: 'Updated title'
+    })
+    expect(emitChatUpdatedMock).toHaveBeenCalledWith(expect.objectContaining({
+      uuid: 'chat-1',
+      title: 'Updated title'
+    }))
+  })
+
+  it('forwards raw content when resolving the tool result fails', async () => {
+    const emitter = {
+      emit: vi.fn()
+    } as any
+    const assistantDraft: MessageEntity = {
+      id: 101,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: '',
+        segments: []
+      }
+    }
+    const compactionScheduler = {
+      schedule: vi.fn(),
+      resolve: vi.fn(async () => {
+        throw new Error('compaction unavailable')
+      })
+    }
+    const messageEntities = [assistantDraft]
+    const responder = new ChatRenderResponder(
+      emitter,
+      messageEntities,
+      assistantDraft,
+      undefined,
+      compactionScheduler
+    )
+    const result = {
+      status: 'success' as const,
+      stepId: 'step-1',
+      toolCallId: 'tool-1',
+      toolCallIndex: 0,
+      toolName: 'web_fetch',
+      content: 'raw result'
+    }
+
+    await responder.handle({
+      type: 'host.tool.result.available',
+      timestamp: 124,
+      result
+    })
+
+    expect(messageEntities.at(-1)?.body.content).toBe('raw result')
+    expect(result.content).toBe('raw result')
+    expect(emitter.emit).toHaveBeenCalledWith(
+      RUN_TOOL_EVENTS.TOOL_EXECUTION_COMPLETED,
+      expect.objectContaining({
+        result: 'raw result'
+      })
     )
   })
 

@@ -88,6 +88,61 @@ Asynchronous completion jobs live in `src/main/orchestration/chat/postRun/`:
 The main run emits `run.completed` before title and compression jobs continue.
 These jobs preserve the main run completion boundary.
 
+## Tool-result compaction
+
+Embedded tool metadata can declare `resultCompaction` with an enabled flag,
+level, and compactor ID. `web_fetch` declares the `balanced` level with the
+`web-document` compactor. `execute_command` declares the `balanced` level with
+the `command-output` compactor. Both profiles use a 1,000-character semantic
+content budget; the reserved `minimal` level uses 500 characters.
+
+`ChatRenderOutput` persists the raw tool result, then awaits its injected
+`ToolResultContentResolver`. `RunRuntimeFactory` wires the production
+`ToolResultCompactionScheduler` into this narrow host contract. This keeps the
+chat render modules loadable in Node runtimes without eagerly loading the
+embedded-tool and Electron module graph. The scheduler reads the registered
+tool metadata, runs the configured compactor, and returns one resolved result.
+A compact result with positive size gain becomes the resolved content.
+The raw `ToolResultFact` remains unchanged for downstream side-effect sinks.
+A run-scoped `ToolResultResolutionStore` supplies the resolved content to the
+renderer event and transcript record factory.
+`WebFetchResultCompactor` sends the fetched body to the reusable `CompactAgent`,
+which uses the configured lite model for semantic extraction. The compactor
+then restores provider-neutral URL, title, status, source, citation, and
+truncation fields. `ExecuteCommandResultCompactor` sends attributed stdout and
+stderr to the same agent. It restores command, exit code, execution time,
+error, confirmation, and risk fields around an `output_summary` that retains
+failure evidence, test totals, warnings, paths, locations, artifacts, and next
+steps. Balanced model input is bounded to 12,000 characters and minimal input
+to 6,000 characters before dispatch. Dynamic URL, title, command, status, and
+result fields stay inside a structured untrusted-source envelope. Tool metadata
+declares whether model input uses secret redaction or verbatim forwarding.
+The model request uses a 20-second default timeout, follows the parent run
+abort signal, and caps generated tokens at the semantic character budget.
+Model errors, timeouts, and empty output select the local head-tail compactor.
+Disabled policies, unavailable compactors, zero-gain output, and exhausted
+compaction paths resolve to raw content. Shared sensitive-text redaction also
+protects request debug logs. Job state, execution type, model identity, prompt
+version, token usage, latency, input size, sent size, truncation state,
+redaction count, and ready content are stored in
+`tool_result_compactions`, while `messages.body` retains the raw source.
+
+During the next request preparation, `RunRequestFactory` performs one batch
+lookup for ready compactions associated with tool messages still present in the
+request. It reloads those persisted tool messages as the raw source. Shared
+selection helpers filter results through the current metadata configuration,
+validate the raw SHA-256 hash, and choose the newest compactor version by
+persisted message ID. Historical model seeds and historical renderer message
+queries overlay the selected content onto cloned message entities.
+Database updates preserve raw tool content. Ready lookups deduplicate IDs and
+query in batches of 500. Raw fallback continues through the existing cold
+replay guard in `RequestMaterializer`.
+
+Compaction identity uses message ID, level, compactor ID, compactor version, and
+raw hash. Database claim transitions permit `pending|failed -> running`;
+terminal writes require the running claim. The scheduler reuses an in-process
+singleflight promise and an existing ready row for the same identity.
+
 ## Dependency direction
 
 ```text
