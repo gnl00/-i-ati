@@ -21,6 +21,7 @@ import type { ProviderEntry } from '@renderer/infrastructure/config/appConfig'
 import { getRequestAdapterOptionsFromPlugins } from '@shared/plugins/requestAdapters'
 import { getProviderIcon } from '@renderer/shared/lib/providerIcons'
 import { ProviderIconPicker } from './ProviderIconPicker'
+import { groupProviderEntries } from './providerEntryList'
 import {
     SettingsSidePanel,
     settingsInputClassName,
@@ -53,20 +54,7 @@ interface ProviderSettingsSidebarProps {
     }
 }
 
-const getProviderSortName = (entry: ProviderEntry): string => {
-    return entry.definition.displayName || entry.definition.id
-}
-
 const PROVIDER_TOOLTIP_CLASS_NAME = 'bg-gray-900/95 dark:bg-gray-800/95 backdrop-blur-xl border border-gray-700/50 dark:border-gray-600/50 text-gray-100 text-xs px-3 py-1.5 rounded-lg shadow-xl shadow-black/20'
-
-const compareProviderEntriesByName = (left: ProviderEntry, right: ProviderEntry): number => {
-    const result = getProviderSortName(left).localeCompare(getProviderSortName(right), undefined, {
-        sensitivity: 'base',
-        numeric: true
-    })
-
-    return result || left.definition.id.localeCompare(right.definition.id)
-}
 
 const ProviderSettingsSidebar: React.FC<ProviderSettingsSidebarProps> = ({
     plugins,
@@ -78,16 +66,7 @@ const ProviderSettingsSidebar: React.FC<ProviderSettingsSidebarProps> = ({
 }) => {
     const [hoverProviderId, setHoverProviderId] = useState<string | undefined>(undefined)
     const adapterOptions = getRequestAdapterOptionsFromPlugins(plugins)
-    const providerGroups = useMemo(() => {
-        return {
-            enabled: providers
-                .filter(entry => entry.definition.enabled !== false)
-                .sort(compareProviderEntriesByName),
-            disabled: providers
-                .filter(entry => entry.definition.enabled === false)
-                .sort(compareProviderEntriesByName)
-        }
-    }, [providers])
+    const providerGroups = useMemo(() => groupProviderEntries(providers), [providers])
 
     const renderProviderEntry = ({ definition }: ProviderEntry) => {
         const iconKey = definition.iconKey || definition.id

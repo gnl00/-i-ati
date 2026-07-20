@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { ProviderModelsPanel } from './ProviderModelsPanel'
 import ProviderConfigurations from './ProviderConfigurations'
 import ProviderSettingsSidebar from './ProviderSettingsSidebar'
+import { getDefaultProviderId } from './providerEntryList'
 import {
     SettingsDetailPanel,
     SettingsEmptyState,
@@ -84,10 +85,10 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = ({ plugins }) => {
     }, [adapterOptions])
 
     useEffect(() => {
-        if (!selectedProviderId && visibleProviderDefinitions.length > 0) {
-            setSelectedProviderId(visibleProviderDefinitions[0].id)
+        if (!selectedProviderId) {
+            setSelectedProviderId(getDefaultProviderId(visibleProviderEntries))
         }
-    }, [visibleProviderDefinitions, selectedProviderId])
+    }, [visibleProviderEntries, selectedProviderId])
 
     useEffect(() => {
         const selectedOption = adapterOptions.find(option => option.pluginId === newDefinitionAdapterPluginId)
@@ -270,7 +271,10 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = ({ plugins }) => {
 
         if (selectedProviderId === definition.id) {
             setCurrentAccount(undefined)
-            setSelectedProviderId(remainingDefinitions[0]?.id)
+            const remainingVisibleProviderEntries = visibleProviderEntries.filter(
+                entry => entry.definition.id !== definition.id
+            )
+            setSelectedProviderId(getDefaultProviderId(remainingVisibleProviderEntries))
             setCurrentAccountId(undefined)
         }
 
