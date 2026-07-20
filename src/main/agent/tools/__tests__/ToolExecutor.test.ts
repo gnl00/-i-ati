@@ -31,7 +31,7 @@ vi.mock('@tools/registry', () => ({
       || name === 'wiki_delete'
       || name === 'write'
       || name === 'knowledgebase_search'
-      || name === 'vision_agent_analyze'
+      || name === 'vision_analyze'
     )),
     getHandler: vi.fn(() => handlerMock)
   }
@@ -88,7 +88,7 @@ describe('ToolExecutor runtime context', () => {
     expect(callArgs.chat_uuid).toBe('chat-runtime')
   })
 
-  it('overrides chat_uuid for vision agent analyze from runtime context', async () => {
+  it('overrides chat_uuid for vision analyze from runtime context', async () => {
     handlerMock.mockClear()
     const executor = new ToolExecutor({
       chatUuid: 'chat-runtime'
@@ -96,7 +96,7 @@ describe('ToolExecutor runtime context', () => {
 
     await executor.execute([{
       id: 'call-2b',
-      function: 'vision_agent_analyze',
+      function: 'vision_analyze',
       args: JSON.stringify({
         chat_uuid: 'chat-from-llm',
         images: [{ ref: 'message:101#image:1' }],

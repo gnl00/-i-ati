@@ -326,7 +326,7 @@ export class ToolExecutor implements IToolExecutor {
     const toolSource = this.resolveToolSource(toolName)
     let nextArgs = args
 
-    if (toolSource !== 'mcp' && this.chatUuid && toolName === 'vision_agent_analyze') {
+    if (toolSource !== 'mcp' && this.chatUuid && toolName === 'vision_analyze') {
       nextArgs = { ...nextArgs, chat_uuid: this.chatUuid }
     } else if (toolSource !== 'mcp' && this.chatUuid && (
       toolName?.startsWith('schedule_')

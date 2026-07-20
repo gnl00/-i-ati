@@ -75,9 +75,9 @@ describe('tool definitions', () => {
     ).toThrow('Duplicate tool definition: test_tool')
   })
 
-  it('supports top-level vision agent image arrays without requiring nested images', () => {
+  it('supports top-level vision image arrays without requiring nested images', () => {
     const tool = (tools as ToolDefinition[])
-      .find(candidate => candidate.function.name === 'vision_agent_analyze')
+      .find(candidate => candidate.function.name === 'vision_analyze')
 
     expect(tool).toBeDefined()
     expect(tool?.function.parameters.properties.image_refs).toEqual(expect.objectContaining({

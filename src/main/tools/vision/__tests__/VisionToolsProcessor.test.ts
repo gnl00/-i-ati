@@ -15,9 +15,9 @@ vi.mock('@main/main-window', () => ({
   getMainWindow: vi.fn(() => null)
 }))
 
-import { VisionAgentToolsProcessor } from '../VisionAgentToolsProcessor'
+import { VisionToolsProcessor } from '../VisionToolsProcessor'
 
-describe('VisionAgentToolsProcessor', () => {
+describe('VisionToolsProcessor', () => {
   it('passes prompt through to the vision request unchanged and resolves refs', async () => {
     const analyze = vi.fn(async () => ({
       text: 'The amount is $42.00.',
@@ -32,7 +32,7 @@ describe('VisionAgentToolsProcessor', () => {
         url: 'data:image/png;base64,abc'
       }]
     }])
-    const processor = new VisionAgentToolsProcessor({
+    const processor = new VisionToolsProcessor({
       imageRefResolver: { resolveImages },
       visionRequestService: { analyze }
     })
@@ -47,7 +47,7 @@ describe('VisionAgentToolsProcessor', () => {
     expect(analyze).toHaveBeenCalledWith(expect.objectContaining({
       imageUrls: ['data:image/png;base64,abc'],
       prompt: '截图的金额是多少。请读取图片并提取相关金额。',
-      timeoutLabel: 'vision agent analysis',
+      timeoutLabel: 'vision analysis',
       timeoutMs: 60000
     }))
     expect(result).toEqual({
@@ -76,7 +76,7 @@ describe('VisionAgentToolsProcessor', () => {
         url: 'data:image/png;base64,abc'
       }]
     }])
-    const processor = new VisionAgentToolsProcessor({
+    const processor = new VisionToolsProcessor({
       imageRefResolver: { resolveImages },
       visionRequestService: { analyze }
     })
@@ -124,7 +124,7 @@ describe('VisionAgentToolsProcessor', () => {
         }]
       }
     ])
-    const processor = new VisionAgentToolsProcessor({
+    const processor = new VisionToolsProcessor({
       imageRefResolver: { resolveImages },
       visionRequestService: { analyze }
     })
@@ -189,7 +189,7 @@ describe('VisionAgentToolsProcessor', () => {
         }]
       }
     ])
-    const processor = new VisionAgentToolsProcessor({
+    const processor = new VisionToolsProcessor({
       imageRefResolver: { resolveImages },
       visionRequestService: { analyze }
     })
@@ -235,7 +235,7 @@ describe('VisionAgentToolsProcessor', () => {
         url: 'https://cdn.example/image.png?X-Amz-Signature=secret-token'
       }]
     }])
-    const processor = new VisionAgentToolsProcessor({
+    const processor = new VisionToolsProcessor({
       imageRefResolver: { resolveImages },
       visionRequestService: { analyze }
     })
@@ -271,7 +271,7 @@ describe('VisionAgentToolsProcessor', () => {
         url: 'data:image/png;base64,abc'
       }]
     }])
-    const processor = new VisionAgentToolsProcessor({
+    const processor = new VisionToolsProcessor({
       imageRefResolver: { resolveImages },
       visionRequestService: { analyze }
     })
@@ -286,7 +286,7 @@ describe('VisionAgentToolsProcessor', () => {
   })
 
   it('returns input validation errors for missing prompt or images', async () => {
-    const processor = new VisionAgentToolsProcessor({
+    const processor = new VisionToolsProcessor({
       imageRefResolver: { resolveImages: vi.fn() },
       visionRequestService: { analyze: vi.fn() }
     })
@@ -309,7 +309,7 @@ describe('VisionAgentToolsProcessor', () => {
 
   it('returns redacted request errors', async () => {
     const longBase64 = 'a'.repeat(180)
-    const processor = new VisionAgentToolsProcessor({
+    const processor = new VisionToolsProcessor({
       imageRefResolver: {
         resolveImages: vi.fn(() => [{
           ref: 'message:101#image:1',

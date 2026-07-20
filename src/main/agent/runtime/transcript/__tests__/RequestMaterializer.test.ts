@@ -152,7 +152,7 @@ describe('DefaultRequestMaterializer', () => {
     ])
   })
 
-  it('redacts vision agent image payloads from assistant tool call replay', () => {
+  it('redacts vision image payloads from assistant tool call replay', () => {
     const materializer = new DefaultRequestMaterializer()
     const visionArguments = JSON.stringify({
       chat_uuid: 'chat-runtime',
@@ -195,7 +195,7 @@ describe('DefaultRequestMaterializer', () => {
                 id: 'call-vision',
                 type: 'function',
                 function: {
-                  name: 'vision_agent_analyze',
+                  name: 'vision_analyze',
                   arguments: visionArguments
                 }
               },
@@ -255,7 +255,7 @@ describe('DefaultRequestMaterializer', () => {
     expect(nonVisionToolCall.function.arguments).toBe(nonVisionArguments)
   })
 
-  it('redacts vision agent array arguments from assistant tool call replay', () => {
+  it('redacts vision array arguments from assistant tool call replay', () => {
     const materializer = new DefaultRequestMaterializer()
     const visionArguments = JSON.stringify([
       {
@@ -289,7 +289,7 @@ describe('DefaultRequestMaterializer', () => {
                 id: 'call-vision',
                 type: 'function',
                 function: {
-                  name: 'vision_agent_analyze',
+                  name: 'vision_analyze',
                   arguments: visionArguments
                 }
               }
@@ -334,7 +334,7 @@ describe('DefaultRequestMaterializer', () => {
     ])
   })
 
-  it('redacts vision agent primitive string arguments from assistant tool call replay', () => {
+  it('redacts vision primitive string arguments from assistant tool call replay', () => {
     const materializer = new DefaultRequestMaterializer()
     const transcript: AgentTranscript = {
       transcriptId: 'transcript-1',
@@ -357,7 +357,7 @@ describe('DefaultRequestMaterializer', () => {
                 id: 'call-vision',
                 type: 'function',
                 function: {
-                  name: 'vision_agent_analyze',
+                  name: 'vision_analyze',
                   arguments: JSON.stringify('data:image/png;base64,primitive-secret')
                 }
               }

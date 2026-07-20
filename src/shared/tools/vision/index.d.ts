@@ -1,11 +1,11 @@
-export interface VisionAgentAnalyzeImageInput {
+export interface VisionAnalyzeImageInput {
   ref?: string
   url?: string
   raw_data?: string
 }
 
-export interface VisionAgentAnalyzeArgs {
-  images?: VisionAgentAnalyzeImageInput[]
+export interface VisionAnalyzeArgs {
+  images?: VisionAnalyzeImageInput[]
   image_refs?: string[]
   urls?: string[]
   raw_data?: string[]
@@ -14,16 +14,16 @@ export interface VisionAgentAnalyzeArgs {
   timeout_seconds?: number
 }
 
-export interface VisionAgentImageSource {
+export interface VisionImageSource {
   type: 'ref' | 'url' | 'raw_data'
   ref?: string
   url?: string
 }
 
-export interface VisionAgentAnalyzeResponse {
+export interface VisionAnalyzeResponse {
   success: boolean
   result?: string
   image_count: number
-  images: VisionAgentImageSource[]
+  images: VisionImageSource[]
   message: string
 }

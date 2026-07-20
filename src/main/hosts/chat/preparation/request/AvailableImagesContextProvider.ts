@@ -47,7 +47,7 @@ export class AvailableImagesContextProvider {
       source: MESSAGE_SOURCE.AVAILABLE_IMAGES_CONTEXT,
       content: [
         '<available_images>',
-        'Use these refs with vision_agent_analyze when the user asks to inspect a current or historical image. The raw image data stays outside the MainAgent request.',
+        'Use these refs with vision_analyze when the user asks to inspect a current or historical image. The raw image data stays outside the MainAgent request.',
         ...lines,
         '</available_images>'
       ].join('\n'),

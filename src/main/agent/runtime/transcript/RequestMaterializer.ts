@@ -78,7 +78,7 @@ const REQUEST_CONTEXT_SOURCES = new Set<string>([
 ])
 
 const REDACTED_ARGUMENT_VALUE = '[REDACTED]'
-const VISION_AGENT_ANALYZE_TOOL_NAME = 'vision_agent_analyze'
+const VISION_ANALYZE_TOOL_NAME = 'vision_analyze'
 
 const isRequestContextRecord = (
   record: AgentTranscriptRecord
@@ -176,7 +176,7 @@ const redactStringOrStringArray = (value: unknown): unknown => {
   return value
 }
 
-const sanitizeVisionAgentAnalyzeArguments = (rawArguments: string): string => {
+const sanitizeVisionAnalyzeArguments = (rawArguments: string): string => {
   let parsed: unknown
   try {
     parsed = JSON.parse(rawArguments)
@@ -213,7 +213,7 @@ const sanitizeVisionAgentAnalyzeArguments = (rawArguments: string): string => {
 
 const sanitizeAssistantToolCallsForRequest = (toolCalls: IToolCall[]): IToolCall[] => (
   toolCalls.map(toolCall => {
-    if (toolCall.function?.name !== VISION_AGENT_ANALYZE_TOOL_NAME) {
+    if (toolCall.function?.name !== VISION_ANALYZE_TOOL_NAME) {
       return toolCall
     }
 
@@ -221,7 +221,7 @@ const sanitizeAssistantToolCallsForRequest = (toolCalls: IToolCall[]): IToolCall
       ...toolCall,
       function: {
         ...toolCall.function,
-        arguments: sanitizeVisionAgentAnalyzeArguments(toolCall.function.arguments)
+        arguments: sanitizeVisionAnalyzeArguments(toolCall.function.arguments)
       }
     }
   })

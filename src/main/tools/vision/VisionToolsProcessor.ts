@@ -8,17 +8,17 @@ import {
   type VisionRequestResult
 } from '@main/hosts/chat/vision/VisionRequestService'
 import type {
-  VisionAgentAnalyzeArgs,
-  VisionAgentAnalyzeResponse,
-  VisionAgentImageSource
-} from '@tools/visionAgent/index.d'
+  VisionAnalyzeArgs,
+  VisionAnalyzeResponse,
+  VisionImageSource
+} from '@tools/vision/index.d'
 
-export type VisionAgentToolsProcessorDeps = {
+export type VisionToolsProcessorDeps = {
   imageRefResolver?: Pick<ImageRefResolver, 'resolveImages'>
   visionRequestService?: Pick<VisionRequestService, 'analyze'>
 }
 
-const VISION_AGENT_SYSTEM_PROMPT = [
+const VISION_ANALYSIS_SYSTEM_PROMPT = [
   'You analyze images for an agent tool call.',
   'Follow the user prompt exactly as the visual task.',
   'Return plain text with the requested extracted facts and brief uncertainty notes when needed.'
@@ -45,16 +45,16 @@ const clampTimeoutSeconds = (value?: number): number => {
   )
 }
 
-export class VisionAgentToolsProcessor {
+export class VisionToolsProcessor {
   private readonly imageRefResolver: Pick<ImageRefResolver, 'resolveImages'>
   private readonly visionRequestService: Pick<VisionRequestService, 'analyze'>
 
-  constructor(deps: VisionAgentToolsProcessorDeps = {}) {
+  constructor(deps: VisionToolsProcessorDeps = {}) {
     this.imageRefResolver = deps.imageRefResolver ?? new ImageRefResolver()
     this.visionRequestService = deps.visionRequestService ?? new VisionRequestService()
   }
 
-  async analyze(args: VisionAgentAnalyzeArgs): Promise<VisionAgentAnalyzeResponse> {
+  async analyze(args: VisionAnalyzeArgs): Promise<VisionAnalyzeResponse> {
     const prompt = args.prompt?.trim()
     if (!prompt) {
       return {
@@ -102,8 +102,8 @@ export class VisionAgentToolsProcessor {
       const result: VisionRequestResult = await this.visionRequestService.analyze({
         imageUrls: resolvedImages.map(image => image.url),
         prompt,
-        systemPrompt: VISION_AGENT_SYSTEM_PROMPT,
-        timeoutLabel: 'vision agent analysis',
+        systemPrompt: VISION_ANALYSIS_SYSTEM_PROMPT,
+        timeoutLabel: 'vision analysis',
         timeoutMs: clampTimeoutSeconds(args.timeout_seconds) * 1000
       })
 
@@ -124,7 +124,7 @@ export class VisionAgentToolsProcessor {
     }
   }
 
-  private normalizeImageInputs(args: VisionAgentAnalyzeArgs): NonNullable<VisionAgentAnalyzeArgs['images']> {
+  private normalizeImageInputs(args: VisionAnalyzeArgs): NonNullable<VisionAnalyzeArgs['images']> {
     return [
       ...(Array.isArray(args.images) ? args.images : []),
       ...(Array.isArray(args.image_refs) ? args.image_refs.map(ref => ({ ref })) : []),
@@ -133,8 +133,8 @@ export class VisionAgentToolsProcessor {
     ]
   }
 
-  private toImageSources(images: ResolvedVisionImage[]): VisionAgentImageSource[] {
-    return images.map((image, index): VisionAgentImageSource => {
+  private toImageSources(images: ResolvedVisionImage[]): VisionImageSource[] {
+    return images.map((image, index): VisionImageSource => {
       if (image.ref.startsWith('message:')) {
         return {
           type: 'ref',
@@ -155,8 +155,8 @@ export class VisionAgentToolsProcessor {
   }
 }
 
-const defaultProcessor = new VisionAgentToolsProcessor()
+const defaultProcessor = new VisionToolsProcessor()
 
-export const processVisionAgentAnalyze = (
-  args: VisionAgentAnalyzeArgs
-): Promise<VisionAgentAnalyzeResponse> => defaultProcessor.analyze(args)
+export const processVisionAnalyze = (
+  args: VisionAnalyzeArgs
+): Promise<VisionAnalyzeResponse> => defaultProcessor.analyze(args)

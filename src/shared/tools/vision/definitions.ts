@@ -1,10 +1,10 @@
 import type { ToolDefinition } from '@shared/tools/registry'
 
-export const visionAgentTools = [
+export const visionTools = [
   {
     type: 'function',
     function: {
-      name: 'vision_agent_analyze',
+      name: 'vision_analyze',
       description: 'Analyze current or historical images with the configured vision model. Call this when the user asks to read, inspect, OCR, compare, or extract information from an image. Use refs from <available_images>, such as message:101#image:1 or message:101. Write prompt as the direct visual task for the vision model.',
       parameters: {
         type: 'object',
@@ -79,4 +79,4 @@ export const visionAgentTools = [
   }
 ] satisfies ToolDefinition[]
 
-export default visionAgentTools
+export default visionTools
