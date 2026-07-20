@@ -13,6 +13,8 @@ interface DrawerHeaderBarProps {
   eyebrow?: React.ReactNode
   /** Optional chip rendered inline, trailing the description. */
   badge?: React.ReactNode
+  /** Optional compact context chip rendered after the description. */
+  context?: React.ReactNode
   /** Optional right-aligned slot for actions (e.g. a close button). */
   actions?: React.ReactNode
   /**
@@ -36,6 +38,7 @@ const DrawerHeaderBar: React.FC<DrawerHeaderBarProps> = ({
   icon,
   eyebrow,
   badge,
+  context,
   actions,
   size = 'default',
   className
@@ -53,17 +56,29 @@ const DrawerHeaderBar: React.FC<DrawerHeaderBarProps> = ({
       >
         {title}
       </DrawerTitle>
-      {(description || badge) && (
-        <div className="mt-1 flex min-w-0 items-center gap-2">
+      {(description || context || badge) && (
+        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
           {description ? (
             <DrawerDescription
               className={cn(
-                'min-w-0 truncate text-gray-500 dark:text-gray-400',
-                isLarge ? 'text-sm leading-relaxed' : 'text-[12px]'
+                'min-w-0 text-gray-500 dark:text-gray-400',
+                isLarge ? 'text-sm leading-relaxed' : 'truncate text-[12px] leading-4'
               )}
             >
               {description}
             </DrawerDescription>
+          ) : null}
+          {context ? (
+            <span
+              className={cn(
+                'inline-flex h-5 max-w-full min-w-0 items-center rounded-md border px-2',
+                'border-gray-200/80 bg-gray-100/80 text-[10.5px] font-medium text-gray-600 shadow-inner',
+                'dark:border-gray-800 dark:bg-gray-950/45 dark:text-gray-400'
+              )}
+            >
+              <span className="sr-only">Context: </span>
+              <span className="truncate">{context}</span>
+            </span>
           ) : null}
           {badge}
         </div>
@@ -74,8 +89,8 @@ const DrawerHeaderBar: React.FC<DrawerHeaderBarProps> = ({
   return (
     <DrawerHeader
       className={cn(
-        'space-y-0 border-b border-gray-200/80 text-left dark:border-gray-800',
-        isLarge ? 'px-4 pt-4 pb-3 md:px-6' : 'px-5 pt-5 pb-3',
+        'space-y-0 border-b border-gray-200/70 text-left dark:border-gray-800/80',
+        isLarge ? 'px-4 pt-4 pb-3.5 md:px-6' : 'px-5 pt-4 pb-3.5',
         className
       )}
     >
@@ -83,7 +98,14 @@ const DrawerHeaderBar: React.FC<DrawerHeaderBarProps> = ({
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-1 items-start gap-3">
             {icon && (
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-200">
+              <div
+                className={cn(
+                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border shadow-inner',
+                  'border-gray-200/80 bg-gray-50 text-gray-600',
+                  'dark:border-gray-800 dark:bg-gray-950/45 dark:text-gray-300'
+                )}
+                aria-hidden="true"
+              >
                 {icon}
               </div>
             )}

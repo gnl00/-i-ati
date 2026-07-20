@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react'
 import { Cross1Icon } from '@radix-ui/react-icons'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, PlugZap } from 'lucide-react'
 
 import { Button } from '@renderer/shared/components/ui/button'
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerTrigger } from '@renderer/shared/components/ui/drawer'
@@ -167,8 +167,12 @@ const ProviderSettingsSidebar: React.FC<ProviderSettingsSidebarProps> = ({
                         <span>Add Provider</span>
                     </DrawerTrigger>
                     <DrawerContent className="border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-                        <DrawerHeaderBar title="Add Provider" />
-                        <div id='add-new-provider-drawer' className="px-4 pb-3 app-undragable">
+                        <DrawerHeaderBar
+                            icon={<PlugZap className="h-4 w-4" />}
+                            title="Add provider"
+                            description="Connect a provider and configure its credentials."
+                        />
+                        <div id='add-new-provider-drawer' className="px-5 pb-3 app-undragable">
                             <div className="grid grid-cols-2 gap-x-2.5 gap-y-2">
                                 {/* Name + Adapter — same row */}
                                 <div className="space-y-1">
@@ -265,7 +269,7 @@ const ProviderSettingsSidebar: React.FC<ProviderSettingsSidebarProps> = ({
                                 </div>
                             </div>
                         </div>
-                        <DrawerFooter className="flex-row gap-2 px-4 pb-4">
+                        <DrawerFooter className="flex-row gap-2 px-5 pb-4">
                             <DrawerClose asChild>
                                 <Button variant="outline" className={cn(settingsOutlineButtonClassName, 'flex-1 rounded-xl h-8 justify-center')}>Cancel</Button>
                             </DrawerClose>

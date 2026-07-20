@@ -268,11 +268,16 @@ export const AddAssistantDrawer: React.FC<AddAssistantCardProps> = ({
           className="max-h-[88vh] border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900"
         >
           <DrawerHeaderBar
-            title={mode === 'edit' ? 'Edit Assistant' : 'Create Assistant'}
+            icon={
+              mode === 'edit'
+                ? <Pencil className="h-4 w-4" />
+                : <BadgePlus className="h-4 w-4" />
+            }
+            title={mode === 'edit' ? 'Edit assistant' : 'Create assistant'}
             description={
               mode === 'edit'
-                ? 'Update profile, model, behavior prompt, and ordering.'
-                : 'Configure profile, model, and behavior prompt.'
+                ? 'Update its profile, model, and behavior.'
+                : 'Configure its profile, model, and behavior.'
             }
           />
 

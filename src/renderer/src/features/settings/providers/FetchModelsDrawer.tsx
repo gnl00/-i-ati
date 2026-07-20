@@ -52,7 +52,7 @@ const CACHE_TTL = 60 * 1000 // 1 分钟缓存过期时间
 const PAGE_SIZE = 20
 const FETCH_PENDING_ROWS = Array.from({ length: 8 }, (_, index) => index)
 const MODEL_TABLE_CLASSNAME = 'table-fixed'
-const MODEL_SELECTION_COLUMN_CLASSNAME = 'w-[50px] min-w-[50px] max-w-[50px] pl-6'
+const MODEL_SELECTION_COLUMN_CLASSNAME = 'w-[46px] min-w-[46px] max-w-[46px] pl-5'
 const MODEL_TYPE_COLUMN_CLASSNAME = 'w-[100px] min-w-[100px] max-w-[100px]'
 const MODEL_STATUS_COLUMN_CLASSNAME = 'w-[120px] min-w-[120px] max-w-[120px]'
 const MODEL_HEADER_CELL_CLASSNAME = 'text-[11px] font-medium text-gray-500 dark:text-gray-400'
@@ -322,12 +322,14 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                 {/* Header */}
                 <DrawerHeaderBar
                     className="shrink-0"
+                    icon={<Download className="h-4 w-4" />}
                     title="Import models"
-                    description={activeAccount ? accountDisplayLabel : 'Fetch and import available models from your provider'}
+                    description="Choose models available from this account."
+                    context={activeAccount ? accountDisplayLabel : undefined}
                 />
 
                 {/* Model Search Bar */}
-                <div className="shrink-0 border-b border-gray-200/60 bg-gray-50/70 px-6 py-3 dark:border-gray-800/60 dark:bg-gray-950/30">
+                <div className="shrink-0 border-b border-gray-200/60 bg-gray-50/70 px-5 py-3 dark:border-gray-800/60 dark:bg-gray-950/30">
                     <div className="flex min-w-0 items-center gap-3">
                         <ExpandableSearchInput
                             value={searchQuery}
@@ -373,7 +375,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                 <div className="flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden bg-white/40 dark:bg-gray-950/40">
                     {isFetching ? (
                         <div className="flex h-full min-h-0 flex-col">
-                            <div className="flex h-9 items-center gap-2 border-b border-gray-200/60 bg-gray-50/70 px-6 text-[11px] font-medium text-gray-500 dark:border-gray-800/60 dark:bg-gray-950/30 dark:text-gray-400">
+                            <div className="flex h-9 items-center gap-2 border-b border-gray-200/60 bg-gray-50/70 px-5 text-[11px] font-medium text-gray-500 dark:border-gray-800/60 dark:bg-gray-950/30 dark:text-gray-400">
                                 <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400 dark:text-gray-500" />
                                 <span className="truncate">Fetching models…</span>
                             </div>
@@ -404,7 +406,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                             </div>
                         </div>
                     ) : filteredModels.length === 0 ? (
-                        <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-muted-foreground">
+                        <div className="flex h-full flex-col items-center justify-center gap-3 px-5 text-muted-foreground">
                             <div className="relative">
                                 <Search className="h-12 w-12 text-gray-300 dark:text-gray-700" />
                                 <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
@@ -552,7 +554,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                 </div>
 
                 {/* Footer */}
-                <DrawerFooter className="border-t border-gray-200/60 dark:border-gray-800/60 bg-gray-50/40 dark:bg-gray-900/20 shrink-0">
+                <DrawerFooter className="shrink-0 border-t border-gray-200/60 bg-gray-50/40 px-5 py-4 dark:border-gray-800/60 dark:bg-gray-900/20">
                     <div className="flex items-center justify-between w-full">
                         <span className="text-[12px] text-gray-500 dark:text-gray-400">
                             {selectedModelIds.size > 0
