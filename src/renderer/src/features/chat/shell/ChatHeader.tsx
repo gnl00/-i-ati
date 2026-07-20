@@ -1,5 +1,5 @@
 import { ActivityLogIcon, DrawingPinFilledIcon, DrawingPinIcon, GearIcon } from '@radix-ui/react-icons'
-import { ModeToggle } from '@renderer/shared/components/ModeToggle'
+import { ModeToggleSlide } from '@renderer/shared/components/ModeToggleSlide'
 import { SettingsPanel } from '@renderer/features/settings'
 import { Button } from '@renderer/shared/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@renderer/shared/components/ui/popover'
@@ -95,7 +95,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = (_props: ChatHeaderProps) => {
 
         <div className="flex min-w-0 items-center justify-end gap-1.5 justify-self-end">
           <div className="app-undragable pointer-events-auto">
-            <ModeToggle triggerClassName={headerActionButtonClassName} />
+            <ModeToggleSlide triggerClassName={headerActionButtonClassName} />
           </div>
           <Button
             className={cn(
