@@ -22,7 +22,7 @@ export class RunRuntimeFactory {
     const chatAgentAdapter = new ChatAgentAdapter()
     const postRunJobService = new PostRunJobService(eventEmitterFactory)
     const mainAgentRuntimeRunner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
-      toolResultContentResolver: toolResultCompactionScheduler,
+      toolResultCompactionTrigger: toolResultCompactionScheduler,
       notificationSinkFactory: chatTitle => new AgentNotificationSink(chatTitle)
     })
 

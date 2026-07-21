@@ -12,11 +12,10 @@ import {
 import { serializeError } from '@main/utils/serializeError'
 import { ChatRenderMapper } from './ChatRenderMapper'
 import { ChatRenderOutput } from './ChatRenderOutput'
-import { ToolResultResolutionStore } from './ToolResultResolutionStore'
 import {
-  rawToolResultContentResolver,
-  type ToolResultContentResolver
-} from './ToolResultContentResolver'
+  noopToolResultCompactionTrigger,
+  type ToolResultCompactionTrigger
+} from './ToolResultCompactionTrigger'
 
 export class ChatRenderResponder implements HostRenderEventSink {
   private readonly mapper = new ChatRenderMapper()
@@ -28,8 +27,7 @@ export class ChatRenderResponder implements HostRenderEventSink {
     messageEntities: MessageEntity[],
     assistantDraft: MessageEntity,
     stepStore = new ChatStepStore(),
-    toolResultContentResolver: ToolResultContentResolver = rawToolResultContentResolver,
-    resolutions?: ToolResultResolutionStore,
+    toolResultCompactionTrigger: ToolResultCompactionTrigger = noopToolResultCompactionTrigger,
     signal?: AbortSignal
   ) {
     this.output = new ChatRenderOutput(
@@ -38,8 +36,7 @@ export class ChatRenderResponder implements HostRenderEventSink {
       assistantDraft,
       stepStore,
       this.mapper,
-      toolResultContentResolver,
-      resolutions,
+      toolResultCompactionTrigger,
       signal
     )
   }

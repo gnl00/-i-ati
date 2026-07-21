@@ -15,9 +15,7 @@ import {
   ChatRenderResponder,
   DefaultMainAgentHostRequestBuilder,
   MainAgentLoopInputBootstrapper,
-  ResolvedToolResultTranscriptRecordFactory,
-  ToolResultResolutionStore,
-  type ToolResultContentResolver
+  type ToolResultCompactionTrigger
 } from '@main/hosts/chat/runtime'
 import { ChatLoadedSkillsTranscriptContextProvider } from '@main/hosts/chat/runtime/LoadedSkillsTranscriptContextProvider'
 import { HostRenderEventForwarder, HostRenderEventMapper } from '@main/hosts/shared/render'
@@ -41,7 +39,7 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
     private readonly completionAdapter = new DefaultAgentRunCompletionAdapter(),
     private readonly options: {
       modelStreamExecutor?: ModelStreamExecutor
-      toolResultContentResolver?: ToolResultContentResolver
+      toolResultCompactionTrigger?: ToolResultCompactionTrigger
       notificationSinkFactory?: (chatTitle: string) => AgentEventSink
     } = {}
   ) {}
@@ -56,14 +54,12 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
     })
 
     const eventBus = new DefaultAgentEventBus()
-    const toolResultResolutions = new ToolResultResolutionStore()
     const chatResponder = new ChatRenderResponder(
       input.emitter,
       input.prepared.chatContext.messageEntities,
       input.prepared.chatContext.assistantDraft,
       undefined,
-      this.requireToolResultContentResolver(),
-      toolResultResolutions,
+      this.options.toolResultCompactionTrigger,
       input.signal
     )
     const renderEventMapper = new HostRenderEventMapper()
@@ -101,8 +97,6 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
       agentLoop: new DefaultAgentLoop(),
       agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
         agentEventBus: eventBus,
-        transcriptRecordFactory:
-          new ResolvedToolResultTranscriptRecordFactory(toolResultResolutions),
         modelStreamExecutor: this.options.modelStreamExecutor,
         toolBatchAssembler: new DefaultToolBatchAssembler(
           runtimeInfrastructure.loopIdentityProvider,
@@ -131,13 +125,6 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
       }),
       stepCommitter: chatResponder
     }
-  }
-
-  private requireToolResultContentResolver(): ToolResultContentResolver {
-    if (!this.options.toolResultContentResolver) {
-      throw new Error('Tool result content resolver is required')
-    }
-    return this.options.toolResultContentResolver
   }
 
   private async executeToolCalls(

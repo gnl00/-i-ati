@@ -3,10 +3,8 @@ import type { ModelResponseChunk } from '@main/agent/runtime/model/ModelResponse
 import type { ModelStreamExecutor } from '@main/agent/runtime/model/ModelStreamExecutor'
 import { DefaultMainAgentRuntimeRunner } from '../DefaultMainAgentRuntimeRunner'
 
-const rawToolResultContentResolver = {
-  resolve: vi.fn(async ({ rawContent }: { rawContent: string }) => ({
-    content: rawContent
-  }))
+const noopToolResultCompactionTrigger = {
+  schedule: vi.fn()
 }
 import { AgentRun } from '../AgentRun'
 
@@ -154,7 +152,7 @@ describe('AgentRun runtime integration', () => {
 
     const mainAgentRuntimeRunner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
       modelStreamExecutor,
-      toolResultContentResolver: rawToolResultContentResolver
+      toolResultCompactionTrigger: noopToolResultCompactionTrigger
     })
 
     const emitter = {

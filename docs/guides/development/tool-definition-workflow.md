@@ -33,16 +33,18 @@ For executable embedded tools:
   Define an input budget before model dispatch and propagate the parent run
   abort signal. Use `redact-secrets` for content that can contain credentials.
 - Inject the production scheduler from the run composition root through the
-  host-owned `ToolResultContentResolver` contract. Render modules and Node test
-  modules should stay free of eager embedded-tool and Electron imports.
+  host-owned `ToolResultCompactionTrigger` contract. The host persists and
+  forwards complete raw content, then schedules compact content for future
+  submitted runs. Render modules and Node test modules should stay free of
+  eager embedded-tool and Electron imports.
 - Add the processor in `src/main/tools/<tool-group>/...Processor.ts`.
 - Register the handler in `src/main/tools/index.ts`.
 - Add tests for the definition, metadata, processor behavior, and handler registration path.
   Compaction metadata also requires scheduler routing, compactor behavior,
-  model success and fallback coverage, positive-size-gain handling, active-loop
-  resolution, renderer resolution, immutable raw facts, execution metrics,
-  input budgets, secret redaction, cancellation, atomic claim behavior, and
-  historical replay selection coverage.
+  model success and fallback coverage, positive-size-gain handling, full raw
+  active continuation, raw renderer delivery, immutable raw facts, execution
+  metrics, queue bounds, input budgets, secret redaction, cancellation, atomic
+  claim behavior, and future-run replay selection coverage.
 
 For model-output tools used only to constrain a maintenance request:
 - Keep the definition under `src/shared/tools/<tool-group>/definitions.ts` and export it with `satisfies ToolDefinition`.

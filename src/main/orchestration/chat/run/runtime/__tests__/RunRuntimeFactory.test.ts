@@ -6,7 +6,7 @@ const {
 } = vi.hoisted(() => ({
   mainAgentRuntimeRunnerConstructorMock: vi.fn(),
   toolResultCompactionSchedulerMock: {
-    resolve: vi.fn()
+    schedule: vi.fn()
   }
 }))
 
@@ -58,7 +58,7 @@ describe('RunRuntimeFactory', () => {
       undefined,
       undefined,
       expect.objectContaining({
-        toolResultContentResolver: toolResultCompactionSchedulerMock,
+        toolResultCompactionTrigger: toolResultCompactionSchedulerMock,
         notificationSinkFactory: expect.any(Function)
       })
     )

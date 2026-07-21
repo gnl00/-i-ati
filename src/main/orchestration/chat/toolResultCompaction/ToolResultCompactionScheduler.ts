@@ -24,6 +24,7 @@ export type ToolResultCompactionResolutionReason =
   | 'empty_compaction'
   | 'no_size_gain'
   | 'compaction_in_progress'
+  | 'queue_full'
   | 'aborted'
   | 'compaction_failed'
 
@@ -46,6 +47,20 @@ export interface ToolResultCompactionScheduler {
   resolve(input: PersistedToolResult): Promise<ToolResultCompactionResolution>
 }
 
+type Compactor = NonNullable<ReturnType<ToolResultCompactorRegistry['get']>>
+
+interface QueuedCompaction {
+  identity: string
+  input: PersistedToolResult
+  level: 'balanced' | 'minimal'
+  modelInputPolicy: 'redact-secrets' | 'verbatim'
+  compactor: Compactor
+  originalHash: string
+  settle(resolution: ToolResultCompactionResolution): void
+}
+
+const MAX_WAITING_JOBS = 8
+
 const toErrorCode = (error: unknown): string => {
   if (
     typeof error === 'object'
@@ -60,6 +75,9 @@ const toErrorCode = (error: unknown): string => {
 
 export class DefaultToolResultCompactionScheduler implements ToolResultCompactionScheduler {
   private readonly inFlight = new Map<string, Promise<ToolResultCompactionResolution>>()
+  private readonly queue: QueuedCompaction[] = []
+  private active = false
+  private drainScheduled = false
 
   constructor(
     private readonly store?: ToolResultCompactionStore,
@@ -70,7 +88,14 @@ export class DefaultToolResultCompactionScheduler implements ToolResultCompactio
   ) {}
 
   schedule(input: PersistedToolResult): void {
-    void this.resolve(input)
+    void this.resolve(input).catch((error) => {
+      logger.error('tool_result.compaction.failed', {
+        messageId: input.messageId,
+        toolName: input.result.toolName,
+        toolCallId: input.result.toolCallId,
+        errorCode: toErrorCode(error)
+      })
+    })
   }
 
   async resolve(input: PersistedToolResult): Promise<ToolResultCompactionResolution> {
@@ -107,35 +132,90 @@ export class DefaultToolResultCompactionScheduler implements ToolResultCompactio
       return active
     }
 
-    const operation = this.run(
-      input,
-      metadata.level,
-      metadata.modelInputPolicy ?? 'redact-secrets',
-      compactor,
-      originalHash
-    ).finally(() => {
-      this.inFlight.delete(identity)
-    })
-    this.inFlight.set(identity, operation)
-
-    try {
-      return await operation
-    } catch (error) {
-      logger.error('tool_result.compaction.failed', {
+    const waitingJobs = this.active
+      ? this.queue.length
+      : Math.max(0, this.queue.length - 1)
+    if (waitingJobs >= MAX_WAITING_JOBS) {
+      logger.warn('tool_result.compaction.queue_full', {
         messageId: input.messageId,
         toolName: input.result.toolName,
         toolCallId: input.result.toolCallId,
+        queueDepth: waitingJobs
+      })
+      return this.rawResolution(input, 'queue_full')
+    }
+
+    let settle!: (resolution: ToolResultCompactionResolution) => void
+    const operation = new Promise<ToolResultCompactionResolution>((resolve) => {
+      settle = resolve
+    })
+    this.inFlight.set(identity, operation)
+    this.queue.push({
+      identity,
+      input,
+      level: metadata.level,
+      modelInputPolicy: metadata.modelInputPolicy ?? 'redact-secrets',
+      compactor,
+      originalHash,
+      settle
+    })
+    this.scheduleDrain()
+    return operation
+  }
+
+  private scheduleDrain(): void {
+    if (this.drainScheduled || this.active || this.queue.length === 0) {
+      return
+    }
+    this.drainScheduled = true
+    setImmediate(() => {
+      this.drainScheduled = false
+      void this.drainNext()
+    })
+  }
+
+  private async drainNext(): Promise<void> {
+    if (this.active) {
+      return
+    }
+    const job = this.queue.shift()
+    if (!job) {
+      return
+    }
+
+    this.active = true
+    let resolution: ToolResultCompactionResolution
+    try {
+      resolution = job.input.signal?.aborted
+        ? this.rawResolution(job.input, 'aborted')
+        : await this.run(
+            job.input,
+            job.level,
+            job.modelInputPolicy,
+            job.compactor,
+            job.originalHash
+          )
+    } catch (error) {
+      logger.error('tool_result.compaction.failed', {
+        messageId: job.input.messageId,
+        toolName: job.input.result.toolName,
+        toolCallId: job.input.result.toolCallId,
         errorCode: toErrorCode(error)
       })
-      return this.rawResolution(input, 'compaction_failed')
+      resolution = this.rawResolution(job.input, 'compaction_failed')
     }
+
+    this.inFlight.delete(job.identity)
+    this.active = false
+    job.settle(resolution)
+    this.scheduleDrain()
   }
 
   private async run(
     input: PersistedToolResult,
     level: 'balanced' | 'minimal',
     modelInputPolicy: 'redact-secrets' | 'verbatim',
-    compactor: NonNullable<ReturnType<ToolResultCompactorRegistry['get']>>,
+    compactor: Compactor,
     originalHash: string
   ): Promise<ToolResultCompactionResolution> {
     const store = this.store ?? (await import('@main/db/chat')).chatDb

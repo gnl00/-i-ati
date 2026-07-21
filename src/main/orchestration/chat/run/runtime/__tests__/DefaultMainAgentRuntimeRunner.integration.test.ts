@@ -7,10 +7,8 @@ import DatabaseService from '@main/db/DatabaseService'
 import { SkillService } from '@main/services/skills/SkillService'
 import { DefaultMainAgentRuntimeRunner } from '../DefaultMainAgentRuntimeRunner'
 
-const rawToolResultContentResolver = {
-  resolve: vi.fn(async ({ rawContent }: { rawContent: string }) => ({
-    content: rawContent
-  }))
+const noopToolResultCompactionTrigger = {
+  schedule: vi.fn()
 }
 
 vi.mock('@main/logging/LogService', () => ({
@@ -189,6 +187,92 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     vi.mocked(SkillService.getSkillContent).mockResolvedValue('')
   })
 
+  it('sends the complete raw tool result to the immediate continuation', async () => {
+    const rawContent = `RAW:${'x'.repeat(20_000)}`
+    let continuationToolContent: unknown
+    const modelStreamExecutor: ModelStreamExecutor = {
+      execute: vi.fn(async ({ request }) => {
+        const toolMessage = request.messages.find(message => message.role === 'tool')
+        if (toolMessage) {
+          continuationToolContent = toolMessage.content
+          return createAsyncStream([
+            {
+              kind: 'delta',
+              responseId: 'resp-2',
+              model: 'model-1',
+              content: 'Done',
+              finishReason: 'stop'
+            },
+            {
+              kind: 'final',
+              responseId: 'resp-2',
+              model: 'model-1'
+            }
+          ])
+        }
+
+        return createAsyncStream([
+          {
+            kind: 'delta',
+            responseId: 'resp-1',
+            model: 'model-1',
+            toolCalls: [{
+              argumentsMode: 'snapshot',
+              toolCall: {
+                id: 'tool-raw',
+                index: 0,
+                type: 'function',
+                function: {
+                  name: 'web_fetch',
+                  arguments: '{"url":"https://example.com"}'
+                }
+              }
+            }],
+            finishReason: 'tool_calls'
+          },
+          {
+            kind: 'final',
+            responseId: 'resp-1',
+            model: 'model-1'
+          }
+        ])
+      })
+    }
+    executeMock.mockResolvedValueOnce([{
+      id: 'tool-raw',
+      index: 0,
+      name: 'web_fetch',
+      content: rawContent,
+      cost: 1,
+      status: 'success'
+    }])
+    const compactionTrigger = {
+      schedule: vi.fn(() => new Promise(() => {}))
+    }
+    const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
+      modelStreamExecutor,
+      toolResultCompactionTrigger: compactionTrigger
+    })
+
+    await runner.run({
+      runInput: input,
+      prepared,
+      emitter: {
+        emit: vi.fn(),
+        setChatMeta: vi.fn()
+      } as any,
+      signal: new AbortController().signal,
+      toolConfirmationRequester: {
+        request: vi.fn(async () => ({ approved: true }))
+      }
+    })
+
+    expect(continuationToolContent).toBe(rawContent)
+    expect(compactionTrigger.schedule).toHaveBeenCalledWith(expect.objectContaining({
+      rawContent
+    }))
+  })
+
   it('passes submitted permission approval mode into tool execution', async () => {
     const modelStreamExecutor: ModelStreamExecutor = {
       execute: vi.fn(async ({ request }) => {
@@ -238,7 +322,7 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     }
     const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
       modelStreamExecutor,
-      toolResultContentResolver: rawToolResultContentResolver
+      toolResultCompactionTrigger: noopToolResultCompactionTrigger
     })
 
     await runner.run({
@@ -317,7 +401,7 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     }
     const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
       modelStreamExecutor,
-      toolResultContentResolver: rawToolResultContentResolver
+      toolResultCompactionTrigger: noopToolResultCompactionTrigger
     })
     const localPrepared = {
       ...prepared,
@@ -440,7 +524,7 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     })
     const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
       modelStreamExecutor,
-      toolResultContentResolver: rawToolResultContentResolver
+      toolResultCompactionTrigger: noopToolResultCompactionTrigger
     })
 
     await runner.run({
@@ -559,7 +643,7 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     }
     const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
       modelStreamExecutor,
-      toolResultContentResolver: rawToolResultContentResolver
+      toolResultCompactionTrigger: noopToolResultCompactionTrigger
     })
 
     await runner.run({
@@ -635,7 +719,7 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     } as any
     const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
       modelStreamExecutor,
-      toolResultContentResolver: rawToolResultContentResolver
+      toolResultCompactionTrigger: noopToolResultCompactionTrigger
     })
 
     await runner.run({
@@ -745,7 +829,7 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
 
     const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
       modelStreamExecutor,
-      toolResultContentResolver: rawToolResultContentResolver
+      toolResultCompactionTrigger: noopToolResultCompactionTrigger
     })
 
     const result = await runner.run({
@@ -819,7 +903,7 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     }
     const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
       modelStreamExecutor,
-      toolResultContentResolver: rawToolResultContentResolver
+      toolResultCompactionTrigger: noopToolResultCompactionTrigger
     })
 
     await runner.run({
@@ -906,7 +990,7 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     } as any
     const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
       modelStreamExecutor,
-      toolResultContentResolver: rawToolResultContentResolver
+      toolResultCompactionTrigger: noopToolResultCompactionTrigger
     })
 
     const result = await runner.run({

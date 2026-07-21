@@ -3,17 +3,20 @@
 Owner: Repository maintainers<br>
 Status: Active<br>
 Started: 2026-07-17<br>
-Target: Metadata-driven tool-result compaction with unified UI and model resolution<br>
+Target: Metadata-driven background tool-result compaction for future model reuse<br>
 Exit criteria: The storage contract, trigger policy, compactor interface, request selection, failure handling, and delivery sequence are approved for implementation.<br>
 Related specs: [`../../specs/documentation-governance.md`](../../specs/documentation-governance.md)<br>
+Related decision: [`../../decisions/0009-background-tool-result-compaction.md`](../../decisions/0009-background-tool-result-compaction.md)<br>
+Current delivery plan: [`background-tool-result-compaction.md`](background-tool-result-compaction.md)<br>
 Related implementation: [`../../../src/shared/tools/metadata-types.ts`](../../../src/shared/tools/metadata-types.ts), [`../../../src/shared/tools/webTools/metadata.ts`](../../../src/shared/tools/webTools/metadata.ts), [`../../../src/shared/tools/command/metadata.ts`](../../../src/shared/tools/command/metadata.ts), [`../../../src/main/agent/runtime/tools/ToolResultContentProjector.ts`](../../../src/main/agent/runtime/tools/ToolResultContentProjector.ts), [`../../../src/main/hosts/chat/runtime/ChatRenderOutput.ts`](../../../src/main/hosts/chat/runtime/ChatRenderOutput.ts), [`../../../src/main/agent/runtime/transcript/RequestMaterializer.ts`](../../../src/main/agent/runtime/transcript/RequestMaterializer.ts)
 
 ## Goal
 
 Add a dedicated compaction path for tool call results. The system keeps the raw
 tool result for recovery, re-compaction, and auditing. A reusable compact
-representation is generated after persistence. The renderer and model runtime
-consume one resolved result.
+representation is generated after persistence. The active continuation and
+renderer consume raw content. Future submitted runs select ready compact
+content during request preparation.
 
 The first implementation focuses on tool results with predictable high-volume
 output. Each tool declares its result-compaction behavior in shared tool
@@ -25,7 +28,7 @@ compactor.
 This plan covers:
 
 - raw tool-result persistence;
-- awaited compaction after raw tool-result persistence;
+- background compaction after raw tool-result persistence;
 - metadata-driven compaction policy;
 - multi-level compact results;
 - persisted compact-result lookup;
@@ -72,26 +75,23 @@ large results. Its artifact handling should be reused by the compaction module.
 tool execution
   -> ToolResultFact(raw)
   -> raw tool message persisted
-  -> tool compaction policy lookup
-  -> compaction job
-  -> compact result persisted
-  -> resolved result
-     -> renderer
-     -> current agent loop
+  -> raw result delivered to renderer
+  -> raw result appended to the active transcript
+  -> current agent loop continues with full raw content
+  -> background compaction job
+  -> compact result persisted for future runs
 
 later context assembly
   -> load raw tool messages
   -> batch-load ready compact results
-  -> select resolved content
-     -> renderer history
-     -> provider request
+  -> select compact model content
+  -> provider request
 ```
 
-Resolved content uses compact output when it provides positive size gain. Raw
-content covers disabled policies, unavailable compactors, empty output,
-zero-gain output, and compaction failures. Database entities preserve the raw
-source while renderer projections and model transcripts receive cloned resolved
-values.
+Future-run model content uses compact output when it provides positive size
+gain. Raw content covers disabled policies, unavailable compactors, empty
+output, zero-gain output, compaction failures, and incomplete background work.
+Database entities and renderer projections preserve the raw source.
 
 ## Storage
 
@@ -351,10 +351,9 @@ selects compact content only when the complete envelope has positive gain.
 
 [`ChatRenderOutput.appendToolResult()`](../../../src/main/hosts/chat/runtime/ChatRenderOutput.ts)
 receives the stable `ToolResultFact`, creates the tool `ChatMessage`, and
-persists it through `ChatStepStore`. The host depends on the narrow
-`ToolResultContentResolver` contract. `RunRuntimeFactory` injects the production
-scheduler so loading the render runtime does not eagerly load embedded tools or
-Electron window modules.
+persists it through `ChatStepStore`. The host depends on a narrow scheduling
+contract. `RunRuntimeFactory` injects the production scheduler so loading the
+render runtime does not eagerly load embedded tools or Electron window modules.
 
 The scheduling sequence is:
 
@@ -363,11 +362,10 @@ appendToolResult(result)
   -> build raw tool message
   -> persistToolResultMessage()
   -> receive message ID
-  -> embeddedToolsRegistry.getToolMetadata(toolName)
-  -> await metadata-declared compaction
-  -> resolve compact or raw content
-  -> emit resolved tool result to renderer
-  -> continue the agent loop with resolved content
+  -> emit raw tool result to renderer
+  -> schedule metadata-declared compaction
+  -> return raw content
+  -> continue the agent loop with full raw content
 ```
 
 The scheduler receives:
@@ -383,7 +381,9 @@ Queue insertion is idempotent through the table's unique key.
 `INSERT ... ON CONFLICT DO NOTHING` preserves ready and running rows. Claiming
 uses a conditional `pending|failed -> running` update. Terminal writes require
 the running state, and the scheduler uses an identity-keyed singleflight promise
-to share concurrent work in one process.
+to share concurrent work in one process. The scheduler drains a bounded FIFO
+queue with one active worker and eight waiting jobs. Queue work begins through
+`setImmediate` so the active model continuation can dispatch first.
 
 `ToolResultCompactionScheduler` reads
 `embeddedToolsRegistry.getToolMetadata(toolName)?.resultCompaction`. It contains
@@ -408,13 +408,14 @@ schedule
   -> mark ready
 ```
 
-The active tool-result boundary awaits this job. A run-scoped resolution store
-provides the same resolved content to renderer delivery and transcript
-materialization while the shared `ToolResultFact` retains its original
-structured content for side-effect sinks.
+The active tool-result boundary schedules this job and returns raw content. The
+default transcript record factory keeps the original `ToolResultFact` in the
+active transcript. Renderer delivery uses the persisted raw message. Compact
+content becomes eligible when a future submitted run rebuilds its initial
+transcript.
 
 A raw-hash mismatch excludes a ready row during replay selection. A failed job
-records `last_error_code` and `attempts`; a later resolve can claim it again.
+records `last_error_code` and `attempts`; a later schedule can claim it again.
 
 Application-startup recovery belongs to the multi-level follow-up phase.
 
@@ -437,16 +438,16 @@ providers reuse a tool call ID across turns. Request preparation reloads the
 persisted raw tool messages before validating each ready row's SHA-256 hash.
 Hash mismatches select the current raw content. Ready lookups deduplicate IDs
 and use batches of 500. Repository updates preserve the stored raw content of
-tool messages even when callers submit a resolved renderer view.
+tool messages across renderer updates.
 
 Phase 1 selection:
 
 | Tool-result position | Selected content |
 | --- | --- |
-| Current active result with positive-gain compaction | Configured compact level |
-| Current active result with raw resolution | Raw |
+| Immediate continuation in the active run | Full raw |
+| Older result in the same active run | Existing cold projection |
 | Result without ready compaction | Raw with existing request guard |
-| Cold result with ready metadata-declared compaction | Configured level |
+| New-run result with ready metadata-declared compaction | Configured level |
 
 Phase 2 can add `minimal` selection according to message-pair distance and
 available context budget.
@@ -467,8 +468,8 @@ The target ownership is:
 | Raw tool-result display projection | `ToolResultContentProjector` |
 | Inline image and raw artifact persistence | Shared artifact store |
 | Persisted cold replay content | Tool-result compaction module |
-| Active UI and model resolution | `ToolResultCompactionScheduler.resolve()` |
-| Historical UI and model overlay | Shared tool-result overlay helpers |
+| Active UI and model content | Raw host message and hot transcript |
+| Historical model overlay | `RunRequestFactory` and shared selection helpers |
 | Provider request assembly | `RequestMaterializer` |
 
 During migration, normalized legacy content remains readable through
@@ -527,12 +528,13 @@ Structured runtime logs record started, ready, skipped, and failed transitions.
 - Raw hash and compactor version protect request selection from stale content.
 - Atomic claims and in-process singleflight prevent duplicate model execution
   for one compaction identity.
-- Parent-run cancellation aborts the active compactor model request.
+- Parent-run cancellation reaches queued and active compactor work.
 - Model input budgets and secret redaction run before provider dispatch.
 - Pending and failed rows use raw content with the existing request guard.
 - Database deletion cascades remove compact results with their message.
-- Compactor errors resolve to raw content for tool execution, UI display, and
-  later requests.
+- Compactor errors leave raw content available for the active run, UI display,
+  and later requests.
+- Queue overflow records a warning and leaves raw historical replay available.
 - Persisted job state supports a later application-restart recovery worker.
 
 ## Delivery plan
@@ -549,12 +551,13 @@ compact results during context preparation.
 This phase provides the complete raw-to-compact-to-request path for one
 high-volume tool.
 
-Status: unified active-result and historical-result resolution added on
-2026-07-17. Model-backed semantic extraction through `CompactAgent`,
-deterministic fallback, and execution metrics were added in the same phase.
-Atomic claims, immutable runtime facts, message-ID replay selection, bounded
-model input, shared secret redaction, and parent-run cancellation were added on
-2026-07-18.
+Status: historical model-result resolution was added on 2026-07-17.
+Model-backed semantic extraction through `CompactAgent`, deterministic
+fallback, and execution metrics were added in the same phase. Atomic claims,
+immutable runtime facts, message-ID replay selection, bounded compact-agent
+input, shared secret redaction, and parent-run cancellation were added on
+2026-07-18. ADR-0009 replaces active-result resolution with full raw active
+continuation and background compaction.
 
 ### Phase 2: Multi-level replay
 
@@ -583,16 +586,17 @@ Automated coverage:
 - `web_fetch` metadata configuration;
 - `execute_command` metadata configuration;
 - compaction after raw tool-result persistence;
-- resolved result equality across the active agent loop and renderer event;
+- raw result equality across the active agent loop and renderer event;
+- active-loop continuation before background compaction completion;
 - original runtime fact preservation for later side-effect sinks;
-- raw entity preservation during renderer and transcript overlays;
+- raw entity preservation during renderer reads;
 - raw-hash validation and repeated tool-call-ID isolation;
 - input budget, structured untrusted data, secret redaction, and cancellation;
 - atomic database claim and in-process singleflight behavior;
 - 500-ID batch lookup behavior;
 - positive-size-gain selection and raw resolution;
 - pending, running, ready, failed, stale-hash, and stale-version states;
-- ready compact-result selection for cold replay;
+- ready compact-result selection for a new submitted run;
 - raw fallback through the existing request guard;
 - one compaction batch query per context build;
 - URL, title, extraction status, truncation state, references, and errors in the
@@ -625,25 +629,29 @@ git diff --check
 2. Raw tool results stay in `messages.body`.
 3. Compact results live in `tool_result_compactions`.
 4. Compaction starts after raw tool-result persistence.
-5. The active agent loop and renderer consume the same resolved content.
+5. The active agent loop and renderer consume full raw content.
 6. Shared tool metadata controls compaction eligibility, level, and compactor.
 7. `web_fetch` declares `balanced` compaction in `webTools/metadata.ts`.
 8. `execute_command` declares `balanced` compaction in `command/metadata.ts`.
-9. Active and later replay prefer a positive-gain ready compact result.
+9. New submitted runs prefer a positive-gain ready compact result.
 10. The current request guard handles raw fallback.
-11. Renderer history overlays compact content onto cloned raw entities.
+11. Renderer history reads raw persisted content.
 12. `CompactAgent` provides reusable model-backed semantic extraction.
 13. `WebFetchResultCompactor` owns the web document profile and stable output
     envelope.
 14. `ExecuteCommandResultCompactor` owns the command output profile and stable
     diagnostic envelope.
 15. Deterministic head-tail compaction handles unavailable model output.
-16. Shared runtime facts retain raw structured content; a run-scoped store
-    supplies resolved content to UI and transcript consumers.
+16. Shared runtime facts retain raw structured content throughout the active
+    run. Request preparation supplies compact content to future model seeds.
 17. Model input is bounded, dynamically sourced fields stay untrusted, and
     metadata declares the sensitive-data policy.
 18. Atomic database claims and scheduler singleflight protect one compaction
     identity from duplicate execution.
+19. The background queue runs one job at a time and holds at most eight waiting
+    jobs.
+20. The immediate continuation sends full raw content without a character
+    guard.
 
 ## Implementation snapshot
 

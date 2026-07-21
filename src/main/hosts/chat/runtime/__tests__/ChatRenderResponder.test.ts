@@ -3,12 +3,22 @@ import type { AgentEvent } from '@main/agent/runtime/events/AgentEvent'
 import { HostRenderEventMapper } from '@main/hosts/shared/render'
 import { RUN_TOOL_EVENTS } from '@shared/run/tool-events'
 
-const { emitChatUpdatedMock } = vi.hoisted(() => ({
-  emitChatUpdatedMock: vi.fn()
+const { emitChatUpdatedMock, loggerWarnMock } = vi.hoisted(() => ({
+  emitChatUpdatedMock: vi.fn(),
+  loggerWarnMock: vi.fn()
 }))
 
 vi.mock('@main/db/chat', () => ({
   chatDb: {}
+}))
+
+vi.mock('@main/logging/LogService', () => ({
+  createLogger: vi.fn(() => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: loggerWarnMock,
+    error: vi.fn()
+  }))
 }))
 
 vi.mock('../../mapping/ChatEventMapper', () => ({
@@ -451,12 +461,7 @@ describe('ChatRenderResponder', () => {
 
     const messageEntities = [placeholder]
     const compactionScheduler = {
-      schedule: vi.fn(),
-      resolve: vi.fn(async ({ rawContent }) => ({
-        content: rawContent,
-        source: 'raw' as const,
-        reason: 'disabled' as const
-      }))
+      schedule: vi.fn()
     }
     const controller = new AbortController()
     const adapter = new ChatRenderResponder(
@@ -465,7 +470,6 @@ describe('ChatRenderResponder', () => {
       placeholder,
       undefined,
       compactionScheduler,
-      undefined,
       controller.signal
     )
 
@@ -519,7 +523,7 @@ describe('ChatRenderResponder', () => {
         })
       ])
     )
-    expect(compactionScheduler.resolve).toHaveBeenCalledWith(expect.objectContaining({
+    expect(compactionScheduler.schedule).toHaveBeenCalledWith(expect.objectContaining({
       messageId: 900,
       rawContent: '{"ok":true}',
       args: {
@@ -533,7 +537,7 @@ describe('ChatRenderResponder', () => {
     }))
   })
 
-  it('persists raw content before emitting and forwarding the resolved tool result', async () => {
+  it('persists, emits, and forwards raw content before background compaction settles', async () => {
     const emitter = {
       emit: vi.fn()
     } as any
@@ -571,13 +575,9 @@ describe('ChatRenderResponder', () => {
         }
       })
     } as any
+    const backgroundCompaction = new Promise(() => {})
     const compactionScheduler = {
-      schedule: vi.fn(),
-      resolve: vi.fn(async () => ({
-        content: 'compact result',
-        source: 'compact' as const,
-        reason: 'compacted' as const
-      }))
+      schedule: vi.fn(() => backgroundCompaction)
     }
     const messageEntities = [assistantDraft]
     const responder = new ChatRenderResponder(
@@ -603,13 +603,20 @@ describe('ChatRenderResponder', () => {
     })
 
     expect(persistedContents).toEqual(['raw result'])
-    expect(messageEntities.at(-1)?.body.content).toBe('compact result')
+    expect(messageEntities.at(-1)?.body.content).toBe('raw result')
     expect(result.content).toBe('raw result')
+    expect(compactionScheduler.schedule).toHaveBeenCalledWith(expect.objectContaining({
+      messageId: 900,
+      rawContent: 'raw result',
+      args: {
+        url: 'https://example.com'
+      }
+    }))
     expect(emitter.emit).toHaveBeenCalledWith(
       RUN_TOOL_EVENTS.TOOL_EXECUTION_COMPLETED,
       expect.objectContaining({
         toolCallId: 'tool-1',
-        result: 'compact result'
+        result: 'raw result'
       })
     )
   })
@@ -630,12 +637,7 @@ describe('ChatRenderResponder', () => {
       }
     }
     const compactionScheduler = {
-      schedule: vi.fn(),
-      resolve: vi.fn(async ({ rawContent }) => ({
-        content: rawContent,
-        source: 'raw' as const,
-        reason: 'disabled' as const
-      }))
+      schedule: vi.fn()
     }
     const responder = new ChatRenderResponder(
       emitter,
@@ -683,7 +685,8 @@ describe('ChatRenderResponder', () => {
     }))
   })
 
-  it('forwards raw content when resolving the tool result fails', async () => {
+  it('forwards raw content when scheduling background compaction throws', async () => {
+    loggerWarnMock.mockClear()
     const emitter = {
       emit: vi.fn()
     } as any
@@ -698,8 +701,7 @@ describe('ChatRenderResponder', () => {
       }
     }
     const compactionScheduler = {
-      schedule: vi.fn(),
-      resolve: vi.fn(async () => {
+      schedule: vi.fn(() => {
         throw new Error('compaction unavailable')
       })
     }
@@ -728,6 +730,14 @@ describe('ChatRenderResponder', () => {
 
     expect(messageEntities.at(-1)?.body.content).toBe('raw result')
     expect(result.content).toBe('raw result')
+    expect(loggerWarnMock).toHaveBeenCalledWith(
+      'tool_result.compaction.schedule_failed',
+      expect.objectContaining({
+        messageId: 900,
+        toolName: 'web_fetch',
+        toolCallId: 'tool-1'
+      })
+    )
     expect(emitter.emit).toHaveBeenCalledWith(
       RUN_TOOL_EVENTS.TOOL_EXECUTION_COMPLETED,
       expect.objectContaining({

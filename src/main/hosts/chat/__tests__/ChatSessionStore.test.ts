@@ -1,23 +1,48 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { updateChatMock, getChatByIdMock } = vi.hoisted(() => ({
+const { updateChatMock, getChatByIdMock, getMessagesByChatUuidMock } = vi.hoisted(() => ({
   updateChatMock: vi.fn(),
-  getChatByIdMock: vi.fn()
+  getChatByIdMock: vi.fn(),
+  getMessagesByChatUuidMock: vi.fn()
 }))
 
 vi.mock('@main/db/DatabaseService', () => ({
   default: {
     updateChat: updateChatMock,
-    getChatById: getChatByIdMock
+    getChatById: getChatByIdMock,
+    getMessagesByChatUuid: getMessagesByChatUuidMock
   }
 }))
 
 import { ChatSessionStore } from '../persistence/ChatSessionStore'
 
-describe('ChatSessionStore.finalizeChatEntity', () => {
+describe('ChatSessionStore', () => {
   beforeEach(() => {
     updateChatMock.mockReset()
     getChatByIdMock.mockReset()
+    getMessagesByChatUuidMock.mockReset()
+  })
+
+  it('loads raw persisted tool-result history', () => {
+    const messages = [{
+      id: 42,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'tool',
+        name: 'web_fetch',
+        toolCallId: 'call-42',
+        content: 'raw result',
+        segments: []
+      }
+    }]
+    getMessagesByChatUuidMock.mockReturnValue(messages)
+
+    const result = new ChatSessionStore().loadHistoryMessages({
+      uuid: 'chat-1'
+    } as ChatEntity)
+
+    expect(result).toBe(messages)
+    expect(getMessagesByChatUuidMock).toHaveBeenCalledWith('chat-1')
   })
 
   it('keeps NewChat for a fresh chat so post-run title generation can run', () => {

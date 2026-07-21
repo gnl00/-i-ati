@@ -2,12 +2,14 @@ import { assertMessageEntitySegmentsHaveIds } from '@shared/chat/segmentId'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 import { projectToolResultContentForDisplay } from '@main/agent/runtime/tools/ToolResultContentProjector'
 import type { ToolResultFact } from '@main/agent/runtime/tools/ToolResultFact'
+import { createLogger } from '@main/logging/LogService'
 import type { AgentRenderMessageState } from '@main/hosts/shared/render'
 import { ChatEventMapper } from '../mapping/ChatEventMapper'
 import { ChatStepStore } from '../persistence/ChatStepStore'
 import { ChatRenderMapper } from './ChatRenderMapper'
-import { ToolResultResolutionStore } from './ToolResultResolutionStore'
-import type { ToolResultContentResolver } from './ToolResultContentResolver'
+import type { ToolResultCompactionTrigger } from './ToolResultCompactionTrigger'
+
+const logger = createLogger('ChatRenderOutput')
 
 const hasPersistableAssistantPayload = (body: ChatMessage): boolean => {
   const hasContent = typeof body.content === 'string'
@@ -42,8 +44,7 @@ export class ChatRenderOutput {
     private readonly assistantDraft: MessageEntity,
     private readonly stepStore = new ChatStepStore(),
     mapper = new ChatRenderMapper(),
-    private readonly toolResultContentResolver: ToolResultContentResolver,
-    private readonly resolutions = new ToolResultResolutionStore(),
+    private readonly toolResultCompactionTrigger: ToolResultCompactionTrigger,
     private readonly signal?: AbortSignal
   ) {
     this.messageEvents = new ChatEventMapper(emitter)
@@ -183,28 +184,29 @@ export class ChatRenderOutput {
     )
     this.messageEntities.push(entity)
 
-    let resolvedContent = rawContent
+    this.messageEvents.emitToolResultAttached(result.toolCallId, entity)
+
     if (entity.id != null) {
       const toolCall = this.assistantDraft.body.toolCalls
         ?.find(candidate => candidate.id === result.toolCallId)
       try {
-        const resolutionInput = {
+        this.toolResultCompactionTrigger.schedule({
           messageId: entity.id,
           result,
           rawContent,
           args: parseToolCallArguments(toolCall?.function.arguments),
           signal: this.signal
-        }
-        const resolved = await this.toolResultContentResolver.resolve(resolutionInput)
-        resolvedContent = resolved.content
-      } catch {
-        resolvedContent = rawContent
+        })
+      } catch (error) {
+        logger.warn('tool_result.compaction.schedule_failed', {
+          messageId: entity.id,
+          toolName: result.toolName,
+          toolCallId: result.toolCallId,
+          error: error instanceof Error ? error.message : String(error)
+        })
       }
     }
 
-    entity.body.content = resolvedContent
-    this.resolutions.set(result, resolvedContent)
-    this.messageEvents.emitToolResultAttached(result.toolCallId, entity)
-    return resolvedContent
+    return rawContent
   }
 }

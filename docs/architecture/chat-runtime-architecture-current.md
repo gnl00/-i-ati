@@ -96,16 +96,26 @@ level, and compactor ID. `web_fetch` declares the `balanced` level with the
 the `command-output` compactor. Both profiles use a 1,000-character semantic
 content budget; the reserved `minimal` level uses 500 characters.
 
-`ChatRenderOutput` persists the raw tool result, then awaits its injected
-`ToolResultContentResolver`. `RunRuntimeFactory` wires the production
+`ChatRenderOutput` persists the raw tool result, emits that raw message to the
+renderer, and invokes its injected `ToolResultCompactionTrigger`. It then
+returns the same raw content to the tool-completion event. Synchronous
+scheduling failures produce a structured warning while raw persistence and
+continuation remain available. `RunRuntimeFactory` wires the production
 `ToolResultCompactionScheduler` into this narrow host contract. This keeps the
-chat render modules loadable in Node runtimes without eagerly loading the
-embedded-tool and Electron module graph. The scheduler reads the registered
-tool metadata, runs the configured compactor, and returns one resolved result.
-A compact result with positive size gain becomes the resolved content.
-The raw `ToolResultFact` remains unchanged for downstream side-effect sinks.
-A run-scoped `ToolResultResolutionStore` supplies the resolved content to the
-renderer event and transcript record factory.
+chat render modules loadable in Node runtimes while orchestration owns the
+embedded-tool, database, compactor, and Electron dependency graph.
+
+The default transcript record factory appends the original `ToolResultFact` to
+the active run. The immediate continuation therefore receives the complete raw
+content. Later steps in that active run use the same in-memory transcript
+snapshot and retain the existing cold projection behavior for older results.
+
+The scheduler reads registered tool metadata and places configured jobs into a
+bounded FIFO queue. One job runs at a time, eight jobs may wait, and the first
+drain starts through `setImmediate`. Identity-keyed singleflight shares queued
+or running work. Queue overflow emits `tool_result.compaction.queue_full` and
+leaves the persisted raw message available for future replay. Compactor output
+with positive size gain becomes a ready derived row for later runs.
 `WebFetchResultCompactor` sends the fetched body to the reusable `CompactAgent`,
 which uses the configured lite model for semantic extraction. The compactor
 then restores provider-neutral URL, title, status, source, citation, and
@@ -127,16 +137,16 @@ version, token usage, latency, input size, sent size, truncation state,
 redaction count, and ready content are stored in
 `tool_result_compactions`, while `messages.body` retains the raw source.
 
-During the next request preparation, `RunRequestFactory` performs one batch
+During the next submitted-run preparation, `RunRequestFactory` performs one batch
 lookup for ready compactions associated with tool messages still present in the
 request. It reloads those persisted tool messages as the raw source. Shared
 selection helpers filter results through the current metadata configuration,
 validate the raw SHA-256 hash, and choose the newest compactor version by
-persisted message ID. Historical model seeds and historical renderer message
-queries overlay the selected content onto cloned message entities.
-Database updates preserve raw tool content. Ready lookups deduplicate IDs and
-query in batches of 500. Raw fallback continues through the existing cold
-replay guard in `RequestMaterializer`.
+persisted message ID. Historical model seeds receive selected compact content.
+Renderer live events, `ChatSessionStore` history, and renderer message IPC all
+use raw persisted content. Database updates preserve raw tool content. Ready
+lookups deduplicate IDs and query in batches of 500. Raw fallback continues
+through the existing cold replay guard in `RequestMaterializer`.
 
 Compaction identity uses message ID, level, compactor ID, compactor version, and
 raw hash. Database claim transitions permit `pending|failed -> running`;

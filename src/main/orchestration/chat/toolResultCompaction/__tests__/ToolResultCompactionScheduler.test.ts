@@ -21,7 +21,7 @@ vi.mock('@main/logging/LogService', () => ({
 }))
 
 const flushAsyncWork = async (): Promise<void> => {
-  await new Promise(resolve => setTimeout(resolve, 0))
+  await new Promise(resolve => setImmediate(resolve))
 }
 
 describe('DefaultToolResultCompactionScheduler', () => {
@@ -87,6 +87,7 @@ describe('DefaultToolResultCompactionScheduler', () => {
         content: 'raw'
       }
     })
+    expect(compactor.compact).not.toHaveBeenCalled()
     await flushAsyncWork()
 
     expect(store.createPendingToolResultCompaction).toHaveBeenCalledWith(expect.objectContaining({
@@ -229,7 +230,7 @@ describe('DefaultToolResultCompactionScheduler', () => {
     )
   })
 
-  it('resolves positive-gain compaction for immediate consumers', async () => {
+  it('exposes positive-gain compaction results for unit assertions', async () => {
     vi.spyOn(embeddedToolsRegistry, 'getToolMetadata').mockReturnValue({
       capability: 'web',
       riskLevel: 'none',
@@ -454,6 +455,7 @@ describe('DefaultToolResultCompactionScheduler', () => {
 
     const first = scheduler.resolve(input)
     const second = scheduler.resolve(input)
+    await flushAsyncWork()
     complete?.({
       content: 'compact',
       compactorId: 'configured-compactor',
@@ -472,5 +474,71 @@ describe('DefaultToolResultCompactionScheduler', () => {
     ])
     expect(compactor.compact).toHaveBeenCalledTimes(1)
     expect(store.createPendingToolResultCompaction).toHaveBeenCalledTimes(1)
+  })
+
+  it('runs one job with eight waiting and rejects the tenth queued identity', async () => {
+    vi.spyOn(embeddedToolsRegistry, 'getToolMetadata').mockReturnValue({
+      capability: 'web',
+      riskLevel: 'none',
+      mutatesWorkspace: false,
+      subagent: 'allow',
+      resultCompaction: {
+        enabled: true,
+        level: 'balanced',
+        compactorId: 'configured-compactor'
+      }
+    })
+    const compactor: ToolResultCompactor = {
+      id: 'configured-compactor',
+      version: 1,
+      compact: vi.fn(() => new Promise<Awaited<ReturnType<ToolResultCompactor['compact']>>>(
+        () => {}
+      ))
+    }
+    const store = {
+      createPendingToolResultCompaction: vi.fn().mockReturnValue(70),
+      markToolResultCompactionRunning: vi.fn().mockReturnValue(true),
+      markToolResultCompactionReady: vi.fn(),
+      markToolResultCompactionFailed: vi.fn()
+    }
+    const scheduler = new DefaultToolResultCompactionScheduler(
+      store,
+      new ToolResultCompactorRegistry([compactor])
+    )
+
+    const jobs = Array.from({ length: 10 }, (_, index) => scheduler.resolve({
+      messageId: 100 + index,
+      rawContent: `raw content ${index}`,
+      result: {
+        stepId: `step-${index}`,
+        toolCallId: `call-${index}`,
+        toolCallIndex: index,
+        toolName: 'metadata_driven_tool',
+        status: 'success'
+      }
+    }))
+
+    await expect(jobs[9]).resolves.toEqual({
+      content: 'raw content 9',
+      source: 'raw',
+      reason: 'queue_full'
+    })
+    await flushAsyncWork()
+
+    expect(compactor.compact).toHaveBeenCalledTimes(1)
+    expect(compactor.compact).toHaveBeenCalledWith(expect.objectContaining({
+      messageId: 100,
+      toolCallId: 'call-0'
+    }))
+    expect(store.createPendingToolResultCompaction).toHaveBeenCalledTimes(1)
+    expect(mocks.logger.warn).toHaveBeenCalledWith(
+      'tool_result.compaction.queue_full',
+      {
+        messageId: 109,
+        toolName: 'metadata_driven_tool',
+        toolCallId: 'call-9',
+        queueDepth: 8
+      }
+    )
   })
 })

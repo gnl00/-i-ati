@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   DB_MESSAGE_DELETE,
@@ -107,7 +106,7 @@ describe('registerMessageHandlers', () => {
     expect(registeredChannels).toContain(DB_MESSAGE_DELETE)
   })
 
-  it('overlays ready tool-result compactions in chat-scoped history reads', async () => {
+  it('returns raw tool-result content when a ready compaction exists', async () => {
     chatDbMock.getMessagesByChatUuid.mockReturnValue([{
       id: 42,
       chatUuid: 'chat-1',
@@ -127,7 +126,7 @@ describe('registerMessageHandlers', () => {
       level: 'balanced',
       status: 'ready',
       content: 'compact result',
-      originalHash: createHash('sha256').update('raw result').digest('hex'),
+      originalHash: 'ready-hash',
       originalCharacters: 10,
       compactedCharacters: 7,
       estimatedTokens: 2,
@@ -145,8 +144,8 @@ describe('registerMessageHandlers', () => {
     )?.[1]
     const messages = await handler({}, 'chat-1')
 
-    expect(messages[0].body.content).toBe('compact result')
-    expect(chatDbMock.getReadyToolResultCompactionsByMessageIds).toHaveBeenCalledWith([42])
+    expect(messages[0].body.content).toBe('raw result')
+    expect(chatDbMock.getReadyToolResultCompactionsByMessageIds).not.toHaveBeenCalled()
   })
 
 })
