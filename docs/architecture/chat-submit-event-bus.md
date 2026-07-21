@@ -15,7 +15,8 @@ Make main process the only runtime truth for chat execution. Renderer only submi
   - drives `request -> stream -> tool -> next request`
 - `RunEventEmitter`
   - sends `RUN_EVENT` to renderer
-  - persists trace events for debugging
+  - persists durable trace events for debugging
+  - sends `tool.execution.output` as an ephemeral IPC/sink event
 - `useChatRun`
   - submits a run
   - subscribes to run events
@@ -32,7 +33,9 @@ run.accepted
   -> run.state.changed(streaming / executing_tools / finalizing)
   -> message.updated (0..n)
   -> tool.call.detected (0..n)
-  -> tool.execution.started / completed / failed
+  -> tool.execution.started
+  -> tool.execution.output (0..n, ephemeral)
+  -> tool.execution.completed / failed
   -> tool.result.attached (0..n)
   -> chat.updated
   -> run.completed | run.failed | run.aborted
@@ -42,6 +45,7 @@ run.accepted
 ## Design Rules
 - Main owns lifecycle, persistence, tool execution and post-run jobs.
 - Renderer never rebuilds assistant delta or tool-call state.
+- Live command output stays in bounded renderer run state keyed by chat and tool call.
 - `run.completed` is the boundary for restoring input state.
 - title generation and compression are post-run jobs and must not block run completion.
 

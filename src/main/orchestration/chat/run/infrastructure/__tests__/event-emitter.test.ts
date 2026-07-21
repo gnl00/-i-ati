@@ -64,4 +64,45 @@ describe('RunEventEmitter', () => {
       })
     )
   })
+
+  it('delivers live tool output to ipc and sinks without persisting trace rows', () => {
+    const sink = {
+      handleEvent: vi.fn()
+    }
+    const emitter = new RunEventEmitter({
+      submissionId: 'submission-output',
+      chatId: 1,
+      chatUuid: 'chat-1'
+    }, [sink])
+
+    emitter.emit(RUN_EVENTS.RUN_ACCEPTED, {
+      accepted: true,
+      submissionId: 'submission-output'
+    })
+    emitter.emit(RUN_EVENTS.TOOL_EXECUTION_OUTPUT, {
+      toolCallId: 'tool-1',
+      sequence: 1,
+      chunks: [{ stream: 'stdout', text: 'building...' }],
+      stdoutBytes: 11,
+      stderrBytes: 0
+    })
+    emitter.emit(RUN_EVENTS.RUN_STATE_CHANGED, {
+      state: 'streaming'
+    })
+
+    expect(saveRunEventMock).toHaveBeenCalledTimes(2)
+    expect(saveRunEventMock.mock.calls.map(([event]) => event.sequence)).toEqual([1, 3])
+    expect(webContentsSendMock).toHaveBeenCalledWith(
+      RUN_EVENT,
+      expect.objectContaining({
+        type: RUN_EVENTS.TOOL_EXECUTION_OUTPUT,
+        sequence: 2,
+        payload: expect.objectContaining({
+          toolCallId: 'tool-1',
+          sequence: 1
+        })
+      })
+    )
+    expect(sink.handleEvent).toHaveBeenCalledTimes(3)
+  })
 })

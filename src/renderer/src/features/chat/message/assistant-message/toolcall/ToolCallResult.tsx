@@ -12,6 +12,11 @@ import { SubagentResults } from './SubagentResults'
 import { AssistantSegmentPopout } from '../renderers/AssistantSegmentPopout'
 import type { SupportSegmentHeaderTone } from '../renderers/SupportSegmentHeader'
 import { getReasonFromToolCall } from '../model/toolCallReason'
+import { useChatStore } from '@renderer/features/chat/state/chatStore'
+import {
+  buildToolLiveOutputKey,
+  type ToolLiveOutput
+} from '@renderer/features/chat/state/chatRunUiStore'
 
 export interface ToolCallResultProps {
   toolCall: ToolCallSegment
@@ -813,14 +818,83 @@ function WikiToolSummary({
 export type ToolCallResultPanelProps = {
   toolCall: ToolCallSegment
   toolResponse: ToolCallResponse | undefined
+  liveOutput?: ToolLiveOutput
 }
+
+const LiveToolOutput = React.memo(({ output }: { output: ToolLiveOutput }) => {
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const isPinnedRef = useRef(true)
+
+  useEffect(() => {
+    const viewport = viewportRef.current
+    if (viewport && isPinnedRef.current) {
+      viewport.scrollTop = viewport.scrollHeight
+    }
+  }, [output.sequence, output.stderr, output.stdout])
+
+  const renderStream = (
+    label: 'stdout' | 'stderr',
+    content: string
+  ): React.ReactNode => {
+    if (!content) {
+      return null
+    }
+    return (
+      <section>
+        <div className="sticky top-0 border-b border-slate-200/60 bg-slate-100/95 px-3 py-1 text-[9px] font-semibold uppercase tracking-wider text-slate-500 backdrop-blur-xs dark:border-slate-800 dark:bg-slate-900/95 dark:text-slate-400">
+          {label}
+        </div>
+        <pre
+          className={cn(
+            'wrap-break-word whitespace-pre-wrap px-3 py-2 font-mono text-[11px] leading-relaxed',
+            label === 'stderr'
+              ? 'text-amber-700 dark:text-amber-300'
+              : 'text-slate-700 dark:text-slate-200'
+          )}
+        >
+          {content}
+        </pre>
+      </section>
+    )
+  }
+
+  return (
+    <div
+      ref={viewportRef}
+      data-testid="tool-live-output"
+      className="h-[176px] w-full overflow-auto overscroll-contain bg-white/70 custom-scrollbar dark:bg-[#09090b]"
+      onScroll={(event) => {
+        const viewport = event.currentTarget
+        isPinnedRef.current = (
+          viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight
+        ) <= 24
+      }}
+      onWheel={(event) => event.stopPropagation()}
+      onTouchMove={(event) => event.stopPropagation()}
+    >
+      {renderStream('stdout', output.stdout)}
+      {renderStream('stderr', output.stderr)}
+    </div>
+  )
+})
+
+LiveToolOutput.displayName = 'LiveToolOutput'
 
 export const ToolCallResultPanel = React.memo(({
   toolCall: tc,
-  toolResponse
+  toolResponse,
+  liveOutput
 }: ToolCallResultPanelProps) => {
   const [showDetails, setShowDetails] = useState(false)
+  const hasSelectedLiveResultsRef = useRef(false)
   const shouldReduceMotion = Boolean(useReducedMotion())
+
+  useEffect(() => {
+    if (liveOutput && !hasSelectedLiveResultsRef.current) {
+      hasSelectedLiveResultsRef.current = true
+      setShowDetails(true)
+    }
+  }, [liveOutput])
 
   const resultPayload = useMemo(() => {
     return toolResponse?.result
@@ -957,8 +1031,8 @@ export const ToolCallResultPanel = React.memo(({
               </div>
 
               <SegmentedToggle
-                leftLabel="Request"
-                rightLabel="Response"
+                leftLabel="Parameters"
+                rightLabel="Results"
                 rightActive={showDetails}
                 onLeftClick={(e) => {
                   e.stopPropagation()
@@ -992,7 +1066,12 @@ export const ToolCallResultPanel = React.memo(({
               size="icon"
               aria-label="Copy tool result"
               className="h-7 w-7 rounded-xl hover:bg-slate-200/70 dark:hover:bg-slate-700/60"
-              onClick={(e) => onCopyClick(e, tc.content)}
+              onClick={(e) => onCopyClick(
+                e,
+                liveOutput
+                  ? `${liveOutput.stdout}${liveOutput.stderr}`
+                  : tc.content
+              )}
             >
               <Clipboard className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
             </Button>
@@ -1000,28 +1079,32 @@ export const ToolCallResultPanel = React.memo(({
 
           {showDetails ? (
             <div className="relative">
-              <div
-                className={cn(
-                  detailViewportHeightClass,
-                  'w-full overflow-hidden overscroll-contain bg-white/70 dark:bg-[#09090b]'
-                )}
-                onWheel={(e) => e.stopPropagation()}
-                onTouchMove={(e) => e.stopPropagation()}
-              >
-                <SpeedCodeHighlight
-                  code={visibleJsonContent}
-                  language="json"
-                  className="h-full min-h-full overflow-auto custom-scrollbar"
-                  themeOverride="github-dim"
-                />
-              </div>
+              {liveOutput ? (
+                <LiveToolOutput output={liveOutput} />
+              ) : (
+                <div
+                  className={cn(
+                    detailViewportHeightClass,
+                    'w-full overflow-hidden overscroll-contain bg-white/70 dark:bg-[#09090b]'
+                  )}
+                  onWheel={(e) => e.stopPropagation()}
+                  onTouchMove={(e) => e.stopPropagation()}
+                >
+                  <SpeedCodeHighlight
+                    code={visibleJsonContent}
+                    language="json"
+                    className="h-full min-h-full overflow-auto custom-scrollbar"
+                    themeOverride="github-dim"
+                  />
+                </div>
+              )}
               <div
                 className={cn(
                   'absolute bottom-0 left-0 right-0 border-t border-slate-200/70 bg-slate-100/90 px-3 py-1.5 text-[10px] text-zinc-500 backdrop-blur-xs transition-opacity duration-150 dark:border-slate-800 dark:bg-slate-900/90 dark:text-zinc-400',
-                  isJsonLong && !isJsonExpanded ? 'opacity-100' : 'pointer-events-none opacity-0'
+                  !liveOutput && isJsonLong && !isJsonExpanded ? 'opacity-100' : 'pointer-events-none opacity-0'
                 )}
               >
-                Showing a preview. Switch to "Full" to inspect the complete payload.
+                Showing a preview. Switch to &quot;Full&quot; to inspect the complete payload.
               </div>
             </div>
           ) : (
@@ -1031,7 +1114,7 @@ export const ToolCallResultPanel = React.memo(({
               onTouchMove={(e) => e.stopPropagation()}
             >
               {!areArgsReady ? (
-                <div className="text-[11px] italic text-zinc-400 dark:text-zinc-500">Preparing tool call parameters...</div>
+                <div className="text-[11px] italic text-zinc-400 dark:text-zinc-500">Preparing parameters...</div>
               ) : isWikiTool && wikiSummaryPayload ? (
                 <WikiToolSummary toolName={toolName} payload={wikiSummaryPayload} />
               ) : paramEntries.length > 0 ? (
@@ -1058,6 +1141,14 @@ ToolCallResultPanel.displayName = 'ToolCallResultPanel'
 
 const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }) => {
   const [isOpen, setIsOpen] = useState(false)
+  const liveOutput = useChatStore(state => {
+    if (!tc.toolCallId) {
+      return undefined
+    }
+    return state.toolLiveOutputs[
+      buildToolLiveOutputKey(state.currentChatUuid, tc.toolCallId)
+    ]
+  })
   const {
     toolResponse,
     isError,
@@ -1105,6 +1196,7 @@ const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }
         <ToolCallResultPanel
           toolCall={tc}
           toolResponse={toolResponse}
+          liveOutput={isRunning ? liveOutput : undefined}
         />
       </AssistantSegmentPopout>
     </motion.div>

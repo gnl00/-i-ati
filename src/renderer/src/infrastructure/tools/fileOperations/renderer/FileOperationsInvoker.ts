@@ -237,7 +237,7 @@ export async function invokeGetFileInfo(args: GetFileInfoArgs): Promise<GetFileI
 export async function invokeListAllowedDirectories(args: ListAllowedDirectoriesArgs): Promise<ListAllowedDirectoriesResponse> {
   try {
     const ipc = getElectronIPC()
-    return await ipc.invoke(FILE_LIST_ALLOWED_DIRS_ACTION, args)
+    return await ipc.invoke(FILE_LIST_ALLOWED_DIRS_ACTION, withChatUuid(args))
   } catch (error: any) {
     return { success: false, error: error.message || 'Unknown error' }
   }

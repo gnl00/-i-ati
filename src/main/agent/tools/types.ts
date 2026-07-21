@@ -1,5 +1,6 @@
 import type { ToolCallProps } from '@main/agent/contracts'
 import type { AgentConfirmationSource, ResolvedAgentApprovalPolicy } from '@tools/approval'
+import type { ToolOutputBatch } from '@shared/run/tool-events'
 
 export interface ToolExecutionResult {
   id: string
@@ -11,11 +12,18 @@ export interface ToolExecutionResult {
   status: 'success' | 'error' | 'timeout' | 'aborted'
 }
 
-export interface ToolExecutionProgress {
+export type { ToolOutputBatch } from '@shared/run/tool-events'
+
+export type ToolExecutionProgress = {
   id: string
   name: string
   phase: 'started' | 'completed' | 'failed'
   result?: ToolExecutionResult
+} | {
+  id: string
+  name: string
+  phase: 'output'
+  output: ToolOutputBatch
 }
 
 export interface ToolExecutorConfig {
@@ -23,6 +31,7 @@ export interface ToolExecutorConfig {
   onProgress?: (progress: ToolExecutionProgress) => void
   signal?: AbortSignal
   chatUuid?: string
+  workspaceRoot?: string
   submissionId?: string
   modelRef?: ModelRef
   allowedTools?: string[]

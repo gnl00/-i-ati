@@ -207,7 +207,7 @@ export interface DirectoryTreeArgs {
 
 export interface TreeNode {
   name: string
-  type: 'file' | 'directory'
+  type: 'file' | 'directory' | 'symlink'
   path: string
   children?: TreeNode[]
 }
@@ -273,7 +273,7 @@ export interface GetFileInfoResponse {
 
 // ============ List Allowed Directories ============
 export interface ListAllowedDirectoriesArgs {
-  // No parameters needed
+  chat_uuid?: string
 }
 
 export interface ListAllowedDirectoriesResponse {
@@ -383,7 +383,7 @@ export interface GlobArgs {
 export interface GlobMatch {
   path: string
   name: string
-  type: 'file' | 'directory'
+  type: 'file' | 'directory' | 'symlink'
 }
 
 export interface GlobResponse {
@@ -394,7 +394,10 @@ export interface GlobResponse {
   error?: string
 }
 
-export interface StatArgs extends GetFileInfoArgs {}
+export interface StatArgs {
+  path: string
+  chat_uuid?: string
+}
 export interface StatResponse extends GetFileInfoResponse {}
 
 export interface MkdirArgs extends CreateDirectoryArgs {}

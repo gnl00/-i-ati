@@ -20,6 +20,7 @@ import type {
   ToolAwaitingConfirmationEvent,
   ToolConfirmationDeniedEvent,
   ToolExecutionStartedEvent,
+  ToolExecutionOutputEvent,
   ToolExecutionCompletedEvent,
   ToolExecutionFailedEvent,
   ToolExecutionAbortedEvent
@@ -47,6 +48,9 @@ export interface AgentEventEmitter {
   emitToolExecutionStarted(
     input: Omit<ToolExecutionStartedEvent, 'type'>
   ): Promise<void>
+  emitToolExecutionOutput(
+    input: Omit<ToolExecutionOutputEvent, 'type'>
+  ): Promise<void>
   emitToolExecutionCompleted(
     input: Omit<ToolExecutionCompletedEvent, 'type'>
   ): Promise<void>
@@ -65,7 +69,7 @@ export interface AgentEventEmitter {
 export class DefaultAgentEventEmitter implements AgentEventEmitter {
   constructor(private readonly agentEventBus: AgentEventBus) {}
 
-  private emit(event: StepStartedEvent | StepDeltaEvent | StepCompletedEvent | StepFailedEvent | StepAbortedEvent | ToolAwaitingConfirmationEvent | ToolConfirmationDeniedEvent | ToolExecutionStartedEvent | ToolExecutionCompletedEvent | ToolExecutionFailedEvent | ToolExecutionAbortedEvent | LoopCompletedEvent | LoopFailedEvent | LoopAbortedEvent): Promise<void> {
+  private emit(event: StepStartedEvent | StepDeltaEvent | StepCompletedEvent | StepFailedEvent | StepAbortedEvent | ToolAwaitingConfirmationEvent | ToolConfirmationDeniedEvent | ToolExecutionStartedEvent | ToolExecutionOutputEvent | ToolExecutionCompletedEvent | ToolExecutionFailedEvent | ToolExecutionAbortedEvent | LoopCompletedEvent | LoopFailedEvent | LoopAbortedEvent): Promise<void> {
     return Promise.resolve(this.agentEventBus.emit(event))
   }
 
@@ -103,6 +107,12 @@ export class DefaultAgentEventEmitter implements AgentEventEmitter {
 
   emitToolExecutionStarted(
     input: Omit<ToolExecutionStartedEvent, 'type'>
+  ): Promise<void> {
+    return this.emit({ type: 'tool.execution_progress', ...input })
+  }
+
+  emitToolExecutionOutput(
+    input: Omit<ToolExecutionOutputEvent, 'type'>
   ): Promise<void> {
     return this.emit({ type: 'tool.execution_progress', ...input })
   }

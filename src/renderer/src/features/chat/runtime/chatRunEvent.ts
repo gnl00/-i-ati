@@ -8,6 +8,7 @@ import type { MessageSegmentPatch } from '@shared/chat/render-events'
 import { HIDDEN_MESSAGE_SOURCES } from '@shared/messages/messageSources'
 import { RUN_LIFECYCLE_EVENTS } from '@shared/run/lifecycle-events'
 import { RUN_MAINTENANCE_EVENTS } from '@shared/run/maintenance-events'
+import { RUN_TOOL_EVENTS } from '@shared/run/tool-events'
 import type { RunEvent } from '@shared/run/events'
 import type { MutableRefObject } from 'react'
 import { toast } from 'sonner'
@@ -287,6 +288,17 @@ export async function handleChatRunEvent(
   rememberRunChatUuid(input, chatUuid)
 
   switch (event.type) {
+    case RUN_TOOL_EVENTS.TOOL_EXECUTION_OUTPUT:
+      getLatestChatStore().appendToolLiveOutput(event.payload, event.submissionId, chatUuid)
+      return
+    case RUN_TOOL_EVENTS.TOOL_EXECUTION_COMPLETED:
+    case RUN_TOOL_EVENTS.TOOL_EXECUTION_FAILED:
+      getLatestChatStore().clearToolLiveOutput(
+        event.payload.toolCallId,
+        event.submissionId,
+        chatUuid
+      )
+      return
     case CHAT_HOST_EVENTS.CHAT_READY:
       handleChatReady(input, chatStore, event, hadRunChatUuidBeforeEvent)
       return
@@ -397,6 +409,7 @@ export async function handleChatRunEvent(
     }
     case RUN_LIFECYCLE_EVENTS.RUN_COMPLETED:
       flushPreviewPatchBatch(input)
+      getLatestChatStore().clearToolLiveOutputs(event.submissionId)
       input.previewPatchBatcher?.flushPerfSummary('run_completed')
       scheduleAssistantStreamingPerfRecentSessionFlush({
         reason: 'run_completed'
@@ -427,6 +440,7 @@ export async function handleChatRunEvent(
       return
     case RUN_LIFECYCLE_EVENTS.RUN_FAILED: {
       flushPreviewPatchBatch(input)
+      getLatestChatStore().clearToolLiveOutputs(event.submissionId)
       input.previewPatchBatcher?.flushPerfSummary('run_failed')
       scheduleAssistantStreamingPerfRecentSessionFlush({
         reason: 'run_failed'
@@ -456,6 +470,7 @@ export async function handleChatRunEvent(
     }
     case RUN_LIFECYCLE_EVENTS.RUN_ABORTED:
       flushPreviewPatchBatch(input)
+      getLatestChatStore().clearToolLiveOutputs(event.submissionId)
       input.previewPatchBatcher?.flushPerfSummary('run_aborted')
       scheduleAssistantStreamingPerfRecentSessionFlush({
         reason: 'run_aborted'

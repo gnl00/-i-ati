@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToolExecutor } from '../ToolExecutor'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 
@@ -8,7 +8,7 @@ const {
   getToolSourceMock,
   assessExecuteCommandReviewMock
 } = vi.hoisted(() => ({
-  handlerMock: vi.fn(async (args: any) => ({ ok: true, args })),
+  handlerMock: vi.fn(async (args: any, _context?: unknown) => ({ ok: true, args })),
   mcpCallToolMock: vi.fn(async () => [{ ok: true }]),
   getToolSourceMock: vi.fn(() => undefined as 'mcp' | undefined),
   assessExecuteCommandReviewMock: vi.fn(() => ({
@@ -31,6 +31,7 @@ vi.mock('@tools/registry', () => ({
       || name === 'wiki_delete'
       || name === 'write'
       || name === 'knowledgebase_search'
+      || name === 'run_skill_script'
       || name === 'vision_analyze'
     )),
     getHandler: vi.fn(() => handlerMock)
@@ -49,6 +50,80 @@ vi.mock('@main/tools/command/risk', () => ({
 }))
 
 describe('ToolExecutor runtime context', () => {
+  beforeEach(() => {
+    handlerMock.mockClear()
+  })
+
+  it('passes cancellation and reports bounded output batches from embedded tools', async () => {
+    handlerMock.mockImplementationOnce(async (_args: any, context?: any) => {
+      context?.onOutput?.({ stream: 'stdout', text: 'hello ' })
+      context?.onOutput?.({ stream: 'stdout', text: 'world' })
+      context?.onOutput?.({ stream: 'stderr', text: 'warning' })
+      return { ok: true, args: _args }
+    })
+    const controller = new AbortController()
+    const progress: any[] = []
+    const executor = new ToolExecutor({
+      signal: controller.signal,
+      onProgress: event => progress.push(event)
+    })
+
+    await executor.execute([{
+      id: 'call-output',
+      function: 'execute_command',
+      args: JSON.stringify({ command: 'echo hello' })
+    } as any])
+
+    const context = (handlerMock.mock.calls[0] as any[])[1]
+    expect(context.signal).toBe(controller.signal)
+    expect(progress).toContainEqual(expect.objectContaining({
+      id: 'call-output',
+      phase: 'output',
+      output: {
+        toolCallId: 'call-output',
+        sequence: 1,
+        chunks: [
+          { stream: 'stdout', text: 'hello ' },
+          { stream: 'stdout', text: 'world' },
+          { stream: 'stderr', text: 'warning' }
+        ],
+        stdoutBytes: 11,
+        stderrBytes: 7
+      }
+    }))
+  })
+
+  it('bounds queued progress payloads during a 100 MiB synchronous output burst', async () => {
+    const chunk = 'x'.repeat(64 * 1024)
+    const chunkCount = 1_600
+    handlerMock.mockImplementationOnce(async (_args: any, context?: any) => {
+      for (let index = 0; index < chunkCount; index += 1) {
+        context?.onOutput?.({ stream: 'stdout', text: chunk })
+      }
+      return { ok: true, args: _args }
+    })
+    const progress: any[] = []
+    const executor = new ToolExecutor({
+      onProgress: event => progress.push(event)
+    })
+
+    await executor.execute([{
+      id: 'call-output-stress',
+      function: 'execute_command',
+      args: JSON.stringify({ command: 'large-output' })
+    } as any])
+
+    const outputEvents = progress.filter(event => event.phase === 'output')
+    expect(outputEvents).toHaveLength(1)
+    expect(outputEvents[0].output.stdoutBytes).toBe(chunk.length * chunkCount)
+    expect(
+      outputEvents[0].output.chunks.reduce(
+        (total: number, outputChunk: { text: string }) => total + Buffer.byteLength(outputChunk.text),
+        0
+      )
+    ).toBeLessThanOrEqual(64 * 1024)
+  })
+
   it('overrides chat_uuid for schedule tools from runtime context', async () => {
     const executor = new ToolExecutor({
       chatUuid: 'chat-runtime'
@@ -107,6 +182,46 @@ describe('ToolExecutor runtime context', () => {
     expect(handlerMock).toHaveBeenCalledTimes(1)
     const callArgs = handlerMock.mock.calls[0][0]
     expect(callArgs.chat_uuid).toBe('chat-runtime')
+  })
+
+  it('overrides model-supplied chat_uuid for embedded file tools', async () => {
+    handlerMock.mockClear()
+    const executor = new ToolExecutor({
+      chatUuid: 'chat-runtime'
+    })
+
+    await executor.execute([{
+      id: 'call-file-boundary',
+      function: 'write',
+      args: JSON.stringify({
+        chat_uuid: 'chat-from-llm',
+        file_path: 'notes.txt',
+        content: 'safe'
+      })
+    } as any])
+
+    expect(handlerMock).toHaveBeenCalledTimes(1)
+    const callArgs = handlerMock.mock.calls[0][0]
+    expect(callArgs.chat_uuid).toBe('chat-runtime')
+  })
+
+  it('discards model-supplied chat_uuid when embedded runtime context is absent', async () => {
+    handlerMock.mockClear()
+    const executor = new ToolExecutor()
+
+    await executor.execute([{
+      id: 'call-file-without-context',
+      function: 'write',
+      args: JSON.stringify({
+        chat_uuid: 'chat-from-llm',
+        file_path: 'notes.txt',
+        content: 'safe'
+      })
+    } as any])
+
+    expect(handlerMock).toHaveBeenCalledTimes(1)
+    const callArgs = handlerMock.mock.calls[0][0]
+    expect(callArgs).not.toHaveProperty('chat_uuid')
   })
 
   it('treats empty args string as empty object', async () => {
@@ -513,6 +628,137 @@ describe('ToolExecutor runtime context', () => {
     expect(result.error?.message).toContain('outside workspace denied')
   })
 
+  it('requires confirmation when cwd escapes the workspace through parent traversal', async () => {
+    handlerMock.mockClear()
+    const requestConfirmation = vi.fn(async () => ({
+      approved: false,
+      reason: 'cwd denied'
+    }))
+    const executor = new ToolExecutor({
+      chatUuid: 'chat-command-cwd',
+      workspaceRoot: '/tmp/ati-tool-workspace',
+      requestConfirmation
+    })
+
+    const [result] = await executor.execute([{
+      id: 'call-cwd-traversal',
+      function: 'execute_command',
+      args: JSON.stringify({
+        command: 'pwd',
+        cwd: '../../etc',
+        execution_reason: 'Inspect the selected directory',
+        possible_risk: 'Read-only command',
+        risk_score: 0,
+        filesystem_scope: 'workspace',
+        filesystem_scope_reason: 'The command itself reads the current directory.'
+      })
+    } as any])
+
+    expect(requestConfirmation).toHaveBeenCalledTimes(1)
+    const request = (requestConfirmation.mock.calls as any[])[0][0]
+    expect(request.ui.inferredFilesystemScope).toBe('outside_workspace')
+    expect(request.ui.filesystemReason).toContain('../../etc')
+    expect(request.ui.possibleRisk).toContain('../../etc')
+    expect(handlerMock).not.toHaveBeenCalled()
+    expect(result.status).toBe('aborted')
+  })
+
+  it('requires confirmation and summarizes execution-affecting environment overrides', async () => {
+    handlerMock.mockClear()
+    const requestConfirmation = vi.fn(async () => ({
+      approved: false,
+      reason: 'environment denied'
+    }))
+    const executor = new ToolExecutor({ requestConfirmation })
+
+    const [result] = await executor.execute([{
+      id: 'call-sensitive-env',
+      function: 'execute_command',
+      args: JSON.stringify({
+        command: 'node ./script.js',
+        env: {
+          NODE_OPTIONS: '--require ./bootstrap.js',
+          PATH: '/custom/bin'
+        },
+        execution_reason: 'Run the workspace script',
+        possible_risk: 'Loads Node.js code',
+        risk_score: 0,
+        filesystem_scope: 'workspace',
+        filesystem_scope_reason: 'The script path is inside the workspace.'
+      })
+    } as any])
+
+    expect(requestConfirmation).toHaveBeenCalledTimes(1)
+    const request = (requestConfirmation.mock.calls as any[])[0][0]
+    expect(request.ui.inferredFilesystemScope).toBe('unknown')
+    expect(request.ui.filesystemReason).toContain('NODE_OPTIONS, PATH')
+    expect(request.ui.possibleRisk).toContain('NODE_OPTIONS, PATH')
+    expect(handlerMock).not.toHaveBeenCalled()
+    expect(result.status).toBe('aborted')
+  })
+
+  it('keeps a workspace-relative cwd on the safe-command path with backend revalidation', async () => {
+    handlerMock.mockClear()
+    const requestConfirmation = vi.fn(async () => ({ approved: true }))
+    const executor = new ToolExecutor({
+      workspaceRoot: '/tmp/ati-tool-workspace',
+      requestConfirmation
+    })
+
+    const [result] = await executor.execute([{
+      id: 'call-workspace-cwd',
+      function: 'execute_command',
+      args: JSON.stringify({
+        command: 'pwd',
+        cwd: 'src',
+        execution_reason: 'Inspect the source directory',
+        possible_risk: 'Read-only command',
+        risk_score: 0,
+        filesystem_scope: 'workspace',
+        filesystem_scope_reason: 'The directory is inside the workspace.'
+      })
+    } as any])
+
+    expect(requestConfirmation).not.toHaveBeenCalled()
+    expect(handlerMock).toHaveBeenCalledWith(expect.objectContaining({
+      confirmed: false
+    }), expect.anything())
+    expect(result.status).toBe('success')
+  })
+
+  it('requires confirmation when a relative workspace root cannot prove cwd containment', async () => {
+    handlerMock.mockClear()
+    const requestConfirmation = vi.fn(async () => ({
+      approved: false,
+      reason: 'relative root denied'
+    }))
+    const executor = new ToolExecutor({
+      workspaceRoot: './workspaces/chat-1',
+      requestConfirmation
+    })
+
+    const [result] = await executor.execute([{
+      id: 'call-relative-workspace-root',
+      function: 'execute_command',
+      args: JSON.stringify({
+        command: 'pwd',
+        cwd: 'src',
+        execution_reason: 'Inspect the source directory',
+        possible_risk: 'Read-only command',
+        risk_score: 0,
+        filesystem_scope: 'workspace',
+        filesystem_scope_reason: 'The directory is expected inside the workspace.'
+      })
+    } as any])
+
+    expect(requestConfirmation).toHaveBeenCalledTimes(1)
+    const request = (requestConfirmation.mock.calls as any[])[0][0]
+    expect(request.ui.inferredFilesystemScope).toBe('unknown')
+    expect(request.ui.filesystemReason).toContain('workspace root is unavailable')
+    expect(handlerMock).not.toHaveBeenCalled()
+    expect(result.status).toBe('aborted')
+  })
+
   it('passes confirmation source metadata to manual reviews', async () => {
     handlerMock.mockClear()
     assessExecuteCommandReviewMock.mockReturnValueOnce({
@@ -638,6 +884,52 @@ describe('ToolExecutor runtime context', () => {
     expect(result.status).toBe('success')
   })
 
+  it('requires trusted metadata confirmation for skill scripts even when model args claim confirmation', async () => {
+    handlerMock.mockClear()
+    const requestConfirmation = vi.fn(async () => ({
+      approved: false,
+      reason: 'skill script denied'
+    }))
+    const executor = new ToolExecutor({ requestConfirmation })
+
+    const [result] = await executor.execute([{
+      id: 'call-skill-script-denied',
+      function: 'run_skill_script',
+      args: JSON.stringify({
+        name: 'amap',
+        script: 'scripts/amap.ts',
+        confirmed: true
+      })
+    } as any])
+
+    expect(requestConfirmation).toHaveBeenCalledTimes(1)
+    expect(handlerMock).not.toHaveBeenCalled()
+    expect(result.status).toBe('aborted')
+    expect(result.error?.message).toContain('skill script denied')
+  })
+
+  it('passes trusted metadata approval to the skill script execution context', async () => {
+    handlerMock.mockClear()
+    const requestConfirmation = vi.fn(async () => ({ approved: true }))
+    const executor = new ToolExecutor({ requestConfirmation })
+
+    const [result] = await executor.execute([{
+      id: 'call-skill-script-approved',
+      function: 'run_skill_script',
+      args: JSON.stringify({
+        name: 'amap',
+        script: 'scripts/amap.ts'
+      })
+    } as any])
+
+    expect(requestConfirmation).toHaveBeenCalledTimes(1)
+    expect(handlerMock).toHaveBeenCalledTimes(1)
+    expect(handlerMock.mock.calls[0]?.[1]).toEqual(expect.objectContaining({
+      metadataConfirmationApproved: true
+    }))
+    expect(result.status).toBe('success')
+  })
+
   it('auto-approves metadata confirmations under session auto approval mode', async () => {
     handlerMock.mockClear()
     const requestConfirmation = vi.fn(async () => ({
@@ -659,6 +951,9 @@ describe('ToolExecutor runtime context', () => {
 
     expect(requestConfirmation).not.toHaveBeenCalled()
     expect(handlerMock).toHaveBeenCalledTimes(1)
+    expect(handlerMock.mock.calls[0]?.[1]).toEqual(expect.objectContaining({
+      metadataConfirmationApproved: true
+    }))
     expect(result.status).toBe('success')
   })
 })

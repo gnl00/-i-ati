@@ -1,6 +1,7 @@
 import type { RunState } from '@shared/run/lifecycle-events'
 import type { ToolResultFact } from '@main/agent/runtime/tools/ToolResultFact'
 import type { AgentRenderMessageState } from './AgentRenderState'
+import type { ToolOutputBatch } from '@main/agent/tools'
 import type { PreviewEffect } from './AgentRenderStateReducer'
 
 export interface HostRenderPreviewUpdatedEvent {
@@ -60,6 +61,16 @@ export interface HostRenderToolExecutionStartedEvent {
   toolName: string
 }
 
+export interface HostRenderToolExecutionOutputEvent {
+  type: 'host.tool.execution.output'
+  timestamp: number
+  stepId: string
+  toolCallId: string
+  toolCallIndex: number
+  toolName: string
+  output: ToolOutputBatch
+}
+
 export interface HostRenderToolDetectedEvent {
   type: 'host.tool.detected'
   timestamp: number
@@ -85,4 +96,5 @@ export type HostRenderEvent =
   | HostRenderToolDetectedEvent
   | HostRenderToolConfirmationRequiredEvent
   | HostRenderToolExecutionStartedEvent
+  | HostRenderToolExecutionOutputEvent
   | HostRenderToolResultAvailableEvent

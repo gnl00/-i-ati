@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'fs/promises'
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'fs/promises'
 import { dirname, join } from 'path'
 import { tmpdir } from 'os'
 
@@ -28,7 +28,19 @@ vi.mock('../RipgrepRunner', () => ({
   runRipgrepFileList: runRipgrepFileListMock
 }))
 
-import { processEditFile, processGlob, processGrep, processLs, processReadTextFile } from '../FileOperationsProcessor'
+import {
+  processEdit,
+  processEditFile,
+  processGlob,
+  processGrep,
+  processListAllowedDirectories,
+  processLs,
+  processMv,
+  processRead,
+  processReadTextFile,
+  processTree,
+  processWrite
+} from '../FileOperationsProcessor'
 
 describe('FileOperationsProcessor.read_text_file', () => {
   let userDataDir: string
@@ -171,7 +183,7 @@ describe('FileOperationsProcessor.read_text_file', () => {
     expect(result.success).toBe(true)
     expect(result.target_type).toBe('directory')
     expect(result.matches).toEqual([{
-      file_path: join(rootDir, 'src', 'sample.ts'),
+      file_path: 'src/sample.ts',
       line: 3,
       content: 'target line',
       column: 1
@@ -235,7 +247,7 @@ describe('FileOperationsProcessor.read_text_file', () => {
     })
 
     expect(result.success).toBe(false)
-    expect(result.error).toContain('Path must stay inside workspace')
+    expect(result.error).toContain('PATH_ABSOLUTE_REJECTED')
     expect(runRipgrepSearchMock).not.toHaveBeenCalled()
   })
 
@@ -349,7 +361,7 @@ describe('FileOperationsProcessor.read_text_file', () => {
 
     expect(result.success).toBe(true)
     expect(result.matches).toHaveLength(1)
-    expect(result.matches?.[0].path).toBe('alpha.test.ts')
+    expect(result.matches?.[0].path).toBe('src/alpha.test.ts')
   })
 
   it('skips ignored directories during JavaScript glob fallback', async () => {
@@ -398,8 +410,8 @@ describe('FileOperationsProcessor.read_text_file', () => {
 
     expect(result.success).toBe(true)
     expect(result.matches).toEqual(expect.arrayContaining([
-      { path: 'alpha.test.ts', name: 'alpha.test.ts', type: 'file' },
-      { path: 'cases.test.ts', name: 'cases.test.ts', type: 'directory' }
+      { path: 'src/alpha.test.ts', name: 'alpha.test.ts', type: 'file' },
+      { path: 'src/cases.test.ts', name: 'cases.test.ts', type: 'directory' }
     ]))
     expect(runRipgrepFileListMock).toHaveBeenCalledWith({
       rootPath: join(rootDir, 'src'),
@@ -598,5 +610,210 @@ describe('FileOperationsProcessor.edit_file', () => {
     expect(result.status).toBe('match_count_mismatch')
     expect(result.diagnostics?.matches).toHaveLength(2)
     await expect(readFile(filePath, 'utf-8')).resolves.toBe(['token', 'token'].join('\n'))
+  })
+})
+
+describe('FileOperationsProcessor workspace confinement', () => {
+  let userDataDir: string
+  let workspaceRoot: string
+  let outsideRoot: string
+
+  beforeEach(async () => {
+    userDataDir = await mkdtemp(join(tmpdir(), 'ati-file-safety-'))
+    workspaceRoot = join(userDataDir, 'workspaces', 'safe-chat')
+    outsideRoot = join(userDataDir, 'outside')
+    await mkdir(workspaceRoot, { recursive: true })
+    await mkdir(outsideRoot, { recursive: true })
+    getPathMock.mockReturnValue(userDataDir)
+    getWorkspacePathByUuidMock.mockReset()
+    getWorkspacePathByUuidMock.mockReturnValue(undefined)
+    runRipgrepSearchMock.mockReset()
+    runRipgrepSearchMock.mockRejectedValue(new Error('rg missing'))
+    runRipgrepFileListMock.mockReset()
+    runRipgrepFileListMock.mockRejectedValue(new Error('rg missing'))
+  })
+
+  afterEach(async () => {
+    await rm(userDataDir, { recursive: true, force: true })
+    vi.clearAllMocks()
+  })
+
+  it('enforces the embedded relative contract and preserves legacy IPC absolute paths', async () => {
+    const filePath = join(workspaceRoot, 'nested', 'sample.txt')
+    await mkdir(dirname(filePath), { recursive: true })
+    await writeFile(filePath, 'safe', 'utf-8')
+
+    const embeddedAbsolute = await processRead({ chat_uuid: 'safe-chat', file_path: filePath })
+    expect(embeddedAbsolute).toMatchObject({ success: false })
+    expect(embeddedAbsolute.error).toContain('PATH_ABSOLUTE_REJECTED')
+
+    const embeddedMixedSeparators = await processRead({
+      chat_uuid: 'safe-chat',
+      file_path: 'nested\\sample.txt'
+    })
+    expect(embeddedMixedSeparators).toMatchObject({ success: true, content: 'safe' })
+    expect(embeddedMixedSeparators.file_path).toBe('nested/sample.txt')
+
+    const legacyAbsolute = await processReadTextFile({ chat_uuid: 'safe-chat', file_path: filePath })
+    expect(legacyAbsolute).toMatchObject({ success: true, content: 'safe' })
+  })
+
+  it('lists symlinks and stops tree, glob, and grep fallback traversal', async () => {
+    const secretFile = join(outsideRoot, 'secret.txt')
+    await writeFile(secretFile, 'outside target', 'utf-8')
+    await symlink(outsideRoot, join(workspaceRoot, 'external'))
+    await symlink(workspaceRoot, join(workspaceRoot, 'cycle'))
+    await writeFile(join(workspaceRoot, 'visible.txt'), 'inside target', 'utf-8')
+
+    const listing = await processLs({ chat_uuid: 'safe-chat', path: '.' })
+    expect(listing.entries).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'external', type: 'symlink', path: 'external' }),
+      expect.objectContaining({ name: 'cycle', type: 'symlink', path: 'cycle' })
+    ]))
+
+    const tree = await processTree({ chat_uuid: 'safe-chat', path: '.', max_depth: 10 })
+    expect(tree.success).toBe(true)
+    expect(tree.tree?.children).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: 'external', type: 'symlink' }),
+      expect.objectContaining({ name: 'cycle', type: 'symlink' })
+    ]))
+    expect(tree.tree?.children?.find(child => child.name === 'external')).not.toHaveProperty('children')
+    expect(tree.tree?.children?.find(child => child.name === 'cycle')).not.toHaveProperty('children')
+
+    const glob = await processGlob({ chat_uuid: 'safe-chat', path: '.', pattern: '**/*.txt' })
+    expect(glob.matches).toEqual([expect.objectContaining({ path: 'visible.txt' })])
+
+    const grep = await processGrep({ chat_uuid: 'safe-chat', path: '.', pattern: 'target' })
+    expect(grep.matches?.map(match => match.file_path)).toEqual(['visible.txt'])
+    expect(grep.matches?.some(match => match.content.includes('outside'))).toBe(false)
+  })
+
+  it('revalidates ripgrep-emitted paths before returning matches', async () => {
+    const outsideFile = join(outsideRoot, 'secret.txt')
+    await writeFile(outsideFile, 'outside target', 'utf-8')
+    runRipgrepSearchMock.mockResolvedValue({
+      matches: [{ file_path: outsideFile, line: 1, content: 'outside target', column: 1 }],
+      total_matches: 1,
+      files_searched: 1
+    })
+
+    const result = await processGrep({ chat_uuid: 'safe-chat', path: '.', pattern: 'target' })
+    expect(result.success).toBe(true)
+    expect(result.matches).toEqual([])
+  })
+
+  it('keeps ripgrep-emitted paths inside the requested traversal root', async () => {
+    const sourceDir = join(workspaceRoot, 'src')
+    const siblingFile = join(workspaceRoot, 'sibling.txt')
+    await mkdir(sourceDir, { recursive: true })
+    await writeFile(join(sourceDir, 'inside.txt'), 'inside only', 'utf-8')
+    await writeFile(siblingFile, 'target in sibling', 'utf-8')
+    runRipgrepSearchMock.mockResolvedValue({
+      matches: [{ file_path: siblingFile, line: 1, content: 'target in sibling', column: 1 }],
+      total_matches: 1,
+      files_searched: 1
+    })
+
+    const directoryResult = await processGrep({
+      chat_uuid: 'safe-chat', path: 'src', pattern: 'target'
+    })
+    expect(directoryResult.success).toBe(true)
+    expect(directoryResult.matches).toEqual([])
+
+    runRipgrepSearchMock.mockResolvedValue({
+      matches: [{ file_path: siblingFile, line: 1, content: 'target in sibling', column: 1 }],
+      total_matches: 1,
+      files_searched: 1
+    })
+    const fileResult = await processGrep({
+      chat_uuid: 'safe-chat', path: 'src/inside.txt', pattern: 'target'
+    })
+    expect(fileResult.success).toBe(true)
+    expect(fileResult.matches).toEqual([])
+
+    runRipgrepFileListMock.mockResolvedValue({ files: ['../sibling.txt'] })
+    const globResult = await processGlob({
+      chat_uuid: 'safe-chat', path: 'src', pattern: '**/*.txt'
+    })
+    expect(globResult.success).toBe(true)
+    expect(globResult.matches?.map(match => match.path)).toEqual(['src/inside.txt'])
+  })
+
+  it('normalizes embedded mutation response paths', async () => {
+    const writeResult = await processWrite({
+      chat_uuid: 'safe-chat', file_path: 'nested\\draft.txt', content: 'draft'
+    })
+    expect(writeResult).toMatchObject({ success: true, file_path: 'nested/draft.txt' })
+
+    const editResult = await processEdit({
+      chat_uuid: 'safe-chat',
+      file_path: 'nested\\draft.txt',
+      search: 'draft',
+      replace: 'ready'
+    })
+    expect(editResult).toMatchObject({ success: true, file_path: 'nested/draft.txt' })
+
+    const moveResult = await processMv({
+      chat_uuid: 'safe-chat',
+      source_path: 'nested\\draft.txt',
+      destination_path: 'nested\\final.txt'
+    })
+    expect(moveResult).toMatchObject({
+      success: true,
+      source_path: 'nested/draft.txt',
+      destination_path: 'nested/final.txt'
+    })
+  })
+
+  it('keeps outside content unchanged across write, edit, and move attempts', async () => {
+    const outsideFile = join(outsideRoot, 'secret.txt')
+    const sourceFile = join(workspaceRoot, 'source.txt')
+    await writeFile(outsideFile, 'original', 'utf-8')
+    await writeFile(sourceFile, 'source', 'utf-8')
+    await symlink(outsideRoot, join(workspaceRoot, 'external'))
+    await symlink(outsideFile, join(workspaceRoot, 'external-file'))
+
+    const writeResult = await processWrite({
+      chat_uuid: 'safe-chat', file_path: 'external/new.txt', content: 'changed'
+    })
+    const editResult = await processEdit({
+      chat_uuid: 'safe-chat', file_path: 'external-file', search: 'original', replace: 'changed'
+    })
+    const moveResult = await processMv({
+      chat_uuid: 'safe-chat', source_path: 'source.txt', destination_path: 'external-file', overwrite: true
+    })
+
+    expect(writeResult.success).toBe(false)
+    expect(editResult.success).toBe(false)
+    expect(moveResult.success).toBe(false)
+    await expect(readFile(outsideFile, 'utf-8')).resolves.toBe('original')
+    await expect(readFile(sourceFile, 'utf-8')).resolves.toBe('source')
+  })
+
+  it('validates the write backup destination before copying', async () => {
+    const sourceFile = join(workspaceRoot, 'safe.txt')
+    const outsideFile = join(outsideRoot, 'backup-target.txt')
+    await writeFile(sourceFile, 'workspace original', 'utf-8')
+    await writeFile(outsideFile, 'outside original', 'utf-8')
+    await symlink(outsideFile, `${sourceFile}.backup`)
+
+    const result = await processWrite({
+      chat_uuid: 'safe-chat',
+      file_path: 'safe.txt',
+      content: 'workspace changed',
+      backup: true
+    })
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('PATH_SYMLINK_ESCAPE')
+    await expect(readFile(sourceFile, 'utf-8')).resolves.toBe('workspace original')
+    await expect(readFile(outsideFile, 'utf-8')).resolves.toBe('outside original')
+  })
+
+  it('reports the effective workspace root as the allowed directory', async () => {
+    const result = await processListAllowedDirectories({ chat_uuid: 'safe-chat' })
+    expect(result).toMatchObject({ success: true })
+    expect(result.directories).toHaveLength(1)
+    expect(result.directories?.[0]).toContain('/workspaces/safe-chat')
   })
 })

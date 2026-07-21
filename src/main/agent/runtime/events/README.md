@@ -127,5 +127,7 @@ runtime 里的事件至少要分成三类：
   - 如果模型需要看到这次拒绝，loop 应再把这条 fact materialize 成稳定的 denied/aborted tool result 写入 transcript
 - `tool.execution_progress`
   - `started` 不携带 result
+  - `output` 携带有序、已批处理的 stdout/stderr chunk 和累计字节数
   - `completed` / `failed` / `aborted` 必须携带 result
+  - `started` 与 `output` 按 tool call 串行投递，terminal event 等待队列完成
   - terminal progress 的 identity 以 `result` 为准，不再在顶层重复展开

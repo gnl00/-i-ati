@@ -8,6 +8,7 @@ import {
   parseSkillMetadata,
   validateSkillName
 } from './SkillParser'
+import { resolveSkillPath } from './SkillPathResolver'
 
 type SkillMetadataCacheItem = SkillMetadata & {
   mtimeMs: number
@@ -29,7 +30,7 @@ const SKILLS_DIR = 'skills'
 const BUILT_IN_SKILL_SOURCE = 'built-in'
 const SKILL_METADATA_CACHE_KEY = 'skillsMetadataCache'
 const SKILL_SOURCE_FILE = '.skill-source.json'
-const SKILL_METADATA_CACHE_VERSION = 3
+const SKILL_METADATA_CACHE_VERSION = 4
 
 const skillMetadataCache: {
   root: string | null
@@ -77,13 +78,9 @@ export const skillDirExists = async (dirPath: string): Promise<boolean> => {
 }
 
 export const readSkillSourceInfo = async (skillDir: string): Promise<SkillSourceInfo | null> => {
-  const sourceFile = path.join(skillDir, SKILL_SOURCE_FILE)
-  if (!existsSync(sourceFile)) {
-    return null
-  }
-
   try {
-    const raw = await fs.readFile(sourceFile, 'utf-8')
+    const resolvedSourceFile = await resolveSkillPath(skillDir, SKILL_SOURCE_FILE, 'Skill source file')
+    const raw = await fs.readFile(resolvedSourceFile.canonicalPath, 'utf-8')
     const parsed = JSON.parse(raw) as SkillSourceInfo
     if (!parsed?.source) {
       return null
@@ -106,7 +103,12 @@ export const writeSkillSourceInfo = async (
     importedAt: Date.now()
   }
   const sourceFile = path.join(skillDir, SKILL_SOURCE_FILE)
-  await fs.writeFile(sourceFile, `${JSON.stringify(payload, null, 2)}\n`, 'utf-8')
+  await fs.rm(sourceFile, { force: true })
+  await fs.writeFile(
+    sourceFile,
+    `${JSON.stringify(payload, null, 2)}\n`,
+    { encoding: 'utf-8', flag: 'wx' }
+  )
 }
 
 const canUseDbCache = (): boolean => {
@@ -121,21 +123,17 @@ const readSkillMetadata = async (
   skillDir: string,
   source?: string
 ): Promise<SkillMetadataCacheItem | null> => {
-  const skillFile = path.join(skillDir, SKILL_FILE)
-  if (!existsSync(skillFile)) {
-    return null
-  }
-
   try {
-    const stat = await fs.stat(skillFile)
-    const content = await fs.readFile(skillFile, 'utf-8')
+    const resolvedSkillFile = await resolveSkillPath(skillDir, SKILL_FILE, 'Skill file')
+    const stat = await fs.stat(resolvedSkillFile.canonicalPath)
+    const content = await fs.readFile(resolvedSkillFile.canonicalPath, 'utf-8')
     const parsed = parseSkillMetadata(content, { name: path.basename(skillDir) })
     const sourceInfo = await readSkillSourceInfo(skillDir)
     return {
       ...parsed.metadata,
       mtimeMs: stat.mtimeMs,
       source: source ?? sourceInfo?.source,
-      path: skillFile
+      path: path.join(skillDir, SKILL_FILE)
     }
   } catch (error) {
     console.warn(`[SkillService] Failed to parse skill in ${path.basename(skillDir)}:`, error)
@@ -196,8 +194,13 @@ const isCacheValid = async (root: string, cache: SkillMetadataCacheFile): Promis
     }
 
     const skillDir = path.join(root, entry.name)
-    const skillFile = path.join(skillDir, SKILL_FILE)
-    if (!existsSync(skillFile)) {
+    let resolvedSkillFile: Awaited<ReturnType<typeof resolveSkillPath>>
+    try {
+      resolvedSkillFile = await resolveSkillPath(skillDir, SKILL_FILE, 'Skill file')
+    } catch {
+      if (cachedByName.has(entry.name)) {
+        return false
+      }
       continue
     }
 
@@ -205,8 +208,7 @@ const isCacheValid = async (root: string, cache: SkillMetadataCacheFile): Promis
     if (!cached) {
       return false
     }
-
-    const stat = await fs.stat(skillFile)
+    const stat = await fs.stat(resolvedSkillFile.canonicalPath)
     if (Math.round(stat.mtimeMs) !== Math.round(cached.mtimeMs)) {
       return false
     }
@@ -312,8 +314,8 @@ export const resolveSkillRootPath = async (name: string): Promise<string> => {
 
 export const readSkillContent = async (name: string): Promise<string> => {
   const skillRoot = await resolveSkillRootPath(name)
-  const skillFile = path.join(skillRoot, SKILL_FILE)
-  return await fs.readFile(skillFile, 'utf-8')
+  const resolvedSkillFile = await resolveSkillPath(skillRoot, SKILL_FILE, 'Skill file')
+  return await fs.readFile(resolvedSkillFile.canonicalPath, 'utf-8')
 }
 
 export const deleteInstalledSkill = async (name: string): Promise<void> => {

@@ -33,7 +33,12 @@ export interface ExecuteCommandResponse {
   command?: string // 执行的命令
   stdout?: string
   stderr?: string
+  stdout_bytes?: number
+  stderr_bytes?: number
+  stdout_truncated?: boolean
+  stderr_truncated?: boolean
   exit_code?: number
+  termination_signal?: string
   execution_time?: number
   error?: string
   // 如果需要用户确认

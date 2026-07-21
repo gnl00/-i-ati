@@ -3,13 +3,20 @@
  * 处理命令执行的主进程逻辑
  */
 
-import { exec, execFile } from 'child_process'
-import { promisify } from 'util'
-import { resolve, isAbsolute, join } from 'path'
+import { resolve, isAbsolute, join, delimiter, extname } from 'path'
 import { existsSync, mkdirSync } from 'fs'
 import { app } from 'electron'
-import { chatDb } from '@main/db/chat'
 import { createLogger } from '@main/logging/LogService'
+import { AbortError } from '@main/agent/contracts'
+import { ensureLoginShellPath } from '@main/services/shellEnvironment'
+import { resolveWorkspaceRoot } from '@main/services/filesystem/WorkspacePathResolver'
+import {
+  CommandProcessSpawnError,
+  runCommandProcess,
+  type CommandProcessRunOptions,
+  type CommandProcessRunResult
+} from '@main/services/command/CommandProcessRunner'
+import type { EmbeddedToolExecutionContext } from '@shared/tools/registry'
 import type {
   ExecuteCommandArgs,
   ExecuteCommandResponse
@@ -17,8 +24,6 @@ import type {
 import { assessCommandFilesystemScope } from './filesystemScope'
 import { assessExecuteCommandReview } from './risk'
 
-const execAsync = promisify(exec)
-const execFileAsync = promisify(execFile)
 const logger = createLogger('CommandExecutor')
 
 // ============================================
@@ -26,8 +31,68 @@ const logger = createLogger('CommandExecutor')
 // ============================================
 
 const DEFAULT_TIMEOUT = 30000 // 30 seconds
-const MAX_BUFFER = 10 * 1024 * 1024 // 10MB
+const MIN_TIMEOUT = 1
+const MAX_TIMEOUT = 24 * 60 * 60 * 1000
 const DEFAULT_WORKSPACE_NAME = 'tmp'
+
+function normalizeCommandTimeout(value: number | undefined): number {
+  if (value === undefined || !Number.isFinite(value)) {
+    return DEFAULT_TIMEOUT
+  }
+  return Math.max(MIN_TIMEOUT, Math.min(MAX_TIMEOUT, Math.floor(value)))
+}
+
+const WINDOWS_COMMAND_META_CHARACTER = /([()\][%!^"`<>&|;, *?])/g
+
+function escapeWindowsCommand(value: string): string {
+  if (/[\r\n\0]/.test(value)) {
+    throw new Error('Windows command arguments cannot contain line breaks or null bytes')
+  }
+  return value.replace(WINDOWS_COMMAND_META_CHARACTER, '^$1')
+}
+
+function escapeWindowsCommandArgument(value: string, doubleEscapeMeta: boolean): string {
+  if (/[\r\n\0]/.test(value)) {
+    throw new Error('Windows command arguments cannot contain line breaks or null bytes')
+  }
+
+  let escaped = value
+    .replace(/(?=(\\+?)?)\1"/g, '$1$1\\"')
+    .replace(/(?=(\\+?)?)\1$/, '$1$1')
+  escaped = `"${escaped}"`.replace(WINDOWS_COMMAND_META_CHARACTER, '^$1')
+  return doubleEscapeMeta
+    ? escaped.replace(WINDOWS_COMMAND_META_CHARACTER, '^$1')
+    : escaped
+}
+
+export interface ExecuteCommandInvocation {
+  executable: string
+  args: string[]
+}
+
+async function ensureLoginShellPathForCommand(signal?: AbortSignal): Promise<void> {
+  if (!signal) {
+    await ensureLoginShellPath()
+    return
+  }
+  if (signal.aborted) {
+    throw new AbortError('Command execution aborted')
+  }
+
+  let onAbort: (() => void) | undefined
+  const aborted = new Promise<never>((_resolve, reject) => {
+    onAbort = (): void => reject(new AbortError('Command execution aborted'))
+    signal.addEventListener('abort', onAbort, { once: true })
+  })
+
+  try {
+    await Promise.race([ensureLoginShellPath(), aborted])
+  } finally {
+    if (onAbort) {
+      signal.removeEventListener('abort', onAbort)
+    }
+  }
+}
 
 function normalizeWorkspaceBaseDir(workspacePath: string, chatUuid?: string): string {
   const userDataPath = app.getPath('userData')
@@ -51,25 +116,6 @@ function normalizeWorkspaceBaseDir(workspacePath: string, chatUuid?: string): st
   // Defensive fallback: prevent relative workspace paths from binding to process.cwd()
   logger.warn('workspace.relative_path_rebased', { workspacePath })
   return resolve(join(userDataPath, clean))
-}
-
-function resolveWorkspaceBaseDir(chatUuid?: string): string {
-  const userDataPath = app.getPath('userData')
-
-  if (!chatUuid) {
-    return join(userDataPath, 'workspaces', DEFAULT_WORKSPACE_NAME)
-  }
-
-  try {
-    const workspacePath = chatDb.getWorkspacePathByUuid(chatUuid)
-    if (workspacePath) {
-      return normalizeWorkspaceBaseDir(workspacePath, chatUuid)
-    }
-  } catch (error) {
-    logger.error('workspace.resolve_from_db_failed', error)
-  }
-
-  return join(userDataPath, 'workspaces', chatUuid)
 }
 
 // ============================================
@@ -119,7 +165,7 @@ class CommandExecutor {
       return [process.env.COMSPEC, 'cmd.exe'].filter((value): value is string => Boolean(value))
     }
 
-    return [
+    return Array.from(new Set([
       process.env.SHELL,
       '/bin/zsh',
       '/bin/bash',
@@ -127,32 +173,66 @@ class CommandExecutor {
       '/usr/bin/zsh',
       '/usr/bin/bash',
       '/usr/bin/sh'
-    ].filter((value): value is string => Boolean(value))
+    ].filter((value): value is string => Boolean(value))))
   }
 
-  private async execWithShells(
+  private async runWithShells(
     command: string,
-    options: {
-      cwd: string
-      timeout: number
-      env: Record<string, string>
-      maxBuffer: number
-    }
-  ) {
+    options: Omit<CommandProcessRunOptions, 'executable' | 'args'>
+  ): Promise<CommandProcessRunResult> {
     const shells = this.resolveShellCandidates()
-    if (shells.length === 0) {
-      return execAsync(command, options)
-    }
 
-    let lastError: any
+    let lastError: unknown
     for (const shell of shells) {
       try {
         logger.debug('command.using_shell', { shell })
-        return await execAsync(command, { ...options, shell })
-      } catch (error: any) {
+        const shellArgs = process.platform === 'win32'
+          ? ['/d', '/s', '/c', command]
+          : ['-c', command]
+        return await runCommandProcess({
+          ...options,
+          executable: shell,
+          args: shellArgs
+        })
+      } catch (error: unknown) {
         lastError = error
-        const code = typeof error?.code === 'string' ? error.code : undefined
-        const message = typeof error?.message === 'string' ? error.message : ''
+        const code = error instanceof CommandProcessSpawnError ? error.code : undefined
+        const message = error instanceof Error ? error.message : ''
+        if (code === 'ENOENT' || message.includes('ENOENT')) {
+          logger.warn('command.shell_not_found_retry', { shell })
+          continue
+        }
+        throw error
+      }
+    }
+
+    throw lastError
+  }
+
+  private async runWindowsCommandInvocation(
+    executable: string,
+    args: string[],
+    options: Omit<CommandProcessRunOptions, 'executable' | 'args'>
+  ): Promise<CommandProcessRunResult> {
+    const doubleEscapeMeta = /node_modules[\\/]\.bin[\\/][^\\/]+\.cmd$/i.test(executable)
+    const shellCommand = [
+      escapeWindowsCommand(executable),
+      ...args.map(value => escapeWindowsCommandArgument(value, doubleEscapeMeta))
+    ].join(' ')
+
+    let lastError: unknown
+    for (const shell of this.resolveShellCandidates()) {
+      try {
+        return await runCommandProcess({
+          ...options,
+          executable: shell,
+          args: ['/d', '/s', '/c', `"${shellCommand}"`],
+          windowsVerbatimArguments: true
+        })
+      } catch (error: unknown) {
+        lastError = error
+        const code = error instanceof CommandProcessSpawnError ? error.code : undefined
+        const message = error instanceof Error ? error.message : ''
         if (code === 'ENOENT' || message.includes('ENOENT')) {
           logger.warn('command.shell_not_found_retry', { shell })
           continue
@@ -168,16 +248,23 @@ class CommandExecutor {
     return /^[\w./-]+(\s+[\w./-]+)*$/.test(command.trim())
   }
 
-  private resolveExecutable(bin: string, env: Record<string, string>): string | null {
+  private resolveExecutable(bin: string, env: NodeJS.ProcessEnv): string | null {
     if (isAbsolute(bin)) {
       return bin
     }
     const pathValue = env.PATH || process.env.PATH || ''
-    const parts = pathValue.split(':').filter(Boolean)
+    const parts = pathValue.split(delimiter).filter(Boolean)
+    const extensions = process.platform === 'win32' && extname(bin).length === 0
+      ? (env.PATHEXT || process.env.PATHEXT || '.COM;.EXE;.BAT;.CMD')
+          .split(';')
+          .filter(Boolean)
+      : ['']
     for (const part of parts) {
-      const candidate = join(part, bin)
-      if (candidate && existsSync(candidate)) {
-        return candidate
+      for (const extension of extensions) {
+        const candidate = join(part, `${bin}${extension}`)
+        if (candidate && existsSync(candidate)) {
+          return candidate
+        }
       }
     }
     return null
@@ -186,18 +273,23 @@ class CommandExecutor {
   /**
    * 执行命令
    */
-  async executeCommand(args: ExecuteCommandArgs): Promise<ExecuteCommandResponse> {
+  async executeCommand(
+    args: ExecuteCommandArgs,
+    context?: EmbeddedToolExecutionContext,
+    invocation?: ExecuteCommandInvocation
+  ): Promise<ExecuteCommandResponse> {
     const {
       command,
       execution_reason,
       possible_risk,
       risk_score,
       cwd,
-      timeout = DEFAULT_TIMEOUT,
+      timeout: requestedTimeout,
       env,
       confirmed = false,
       chat_uuid
     } = args
+    const timeout = normalizeCommandTimeout(requestedTimeout)
 
     logger.info('command.execute_start', {
       command,
@@ -209,10 +301,16 @@ class CommandExecutor {
     try {
       // 1. 评估命令风险
       const riskAssessment = assessExecuteCommandReview({ command, possible_risk, risk_score })
+      const workspaceBasePath = chat_uuid
+        ? resolveWorkspaceRoot(chat_uuid)
+        : this.workspaceBasePath ?? resolveWorkspaceRoot()
       const filesystemScopeAssessment = assessCommandFilesystemScope({
         command,
         filesystem_scope: args.filesystem_scope,
-        filesystem_scope_reason: args.filesystem_scope_reason
+        filesystem_scope_reason: args.filesystem_scope_reason,
+        cwd,
+        env,
+        workspaceRoot: workspaceBasePath
       })
       logger.info('command.risk_assessed', {
         command,
@@ -246,7 +344,6 @@ class CommandExecutor {
       }
 
       // 3. 解析工作目录
-      const workspaceBasePath = chat_uuid ? resolveWorkspaceBaseDir(chat_uuid) : this.workspaceBasePath
       if (chat_uuid) {
         logger.debug('workspace.base_path_resolved_for_chat', { chatUuid: chat_uuid, workspaceBasePath })
       }
@@ -261,95 +358,135 @@ class CommandExecutor {
         }
       }
 
-      // 4. 准备环境变量
+      // 4. 补全 Electron 启动环境缺失的 login shell PATH
+      await ensureLoginShellPathForCommand(context?.signal)
+
+      // 5. 准备环境变量
       const execEnv = {
         ...process.env,
         ...env,
         FORCE_COLOR: '0' // 禁用颜色代码
       }
 
-      // 5. 执行命令
-      const startTime = Date.now()
-      let stdout = ''
-      let stderr = ''
-      if (this.isSimpleCommand(command)) {
+      // 6. 执行命令
+      let result: CommandProcessRunResult
+      const runOptions = {
+        cwd: workingDir,
+        timeoutMs: timeout,
+        env: execEnv,
+        signal: context?.signal,
+        onOutput: context?.onOutput
+      }
+      if (invocation) {
+        const resolvedExecutable = this.resolveExecutable(invocation.executable, execEnv)
+          || invocation.executable
+        const executableExtension = extname(resolvedExecutable).toLowerCase()
+        result = process.platform === 'win32'
+          && (executableExtension === '.cmd' || executableExtension === '.bat')
+          ? await this.runWindowsCommandInvocation(
+              resolvedExecutable,
+              invocation.args,
+              runOptions
+            )
+          : await runCommandProcess({
+              ...runOptions,
+              executable: resolvedExecutable,
+              args: invocation.args
+            })
+      } else if (this.isSimpleCommand(command)) {
         const tokens = command.trim().split(/\s+/)
         const bin = tokens[0]
-        const args = tokens.slice(1)
+        const commandArgs = tokens.slice(1)
         const resolvedBin = this.resolveExecutable(bin, execEnv)
-        const execFileTarget = resolvedBin || bin
-        try {
-          const result = await execFileAsync(execFileTarget, args, {
-            cwd: workingDir,
-            timeout,
-            env: execEnv,
-            maxBuffer: MAX_BUFFER
-          })
-          stdout = result.stdout ?? ''
-          stderr = result.stderr ?? ''
-        } catch (error) {
-          throw error
-        }
+        const executable = resolvedBin || bin
+        const executableExtension = extname(executable).toLowerCase()
+        result = process.platform === 'win32'
+          && (executableExtension === '.cmd' || executableExtension === '.bat')
+          ? await this.runWithShells(command, runOptions)
+          : await runCommandProcess({
+              ...runOptions,
+              executable,
+              args: commandArgs
+            })
       } else {
-        const result = await this.execWithShells(command, {
-          cwd: workingDir,
-          timeout,
-          env: execEnv,
-          maxBuffer: MAX_BUFFER
-        })
-        stdout = result.stdout ?? ''
-        stderr = result.stderr ?? ''
+        result = await this.runWithShells(command, runOptions)
       }
 
-      const executionTime = Date.now() - startTime
+      if (result.aborted) {
+        logger.info('command.execute_aborted', {
+          command,
+          executionTime: result.executionTimeMs,
+          terminationSignal: result.terminationSignal,
+          stdoutBytes: result.stdoutBytes,
+          stderrBytes: result.stderrBytes
+        })
+        throw new AbortError('Command execution aborted')
+      }
 
-      logger.info('command.execute_success', {
+      const success = result.exitCode === 0
+        && result.terminationSignal === null
+        && !result.timedOut
+
+      logger.info(success ? 'command.execute_success' : 'command.execute_failed', {
         command,
-        executionTime,
-        stdoutLength: stdout.length,
-        stderrLength: stderr.length
+        executionTime: result.executionTimeMs,
+        exitCode: result.exitCode,
+        terminationSignal: result.terminationSignal,
+        timedOut: result.timedOut,
+        aborted: false,
+        stdoutBytes: result.stdoutBytes,
+        stderrBytes: result.stderrBytes,
+        stdoutTruncated: result.stdoutTruncated,
+        stderrTruncated: result.stderrTruncated
       })
 
       return {
-        success: true,
+        success,
         command,
-        stdout: stdout.trim(),
-        stderr: stderr.trim(),
-        exit_code: 0,
-        execution_time: executionTime
+        stdout: result.stdout.trim(),
+        stderr: result.stderr.trim(),
+        stdout_bytes: result.stdoutBytes,
+        stderr_bytes: result.stderrBytes,
+        stdout_truncated: result.stdoutTruncated,
+        stderr_truncated: result.stderrTruncated,
+        exit_code: result.exitCode ?? -1,
+        termination_signal: result.terminationSignal ?? undefined,
+        execution_time: result.executionTimeMs,
+        error: result.timedOut
+          ? `Command timeout after ${timeout}ms`
+          : success
+            ? undefined
+            : result.terminationSignal
+              ? `Command terminated by ${result.terminationSignal}`
+              : `Command failed with exit code ${result.exitCode ?? -1}`
       }
-    } catch (error: any) {
-      const executionTime = 0
+    } catch (error: unknown) {
+      if (error instanceof AbortError) {
+        throw error
+      }
+      const candidate = error instanceof CommandProcessSpawnError ? error.result : undefined
+      const message = error instanceof Error ? error.message : String(error)
+      const code = error instanceof CommandProcessSpawnError ? error.code : undefined
       logger.error('command.execute_failed', {
         command,
-        error: error.message,
-        code: error.code,
-        killed: error.killed,
-        signal: error.signal
+        error: message,
+        code,
+        signal: candidate?.terminationSignal
       })
 
-      // 处理超时错误
-      if (error.killed && error.signal === 'SIGTERM') {
-        return {
-          success: false,
-          command,
-          stdout: error.stdout?.trim() || '',
-          stderr: error.stderr?.trim() || '',
-          exit_code: error.code || -1,
-          execution_time: timeout,
-          error: `Command timeout after ${timeout}ms`
-        }
-      }
-
-      // 处理其他执行错误
       return {
         success: false,
         command,
-        stdout: error.stdout?.trim() || '',
-        stderr: error.stderr?.trim() || '',
-        exit_code: error.code || -1,
-        execution_time: executionTime,
-        error: error.message
+        stdout: candidate?.stdout.trim() || '',
+        stderr: candidate?.stderr.trim() || '',
+        stdout_bytes: candidate?.stdoutBytes ?? 0,
+        stderr_bytes: candidate?.stderrBytes ?? 0,
+        stdout_truncated: candidate?.stdoutTruncated ?? false,
+        stderr_truncated: candidate?.stderrTruncated ?? false,
+        exit_code: typeof code === 'number' ? code : -1,
+        termination_signal: candidate?.terminationSignal ?? undefined,
+        execution_time: candidate?.executionTimeMs ?? 0,
+        error: message
       }
     }
   }
@@ -369,9 +506,11 @@ const commandExecutor = new CommandExecutor()
  * 处理命令执行请求
  */
 export async function processExecuteCommand(
-  args: ExecuteCommandArgs
+  args: ExecuteCommandArgs,
+  context?: EmbeddedToolExecutionContext,
+  invocation?: ExecuteCommandInvocation
 ): Promise<ExecuteCommandResponse> {
-  return commandExecutor.executeCommand(args)
+  return commandExecutor.executeCommand(args, context, invocation)
 }
 
 /**

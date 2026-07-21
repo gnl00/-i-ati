@@ -34,7 +34,7 @@ export const skillToolMetadata = {
   run_skill_script: {
     capability: 'skill',
     riskLevel: 'warning',
-    mutatesWorkspace: false,
+    mutatesWorkspace: true,
     subagent: 'deny'
   }
 } satisfies EmbeddedToolMetadataMap

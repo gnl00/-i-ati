@@ -44,7 +44,8 @@ vi.mock('framer-motion', async () => {
   return {
     AnimatePresence: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
     motion: {
-      div: passthrough('div')
+      div: passthrough('div'),
+      span: passthrough('span')
     },
     useReducedMotion: () => false
   }
@@ -54,6 +55,7 @@ import {
   projectSupportSegmentPhases,
   SupportSegmentGroup
 } from '../renderers/SupportSegmentGroup'
+import { useChatStore } from '@renderer/features/chat/state/chatStore'
 
 const toolCallItem = (args: {
   id: string
@@ -148,6 +150,10 @@ describe('SupportSegmentGroup', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
+    useChatStore.setState({
+      currentChatUuid: null,
+      toolLiveOutputs: {}
+    })
   })
 
   afterEach(async () => {
@@ -177,6 +183,37 @@ describe('SupportSegmentGroup', () => {
       'toolPhase:1',
       'thoughtPhase:2'
     ])
+  })
+
+  it('shows live output from the grouped tool row popout', async () => {
+    useChatStore.setState({ currentChatUuid: 'chat-live' })
+    useChatStore.getState().appendToolLiveOutput({
+      toolCallId: 'tool-live',
+      sequence: 1,
+      chunks: [{ stream: 'stdout', text: 'building grouped command' }],
+      stdoutBytes: 24,
+      stderrBytes: 0
+    }, 'submission-live', 'chat-live')
+
+    await act(async () => {
+      root.render(<SupportSegmentGroup items={[
+        toolCallItem({ id: 'tool-live', name: 'execute_command', order: 0, status: 'running' })
+      ]} />)
+    })
+    await act(async () => {
+      row(container, 'tool-live')?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(document.body.querySelector('[data-testid="tool-live-output"]')?.textContent)
+      .toContain('building grouped command')
+
+    await act(async () => {
+      root.render(<SupportSegmentGroup items={[
+        toolCallItem({ id: 'tool-live', name: 'execute_command', order: 0, status: 'completed' })
+      ]} />)
+    })
+
+    expect(document.body.querySelector('[data-testid="tool-live-output"]')).toBeNull()
   })
 
   it('keeps phase keys anchored to the first item while appending to a phase', () => {

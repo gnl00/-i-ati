@@ -155,6 +155,7 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
       maxConcurrency: 3,
       signal: input.signal,
       chatUuid: input.prepared.runSpec.runtimeContext.chatUuid,
+      workspaceRoot: input.prepared.runSpec.runtimeContext.workspacePath,
       submissionId: input.prepared.runSpec.submissionId,
       modelRef: {
         accountId: input.prepared.runSpec.modelContext.account.id,

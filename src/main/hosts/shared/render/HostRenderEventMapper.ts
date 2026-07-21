@@ -129,6 +129,18 @@ export class HostRenderEventMapper {
           })
           return hostEvents
         }
+        if (event.phase === 'output') {
+          hostEvents.push({
+            type: 'host.tool.execution.output',
+            timestamp: event.timestamp,
+            stepId: event.stepId,
+            toolCallId: event.toolCallId,
+            toolCallIndex: event.toolCallIndex,
+            toolName: event.toolName,
+            output: event.output
+          })
+          return hostEvents
+        }
 
         hostEvents.push({
           type: 'host.committed.updated',

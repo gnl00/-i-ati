@@ -1,11 +1,11 @@
 import { cn } from '@renderer/shared/lib/utils'
-import { ChevronDown, ChevronRight, FileCode, Folder, FolderOpen } from 'lucide-react'
+import { ChevronDown, ChevronRight, FileCode, Folder, FolderOpen, Link2 } from 'lucide-react'
 import React, { useMemo, useState } from 'react'
 
 export interface FileTreeNode {
   name: string
   path: string
-  type: 'file' | 'directory'
+  type: 'file' | 'directory' | 'symlink'
   children?: FileTreeNode[]
 }
 
@@ -45,7 +45,7 @@ export const WorkspaceFileTree: React.FC<WorkspaceFileTreeProps> = ({
     const filterNode = (node: FileTreeNode): FileTreeNode | null => {
       const nameMatches = node.name.toLowerCase().includes(query)
 
-      if (node.type === 'file') {
+      if (node.type !== 'directory') {
         return nameMatches ? node : null
       }
 
@@ -87,7 +87,7 @@ export const WorkspaceFileTree: React.FC<WorkspaceFileTreeProps> = ({
     setExpandedDirs(new Set(pathsToExpand))
   }, [searchQuery, filteredTree])
 
-  const toggleDirectory = (path: string) => {
+  const toggleDirectory = (path: string): void => {
     setExpandedDirs(prev => {
       const next = new Set(prev)
       if (next.has(path)) {
@@ -254,16 +254,27 @@ const TreeNodeComponent: React.FC<TreeNodeComponentProps> = ({
       )}
       style={{ paddingLeft: `${level * 12 + 8 + 16}px` }} // Extra padding for file indentation
     >
-      <FileCode
-        className={cn(
-          "h-3 w-3 shrink-0",
-          isUtility
-            ? "text-zinc-300 dark:text-zinc-700"
-            : isSelected
-              ? "text-blue-500"
-              : "text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300"
-        )}
-      />
+      {node.type === 'symlink' ? (
+        <Link2
+          className={cn(
+            'h-3 w-3 shrink-0',
+            isSelected
+              ? 'text-blue-500'
+              : 'text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300'
+          )}
+        />
+      ) : (
+        <FileCode
+          className={cn(
+            "h-3 w-3 shrink-0",
+            isUtility
+              ? "text-zinc-300 dark:text-zinc-700"
+              : isSelected
+                ? "text-blue-500"
+                : "text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300"
+          )}
+        />
+      )}
       <span className={cn(
         "truncate",
         isUtility && !isSelected && "text-zinc-400 dark:text-zinc-600"

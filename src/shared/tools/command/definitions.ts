@@ -38,16 +38,18 @@ export const commandTools = [
           },
           cwd: {
             type: 'string',
-            description: 'Working directory relative to workspace base directory (optional). If not specified, uses the workspace root.'
+            description: 'Working directory relative to the workspace root (optional). Absolute paths and parent traversal require explicit user approval.'
           },
           timeout: {
             type: 'number',
             description: 'Timeout in milliseconds (default: 30000). The command will be killed if it exceeds this time.',
-            default: 30000
+            default: 30000,
+            minimum: 1,
+            maximum: 86400000
           },
           env: {
             type: 'object',
-            description: 'Additional environment variables to set for the command execution (optional)',
+            description: 'Additional environment variables for the command (optional). Executable or runtime loading overrides such as PATH, BASH_ENV, ENV, and NODE_OPTIONS require explicit user approval; an approved PATH takes precedence over the inherited PATH.',
             additionalProperties: {
               type: 'string'
             }

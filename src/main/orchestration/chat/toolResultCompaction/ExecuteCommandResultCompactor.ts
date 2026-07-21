@@ -165,8 +165,13 @@ export class ExecuteCommandResultCompactor implements ToolResultCompactor {
     }
     copyDefined(compactResult, result, [
       'exit_code',
+      'termination_signal',
       'execution_time',
       'error',
+      'stdout_bytes',
+      'stderr_bytes',
+      'stdout_truncated',
+      'stderr_truncated',
       'requires_confirmation',
       'risk_level',
       'risk_reason',

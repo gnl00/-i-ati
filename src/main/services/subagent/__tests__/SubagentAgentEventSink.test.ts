@@ -25,6 +25,23 @@ describe('SubagentAgentEventSink', () => {
 
     await sink.handle({
       type: 'tool.execution_progress',
+      timestamp: 1,
+      phase: 'output',
+      stepId: 'step-1',
+      toolCallId: 'tool-1',
+      toolCallIndex: 0,
+      toolName: 'write',
+      output: {
+        toolCallId: 'tool-1',
+        sequence: 1,
+        chunks: [{ stream: 'stdout', text: 'writing' }],
+        stdoutBytes: 7,
+        stderrBytes: 0
+      }
+    })
+
+    await sink.handle({
+      type: 'tool.execution_progress',
       timestamp: 2,
       phase: 'completed',
       result: {

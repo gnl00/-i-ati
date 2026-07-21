@@ -46,6 +46,7 @@ const hasCommand = (command: string): boolean => {
 }
 
 const hasArchiveTool = hasCommand('unzip') || hasCommand('tar')
+const symlinkTest = process.platform === 'win32' ? it.skip : it
 
 describe('SkillService', () => {
   beforeEach(async () => {
@@ -140,6 +141,96 @@ describe('SkillService', () => {
 
     const referencePath = path.join(userDataPath, 'skills', 'dir-skill', 'references', 'README.md')
     expect(existsSync(referencePath)).toBe(true)
+  })
+
+  symlinkTest('accepts an internal SKILL.md symlink and reads its canonical target', async () => {
+    const skillDir = path.join(userDataPath, 'skills', 'internal-link')
+    await fs.mkdir(skillDir, { recursive: true })
+    const content = [
+      '---',
+      'name: internal-link',
+      'description: Internal linked skill.',
+      '---',
+      '',
+      '# Internal Link'
+    ].join('\n')
+    await fs.writeFile(path.join(skillDir, 'skill-source.md'), content, 'utf-8')
+    await fs.symlink('skill-source.md', path.join(skillDir, 'SKILL.md'))
+
+    const installed = await SkillService.listInstalledSkills()
+    expect(installed.find(skill => skill.name === 'internal-link')).toMatchObject({
+      description: 'Internal linked skill.',
+      path: path.join(skillDir, 'SKILL.md')
+    })
+    await expect(SkillService.getSkillContent('internal-link')).resolves.toBe(content)
+  })
+
+  symlinkTest('rejects an external SKILL.md symlink from metadata and content reads', async () => {
+    const externalFile = path.join(userDataPath, 'external-skill.md')
+    await fs.writeFile(
+      externalFile,
+      ['---', 'name: external-link', 'description: External.', '---', ''].join('\n'),
+      'utf-8'
+    )
+    const skillDir = path.join(userDataPath, 'skills', 'external-link')
+    await fs.mkdir(skillDir, { recursive: true })
+    await fs.symlink(externalFile, path.join(skillDir, 'SKILL.md'))
+
+    const installed = await SkillService.listInstalledSkills()
+    expect(installed.some(skill => skill.name === 'external-link')).toBe(false)
+    await expect(SkillService.getSkillContent('external-link')).rejects.toThrow(
+      'Skill file symlink escapes skill directory'
+    )
+  })
+
+  symlinkTest('ignores dangling SKILL.md symlinks during metadata discovery', async () => {
+    const skillDir = path.join(userDataPath, 'skills', 'dangling-link')
+    await fs.mkdir(skillDir, { recursive: true })
+    await fs.symlink('missing.md', path.join(skillDir, 'SKILL.md'))
+
+    const installed = await SkillService.listInstalledSkills()
+
+    expect(installed.some(skill => skill.name === 'dangling-link')).toBe(false)
+    await expect(SkillService.getSkillContent('dangling-link')).rejects.toThrow(
+      'Skill "dangling-link" not found'
+    )
+  })
+
+  symlinkTest('ignores external skill source metadata symlinks', async () => {
+    const { dir } = await createSkillDir(
+      path.join(userDataPath, 'skills'),
+      'external-source-info'
+    )
+    const externalSourceInfo = path.join(userDataPath, 'external-source.json')
+    await fs.writeFile(externalSourceInfo, JSON.stringify({ source: 'private-source' }), 'utf-8')
+    await fs.symlink(externalSourceInfo, path.join(dir, '.skill-source.json'))
+
+    const installed = await SkillService.listInstalledSkills()
+    const skill = installed.find(item => item.name === 'external-source-info')
+
+    expect(skill).toBeDefined()
+    expect(skill?.source).toBeUndefined()
+  })
+
+  symlinkTest('replaces copied skill source symlinks without writing through them', async () => {
+    const sourceBase = path.join(userDataPath, 'source-with-linked-metadata')
+    const { dir } = await createSkillDir(sourceBase, 'linked-source-write')
+    const externalSourceInfo = path.join(userDataPath, 'external-write-target.json')
+    const sentinel = JSON.stringify({ source: 'preserve-me' })
+    await fs.writeFile(externalSourceInfo, sentinel, 'utf-8')
+    await fs.symlink(externalSourceInfo, path.join(dir, '.skill-source.json'))
+
+    await SkillService.loadSkill({ source: dir })
+
+    await expect(fs.readFile(externalSourceInfo, 'utf-8')).resolves.toBe(sentinel)
+    const installedSourceInfo = path.join(
+      userDataPath,
+      'skills',
+      'linked-source-write',
+      '.skill-source.json'
+    )
+    expect((await fs.lstat(installedSourceInfo)).isSymbolicLink()).toBe(false)
+    expect(JSON.parse(await fs.readFile(installedSourceInfo, 'utf-8')).source).toBe(dir)
   })
 
   it('imports skills from a folder and renames conflicts', async () => {

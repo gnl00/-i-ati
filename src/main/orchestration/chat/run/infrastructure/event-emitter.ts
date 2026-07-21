@@ -11,6 +11,7 @@ import type {
   RunEventPayloads,
   RunEventType
 } from '@shared/run/events'
+import { RUN_TOOL_EVENTS } from '@shared/run/tool-events'
 
 export class RunEventEmitter implements RunEventEmitterContract {
   private sequence = 0
@@ -41,18 +42,20 @@ export class RunEventEmitter implements RunEventEmitterContract {
     }
     this.sequence += 1
 
-    try {
-      runEventDb.saveRunEvent({
-        submissionId: envelope.submissionId,
-        chatId: envelope.chatId,
-        chatUuid: envelope.chatUuid,
-        sequence: envelope.sequence,
-        type: envelope.type,
-        timestamp: envelope.timestamp,
-        payload: envelope.payload
-      })
-    } catch (error) {
-      console.warn('[RunEventEmitter] Failed to save trace event', error)
+    if (type !== RUN_TOOL_EVENTS.TOOL_EXECUTION_OUTPUT) {
+      try {
+        runEventDb.saveRunEvent({
+          submissionId: envelope.submissionId,
+          chatId: envelope.chatId,
+          chatUuid: envelope.chatUuid,
+          sequence: envelope.sequence,
+          type: envelope.type,
+          timestamp: envelope.timestamp,
+          payload: envelope.payload
+        })
+      } catch (error) {
+        console.warn('[RunEventEmitter] Failed to save trace event', error)
+      }
     }
 
     if (!mainWindow || mainWindow.isDestroyed()) {

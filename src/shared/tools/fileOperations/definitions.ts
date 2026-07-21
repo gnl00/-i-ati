@@ -11,7 +11,7 @@ export const fileOperationsTools = [
         properties: {
           file_path: {
             type: 'string',
-            description: 'The absolute path to the file to read.'
+            description: 'Workspace-relative path to the file to read. Use "." for the workspace root.'
           },
           encoding: {
             type: 'string',
@@ -50,7 +50,7 @@ export const fileOperationsTools = [
         properties: {
           file_path: {
             type: 'string',
-            description: 'The absolute path to the media file to read.'
+            description: 'Workspace-relative path to the media file to read.'
           }
         },
         required: ['file_path'],
@@ -68,7 +68,7 @@ export const fileOperationsTools = [
         properties: {
           file_path: {
             type: 'string',
-            description: 'The absolute path to the file to write.'
+            description: 'Workspace-relative path to the file to write.'
           },
           content: {
             type: 'string',
@@ -105,7 +105,7 @@ export const fileOperationsTools = [
         properties: {
           file_path: {
             type: 'string',
-            description: 'The absolute path to the file to edit.'
+            description: 'Workspace-relative path to the file to edit.'
           },
           search: {
             type: 'string',
@@ -162,7 +162,7 @@ export const fileOperationsTools = [
         properties: {
           path: {
             type: 'string',
-            description: 'The file or directory path to search in.'
+            description: 'Workspace-relative file or directory path to search in.'
           },
           pattern: {
             type: 'string',
@@ -203,7 +203,7 @@ export const fileOperationsTools = [
         properties: {
           path: {
             type: 'string',
-            description: 'The directory path to list.'
+            description: 'Workspace-relative directory path to list. Use "." for the workspace root.'
           },
           details: {
             type: 'boolean',
@@ -226,7 +226,7 @@ export const fileOperationsTools = [
         properties: {
           path: {
             type: 'string',
-            description: 'The root directory path to search from.'
+            description: 'Workspace-relative root directory path to search from.'
           },
           pattern: {
             type: 'string',
@@ -253,7 +253,7 @@ export const fileOperationsTools = [
         properties: {
           path: {
             type: 'string',
-            description: 'The root directory path.'
+            description: 'Workspace-relative root directory path.'
           },
           max_depth: {
             type: 'number',
@@ -275,7 +275,7 @@ export const fileOperationsTools = [
         properties: {
           path: {
             type: 'string',
-            description: 'Absolute path to the target file or directory.'
+            description: 'Workspace-relative path to the target file or directory.'
           }
         },
         required: ['path'],
@@ -293,7 +293,7 @@ export const fileOperationsTools = [
         properties: {
           directory_path: {
             type: 'string',
-            description: 'The directory path to create.'
+            description: 'Workspace-relative directory path to create.'
           },
           recursive: {
             type: 'boolean',
@@ -316,11 +316,11 @@ export const fileOperationsTools = [
         properties: {
           source_path: {
             type: 'string',
-            description: 'Source file or directory path.'
+            description: 'Workspace-relative source file or directory path.'
           },
           destination_path: {
             type: 'string',
-            description: 'Destination file or directory path.'
+            description: 'Workspace-relative destination file or directory path.'
           },
           overwrite: {
             type: 'boolean',

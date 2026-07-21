@@ -133,6 +133,10 @@ export class ChatRenderResponder implements HostRenderEventSink {
         })
         return
 
+      case 'host.tool.execution.output':
+        this.emitter.emit(RUN_TOOL_EVENTS.TOOL_EXECUTION_OUTPUT, event.output)
+        return
+
       case 'host.tool.result.available': {
         const resolvedContent = await this.handleToolResult(event.result)
         if (event.result.status === 'success') {

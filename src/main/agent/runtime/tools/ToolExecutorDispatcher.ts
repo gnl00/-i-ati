@@ -210,10 +210,13 @@ export class DefaultToolExecutorDispatcher implements ToolExecutorDispatcher {
     result: ToolResultFact
     terminalOutcome?: (batch: ToolBatch, results: ToolResultFact[]) => ToolDispatchOutcome
   }> {
-    const pendingProgressEvents: Promise<void>[] = []
+    let progressEventChain = Promise.resolve()
+    const enqueueProgressEvent = (emit: () => Promise<void>): void => {
+      progressEventChain = progressEventChain.then(emit)
+    }
     let executionStartedAt: number | undefined
     const progressContext: ToolExecutionProgressContext = {
-      onProgress: this.createProgressHandler(call, pendingProgressEvents, (startedAt) => {
+      onProgress: this.createProgressHandler(call, enqueueProgressEvent, (startedAt) => {
         executionStartedAt = startedAt
       })
     }
@@ -224,7 +227,7 @@ export class DefaultToolExecutorDispatcher implements ToolExecutorDispatcher {
         signal: this.options.signal,
         onProgress: progressContext.onProgress
       }).execute([toToolCallProps(call)])
-    await Promise.all(pendingProgressEvents)
+    await progressEventChain
     const executionResult = executionResults[0]
     const completedAt = this.options.runtimeClock.now()
     const result = toToolResultFact(call, executionResult, completedAt, executionStartedAt)
@@ -274,12 +277,25 @@ export class DefaultToolExecutorDispatcher implements ToolExecutorDispatcher {
 
   private createProgressHandler(
     call: ToolBatch['calls'][number],
-    pendingEvents: Promise<void>[],
+    enqueueEvent: (emit: () => Promise<void>) => void,
     onExecutionStarted?: (startedAt: number) => void
   ): (progress: ToolExecutionProgress) => void {
     let startedEmitted = false
 
     return (progress) => {
+      if (progress.phase === 'output' && progress.id === call.toolCallId) {
+        enqueueEvent(() => this.options.agentEventEmitter?.emitToolExecutionOutput({
+          timestamp: this.options.runtimeClock.now(),
+          stepId: call.stepId,
+          toolCallId: call.toolCallId,
+          toolCallIndex: call.index,
+          toolName: call.name,
+          phase: 'output',
+          output: progress.output
+        }) ?? Promise.resolve())
+        return
+      }
+
       if (
         progress.phase !== 'started'
         || startedEmitted
@@ -291,7 +307,7 @@ export class DefaultToolExecutorDispatcher implements ToolExecutorDispatcher {
       startedEmitted = true
       const startedAt = this.options.runtimeClock.now()
       onExecutionStarted?.(startedAt)
-      pendingEvents.push(this.options.agentEventEmitter?.emitToolExecutionStarted({
+      enqueueEvent(() => this.options.agentEventEmitter?.emitToolExecutionStarted({
         timestamp: startedAt,
         stepId: call.stepId,
         toolCallId: call.toolCallId,

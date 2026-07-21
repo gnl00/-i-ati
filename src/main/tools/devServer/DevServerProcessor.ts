@@ -61,6 +61,7 @@ interface StartupStrategy {
 interface InternalDevServerProcess {
   chatUuid: string
   process: ChildProcess
+  processGroupId: number | null
   status: DevServerStatus
   port: number | null
   logs: string[]
@@ -70,7 +71,7 @@ interface InternalDevServerProcess {
   stderrBuffer: string
   candidatePorts: Set<number>
   stopping: boolean
-  shutdownTimer: NodeJS.Timeout | null
+  stopPromise: Promise<void> | null
   readinessProbe: Promise<void> | null
 }
 
@@ -81,6 +82,10 @@ function sleep(ms: number): Promise<void> {
 function stripAnsi(value: string): string {
   // eslint-disable-next-line no-control-regex
   return value.replace(/\x1b\[[0-9;]*m/g, '')
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message ? error.message : fallback
 }
 
 class DevServerProcessManager {
@@ -410,13 +415,6 @@ class DevServerProcessManager {
     }
   }
 
-  private clearShutdownTimer(proc: InternalDevServerProcess): void {
-    if (proc.shutdownTimer) {
-      clearTimeout(proc.shutdownTimer)
-      proc.shutdownTimer = null
-    }
-  }
-
   private async waitForProcessExit(childProcess: ChildProcess, timeoutMs: number): Promise<boolean> {
     if (childProcess.exitCode !== null || childProcess.signalCode !== null) {
       return true
@@ -424,7 +422,7 @@ class DevServerProcessManager {
 
     return new Promise((resolve) => {
       let settled = false
-      const settle = (value: boolean) => {
+      const settle = (value: boolean): void => {
         if (settled) return
         settled = true
         clearTimeout(timer)
@@ -433,8 +431,8 @@ class DevServerProcessManager {
         resolve(value)
       }
 
-      const onExit = () => settle(true)
-      const onClose = () => settle(true)
+      const onExit = (): void => settle(true)
+      const onClose = (): void => settle(true)
       const timer = setTimeout(() => settle(false), timeoutMs)
 
       childProcess.once('exit', onExit)
@@ -442,8 +440,44 @@ class DevServerProcessManager {
     })
   }
 
+  private isProcessGroupAlive(processGroupId: number): boolean {
+    try {
+      process.kill(-processGroupId, 0)
+      return true
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code
+      if (code === 'ESRCH') return false
+      if (code === 'EPERM') return true
+      throw error
+    }
+  }
+
+  private signalProcessGroup(processGroupId: number, signal: NodeJS.Signals): boolean {
+    try {
+      console.log(`[DevServer] Signaling process group ${processGroupId} with ${signal}`)
+      process.kill(-processGroupId, signal)
+      return true
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ESRCH') {
+        return false
+      }
+      throw error
+    }
+  }
+
+  private async waitForProcessGroupExit(processGroupId: number, timeoutMs: number): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs
+
+    while (this.isProcessGroupAlive(processGroupId)) {
+      const remainingMs = deadline - Date.now()
+      if (remainingMs <= 0) return false
+      await sleep(Math.min(50, remainingMs))
+    }
+
+    return true
+  }
+
   private cleanupProcessRecord(chatUuid: string, proc: InternalDevServerProcess): void {
-    this.clearShutdownTimer(proc)
     this.flushOutputBuffer(proc, 'stdout')
     this.flushOutputBuffer(proc, 'stderr')
 
@@ -452,34 +486,15 @@ class DevServerProcessManager {
     }
   }
 
-  private killProcessTree(pid: number, signal: NodeJS.Signals = 'SIGTERM'): void {
-    try {
-      console.log(`[DevServer] Killing process tree for PID ${pid} with signal ${signal}`)
-
-      if (process.platform === 'win32') {
-        execFileSync('taskkill', ['/pid', String(pid), '/T', '/F'])
-        return
-      }
-
-      try {
-        process.kill(-pid, signal)
-      } catch {
-        process.kill(pid, signal)
-      }
-    } catch (error) {
-      console.error(`[DevServer] Error killing process tree:`, error)
-    }
+  private killWindowsProcessTree(pid: number): void {
+    console.log(`[DevServer] Killing Windows process tree for PID ${pid}`)
+    execFileSync('taskkill', ['/pid', String(pid), '/T', '/F'])
   }
 
-  private async stopProcess(chatUuid: string, proc: InternalDevServerProcess): Promise<void> {
-    if (proc.stopping) {
-      return
-    }
-
+  private async performStopProcess(chatUuid: string, proc: InternalDevServerProcess): Promise<void> {
     proc.stopping = true
     proc.port = null
     proc.error = null
-    this.clearShutdownTimer(proc)
 
     const pid = proc.process.pid
     if (!pid) {
@@ -487,21 +502,68 @@ class DevServerProcessManager {
       return
     }
 
-    this.killProcessTree(pid, 'SIGTERM')
-    proc.shutdownTimer = setTimeout(() => {
-      if (proc.process.exitCode === null && proc.process.signalCode === null) {
-        console.log(`[DevServer:${chatUuid}] Forcing kill after timeout`)
-        this.killProcessTree(pid, 'SIGKILL')
-      }
-    }, GRACEFUL_SHUTDOWN_TIMEOUT)
+    try {
+      if (process.platform === 'win32') {
+        this.killWindowsProcessTree(pid)
+        const exited = await this.waitForProcessExit(proc.process, FORCE_KILL_TIMEOUT)
+        if (!exited) {
+          throw new Error(`Windows process tree ${pid} remained alive after taskkill`)
+        }
+      } else if (proc.processGroupId !== null) {
+        const processGroupId = proc.processGroupId
+        const termSent = this.signalProcessGroup(processGroupId, 'SIGTERM')
+        const exitedGracefully = !termSent || await this.waitForProcessGroupExit(
+          processGroupId,
+          GRACEFUL_SHUTDOWN_TIMEOUT
+        )
 
-    const exitedGracefully = await this.waitForProcessExit(proc.process, GRACEFUL_SHUTDOWN_TIMEOUT)
-    if (!exitedGracefully) {
-      this.killProcessTree(pid, 'SIGKILL')
-      await this.waitForProcessExit(proc.process, FORCE_KILL_TIMEOUT)
+        if (!exitedGracefully) {
+          console.log(`[DevServer:${chatUuid}] Forcing process group cleanup after timeout`)
+          const killSent = this.signalProcessGroup(processGroupId, 'SIGKILL')
+          const exitedAfterKill = !killSent || await this.waitForProcessGroupExit(
+            processGroupId,
+            FORCE_KILL_TIMEOUT
+          )
+          if (!exitedAfterKill) {
+            throw new Error(`Process group ${processGroupId} remained alive after SIGKILL`)
+          }
+        }
+      } else {
+        proc.process.kill('SIGTERM')
+        const exitedGracefully = await this.waitForProcessExit(
+          proc.process,
+          GRACEFUL_SHUTDOWN_TIMEOUT
+        )
+        if (!exitedGracefully) {
+          proc.process.kill('SIGKILL')
+          const exitedAfterKill = await this.waitForProcessExit(proc.process, FORCE_KILL_TIMEOUT)
+          if (!exitedAfterKill) {
+            throw new Error(`Process ${pid} remained alive after SIGKILL`)
+          }
+        }
+      }
+
+      this.cleanupProcessRecord(chatUuid, proc)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      proc.stopping = false
+      proc.status = 'error'
+      proc.error = message
+      this.pushLog(proc, `[system] Failed to stop development server: ${message}`)
+      throw error
+    }
+  }
+
+  private stopProcess(chatUuid: string, proc: InternalDevServerProcess): Promise<void> {
+    if (proc.stopPromise) {
+      return proc.stopPromise
     }
 
-    this.cleanupProcessRecord(chatUuid, proc)
+    const stopPromise = this.performStopProcess(chatUuid, proc).finally(() => {
+      proc.stopPromise = null
+    })
+    proc.stopPromise = stopPromise
+    return stopPromise
   }
 
   async startDevServer(chatUuid: string, customWorkspacePath?: string): Promise<StartDevServerResponse> {
@@ -547,6 +609,9 @@ class DevServerProcessManager {
       const proc: InternalDevServerProcess = {
         chatUuid,
         process: childProcess,
+        processGroupId: process.platform !== 'win32' && strategy.detached
+          ? childProcess.pid ?? null
+          : null,
         status: 'starting',
         port: null,
         logs: [],
@@ -556,7 +621,7 @@ class DevServerProcessManager {
         stderrBuffer: '',
         candidatePorts: new Set<number>(),
         stopping: false,
-        shutdownTimer: null,
+        stopPromise: null,
         readinessProbe: null
       }
 
@@ -573,12 +638,10 @@ class DevServerProcessManager {
       childProcess.on('exit', (code, signal) => {
         this.flushOutputBuffer(proc, 'stdout')
         this.flushOutputBuffer(proc, 'stderr')
-        this.clearShutdownTimer(proc)
 
         console.log(`[DevServer:${chatUuid}] Process exited with code ${code}, signal ${signal}`)
 
         if (proc.stopping) {
-          this.cleanupProcessRecord(chatUuid, proc)
           return
         }
 
@@ -605,11 +668,11 @@ class DevServerProcessManager {
         success: true,
         message: 'Development server started successfully'
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(`[DevServer] Failed to start server for ${chatUuid}:`, error)
       return {
         success: false,
-        error: error.message || 'Failed to start development server'
+        error: getErrorMessage(error, 'Failed to start development server')
       }
     }
   }
@@ -630,11 +693,11 @@ class DevServerProcessManager {
         success: true,
         message: 'Development server stopped successfully'
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(`[DevServer] Failed to stop server for ${chatUuid}:`, error)
       return {
         success: false,
-        error: error.message || 'Failed to stop development server'
+        error: getErrorMessage(error, 'Failed to stop development server')
       }
     }
   }
@@ -678,9 +741,28 @@ class DevServerProcessManager {
   stopAll(): void {
     console.log('[DevServer] Stopping all development servers...')
     for (const [chatUuid, proc] of this.processes.entries()) {
-      void this.stopProcess(chatUuid, proc).catch((error) => {
+      proc.stopping = true
+      proc.port = null
+      proc.error = null
+
+      try {
+        const pid = proc.process.pid
+        if (pid) {
+          if (process.platform === 'win32') {
+            this.killWindowsProcessTree(pid)
+          } else if (proc.processGroupId !== null) {
+            this.signalProcessGroup(proc.processGroupId, 'SIGKILL')
+          } else {
+            proc.process.kill('SIGKILL')
+          }
+        }
+        this.cleanupProcessRecord(chatUuid, proc)
+      } catch (error) {
+        proc.stopping = false
+        proc.status = 'error'
+        proc.error = error instanceof Error ? error.message : String(error)
         console.error(`[DevServer] Error stopping server for ${chatUuid}:`, error)
-      })
+      }
     }
   }
 }
@@ -698,12 +780,12 @@ export async function processCheckPreviewSh(
       success: true,
       exists
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[DevServer] processCheckPreviewSh error:', error)
     return {
       success: false,
       exists: false,
-      error: error.message || 'Failed to check preview script'
+      error: getErrorMessage(error, 'Failed to check preview script')
     }
   }
 }

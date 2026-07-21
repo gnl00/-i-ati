@@ -666,6 +666,7 @@ describe('DefaultAgentRuntime', () => {
       emitToolAwaitingConfirmation: vi.fn(async () => {}),
       emitToolConfirmationDenied: vi.fn(async () => {}),
       emitToolExecutionStarted: vi.fn(async () => {}),
+      emitToolExecutionOutput: vi.fn(async () => {}),
       emitToolExecutionCompleted: vi.fn(async () => {}),
       emitToolExecutionFailed: vi.fn(async () => {}),
       emitToolExecutionAborted: vi.fn(async () => {}),

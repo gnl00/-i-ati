@@ -1,4 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { appendTerminalOutput, trimToolLiveOutputTail } from '../chatRunUiStore'
 
 type ChatStoreHook = typeof import('../chatStore')['useChatStore']
 
@@ -58,8 +59,110 @@ describe('chat per-chat state buffers', () => {
       },
       lastRunOutcome: 'idle',
       runUiByChatUuid: {},
-      scrollHint: { type: 'none' }
+      scrollHint: { type: 'none' },
+      toolLiveOutputs: {}
     })
+  })
+
+  it('keeps a 64 KiB tail per live tool output stream and ignores stale batches', () => {
+    const oversizedStdout = `prefix-${'x'.repeat(70 * 1024)}`
+    const actions = useChatStore.getState()
+
+    actions.appendToolLiveOutput({
+      toolCallId: 'tool-live',
+      sequence: 2,
+      chunks: [
+        { stream: 'stdout', text: oversizedStdout },
+        { stream: 'stderr', text: 'warning' }
+      ],
+      stdoutBytes: Buffer.byteLength(oversizedStdout),
+      stderrBytes: 7
+    }, 'submission-live', 'chat-live')
+    actions.appendToolLiveOutput({
+      toolCallId: 'tool-live',
+      sequence: 1,
+      chunks: [{ stream: 'stdout', text: 'stale' }],
+      stdoutBytes: 5,
+      stderrBytes: 0
+    }, 'submission-live', 'chat-live')
+
+    const liveOutput = useChatStore.getState().toolLiveOutputs['chat-live:tool-live']
+    expect(new TextEncoder().encode(liveOutput.stdout).byteLength).toBeLessThanOrEqual(64 * 1024)
+    expect(liveOutput.stdout.endsWith('x')).toBe(true)
+    expect(liveOutput.stdout).not.toContain('stale')
+    expect(liveOutput.stderr).toBe('warning')
+
+    useChatStore.getState().appendToolLiveOutput({
+      toolCallId: 'tool-live',
+      sequence: 1,
+      chunks: [{ stream: 'stdout', text: 'other' }],
+      stdoutBytes: 5,
+      stderrBytes: 0
+    }, 'submission-other', 'chat-other')
+    useChatStore.getState().clearToolLiveOutputs('submission-live')
+    expect(useChatStore.getState().toolLiveOutputs['chat-live:tool-live']).toBeUndefined()
+    expect(useChatStore.getState().toolLiveOutputs['chat-other:tool-live']?.stdout).toBe('other')
+  })
+
+  it('resets live output when a later submission reuses the same tool call id', () => {
+    const actions = useChatStore.getState()
+    actions.appendToolLiveOutput({
+      toolCallId: 'tool-reused',
+      sequence: 4,
+      chunks: [{ stream: 'stdout', text: 'old run' }],
+      stdoutBytes: 7,
+      stderrBytes: 0
+    }, 'submission-old', 'chat-live')
+    actions.appendToolLiveOutput({
+      toolCallId: 'tool-reused',
+      sequence: 1,
+      chunks: [{ stream: 'stdout', text: 'new run' }],
+      stdoutBytes: 7,
+      stderrBytes: 0
+    }, 'submission-new', 'chat-live')
+
+    expect(useChatStore.getState().toolLiveOutputs['chat-live:tool-reused']).toMatchObject({
+      submissionId: 'submission-new',
+      sequence: 1,
+      stdout: 'new run'
+    })
+
+    useChatStore.getState().clearToolLiveOutput(
+      'tool-reused',
+      'submission-old',
+      'chat-live'
+    )
+    expect(useChatStore.getState().toolLiveOutputs['chat-live:tool-reused']?.stdout)
+      .toBe('new run')
+
+    useChatStore.getState().clearToolLiveOutput(
+      'tool-reused',
+      'submission-new',
+      'chat-live'
+    )
+    expect(useChatStore.getState().toolLiveOutputs['chat-live:tool-reused']).toBeUndefined()
+  })
+
+  it('renders carriage-return progress as one updating terminal line', () => {
+    const first = appendTerminalOutput('', 'Downloading 10%\r')
+    const second = appendTerminalOutput(
+      first.text,
+      'Downloading 20%\rDownloading 30%\r\nDone\n',
+      first.pendingCarriageReturn
+    )
+
+    expect(second).toEqual({
+      text: 'Downloading 30%\nDone\n',
+      pendingCarriageReturn: false
+    })
+  })
+
+  it('keeps a Unicode scalar boundary when trimming emoji output', () => {
+    const trimmed = trimToolLiveOutputTail(`prefix-${'🙂'.repeat(20)}`, 17)
+
+    expect(trimmed).not.toContain('\uFFFD')
+    expect(trimmed.charCodeAt(0)).not.toBeGreaterThanOrEqual(0xDC00)
+    expect(new TextEncoder().encode(trimmed).byteLength).toBeLessThanOrEqual(17)
   })
 
   it('stores background chat messages outside the visible transcript', () => {

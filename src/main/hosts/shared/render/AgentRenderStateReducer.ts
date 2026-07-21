@@ -422,6 +422,9 @@ export class AgentRenderStateReducer {
           })
           return this.snapshot()
         }
+        if (event.phase === 'output') {
+          return this.snapshot()
+        }
         this.applyToolResult(event.result)
         return this.snapshot()
       case 'loop.completed':

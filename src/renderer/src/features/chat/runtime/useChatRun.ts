@@ -114,6 +114,7 @@ export default function useChatRun() {
     }
     handle.unsubscribe?.()
     handle.unsubscribe = null
+    useChatStore.getState().clearToolLiveOutputs(handle.submissionId)
     handle.runCompletedRef.current = false
     handle.preCancelRunPhase = null
     activeRunsRef.current.delete(handle.submissionId)

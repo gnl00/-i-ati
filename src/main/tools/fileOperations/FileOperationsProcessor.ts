@@ -1,10 +1,17 @@
-import { app } from 'electron'
-import { readFile, writeFile, mkdir, copyFile, readdir, stat, rename } from 'fs/promises'
+import { readFile, writeFile, mkdir, copyFile, readdir, stat, lstat, rename } from 'fs/promises'
 import { dirname, join, basename, isAbsolute, relative, resolve } from 'path'
-import { existsSync, statSync, accessSync, constants, realpathSync } from 'fs'
+import { existsSync, lstatSync, accessSync, constants } from 'fs'
 import { lookup } from 'mime-types'
-import { chatDb } from '@main/db/chat'
 import { createLogger } from '@main/logging/LogService'
+import {
+  isPathWithin,
+  resolveWorkspacePath,
+  resolveWorkspaceRoot,
+  WorkspacePathError,
+  type ResolvedWorkspacePath,
+  type WorkspacePathIntent,
+  type WorkspacePathMode
+} from '@main/services/filesystem/WorkspacePathResolver'
 import { runRipgrepFileList, runRipgrepSearch } from './RipgrepRunner'
 import type {
   ReadTextFileArgs,
@@ -94,108 +101,50 @@ const IGNORED_DIRECTORY_NAMES = new Set([
 
 // ============ Helper Functions ============
 
-const DEFAULT_WORKSPACE_NAME = 'tmp'
+type FileToolPathContract = 'embedded' | 'legacy-ipc'
 
-function normalizeWorkspaceBaseDir(workspacePath: string, chatUuid?: string): string {
-  const userDataPath = app.getPath('userData')
-  const fallbackDir = join(userDataPath, 'workspaces', chatUuid || DEFAULT_WORKSPACE_NAME)
-
-  if (!workspacePath) {
-    return fallbackDir
-  }
-
-  if (isAbsolute(workspacePath)) {
-    return resolve(workspacePath)
-  }
-
-  const normalized = workspacePath.replace(/\\/g, '/')
-  const clean = normalized.startsWith('./') ? normalized.slice(2) : normalized
-
-  if (clean.startsWith('workspaces/')) {
-    return resolve(join(userDataPath, clean))
-  }
-
-  // Defensive fallback: prevent relative workspace paths from binding to process.cwd()
-  logger.warn('workspace.relative_path_rebased', { workspacePath })
-  return resolve(join(userDataPath, clean))
+function pathModeForContract(contract: FileToolPathContract): WorkspacePathMode {
+  return contract === 'embedded' ? 'embedded-relative' : 'legacy-compatible'
 }
 
-function resolveWorkspaceBaseDir(chatUuid?: string): string {
-  const userDataPath = app.getPath('userData')
+function resolveFilePath(
+  inputPath: string,
+  chatUuid: string | undefined,
+  intent: WorkspacePathIntent,
+  contract: FileToolPathContract,
+  workspaceRootOverride?: string
+): ResolvedWorkspacePath {
+  const resolvedPath = resolveWorkspacePath(inputPath, {
+    chatUuid,
+    intent,
+    mode: pathModeForContract(contract),
+    workspaceRootOverride
+  })
 
-  if (!chatUuid) {
-    return join(userDataPath, 'workspaces', DEFAULT_WORKSPACE_NAME)
+  if (resolvedPath.legacyInput) {
+    logger.warn('path.legacy_input_accepted', { inputPath, chatUuid: chatUuid ?? 'none' })
   }
-
-  try {
-    const workspacePath = chatDb.getWorkspacePathByUuid(chatUuid)
-    if (workspacePath) {
-      return normalizeWorkspaceBaseDir(workspacePath, chatUuid)
-    }
-  } catch (error) {
-    logger.error('workspace.resolve_from_db_failed', error)
-  }
-
-  return join(userDataPath, 'workspaces', chatUuid)
-}
-
-function isPathInside(childPath: string, parentPath: string): boolean {
-  const childRelativePath = relative(parentPath, childPath)
-  return childRelativePath === '' || (
-    Boolean(childRelativePath)
-    && !childRelativePath.startsWith('..')
-    && !isAbsolute(childRelativePath)
-  )
-}
-
-function canonicalizePathForBoundary(path: string): string {
-  let current = resolve(path)
-
-  while (!existsSync(current)) {
-    const parent = dirname(current)
-    if (parent === current) {
-      return resolve(path)
-    }
-    current = parent
-  }
-
-  return resolve(realpathSync(current), relative(current, resolve(path)))
-}
-
-function assertPathInsideWorkspace(targetPath: string, baseDir: string): void {
-  const workspaceRoot = canonicalizePathForBoundary(baseDir)
-  const canonicalTarget = canonicalizePathForBoundary(targetPath)
-
-  if (!isPathInside(canonicalTarget, workspaceRoot)) {
-    throw new Error(`Path must stay inside workspace: ${targetPath}`)
-  }
-}
-
-/**
- * Resolve file path with workspace support
- * Supports:
- * 1. Absolute paths inside baseDir
- * 2. New format: relative path based on baseDir (e.g., "test.txt")
- * 3. Legacy format: workspace prefix included (e.g., "workspaces/123/test.txt")
- */
-function resolveFilePath(relativePath: string, chatUuid?: string, baseDirOverride?: string): string {
-  const userDataPath = app.getPath('userData')
-  const baseDir = baseDirOverride ?? resolveWorkspaceBaseDir(chatUuid)
-  let resolvedPath: string
-
-  if (isAbsolute(relativePath)) {
-    resolvedPath = resolve(relativePath)
-  } else if (relativePath.startsWith('workspaces/') || relativePath.startsWith('./workspaces/')) {
-    logger.debug('path.legacy_format_detected', { relativePath })
-    const cleanPath = relativePath.startsWith('./') ? relativePath.slice(2) : relativePath
-    resolvedPath = join(userDataPath, cleanPath)
-  } else {
-    resolvedPath = join(baseDir, relativePath)
-  }
-
-  assertPathInsideWorkspace(resolvedPath, baseDir)
-  logger.debug('path.resolved', { relativePath, resolvedPath, chatUuid: chatUuid ?? 'none' })
+  logger.debug('path.resolved', {
+    inputPath,
+    resolvedPath: resolvedPath.absolutePath,
+    relativePath: resolvedPath.relativePath,
+    chatUuid: chatUuid ?? 'none',
+    contract,
+    intent
+  })
   return resolvedPath
+}
+
+function displayChildPath(parent: ResolvedWorkspacePath, childName: string): string {
+  return parent.relativePath === '.' ? childName : `${parent.relativePath}/${childName}`
+}
+
+function displayResolvedPath(
+  resolvedPath: ResolvedWorkspacePath,
+  inputPath: string,
+  contract: FileToolPathContract
+): string {
+  return contract === 'embedded' ? resolvedPath.relativePath : inputPath
 }
 
 // ============ Read Operations ============
@@ -342,10 +291,14 @@ async function runWithConcurrency<T>(
  * Read Text File Processor
  * 读取文本文件内容，支持指定行范围
  */
-export async function processReadTextFile(args: ReadTextFileArgs): Promise<ReadTextFileResponse> {
+export async function processReadTextFile(
+  args: ReadTextFileArgs,
+  contract: FileToolPathContract = 'legacy-ipc'
+): Promise<ReadTextFileResponse> {
   try {
     const { file_path, chat_uuid, encoding = 'utf-8', start_line, end_line, around_line, window_size } = args
-    const absolutePath = resolveFilePath(file_path, chat_uuid)
+    const resolvedPath = resolveFilePath(file_path, chat_uuid, 'existing', contract)
+    const absolutePath = resolvedPath.absolutePath
     logger.debug('read_text_file.exists_check', { absolutePath, exists: existsSync(absolutePath) })
 
     if (!existsSync(absolutePath)) {
@@ -376,7 +329,7 @@ export async function processReadTextFile(args: ReadTextFileArgs): Promise<ReadT
     })
     return {
       success: true,
-      file_path,
+      file_path: displayResolvedPath(resolvedPath, file_path, contract),
       content: resultContent,
       lines: totalLines,
       returned_start_line: returnedStartLine,
@@ -390,17 +343,21 @@ export async function processReadTextFile(args: ReadTextFileArgs): Promise<ReadT
 }
 
 export async function processRead(args: ReadArgs): Promise<ReadResponse> {
-  return processReadTextFile(args)
+  return processReadTextFile(args, 'embedded')
 }
 
 /**
  * Read Media File Processor
  * 读取二进制文件并返回 Base64 编码
  */
-export async function processReadMediaFile(args: ReadMediaFileArgs): Promise<ReadMediaFileResponse> {
+export async function processReadMediaFile(
+  args: ReadMediaFileArgs,
+  contract: FileToolPathContract = 'legacy-ipc'
+): Promise<ReadMediaFileResponse> {
   try {
     const { file_path, chat_uuid } = args
-    const absolutePath = resolveFilePath(file_path, chat_uuid)
+    const resolvedPath = resolveFilePath(file_path, chat_uuid, 'existing', contract)
+    const absolutePath = resolvedPath.absolutePath
     logger.info('read_media_file.start', { filePath: file_path, absolutePath })
 
     if (!existsSync(absolutePath)) {
@@ -413,7 +370,13 @@ export async function processReadMediaFile(args: ReadMediaFileArgs): Promise<Rea
     const size = buffer.length
 
     logger.info('read_media_file.success', { filePath: file_path, size, mimeType })
-    return { success: true, file_path, content: base64Content, mime_type: mimeType, size }
+    return {
+      success: true,
+      file_path: displayResolvedPath(resolvedPath, file_path, contract),
+      content: base64Content,
+      mime_type: mimeType,
+      size
+    }
   } catch (error: any) {
     logger.error('read_media_file.failed', error)
     return { success: false, error: error.message || 'Failed to read media file' }
@@ -421,7 +384,7 @@ export async function processReadMediaFile(args: ReadMediaFileArgs): Promise<Rea
 }
 
 export async function processReadMedia(args: ReadMediaArgs): Promise<ReadMediaResponse> {
-  return processReadMediaFile(args)
+  return processReadMediaFile(args, 'embedded')
 }
 
 /**
@@ -432,12 +395,12 @@ export async function processReadMultipleFiles(args: ReadMultipleFilesArgs): Pro
   try {
     const { file_paths, chat_uuid, encoding = 'utf-8' } = args
     logger.info('read_multiple_files.start', { count: file_paths.length })
-    const baseDir = resolveWorkspaceBaseDir(chat_uuid)
+    const baseDir = resolveWorkspaceRoot(chat_uuid)
 
     const files: FileContent[] = await Promise.all(
       file_paths.map(async (file_path) => {
         try {
-          const absolutePath = resolveFilePath(file_path, chat_uuid, baseDir)
+          const absolutePath = resolveFilePath(file_path, chat_uuid, 'existing', 'legacy-ipc', baseDir).absolutePath
           if (!existsSync(absolutePath)) {
             return { file_path, success: false, error: 'File not found' }
           }
@@ -464,15 +427,24 @@ export async function processReadMultipleFiles(args: ReadMultipleFilesArgs): Pro
  * Write File Processor
  * 写入文件内容，支持自动创建目录和备份
  */
-export async function processWriteFile(args: WriteFileArgs): Promise<WriteFileResponse> {
+export async function processWriteFile(
+  args: WriteFileArgs,
+  contract: FileToolPathContract = 'legacy-ipc'
+): Promise<WriteFileResponse> {
   try {
     const { file_path, chat_uuid, content, encoding = 'utf-8', create_dirs = true, backup = false } = args
-    const absolutePath = resolveFilePath(file_path, chat_uuid)
+    const resolvedPath = resolveFilePath(file_path, chat_uuid, 'creatable', contract)
+    const absolutePath = resolvedPath.absolutePath
     logger.info('write_file.start', { filePath: file_path, absolutePath, backup, createDirs: create_dirs })
 
     // 如果需要备份且文件存在，先备份
     if (backup && existsSync(absolutePath)) {
-      const backupPath = `${absolutePath}.backup`
+      const backupPath = resolveFilePath(
+        `${file_path}.backup`,
+        chat_uuid,
+        'destination',
+        contract
+      ).absolutePath
       await copyFile(absolutePath, backupPath)
       logger.info('write_file.backup_created', { backupPath })
     }
@@ -491,7 +463,11 @@ export async function processWriteFile(args: WriteFileArgs): Promise<WriteFileRe
     const bytesWritten = Buffer.byteLength(content, encoding as BufferEncoding)
 
     logger.info('write_file.success', { filePath: file_path, bytesWritten })
-    return { success: true, file_path, bytes_written: bytesWritten }
+    return {
+      success: true,
+      file_path: displayResolvedPath(resolvedPath, file_path, contract),
+      bytes_written: bytesWritten
+    }
   } catch (error: any) {
     logger.error('write_file.failed', error)
     return { success: false, error: error.message || 'Failed to write file' }
@@ -499,7 +475,7 @@ export async function processWriteFile(args: WriteFileArgs): Promise<WriteFileRe
 }
 
 export async function processWrite(args: WriteArgs): Promise<WriteResponse> {
-  return processWriteFile(args)
+  return processWriteFile(args, 'embedded')
 }
 
 interface TextEditMatch {
@@ -847,7 +823,10 @@ function findNearestMatches(content: string, search: string, range: TextEditRang
  * Edit File Processor
  * 编辑文件内容，支持字符串替换和正则替换
  */
-export async function processEditFile(args: EditFileArgs): Promise<EditFileResponse> {
+export async function processEditFile(
+  args: EditFileArgs,
+  contract: FileToolPathContract = 'legacy-ipc'
+): Promise<EditFileResponse> {
   try {
     const {
       file_path,
@@ -862,7 +841,9 @@ export async function processEditFile(args: EditFileArgs): Promise<EditFileRespo
       end_line,
       max_diagnostics
     } = args
-    const absolutePath = resolveFilePath(file_path, chat_uuid)
+    const resolvedPath = resolveFilePath(file_path, chat_uuid, 'existing', contract)
+    const absolutePath = resolvedPath.absolutePath
+    const responseFilePath = displayResolvedPath(resolvedPath, file_path, contract)
     logger.info('edit_file.start', {
       filePath: file_path,
       absolutePath,
@@ -898,7 +879,7 @@ export async function processEditFile(args: EditFileArgs): Promise<EditFileRespo
       })
       return {
         success: false,
-        file_path,
+        file_path: responseFilePath,
         status: 'match_count_mismatch',
         replacements: 0,
         diagnostics: {
@@ -915,7 +896,7 @@ export async function processEditFile(args: EditFileArgs): Promise<EditFileRespo
       logger.info('edit_file.no_matches', { filePath: file_path })
       return {
         success: false,
-        file_path,
+        file_path: responseFilePath,
         status: 'no_match',
         replacements: 0,
         diagnostics: {
@@ -929,7 +910,7 @@ export async function processEditFile(args: EditFileArgs): Promise<EditFileRespo
       logger.info('edit_file.multiple_matches', { filePath: file_path, matches: matches.length })
       return {
         success: false,
-        file_path,
+        file_path: responseFilePath,
         status: 'multiple_matches',
         replacements: 0,
         diagnostics: {
@@ -952,7 +933,7 @@ export async function processEditFile(args: EditFileArgs): Promise<EditFileRespo
 
     return {
       success: true,
-      file_path,
+      file_path: responseFilePath,
       status: dry_run ? 'dry_run' : 'replaced',
       replacements,
       diagnostics: {
@@ -969,7 +950,7 @@ export async function processEditFile(args: EditFileArgs): Promise<EditFileRespo
 }
 
 export async function processEdit(args: EditArgs): Promise<EditResponse> {
-  return processEditFile(args)
+  return processEditFile(args, 'embedded')
 }
 
 // ============ Search Operations ============
@@ -978,10 +959,14 @@ export async function processEdit(args: EditArgs): Promise<EditResponse> {
  * Search File Processor
  * 在文件中搜索匹配的内容，支持正则表达式和大小写敏感
  */
-export async function processSearchFile(args: SearchFileArgs): Promise<SearchFileResponse> {
+export async function processSearchFile(
+  args: SearchFileArgs,
+  contract: FileToolPathContract = 'legacy-ipc'
+): Promise<SearchFileResponse> {
   try {
     const { file_path, chat_uuid, pattern, regex = false, case_sensitive = true, max_results = 100 } = args
-    const absolutePath = resolveFilePath(file_path, chat_uuid)
+    const resolvedPath = resolveFilePath(file_path, chat_uuid, 'existing', contract)
+    const absolutePath = resolvedPath.absolutePath
     logger.info('search_file.start', { filePath: file_path, absolutePath })
 
     if (!existsSync(absolutePath)) {
@@ -1009,7 +994,12 @@ export async function processSearchFile(args: SearchFileArgs): Promise<SearchFil
     }
 
     logger.info('search_file.success', { filePath: file_path, totalMatches: matches.length })
-    return { success: true, file_path, matches, total_matches: matches.length }
+    return {
+      success: true,
+      file_path: displayResolvedPath(resolvedPath, file_path, contract),
+      matches,
+      total_matches: matches.length
+    }
   } catch (error: any) {
     logger.error('search_file.failed', error)
     return { success: false, error: error.message || 'Failed to search file' }
@@ -1018,9 +1008,11 @@ export async function processSearchFile(args: SearchFileArgs): Promise<SearchFil
 
 interface SearchCandidateFile {
   absolutePath: string
+  relativePath: string
 }
 
 async function collectSearchCandidateFiles(
+  traversalRoot: ResolvedWorkspacePath,
   directoryPath: string,
   filePattern?: RegExp
 ): Promise<SearchCandidateFile[]> {
@@ -1030,14 +1022,21 @@ async function collectSearchCandidateFiles(
   await runWithConcurrency(items, DEFAULT_FILE_SEARCH_CONCURRENCY, async (item) => {
     const itemPath = join(directoryPath, item)
     try {
-      const stats = await stat(itemPath)
+      const stats = await lstat(itemPath)
+
+      if (stats.isSymbolicLink()) return
+      const safeItem = resolveWorkspacePath(itemPath, {
+        mode: 'legacy-compatible',
+        intent: stats.isDirectory() ? 'traversal' : 'existing',
+        workspaceRootOverride: traversalRoot.workspaceRoot
+      })
 
       if (stats.isDirectory()) {
         if (shouldSkipDirectory(item)) {
           return
         }
 
-        candidates.push(...await collectSearchCandidateFiles(itemPath, filePattern))
+        candidates.push(...await collectSearchCandidateFiles(traversalRoot, safeItem.absolutePath, filePattern))
         return
       }
 
@@ -1046,7 +1045,10 @@ async function collectSearchCandidateFiles(
           return
         }
 
-        candidates.push({ absolutePath: itemPath })
+        candidates.push({
+          absolutePath: safeItem.absolutePath,
+          relativePath: safeItem.relativePath
+        })
       }
     } catch {
       return
@@ -1060,10 +1062,14 @@ async function collectSearchCandidateFiles(
  * Search Files Processor
  * 在多个文件中搜索匹配的内容
  */
-export async function processSearchFiles(args: SearchFilesArgs): Promise<SearchFilesResponse> {
+export async function processSearchFiles(
+  args: SearchFilesArgs,
+  contract: FileToolPathContract = 'legacy-ipc'
+): Promise<SearchFilesResponse> {
   try {
     const { directory_path, chat_uuid, pattern, regex = false, case_sensitive = true, max_results = 100, file_pattern } = args
-    const absoluteDirPath = resolveFilePath(directory_path, chat_uuid)
+    const resolvedRoot = resolveFilePath(directory_path, chat_uuid, 'traversal', contract)
+    const absoluteDirPath = resolvedRoot.absolutePath
     logger.info('search_files.start', { directoryPath: directory_path, absoluteDirPath })
 
     if (!existsSync(absoluteDirPath)) {
@@ -1073,7 +1079,7 @@ export async function processSearchFiles(args: SearchFilesArgs): Promise<SearchF
     const matches: FileSearchMatch[] = []
     const searchPattern = createSearchPattern(pattern, regex, case_sensitive)
     const fileRegex = file_pattern ? new RegExp(file_pattern) : undefined
-    const candidateFiles = await collectSearchCandidateFiles(absoluteDirPath, fileRegex)
+    const candidateFiles = await collectSearchCandidateFiles(resolvedRoot, absoluteDirPath, fileRegex)
     let filesSearched = 0
 
     await runWithConcurrency(candidateFiles, DEFAULT_FILE_SEARCH_CONCURRENCY, async (candidate) => {
@@ -1091,7 +1097,7 @@ export async function processSearchFiles(args: SearchFilesArgs): Promise<SearchF
           for (const match of lineMatches) {
             if (matches.length >= max_results) break
             matches.push({
-              file_path: candidate.absolutePath,
+              file_path: contract === 'embedded' ? candidate.relativePath : candidate.absolutePath,
               line: i + 1,
               content: line,
               column: match.index !== undefined ? match.index + 1 : 0
@@ -1104,7 +1110,13 @@ export async function processSearchFiles(args: SearchFilesArgs): Promise<SearchF
     })
 
     logger.info('search_files.success', { directoryPath: directory_path, totalMatches: matches.length, filesSearched })
-    return { success: true, directory_path, matches, total_matches: matches.length, files_searched: filesSearched }
+    return {
+      success: true,
+      directory_path: displayResolvedPath(resolvedRoot, directory_path, contract),
+      matches,
+      total_matches: matches.length,
+      files_searched: filesSearched
+    }
   } catch (error: any) {
     logger.error('search_files.failed', error)
     return { success: false, error: error.message || 'Failed to search files' }
@@ -1114,7 +1126,8 @@ export async function processSearchFiles(args: SearchFilesArgs): Promise<SearchF
 export async function processGrep(args: GrepArgs): Promise<GrepResponse> {
   try {
     const { path, chat_uuid, pattern, regex = true, case_sensitive = true, max_results = 100, file_pattern } = args
-    const absolutePath = resolveFilePath(path, chat_uuid)
+    const resolvedTarget = resolveFilePath(path, chat_uuid, 'traversal', 'embedded')
+    const absolutePath = resolvedTarget.absolutePath
     logger.info('grep.start', { path, absolutePath })
 
     if (!existsSync(absolutePath)) {
@@ -1137,12 +1150,25 @@ export async function processGrep(args: GrepArgs): Promise<GrepResponse> {
 
       return {
         success: true,
-        path,
+        path: resolvedTarget.relativePath,
         target_type: targetType,
-        matches: ripgrepResult.matches.map((match) => ({
-          ...match,
-          file_path: targetType === 'file' ? path : match.file_path
-        })),
+        matches: ripgrepResult.matches.map((match) => {
+          const safeMatch = resolveFilePath(match.file_path, chat_uuid, 'existing', 'legacy-ipc')
+          const staysWithinTarget = targetType === 'file'
+            ? safeMatch.canonicalPath === resolvedTarget.canonicalPath
+            : isPathWithin(safeMatch.canonicalPath, resolvedTarget.canonicalPath)
+          if (!staysWithinTarget) {
+            throw new WorkspacePathError(
+              'PATH_TRAVERSAL_REJECTED',
+              'Search result escaped the requested traversal root',
+              match.file_path
+            )
+          }
+          return {
+            ...match,
+            file_path: targetType === 'file' ? resolvedTarget.relativePath : safeMatch.relativePath
+          }
+        }),
         total_matches: ripgrepResult.total_matches,
         files_searched: targetType === 'file' ? 1 : ripgrepResult.files_searched
       }
@@ -1158,14 +1184,14 @@ export async function processGrep(args: GrepArgs): Promise<GrepResponse> {
         regex,
         case_sensitive,
         max_results
-      })
+      }, 'embedded')
 
       return {
         success: fileResult.success,
-        path,
+        path: resolvedTarget.relativePath,
         target_type: 'file',
         matches: (fileResult.matches || []).map((match) => ({
-          file_path: path,
+          file_path: resolvedTarget.relativePath,
           line: match.line,
           content: match.content,
           column: match.column
@@ -1184,11 +1210,11 @@ export async function processGrep(args: GrepArgs): Promise<GrepResponse> {
       case_sensitive,
       max_results,
       file_pattern
-    })
+    }, 'embedded')
 
     return {
       success: directoryResult.success,
-      path,
+      path: resolvedTarget.relativePath,
       target_type: 'directory',
       matches: directoryResult.matches,
       total_matches: directoryResult.total_matches,
@@ -1207,10 +1233,14 @@ export async function processGrep(args: GrepArgs): Promise<GrepResponse> {
  * List Directory Processor
  * 列出目录内容
  */
-export async function processListDirectory(args: ListDirectoryArgs): Promise<ListDirectoryResponse> {
+export async function processListDirectory(
+  args: ListDirectoryArgs,
+  contract: FileToolPathContract = 'legacy-ipc'
+): Promise<ListDirectoryResponse> {
   try {
     const { directory_path, chat_uuid } = args
-    const absolutePath = resolveFilePath(directory_path, chat_uuid)
+    const resolvedRoot = resolveFilePath(directory_path, chat_uuid, 'traversal', contract)
+    const absolutePath = resolvedRoot.absolutePath
     logger.info('list_directory.start', { directoryPath: directory_path, absolutePath })
 
     if (!existsSync(absolutePath)) {
@@ -1223,16 +1253,25 @@ export async function processListDirectory(args: ListDirectoryArgs): Promise<Lis
     for (const item of items) {
       const itemPath = join(absolutePath, item)
       try {
-        const stats = statSync(itemPath)
-        const type = stats.isDirectory() ? 'directory' : stats.isSymbolicLink() ? 'symlink' : 'file'
-        entries.push({ name: item, type, path: itemPath })
+        const stats = lstatSync(itemPath)
+        const type = stats.isSymbolicLink() ? 'symlink' : stats.isDirectory() ? 'directory' : 'file'
+        entries.push({
+          name: item,
+          type,
+          path: contract === 'embedded' ? displayChildPath(resolvedRoot, item) : itemPath
+        })
       } catch (error) {
         continue
       }
     }
 
     logger.info('list_directory.success', { directoryPath: directory_path, totalCount: entries.length })
-    return { success: true, directory_path, entries, total_count: entries.length }
+    return {
+      success: true,
+      directory_path: displayResolvedPath(resolvedRoot, directory_path, contract),
+      entries,
+      total_count: entries.length
+    }
   } catch (error: any) {
     logger.error('list_directory.failed', error)
     return { success: false, error: error.message || 'Failed to list directory' }
@@ -1243,10 +1282,14 @@ export async function processListDirectory(args: ListDirectoryArgs): Promise<Lis
  * List Directory With Sizes Processor
  * 列出目录内容，包含文件大小和修改时间
  */
-export async function processListDirectoryWithSizes(args: ListDirectoryWithSizesArgs): Promise<ListDirectoryWithSizesResponse> {
+export async function processListDirectoryWithSizes(
+  args: ListDirectoryWithSizesArgs,
+  contract: FileToolPathContract = 'legacy-ipc'
+): Promise<ListDirectoryWithSizesResponse> {
   try {
     const { directory_path, chat_uuid } = args
-    const absolutePath = resolveFilePath(directory_path, chat_uuid)
+    const resolvedRoot = resolveFilePath(directory_path, chat_uuid, 'traversal', contract)
+    const absolutePath = resolvedRoot.absolutePath
     logger.info('list_directory_with_sizes.start', { directoryPath: directory_path, absolutePath })
 
     if (!existsSync(absolutePath)) {
@@ -1259,12 +1302,12 @@ export async function processListDirectoryWithSizes(args: ListDirectoryWithSizes
     for (const item of items) {
       const itemPath = join(absolutePath, item)
       try {
-        const stats = await stat(itemPath)
-        const type = stats.isDirectory() ? 'directory' : stats.isSymbolicLink() ? 'symlink' : 'file'
+        const stats = await lstat(itemPath)
+        const type = stats.isSymbolicLink() ? 'symlink' : stats.isDirectory() ? 'directory' : 'file'
         entries.push({
           name: item,
           type,
-          path: itemPath,
+          path: contract === 'embedded' ? displayChildPath(resolvedRoot, item) : itemPath,
           size: stats.size,
           modified: stats.mtime.toISOString()
         })
@@ -1274,7 +1317,12 @@ export async function processListDirectoryWithSizes(args: ListDirectoryWithSizes
     }
 
     logger.info('list_directory_with_sizes.success', { directoryPath: directory_path, totalCount: entries.length })
-    return { success: true, directory_path, entries, total_count: entries.length }
+    return {
+      success: true,
+      directory_path: displayResolvedPath(resolvedRoot, directory_path, contract),
+      entries,
+      total_count: entries.length
+    }
   } catch (error: any) {
     logger.error('list_directory_with_sizes.failed', error)
     return { success: false, error: error.message || 'Failed to list directory' }
@@ -1285,8 +1333,8 @@ export async function processLs(args: LsArgs): Promise<LsResponse> {
   try {
     const { path, chat_uuid, details = false } = args
     const result = details
-      ? await processListDirectoryWithSizes({ directory_path: path, chat_uuid })
-      : await processListDirectory({ directory_path: path, chat_uuid })
+      ? await processListDirectoryWithSizes({ directory_path: path, chat_uuid }, 'embedded')
+      : await processListDirectory({ directory_path: path, chat_uuid }, 'embedded')
 
     if (!result.success) {
       return { success: false, error: result.error }
@@ -1302,7 +1350,7 @@ export async function processLs(args: LsArgs): Promise<LsResponse> {
 
     return {
       success: true,
-      path,
+      path: result.directory_path,
       entries,
       total_count: result.total_count
     }
@@ -1316,11 +1364,14 @@ export async function processLs(args: LsArgs): Promise<LsResponse> {
  * Directory Tree Processor
  * 递归列出目录树结构
  */
-export async function processDirectoryTree(args: DirectoryTreeArgs): Promise<DirectoryTreeResponse> {
+export async function processDirectoryTree(
+  args: DirectoryTreeArgs,
+  contract: FileToolPathContract = 'legacy-ipc'
+): Promise<DirectoryTreeResponse> {
   try {
     const { directory_path, chat_uuid, max_depth = 3 } = args
-    const absolutePath = resolveFilePath(directory_path, chat_uuid)
-    const userDataPath = app.getPath('userData')
+    const resolvedRoot = resolveFilePath(directory_path, chat_uuid, 'traversal', contract)
+    const absolutePath = resolvedRoot.absolutePath
     logger.info('directory_tree.start', { directoryPath: directory_path, absolutePath, maxDepth: max_depth })
 
     if (!existsSync(absolutePath)) {
@@ -1328,16 +1379,26 @@ export async function processDirectoryTree(args: DirectoryTreeArgs): Promise<Dir
     }
 
     const buildTree = async (dirPath: string, depth: number): Promise<TreeNode> => {
-      const stats = await stat(dirPath)
+      const stats = await lstat(dirPath)
       const name = basename(dirPath)
 
-      // Convert absolute path back to relative path (relative to userData)
-      const relativePath = dirPath.startsWith(userDataPath)
-        ? dirPath.slice(userDataPath.length + 1).replace(/\\/g, '/')
-        : dirPath
+      const pathFromRoot = normalizePathForMatching(relative(absolutePath, dirPath))
+      const relativePath = pathFromRoot
+        ? (resolvedRoot.relativePath === '.' ? pathFromRoot : `${resolvedRoot.relativePath}/${pathFromRoot}`)
+        : resolvedRoot.relativePath
+
+      if (stats.isSymbolicLink()) {
+        return { name, type: 'symlink', path: relativePath }
+      }
+
+      resolveWorkspacePath(dirPath, {
+        mode: 'legacy-compatible',
+        intent: stats.isDirectory() ? 'traversal' : 'existing',
+        workspaceRootOverride: resolvedRoot.workspaceRoot
+      })
 
       if (!stats.isDirectory() || depth >= max_depth) {
-        return { name, type: 'file', path: relativePath }
+        return { name, type: stats.isDirectory() ? 'directory' : 'file', path: relativePath }
       }
 
       const items = await readdir(dirPath)
@@ -1358,7 +1419,11 @@ export async function processDirectoryTree(args: DirectoryTreeArgs): Promise<Dir
 
     const tree = await buildTree(absolutePath, 0)
     logger.info('directory_tree.success', { directoryPath: directory_path })
-    return { success: true, directory_path, tree }
+    return {
+      success: true,
+      directory_path: displayResolvedPath(resolvedRoot, directory_path, contract),
+      tree
+    }
   } catch (error: any) {
     logger.error('directory_tree.failed', error)
     return { success: false, error: error.message || 'Failed to build directory tree' }
@@ -1366,11 +1431,12 @@ export async function processDirectoryTree(args: DirectoryTreeArgs): Promise<Dir
 }
 
 export async function processTree(args: TreeArgs): Promise<TreeResponse> {
-  return processDirectoryTree({
+  const result = await processDirectoryTree({
     directory_path: args.path,
     chat_uuid: args.chat_uuid,
     max_depth: args.max_depth
-  })
+  }, 'embedded')
+  return { ...result, path: result.success ? result.directory_path : undefined }
 }
 
 async function collectGlobMatches(
@@ -1379,7 +1445,13 @@ async function collectGlobMatches(
   matcher: RegExp,
   matches: GlobMatch[],
   limit: number,
-  options: { includeFiles: boolean, includeDirectories: boolean }
+  options: {
+    includeFiles: boolean
+    includeDirectories: boolean
+    includeSymlinks: boolean
+    outputPrefix: string
+    workspaceRoot: string
+  }
 ): Promise<void> {
   if (matches.length >= limit) return
 
@@ -1389,28 +1461,43 @@ async function collectGlobMatches(
     const itemPath = join(currentPath, item)
     let itemStats
     try {
-      itemStats = await stat(itemPath)
+      itemStats = await lstat(itemPath)
     } catch {
       return
     }
 
     const relativePath = normalizePathForMatching(relative(rootPath, itemPath)) || item
-    const entryType = itemStats.isDirectory() ? 'directory' : 'file'
+    const entryType = itemStats.isSymbolicLink() ? 'symlink' : itemStats.isDirectory() ? 'directory' : 'file'
     if (entryType === 'directory' && shouldSkipDirectory(item)) {
       return
     }
 
-    const shouldInclude = entryType === 'directory' ? options.includeDirectories : options.includeFiles
+    if (entryType !== 'symlink') {
+      resolveWorkspacePath(itemPath, {
+        mode: 'legacy-compatible',
+        intent: entryType === 'directory' ? 'traversal' : 'existing',
+        workspaceRootOverride: options.workspaceRoot
+      })
+    }
+
+    const shouldInclude = entryType === 'directory'
+      ? options.includeDirectories
+      : entryType === 'symlink'
+        ? options.includeSymlinks
+        : options.includeFiles
 
     if (shouldInclude && matcher.test(relativePath)) {
+      const outputPath = options.outputPrefix === '.'
+        ? relativePath
+        : `${options.outputPrefix}/${relativePath}`
       matches.push({
-        path: relativePath,
+        path: outputPath,
         name: basename(itemPath),
         type: entryType
       })
     }
 
-    if (itemStats.isDirectory()) {
+    if (entryType === 'directory') {
       await collectGlobMatches(rootPath, itemPath, matcher, matches, limit, options)
     }
   })
@@ -1419,7 +1506,8 @@ async function collectGlobMatches(
 export async function processGlob(args: GlobArgs): Promise<GlobResponse> {
   try {
     const { path, chat_uuid, pattern, max_results = DEFAULT_GLOB_MAX_RESULTS } = args
-    const absoluteRootPath = resolveFilePath(path, chat_uuid)
+    const resolvedRoot = resolveFilePath(path, chat_uuid, 'traversal', 'embedded')
+    const absoluteRootPath = resolvedRoot.absolutePath
     logger.info('glob.start', { path, absoluteRootPath, pattern, maxResults: max_results })
 
     if (!existsSync(absoluteRootPath)) {
@@ -1445,10 +1533,23 @@ export async function processGlob(args: GlobArgs): Promise<GlobResponse> {
       for (const filePath of ripgrepResult.files) {
         if (matches.length >= limit) break
 
-        const relativePath = normalizePathForMatching(filePath)
+        const emittedAbsolutePath = isAbsolute(filePath)
+          ? filePath
+          : resolve(absoluteRootPath, filePath)
+        const safeMatch = resolveFilePath(emittedAbsolutePath, chat_uuid, 'existing', 'legacy-ipc')
+        if (!isPathWithin(safeMatch.canonicalPath, resolvedRoot.canonicalPath)) {
+          throw new WorkspacePathError(
+            'PATH_TRAVERSAL_REJECTED',
+            'Glob result escaped the requested traversal root',
+            filePath
+          )
+        }
+        const relativePath = normalizePathForMatching(
+          relative(resolvedRoot.canonicalPath, safeMatch.canonicalPath)
+        )
         if (matcher.test(relativePath)) {
           matches.push({
-            path: relativePath,
+            path: safeMatch.relativePath,
             name: basename(relativePath),
             type: 'file'
           })
@@ -1457,19 +1558,25 @@ export async function processGlob(args: GlobArgs): Promise<GlobResponse> {
 
       await collectGlobMatches(absoluteRootPath, absoluteRootPath, matcher, matches, limit, {
         includeFiles: false,
-        includeDirectories: true
+        includeDirectories: true,
+        includeSymlinks: true,
+        outputPrefix: resolvedRoot.relativePath,
+        workspaceRoot: resolvedRoot.workspaceRoot
       })
     } catch (error: any) {
       logger.warn('glob.ripgrep_fallback', { error: error.message || String(error) })
       await collectGlobMatches(absoluteRootPath, absoluteRootPath, matcher, matches, limit, {
         includeFiles: true,
-        includeDirectories: true
+        includeDirectories: true,
+        includeSymlinks: true,
+        outputPrefix: resolvedRoot.relativePath,
+        workspaceRoot: resolvedRoot.workspaceRoot
       })
     }
 
     return {
       success: true,
-      path,
+      path: resolvedRoot.relativePath,
       matches,
       total_matches: matches.length
     }
@@ -1485,18 +1592,22 @@ export async function processGlob(args: GlobArgs): Promise<GlobResponse> {
  * Get File Info Processor
  * 获取文件详细信息
  */
-export async function processGetFileInfo(args: GetFileInfoArgs): Promise<GetFileInfoResponse> {
+export async function processGetFileInfo(
+  args: GetFileInfoArgs,
+  contract: FileToolPathContract = 'legacy-ipc'
+): Promise<GetFileInfoResponse> {
   try {
     const { file_path, chat_uuid } = args
-    const absolutePath = resolveFilePath(file_path, chat_uuid)
+    const resolvedPath = resolveFilePath(file_path, chat_uuid, 'existing', contract)
+    const absolutePath = resolvedPath.absolutePath
     logger.info('get_file_info.start', { filePath: file_path, absolutePath })
 
     if (!existsSync(absolutePath)) {
       return { success: false, error: `File not found: ${file_path}` }
     }
 
-    const stats = await stat(absolutePath)
-    const type = stats.isDirectory() ? 'directory' : stats.isSymbolicLink() ? 'symlink' : 'file'
+    const stats = await lstat(absolutePath)
+    const type = stats.isSymbolicLink() ? 'symlink' : stats.isDirectory() ? 'directory' : 'file'
 
     let isReadable = false
     let isWritable = false
@@ -1510,7 +1621,7 @@ export async function processGetFileInfo(args: GetFileInfoArgs): Promise<GetFile
     } catch { }
 
     const info: FileInfo = {
-      path: file_path,
+      path: displayResolvedPath(resolvedPath, file_path, contract),
       name: basename(absolutePath),
       type,
       size: stats.size,
@@ -1531,23 +1642,19 @@ export async function processGetFileInfo(args: GetFileInfoArgs): Promise<GetFile
 }
 
 export async function processStat(args: StatArgs): Promise<StatResponse> {
-  return processGetFileInfo(args)
+  return processGetFileInfo({ file_path: args.path, chat_uuid: args.chat_uuid }, 'embedded')
 }
 
 /**
  * List Allowed Directories Processor
  * 列出允许访问的目录
  */
-export async function processListAllowedDirectories(_args: ListAllowedDirectoriesArgs): Promise<ListAllowedDirectoriesResponse> {
+export async function processListAllowedDirectories(args: ListAllowedDirectoriesArgs): Promise<ListAllowedDirectoriesResponse> {
   try {
     logger.info('list_allowed_directories.start')
 
-    // TODO: Implement actual allowed directories logic
-    // For now, return common directories
-    const directories = [
-      process.cwd(),
-      process.env.HOME || process.env.USERPROFILE || '/'
-    ]
+    const workspace = resolveFilePath('.', args.chat_uuid, 'traversal', 'embedded')
+    const directories = [workspace.canonicalWorkspaceRoot]
 
     return { success: true, directories }
   } catch (error: any) {
@@ -1562,22 +1669,27 @@ export async function processListAllowedDirectories(_args: ListAllowedDirectorie
  * Create Directory Processor
  * 创建目录
  */
-export async function processCreateDirectory(args: CreateDirectoryArgs): Promise<CreateDirectoryResponse> {
+export async function processCreateDirectory(
+  args: CreateDirectoryArgs,
+  contract: FileToolPathContract = 'legacy-ipc'
+): Promise<CreateDirectoryResponse> {
   try {
     const { directory_path, chat_uuid, recursive = true } = args
-    const absolutePath = resolveFilePath(directory_path, chat_uuid)
+    const resolvedPath = resolveFilePath(directory_path, chat_uuid, 'creatable', contract)
+    const absolutePath = resolvedPath.absolutePath
+    const responseDirectoryPath = displayResolvedPath(resolvedPath, directory_path, contract)
     logger.info('create_directory.start', { directoryPath: directory_path, absolutePath, recursive })
 
     if (existsSync(absolutePath)) {
       logger.info('create_directory.already_exists', { directoryPath: directory_path })
-      return { success: true, directory_path, created: false }
+      return { success: true, directory_path: responseDirectoryPath, created: false }
     }
 
     await mkdir(absolutePath, { recursive })
 
     logger.info('create_directory.success', { directoryPath: directory_path })
 
-    return { success: true, directory_path, created: true }
+    return { success: true, directory_path: responseDirectoryPath, created: true }
   } catch (error: any) {
     logger.error('create_directory.failed', error)
     return { success: false, error: error.message || 'Failed to create directory' }
@@ -1585,18 +1697,23 @@ export async function processCreateDirectory(args: CreateDirectoryArgs): Promise
 }
 
 export async function processMkdir(args: MkdirArgs): Promise<MkdirResponse> {
-  return processCreateDirectory(args)
+  return processCreateDirectory(args, 'embedded')
 }
 
 /**
  * Move File Processor
  * 移动或重命名文件
  */
-export async function processMoveFile(args: MoveFileArgs): Promise<MoveFileResponse> {
+export async function processMoveFile(
+  args: MoveFileArgs,
+  contract: FileToolPathContract = 'legacy-ipc'
+): Promise<MoveFileResponse> {
   try {
     const { source_path, destination_path, chat_uuid, overwrite = false } = args
-    const absoluteSourcePath = resolveFilePath(source_path, chat_uuid)
-    const absoluteDestPath = resolveFilePath(destination_path, chat_uuid)
+    const resolvedSource = resolveFilePath(source_path, chat_uuid, 'source', contract)
+    const resolvedDestination = resolveFilePath(destination_path, chat_uuid, 'destination', contract)
+    const absoluteSourcePath = resolvedSource.absolutePath
+    const absoluteDestPath = resolvedDestination.absolutePath
     logger.info('move_file.start', {
       sourcePath: source_path,
       destinationPath: destination_path,
@@ -1615,7 +1732,11 @@ export async function processMoveFile(args: MoveFileArgs): Promise<MoveFileRespo
 
     await rename(absoluteSourcePath, absoluteDestPath)
     logger.info('move_file.success', { sourcePath: source_path, destinationPath: destination_path })
-    return { success: true, source_path, destination_path }
+    return {
+      success: true,
+      source_path: displayResolvedPath(resolvedSource, source_path, contract),
+      destination_path: displayResolvedPath(resolvedDestination, destination_path, contract)
+    }
   } catch (error: any) {
     logger.error('move_file.failed', error)
     return { success: false, error: error.message || 'Failed to move file' }
@@ -1623,5 +1744,5 @@ export async function processMoveFile(args: MoveFileArgs): Promise<MoveFileRespo
 }
 
 export async function processMv(args: MvArgs): Promise<MvResponse> {
-  return processMoveFile(args)
+  return processMoveFile(args, 'embedded')
 }

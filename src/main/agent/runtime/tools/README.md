@@ -85,6 +85,7 @@
 关键约束：
 
 - `tool.execution_progress` 之类的过程事件不进入 transcript
+- `tool.execution_progress(output)` 通过 ephemeral run event 到达 renderer，并跳过 run-event trace
 - `tool.awaiting_confirmation` 这类等待态事件不进入 transcript
 - confirmation denied 应被规范化成稳定的 denied/aborted tool result，再由 loop 回传模型
 - required confirmation 的默认 runnable 行为应是：

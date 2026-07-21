@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHAT_HOST_EVENTS, CHAT_RENDER_EVENTS } from '@shared/run/events'
 import { RUN_LIFECYCLE_EVENTS } from '@shared/run/lifecycle-events'
 import { RUN_MAINTENANCE_EVENTS } from '@shared/run/maintenance-events'
+import { RUN_TOOL_EVENTS } from '@shared/run/tool-events'
 import type { MessageSegmentPatch } from '@shared/chat/render-events'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 
@@ -27,7 +28,10 @@ const latestStore = {
   setPostRunJobStateForChat: vi.fn(),
   resetPostRunJobsForChat: vi.fn(),
   setLastRunOutcomeForChat: vi.fn(),
-  clearPendingUserMessage: vi.fn()
+  clearPendingUserMessage: vi.fn(),
+  appendToolLiveOutput: vi.fn(),
+  clearToolLiveOutput: vi.fn(),
+  clearToolLiveOutputs: vi.fn()
 }
 
 vi.mock('@renderer/features/chat/state/chatStore', () => ({
@@ -107,6 +111,51 @@ function createInput() {
 }
 
 describe('handleChatRunEvent', () => {
+  it('stores live tool output and clears it on terminal events', async () => {
+    const input = createInput()
+    const envelopeBase = {
+      submissionId: 'submission-1',
+      sequence: 1,
+      timestamp: 1,
+      chatUuid: 'chat-1'
+    }
+
+    await handleChatRunEvent(input, {
+      ...envelopeBase,
+      type: RUN_TOOL_EVENTS.TOOL_EXECUTION_OUTPUT,
+      payload: {
+        toolCallId: 'tool-1',
+        sequence: 2,
+        chunks: [{ stream: 'stdout', text: 'working' }],
+        stdoutBytes: 7,
+        stderrBytes: 0
+      }
+    })
+
+    expect(latestStore.appendToolLiveOutput).toHaveBeenCalledWith(
+      expect.objectContaining({ toolCallId: 'tool-1', sequence: 2 }),
+      'submission-1',
+      'chat-1'
+    )
+
+    await handleChatRunEvent(input, {
+      ...envelopeBase,
+      sequence: 2,
+      type: RUN_TOOL_EVENTS.TOOL_EXECUTION_COMPLETED,
+      payload: {
+        toolCallId: 'tool-1',
+        result: { success: true },
+        cost: 10
+      }
+    })
+
+    expect(latestStore.clearToolLiveOutput).toHaveBeenCalledWith(
+      'tool-1',
+      'submission-1',
+      'chat-1'
+    )
+  })
+
   beforeEach(() => {
     latestStore.currentChatUuid = 'chat-live'
     latestStore.runPhase = 'idle'

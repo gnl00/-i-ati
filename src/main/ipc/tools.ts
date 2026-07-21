@@ -14,6 +14,7 @@ import {
   processListDirectoryWithSizes,
   processDirectoryTree,
   processGetFileInfo,
+  processListAllowedDirectories,
   processCreateDirectory,
   processMoveFile
 } from '@main/tools/fileOperations/FileOperationsProcessor'
@@ -44,6 +45,7 @@ import {
   FILE_LIST_DIR_SIZES_ACTION,
   FILE_DIR_TREE_ACTION,
   FILE_GET_INFO_ACTION,
+  FILE_LIST_ALLOWED_DIRS_ACTION,
   FILE_CREATE_DIR_ACTION,
   FILE_MOVE_ACTION,
   DEV_SERVER_CHECK_PREVIEW_SH,
@@ -134,6 +136,10 @@ export function registerToolHandlers(): void {
   ipcMain.handle(FILE_GET_INFO_ACTION, (_event, args) => {
     logger.info('file_get_info.invoke', { filePath: args.file_path })
     return processGetFileInfo(args)
+  })
+  ipcMain.handle(FILE_LIST_ALLOWED_DIRS_ACTION, (_event, args) => {
+    logger.info('file_list_allowed_directories.invoke')
+    return processListAllowedDirectories(args)
   })
   ipcMain.handle(FILE_CREATE_DIR_ACTION, (_event, args) => {
     logger.info('file_create_directory.invoke', { directoryPath: args.directory_path })

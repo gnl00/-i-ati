@@ -51,6 +51,10 @@ export class SubagentAgentEventSink implements AgentEventSink {
           this.toolsUsed.add(event.toolName)
           return
         }
+        if (event.phase === 'output') {
+          this.toolsUsed.add(event.toolName)
+          return
+        }
         this.toolsUsed.add(event.result.toolName)
         maybeCollectFileTouch(this.filesTouched, event.result.toolName, event.result.content)
         return

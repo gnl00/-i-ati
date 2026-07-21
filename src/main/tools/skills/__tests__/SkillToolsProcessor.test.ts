@@ -22,6 +22,8 @@ vi.mock('fs', () => ({
 }))
 
 vi.mock('fs/promises', () => ({
+  lstat: vi.fn(),
+  realpath: vi.fn(),
   stat: vi.fn(),
   readdir: vi.fn(),
   readFile: vi.fn()
@@ -51,6 +53,8 @@ describe('SkillToolsProcessor', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(existsSync).mockReturnValue(true)
+    vi.mocked(fs.lstat).mockResolvedValue({ isSymbolicLink: () => false } as never)
+    vi.mocked(fs.realpath).mockImplementation(async value => String(value))
     vi.mocked(fs.stat).mockResolvedValue({ isDirectory: () => false } as any)
     vi.mocked(fs.readdir).mockResolvedValue([])
     vi.mocked(fs.readFile).mockResolvedValue('line 1\nline 2')
@@ -219,33 +223,159 @@ describe('SkillToolsProcessor', () => {
     })
   })
 
-  it('runs a TypeScript skill script from the skill root', async () => {
-    const result = await processRunSkillScript({
-      name: 'amap',
-      script: 'scripts/amap.ts',
-      args: ['geocode', '--address', "Bob's house"],
-      env: { AMAP_MAPS_API_KEY: 'key' },
-      timeout: 10000,
-      chat_uuid: 'chat-1'
+  it('rejects read_skill_file symlinks that resolve outside the skill root', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.mocked(fs.lstat).mockResolvedValue({ isSymbolicLink: () => true } as never)
+    vi.mocked(fs.realpath).mockImplementation(async value => {
+      const target = String(value)
+      return target.endsWith('/references/external.md') ? '/etc/external.md' : target
     })
 
-    expect(SkillService.resolveSkillRootPath).toHaveBeenCalledWith('amap')
-    expect(processExecuteCommand).toHaveBeenCalledWith({
-      command: "bun 'scripts/amap.ts' 'geocode' '--address' 'Bob'\\''s house'",
-      cwd: '/tmp/user-data/skills/amap',
-      timeout: 10000,
-      env: { AMAP_MAPS_API_KEY: 'key' },
-      execution_reason: 'Run skill script amap/scripts/amap.ts',
-      possible_risk: 'Runs an available skill script with the working directory fixed to the skill root.',
-      risk_score: 3,
-      confirmed: true
+    const result = await processReadSkillFile({
+      name: 'amap',
+      path: 'references/external.md'
     })
+
+    expect(result.success).toBe(false)
+    expect(result.message).toContain('symlink escapes skill directory')
+    expect(fs.readFile).not.toHaveBeenCalled()
+    consoleError.mockRestore()
+  })
+
+  it('rejects dangling read_skill_file symlinks', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.mocked(fs.lstat).mockResolvedValue({ isSymbolicLink: () => true } as never)
+    vi.mocked(fs.realpath).mockImplementation(async value => {
+      if (String(value).endsWith('/references/dangling.md')) {
+        throw Object.assign(new Error('missing target'), { code: 'ENOENT' })
+      }
+      return String(value)
+    })
+
+    const result = await processReadSkillFile({
+      name: 'amap',
+      path: 'references/dangling.md'
+    })
+
+    expect(result).toMatchObject({
+      success: false,
+      message: 'Path symlink target cannot be resolved: references/dangling.md'
+    })
+    expect(fs.readFile).not.toHaveBeenCalled()
+    consoleError.mockRestore()
+  })
+
+  it('reads internal read_skill_file symlinks through their canonical target', async () => {
+    vi.mocked(fs.lstat).mockResolvedValue({ isSymbolicLink: () => true } as never)
+    vi.mocked(fs.realpath).mockImplementation(async value => {
+      const target = String(value)
+      return target.endsWith('/references/current.md')
+        ? '/tmp/user-data/skills/amap/references/v2.md'
+        : target
+    })
+    vi.mocked(fs.readFile).mockResolvedValue('internal content')
+
+    const result = await processReadSkillFile({
+      name: 'amap',
+      path: 'references/current.md'
+    })
+
+    expect(fs.readFile).toHaveBeenCalledWith(
+      '/tmp/user-data/skills/amap/references/v2.md',
+      'utf-8'
+    )
+    expect(result).toMatchObject({
+      success: true,
+      absolute_path: '/tmp/user-data/skills/amap/references/current.md',
+      content: 'internal content'
+    })
+  })
+
+  it('runs a TypeScript skill script from the skill root', async () => {
+    const result = await processRunSkillScript(
+      {
+        name: 'amap',
+        script: 'scripts/amap.ts',
+        args: ['geocode', '--address', "Bob's house"],
+        env: { AMAP_MAPS_API_KEY: 'key' },
+        timeout: 10000,
+        chat_uuid: 'chat-1'
+      },
+      { metadataConfirmationApproved: true }
+    )
+
+    expect(SkillService.resolveSkillRootPath).toHaveBeenCalledWith('amap')
+    expect(processExecuteCommand).toHaveBeenCalledWith(
+      {
+        command: "bun 'scripts/amap.ts' 'geocode' '--address' 'Bob'\\''s house'",
+        cwd: '/tmp/user-data/skills/amap',
+        timeout: 10000,
+        env: { AMAP_MAPS_API_KEY: 'key' },
+        execution_reason: 'Run skill script amap/scripts/amap.ts',
+        possible_risk: 'Runs an available skill script with the working directory fixed to the skill root.',
+        risk_score: 3,
+        confirmed: true
+      },
+      { metadataConfirmationApproved: true },
+      {
+        executable: 'bun',
+        args: [
+          '/tmp/user-data/skills/amap/scripts/amap.ts',
+          'geocode',
+          '--address',
+          "Bob's house"
+        ]
+      }
+    )
     expect(result).toMatchObject({
       success: true,
       skill_root: '/tmp/user-data/skills/amap',
       script_path: '/tmp/user-data/skills/amap/scripts/amap.ts',
       stdout: 'ok'
     })
+  })
+
+  it('forwards the embedded execution context to skill script commands', async () => {
+    const controller = new AbortController()
+    const onOutput = vi.fn()
+    const context = {
+      signal: controller.signal,
+      onOutput,
+      metadataConfirmationApproved: true
+    }
+
+    await processRunSkillScript({
+      name: 'amap',
+      script: 'scripts/amap.ts'
+    }, context)
+
+    expect(processExecuteCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        command: "bun 'scripts/amap.ts'",
+        confirmed: true
+      }),
+      context,
+      {
+        executable: 'bun',
+        args: ['/tmp/user-data/skills/amap/scripts/amap.ts']
+      }
+    )
+  })
+
+  it('does not trust model arguments or direct processor calls as confirmation', async () => {
+    await processRunSkillScript({
+      name: 'amap',
+      script: 'scripts/amap.ts',
+      confirmed: true
+    } as never)
+
+    expect(processExecuteCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        confirmed: false
+      }),
+      undefined,
+      expect.any(Object)
+    )
   })
 
   it('rejects script paths that escape the skill directory', async () => {
@@ -256,9 +386,85 @@ describe('SkillToolsProcessor', () => {
     })
 
     expect(result.success).toBe(false)
-    expect(result.error).toContain('path escapes skill directory')
+    expect(result.error).toContain('escapes skill directory')
     expect(processExecuteCommand).not.toHaveBeenCalled()
     consoleError.mockRestore()
+  })
+
+  it('rejects skill script symlinks that resolve outside the skill root', async () => {
+    vi.mocked(fs.lstat).mockResolvedValue({ isSymbolicLink: () => true } as never)
+    vi.mocked(fs.realpath).mockImplementation(async value => {
+      const target = String(value)
+      return target.endsWith('/scripts/external.sh') ? '/etc/external.sh' : target
+    })
+
+    const result = await processRunSkillScript({
+      name: 'amap',
+      script: 'scripts/external.sh'
+    })
+
+    expect(result).toMatchObject({
+      success: false,
+      skill_root: '/tmp/user-data/skills/amap',
+      script_path: '/tmp/user-data/skills/amap/scripts/external.sh'
+    })
+    expect(result.error).toContain('symlink escapes skill directory')
+    expect(processExecuteCommand).not.toHaveBeenCalled()
+  })
+
+  it('rejects dangling skill script symlinks', async () => {
+    vi.mocked(fs.lstat).mockResolvedValue({ isSymbolicLink: () => true } as never)
+    vi.mocked(fs.realpath).mockImplementation(async value => {
+      if (String(value).endsWith('/scripts/dangling.sh')) {
+        throw Object.assign(new Error('missing target'), { code: 'ENOENT' })
+      }
+      return String(value)
+    })
+
+    const result = await processRunSkillScript({
+      name: 'amap',
+      script: 'scripts/dangling.sh'
+    })
+
+    expect(result).toMatchObject({
+      success: false,
+      skill_root: '/tmp/user-data/skills/amap',
+      script_path: '/tmp/user-data/skills/amap/scripts/dangling.sh',
+      error: 'Script symlink target cannot be resolved: scripts/dangling.sh'
+    })
+    expect(processExecuteCommand).not.toHaveBeenCalled()
+  })
+
+  it('runs an internal skill script symlink through its canonical target', async () => {
+    vi.mocked(fs.lstat).mockResolvedValue({ isSymbolicLink: () => true } as never)
+    vi.mocked(fs.realpath).mockImplementation(async value => {
+      const target = String(value)
+      return target.endsWith('/scripts/current.sh')
+        ? '/tmp/user-data/skills/amap/scripts/v2.ts'
+        : target
+    })
+
+    const result = await processRunSkillScript(
+      {
+        name: 'amap',
+        script: 'scripts/current.sh'
+      },
+      { metadataConfirmationApproved: true }
+    )
+
+    expect(processExecuteCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        command: "bun 'scripts/current.sh'",
+        cwd: '/tmp/user-data/skills/amap',
+        confirmed: true
+      }),
+      expect.objectContaining({ metadataConfirmationApproved: true }),
+      {
+        executable: 'bun',
+        args: ['/tmp/user-data/skills/amap/scripts/v2.ts']
+      }
+    )
+    expect(result.script_path).toBe('/tmp/user-data/skills/amap/scripts/v2.ts')
   })
 
   it('rejects directory script paths', async () => {

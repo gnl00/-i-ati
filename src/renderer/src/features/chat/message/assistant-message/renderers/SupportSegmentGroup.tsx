@@ -6,6 +6,8 @@ import { Check, ChevronDown, ChevronUp, Lightbulb, Loader2, Wrench, X } from 'lu
 import React, { memo, useEffect, useMemo, useState } from 'react'
 import { fixMalformedCodeBlocks } from '../../markdown/markdown-components'
 import { ErrorMessage } from '../../error-message'
+import { useChatStore } from '@renderer/features/chat/state/chatStore'
+import { buildToolLiveOutputKey } from '@renderer/features/chat/state/chatRunUiStore'
 import type { SupportSegmentRenderItem } from '../model/assistantMessageMapper'
 import {
   formatReasoningDurationText,
@@ -412,6 +414,13 @@ const SupportToolCallGroupRow = memo(({
   item: ToolCallRenderItem
 }) => {
   const [isOpen, setIsOpen] = useState(false)
+  const liveOutput = useChatStore(state => (
+    item.segment.toolCallId
+      ? state.toolLiveOutputs[
+          buildToolLiveOutputKey(state.currentChatUuid, item.segment.toolCallId)
+        ]
+      : undefined
+  ))
   const {
     toolResponse,
     isError,
@@ -456,6 +465,7 @@ const SupportToolCallGroupRow = memo(({
       <ToolCallResultPanel
         toolCall={item.segment}
         toolResponse={toolResponse}
+        liveOutput={isRunning ? liveOutput : undefined}
       />
     </AssistantSegmentPopout>
   )

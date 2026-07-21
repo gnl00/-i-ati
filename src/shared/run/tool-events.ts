@@ -1,4 +1,13 @@
 import type { AgentConfirmationSource } from '@tools/approval'
+import type { EmbeddedToolOutputChunk } from '@tools/registry'
+
+export interface ToolOutputBatch {
+  toolCallId: string
+  sequence: number
+  chunks: EmbeddedToolOutputChunk[]
+  stdoutBytes: number
+  stderrBytes: number
+}
 
 export type RunToolCall = {
   id: string
@@ -17,6 +26,7 @@ export const RUN_TOOL_EVENTS = {
   TOOL_CALL_DETECTED: 'tool.call.detected',
   TOOL_CONFIRMATION_REQUIRED: 'tool.confirmation.required',
   TOOL_EXECUTION_STARTED: 'tool.execution.started',
+  TOOL_EXECUTION_OUTPUT: 'tool.execution.output',
   TOOL_EXECUTION_COMPLETED: 'tool.execution.completed',
   TOOL_EXECUTION_FAILED: 'tool.execution.failed'
 } as const
@@ -42,6 +52,7 @@ export type RunToolEventPayloads = {
     }
   }
   'tool.execution.started': { toolCallId: string; name: string; timestamp: number; executionStartedAt: number }
+  'tool.execution.output': ToolOutputBatch
   'tool.execution.completed': { toolCallId: string; result: unknown; cost: number; latencyCost?: number; executionStartedAt?: number }
   'tool.execution.failed': { toolCallId: string; error: import('./lifecycle-events').SerializedError | Error }
 }

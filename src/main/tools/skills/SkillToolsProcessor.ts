@@ -1,10 +1,12 @@
 import { app } from 'electron'
 import path from 'path'
 import * as fs from 'fs/promises'
-import { existsSync } from 'fs'
 import { chatDb } from '@main/db/chat'
 import { SkillService } from '@main/services/skills/SkillService'
+import { resolveSkillPath } from '@main/services/skills/SkillPathResolver'
 import { processExecuteCommand } from '@main/tools/command/CommandProcessor'
+import { AbortError } from '@main/agent/contracts'
+import type { EmbeddedToolExecutionContext } from '@shared/tools/registry'
 import type { ExecuteCommandResponse } from '@tools/command/index.d'
 
 interface LoadSkillArgs {
@@ -120,36 +122,11 @@ const resolveSourcePath = (source: string, chatUuid?: string): string => {
   return path.join(app.getPath('userData'), source)
 }
 
-const resolveSkillFilePath = (skillRoot: string, name: string, relativePath: string): string => {
-  if (!SKILL_NAME_REGEX.test(name)) {
-    throw new Error(`Invalid skill name: "${name}"`)
-  }
-  if (!relativePath || path.isAbsolute(relativePath)) {
-    throw new Error('path must be a relative file path')
-  }
-
-  const resolved = path.resolve(skillRoot, relativePath)
-  const rel = path.relative(skillRoot, resolved)
-  if (rel.startsWith('..') || path.isAbsolute(rel)) {
-    throw new Error('path escapes skill directory')
-  }
-  return resolved
-}
-
 const resolveSkillRootPath = async (name: string): Promise<string> => {
   if (!SKILL_NAME_REGEX.test(name)) {
     throw new Error(`Invalid skill name: "${name}"`)
   }
   return await SkillService.resolveSkillRootPath(name)
-}
-
-const resolveSkillRelativePath = async (name: string, relativePath: string): Promise<{
-  skillRoot: string
-  absolutePath: string
-}> => {
-  const skillRoot = await resolveSkillRootPath(name)
-  const absolutePath = resolveSkillFilePath(skillRoot, name, relativePath)
-  return { skillRoot, absolutePath }
 }
 
 const normalizeSkillRelativePath = (relativePath: string): string => {
@@ -174,13 +151,26 @@ const normalizeDirectoryEntryLimit = (value: unknown): number => {
 
 const shellQuote = (value: string): string => `'${value.replace(/'/g, `'\\''`)}'`
 
-const buildSkillScriptCommand = (scriptPath: string, args: string[] = []): string => {
+const buildSkillScriptCommand = (
+  scriptPath: string,
+  args: string[] = [],
+  useTypeScriptRuntime = scriptPath.endsWith('.ts')
+): string => {
   const quotedArgs = args.map(shellQuote).join(' ')
-  const commandPrefix = scriptPath.endsWith('.ts')
+  const commandPrefix = useTypeScriptRuntime
     ? `bun ${shellQuote(scriptPath)}`
     : shellQuote(scriptPath)
   return [commandPrefix, quotedArgs].filter(Boolean).join(' ')
 }
+
+const buildSkillScriptInvocation = (
+  absolutePath: string,
+  args: string[] = []
+): { executable: string; args: string[] } => (
+  absolutePath.endsWith('.ts')
+    ? { executable: 'bun', args: [absolutePath, ...args] }
+    : { executable: absolutePath, args }
+)
 
 export async function processLoadSkill(args: LoadSkillArgs): Promise<LoadSkillResponse> {
   try {
@@ -320,14 +310,12 @@ export async function processReadSkillFile(args: ReadSkillFileArgs): Promise<Rea
     }
 
     const skillRoot = await resolveSkillRootPath(args.name)
-    const absolutePath = resolveSkillFilePath(skillRoot, args.name, args.path)
-    if (!existsSync(absolutePath)) {
-      return { success: false, message: `File not found: ${args.path}` }
-    }
+    const resolvedPath = await resolveSkillPath(skillRoot, args.path, 'Path')
+    const absolutePath = resolvedPath.absolutePath
 
-    const stats = await fs.stat(absolutePath)
+    const stats = await fs.stat(resolvedPath.canonicalPath)
     if (stats.isDirectory()) {
-      const entries = await fs.readdir(absolutePath, { withFileTypes: true })
+      const entries = await fs.readdir(resolvedPath.canonicalPath, { withFileTypes: true })
       const limit = normalizeDirectoryEntryLimit(args.max_entries)
       const baseRelativePath = normalizeSkillRelativePath(args.path)
       const mappedEntries = entries
@@ -358,7 +346,7 @@ export async function processReadSkillFile(args: ReadSkillFileArgs): Promise<Rea
     }
 
     const encoding = args.encoding || 'utf-8'
-    const content = await fs.readFile(absolutePath, encoding as BufferEncoding)
+    const content = await fs.readFile(resolvedPath.canonicalPath, encoding as BufferEncoding)
     const lines = content.split('\n')
     const totalLines = lines.length
     let resultContent = content
@@ -388,7 +376,8 @@ export async function processReadSkillFile(args: ReadSkillFileArgs): Promise<Rea
 }
 
 export async function processRunSkillScript(
-  args: RunSkillScriptArgs
+  args: RunSkillScriptArgs,
+  context?: EmbeddedToolExecutionContext
 ): Promise<RunSkillScriptResponse> {
   try {
     if (!args?.name) {
@@ -401,44 +390,67 @@ export async function processRunSkillScript(
       return { success: false, error: 'script must be a relative file path' }
     }
 
-    const { skillRoot, absolutePath } = await resolveSkillRelativePath(args.name, args.script)
-    if (!existsSync(absolutePath)) {
+    const skillRoot = await resolveSkillRootPath(args.name)
+    const requestedAbsolutePath = path.resolve(skillRoot, args.script)
+    let canonicalSkillRoot: string
+    let canonicalScriptPath: string
+    try {
+      const resolvedPath = await resolveSkillPath(
+        skillRoot,
+        args.script,
+        'Script'
+      )
+      canonicalSkillRoot = resolvedPath.canonicalSkillRoot
+      canonicalScriptPath = resolvedPath.canonicalPath
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
       return {
         success: false,
         skill_root: skillRoot,
-        script_path: absolutePath,
-        error: `Script not found: ${args.script}`
+        script_path: requestedAbsolutePath,
+        error: message
       }
     }
 
-    const stats = await fs.stat(absolutePath)
+    const stats = await fs.stat(canonicalScriptPath)
     if (stats.isDirectory()) {
       return {
         success: false,
         skill_root: skillRoot,
-        script_path: absolutePath,
+        script_path: requestedAbsolutePath,
         error: `Script path is a directory: ${args.script}`
       }
     }
 
-    const command = buildSkillScriptCommand(args.script, args.args)
-    const result = await processExecuteCommand({
+    const command = buildSkillScriptCommand(
+      args.script,
+      args.args,
+      canonicalScriptPath.endsWith('.ts')
+    )
+    const invocation = buildSkillScriptInvocation(canonicalScriptPath, args.args)
+    const commandArgs = {
       command,
-      cwd: skillRoot,
+      cwd: canonicalSkillRoot,
       timeout: args.timeout,
       env: args.env,
       execution_reason: `Run skill script ${args.name}/${args.script}`,
       possible_risk: 'Runs an available skill script with the working directory fixed to the skill root.',
       risk_score: 3,
-      confirmed: true
-    })
+      confirmed: context?.metadataConfirmationApproved === true
+    }
+    const result = context
+      ? await processExecuteCommand(commandArgs, context, invocation)
+      : await processExecuteCommand(commandArgs, undefined, invocation)
 
     return {
       ...result,
       skill_root: skillRoot,
-      script_path: absolutePath
+      script_path: canonicalScriptPath
     }
   } catch (error) {
+    if (error instanceof AbortError) {
+      throw error
+    }
     console.error('[SkillTools] Failed to run skill script:', error)
     const message = error instanceof Error ? error.message : String(error)
     return {

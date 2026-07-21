@@ -106,6 +106,7 @@ export class DefaultSubagentRuntimeRunner implements SubagentRuntimeRunner {
     ) => {
       const executor = new ToolExecutor({
         chatUuid: input.chatUuid,
+        workspaceRoot: context.workspacePath,
         modelRef: input.modelRef,
         submissionId: input.parentSubmissionId,
         signal: undefined,

@@ -1,7 +1,10 @@
 import { mcpRuntimeService } from '@main/services/mcpRuntime'
 import { assessCommandFilesystemScope } from '@main/tools/command/filesystemScope'
 import { assessExecuteCommandReview } from '@main/tools/command/risk'
-import { embeddedToolsRegistry } from '@tools/registry'
+import {
+  embeddedToolsRegistry,
+  type EmbeddedToolOutputChunk
+} from '@tools/registry'
 import { embeddedToolMetadata, type EmbeddedToolMetadata } from '@tools/metadata'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 import {
@@ -22,6 +25,22 @@ import type {
 const DEFAULT_CONFIG = {
   maxConcurrency: 3
 }
+const TOOL_OUTPUT_BATCH_INTERVAL_MS = 100
+const TOOL_OUTPUT_PENDING_STREAM_BYTES = 32 * 1024
+const TOOL_OUTPUT_PENDING_MAX_BYTES = TOOL_OUTPUT_PENDING_STREAM_BYTES * 2
+
+function trimUtf8TailToBytes(text: string, maxBytes: number): string {
+  const value = Buffer.from(text, 'utf8')
+  if (value.length <= maxBytes) {
+    return text
+  }
+
+  let start = value.length - maxBytes
+  while (start < value.length && (value[start] & 0b1100_0000) === 0b1000_0000) {
+    start += 1
+  }
+  return value.subarray(start).toString('utf8')
+}
 
 export class ToolExecutor implements IToolExecutor {
   private readonly config: {
@@ -30,6 +49,7 @@ export class ToolExecutor implements IToolExecutor {
   private readonly onProgress?: (progress: ToolExecutionProgress) => void
   private readonly signal?: AbortSignal
   private readonly chatUuid?: string
+  private readonly workspaceRoot?: string
   private readonly submissionId?: string
   private readonly modelRef?: ModelRef
   private readonly allowedTools?: Set<string>
@@ -44,6 +64,7 @@ export class ToolExecutor implements IToolExecutor {
     this.onProgress = config.onProgress
     this.signal = config.signal
     this.chatUuid = config.chatUuid
+    this.workspaceRoot = config.workspaceRoot
     this.submissionId = config.submissionId
     this.modelRef = config.modelRef
     this.allowedTools = config.allowedTools ? new Set(config.allowedTools) : undefined
@@ -89,6 +110,7 @@ export class ToolExecutor implements IToolExecutor {
     const toolName = call.function
     const toolIndex = call.index ?? 0
     let executionStartTime: number | undefined
+    let metadataConfirmationApproved = false
 
     const requiresPlanReview = toolName === 'plan_create'
       && Boolean(this.requestConfirmation)
@@ -102,6 +124,10 @@ export class ToolExecutor implements IToolExecutor {
       && !requiresCommandReview
       && Boolean(metadataReview)
       && !this.shouldAutoApproveAppConfirmation()
+
+    if (metadataReview && this.shouldAutoApproveAppConfirmation()) {
+      metadataConfirmationApproved = true
+    }
 
     if (!requiresPlanReview && !requiresCommandReview && !requiresMetadataReview) {
       executionStartTime = Date.now()
@@ -153,7 +179,10 @@ export class ToolExecutor implements IToolExecutor {
         const filesystemScope = assessCommandFilesystemScope({
           command,
           filesystem_scope: runtimeArgs?.filesystem_scope,
-          filesystem_scope_reason: runtimeArgs?.filesystem_scope_reason
+          filesystem_scope_reason: runtimeArgs?.filesystem_scope_reason,
+          cwd: runtimeArgs?.cwd,
+          env: runtimeArgs?.env,
+          workspaceRoot: this.workspaceRoot
         })
         if (this.shouldAutoApproveAppConfirmation()) {
           runtimeArgs = {
@@ -171,7 +200,9 @@ export class ToolExecutor implements IToolExecutor {
               riskLevel: risk.level === 'warning' ? 'risky' : 'dangerous',
               reason: risk.reason,
               executionReason,
-              possibleRisk: risk.possibleRisk,
+              possibleRisk: filesystemScope.requiresConfirmation
+                ? [risk.possibleRisk, filesystemScope.reason].filter(Boolean).join(' ')
+                : risk.possibleRisk,
               riskScore: risk.normalizedRiskScore,
               filesystemScope: filesystemScope.declaredScope,
               inferredFilesystemScope: filesystemScope.inferredScope,
@@ -195,7 +226,7 @@ export class ToolExecutor implements IToolExecutor {
         } else {
           runtimeArgs = {
             ...runtimeArgs,
-            confirmed: true
+            confirmed: false
           }
         }
       }
@@ -218,6 +249,7 @@ export class ToolExecutor implements IToolExecutor {
           })
           return result
         }
+        metadataConfirmationApproved = true
         if (decision.args) {
           runtimeArgs = this.applyRuntimeContext(decision.args, toolName)
         }
@@ -233,7 +265,12 @@ export class ToolExecutor implements IToolExecutor {
       }
 
       executionStartTime ??= Date.now()
-      const content = await this.executeTool(call, runtimeArgs)
+      const content = await this.executeTool(
+        call,
+        runtimeArgs,
+        toolId,
+        metadataConfirmationApproved
+      )
 
       const result: ToolExecutionResult = {
         id: toolId,
@@ -268,8 +305,14 @@ export class ToolExecutor implements IToolExecutor {
     }
   }
 
-  private async executeTool(call: ToolCallProps, runtimeArgs?: any): Promise<any> {
+  private async executeTool(
+    call: ToolCallProps,
+    runtimeArgs?: any,
+    resolvedToolCallId?: string,
+    metadataConfirmationApproved = false
+  ): Promise<any> {
     const toolName = call.function
+    const toolCallId = resolvedToolCallId ?? call.id ?? `call_${uuidv4()}`
 
     if (this.allowedTools && !this.allowedTools.has(toolName)) {
       throw new Error(`Tool "${toolName}" is not allowed in this runtime`)
@@ -281,7 +324,83 @@ export class ToolExecutor implements IToolExecutor {
       if (!handler) {
         throw new Error(`Tool "${toolName}" is not registered`)
       }
-      return await handler(safeArgs)
+      let sequence = 0
+      let stdoutBytes = 0
+      let stderrBytes = 0
+      let pendingBytes = 0
+      let pendingChunks: EmbeddedToolOutputChunk[] = []
+      let flushTimer: NodeJS.Timeout | undefined
+
+      const compactPendingOutput = (): void => {
+        const compacted = (['stdout', 'stderr'] as const)
+          .map(stream => ({
+            stream,
+            text: trimUtf8TailToBytes(
+              pendingChunks
+                .filter(chunk => chunk.stream === stream)
+                .map(chunk => chunk.text)
+                .join(''),
+              TOOL_OUTPUT_PENDING_STREAM_BYTES
+            )
+          }))
+          .filter(chunk => chunk.text.length > 0)
+        pendingChunks = compacted
+        pendingBytes = compacted.reduce(
+          (total, chunk) => total + Buffer.byteLength(chunk.text, 'utf8'),
+          0
+        )
+      }
+
+      const flushOutput = (): void => {
+        if (flushTimer) {
+          clearTimeout(flushTimer)
+          flushTimer = undefined
+        }
+        if (pendingChunks.length === 0) {
+          return
+        }
+        sequence += 1
+        const chunks = pendingChunks
+        pendingChunks = []
+        pendingBytes = 0
+        this.reportProgress({
+          id: toolCallId,
+          name: toolName,
+          phase: 'output',
+          output: {
+            toolCallId,
+            sequence,
+            chunks,
+            stdoutBytes,
+            stderrBytes
+          }
+        })
+      }
+
+      try {
+        return await handler(safeArgs, {
+          signal: this.signal,
+          metadataConfirmationApproved,
+          onOutput: (chunk) => {
+            const chunkBytes = Buffer.byteLength(chunk.text, 'utf8')
+            if (chunk.stream === 'stdout') {
+              stdoutBytes += chunkBytes
+            } else {
+              stderrBytes += chunkBytes
+            }
+            pendingChunks.push(chunk)
+            pendingBytes += chunkBytes
+            if (pendingBytes >= TOOL_OUTPUT_PENDING_MAX_BYTES) {
+              compactPendingOutput()
+            }
+            if (!flushTimer) {
+              flushTimer = setTimeout(flushOutput, TOOL_OUTPUT_BATCH_INTERVAL_MS)
+            }
+          }
+        })
+      } finally {
+        flushOutput()
+      }
     }
 
     const callId = call.id || `call_${uuidv4()}`
@@ -326,17 +445,13 @@ export class ToolExecutor implements IToolExecutor {
     const toolSource = this.resolveToolSource(toolName)
     let nextArgs = args
 
-    if (toolSource !== 'mcp' && this.chatUuid && toolName === 'vision_analyze') {
-      nextArgs = { ...nextArgs, chat_uuid: this.chatUuid }
-    } else if (toolSource !== 'mcp' && this.chatUuid && (
-      toolName?.startsWith('schedule_')
-      || toolName?.startsWith('plan_')
-      || toolName?.startsWith('activity_journal_')
-      || toolName === 'execute_command'
-    )) {
-      nextArgs = { ...nextArgs, chat_uuid: this.chatUuid }
-    } else if (toolSource !== 'mcp' && this.chatUuid && !args.chat_uuid) {
-      nextArgs = { ...nextArgs, chat_uuid: this.chatUuid }
+    if (toolSource !== 'mcp') {
+      nextArgs = { ...nextArgs }
+      if (this.chatUuid) {
+        nextArgs.chat_uuid = this.chatUuid
+      } else {
+        delete nextArgs.chat_uuid
+      }
     }
 
     if (toolName?.startsWith('subagent_')) {

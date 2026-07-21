@@ -35,6 +35,7 @@ const createEventEmitter = (): AgentEventEmitter => ({
   emitToolAwaitingConfirmation: vi.fn(async () => {}),
   emitToolConfirmationDenied: vi.fn(async () => {}),
   emitToolExecutionStarted: vi.fn(async () => {}),
+  emitToolExecutionOutput: vi.fn(async () => {}),
   emitToolExecutionCompleted: vi.fn(async () => {}),
   emitToolExecutionFailed: vi.fn(async () => {}),
   emitToolExecutionAborted: vi.fn(async () => {}),
@@ -316,5 +317,73 @@ describe('DefaultToolExecutorDispatcher', () => {
         latencyCost: 1600
       })
     }))
+  })
+
+  it('serializes started and output events before the terminal event', async () => {
+    const order: string[] = []
+    const agentEventEmitter = createEventEmitter()
+    vi.mocked(agentEventEmitter.emitToolExecutionStarted).mockImplementation(async () => {
+      await Promise.resolve()
+      order.push('started')
+    })
+    vi.mocked(agentEventEmitter.emitToolExecutionOutput).mockImplementation(async event => {
+      await Promise.resolve()
+      order.push(`output:${event.output.sequence}`)
+    })
+    vi.mocked(agentEventEmitter.emitToolExecutionCompleted).mockImplementation(async () => {
+      order.push('completed')
+    })
+
+    const dispatcher = new DefaultToolExecutorDispatcher({
+      agentEventEmitter,
+      runtimeClock: { now: vi.fn(() => 100) },
+      executeToolCalls: async (calls, context) => {
+        const call = calls[0]
+        context.onProgress({
+          id: call.id!,
+          name: call.function,
+          phase: 'started'
+        })
+        for (const sequence of [1, 2]) {
+          context.onProgress({
+            id: call.id!,
+            name: call.function,
+            phase: 'output',
+            output: {
+              toolCallId: call.id!,
+              sequence,
+              chunks: [{ stream: 'stdout', text: `${sequence}` }],
+              stdoutBytes: sequence,
+              stderrBytes: 0
+            }
+          })
+        }
+        return [{
+          id: call.id!,
+          index: call.index ?? 0,
+          name: call.function,
+          content: { success: true },
+          cost: 1,
+          status: 'success'
+        }]
+      }
+    })
+
+    await dispatcher.dispatch({
+      batchId: 'batch-output',
+      stepId: 'step-output',
+      createdAt: 1,
+      calls: [{
+        toolCallId: 'tool-output',
+        stepId: 'step-output',
+        index: 0,
+        name: 'execute_command',
+        arguments: '{"command":"printf 12"}',
+        confirmationPolicy: { mode: 'not_required' },
+        status: 'pending'
+      }]
+    })
+
+    expect(order).toEqual(['started', 'output:1', 'output:2', 'completed'])
   })
 })

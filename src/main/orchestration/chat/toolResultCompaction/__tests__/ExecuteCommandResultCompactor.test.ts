@@ -4,7 +4,7 @@ import { ExecuteCommandResultCompactor } from '../ExecuteCommandResultCompactor'
 describe('ExecuteCommandResultCompactor', () => {
   it('uses CompactAgent and preserves command execution facts', async () => {
     const compactAgent = {
-      compact: vi.fn(async () => ({
+      compact: vi.fn(async (_input: unknown) => ({
         content: '[stdout] 82 tests passed.\n[stderr] warning in src/main/index.ts:42',
         usage: {
           promptTokens: 220,
@@ -28,7 +28,12 @@ describe('ExecuteCommandResultCompactor', () => {
         command: 'pnpm test',
         stdout: 'test output '.repeat(500),
         stderr: 'warning output',
+        stdout_bytes: 6_000,
+        stderr_bytes: 14,
+        stdout_truncated: true,
+        stderr_truncated: false,
         exit_code: 0,
+        termination_signal: 'SIGTERM',
         execution_time: 1350
       },
       level: 'balanced'
@@ -39,7 +44,12 @@ describe('ExecuteCommandResultCompactor', () => {
       success: true,
       command: 'pnpm test',
       exit_code: 0,
+      termination_signal: 'SIGTERM',
       execution_time: 1350,
+      stdout_bytes: 6_000,
+      stderr_bytes: 14,
+      stdout_truncated: true,
+      stderr_truncated: false,
       output_summary: expect.stringContaining('82 tests passed'),
       truncation: {
         compactionTruncated: true
@@ -107,7 +117,7 @@ describe('ExecuteCommandResultCompactor', () => {
 
   it('bounds verbose command output before calling the model', async () => {
     const compactAgent = {
-      compact: vi.fn(async () => ({
+      compact: vi.fn(async (_input: unknown) => ({
         content: 'tests passed',
         modelId: 'lite-model',
         latencyMs: 4,
@@ -132,7 +142,9 @@ describe('ExecuteCommandResultCompactor', () => {
       modelInputPolicy: 'redact-secrets'
     })
 
-    const modelInput = (compactAgent.compact as any).mock.calls[0]?.[0]
+    const modelInput = compactAgent.compact.mock.calls[0]?.[0] as
+      | { content?: string }
+      | undefined
     expect(Array.from(modelInput?.content ?? '')).toHaveLength(12_000)
     expect(modelInput?.content).toContain('[command source pre-compacted]')
     expect(modelInput?.content).toContain('"command":"pnpm test"')

@@ -25,12 +25,14 @@ const {
       permissionApprovalMode: 'default',
       ensureSelectedModelRef: vi.fn(() => modelRef),
       setPendingUserMessage: vi.fn(),
+      clearPendingUserMessage: vi.fn(),
       resetPostRunJobs: vi.fn(),
       setLastRunOutcome: vi.fn(),
       resetPostRunJobsForChat: vi.fn(),
       setLastRunOutcomeForChat: vi.fn(),
       setRunPhaseForChat: vi.fn(),
       setRunPhase: vi.fn(),
+      clearToolLiveOutputs: vi.fn(),
       getRunStatusForChat: vi.fn(() => ({
         runPhase: 'idle',
         postRunJobs: {
@@ -94,12 +96,14 @@ describe('useChatRun', () => {
     for (const mock of [
       chatStore.ensureSelectedModelRef,
       chatStore.setPendingUserMessage,
+      chatStore.clearPendingUserMessage,
       chatStore.resetPostRunJobs,
       chatStore.setLastRunOutcome,
       chatStore.resetPostRunJobsForChat,
       chatStore.setLastRunOutcomeForChat,
       chatStore.setRunPhaseForChat,
       chatStore.setRunPhase,
+      chatStore.clearToolLiveOutputs,
       chatStore.getRunStatusForChat
     ]) {
       mock.mockClear()
@@ -168,5 +172,18 @@ describe('useChatRun', () => {
         mediaCtx: ['data:image/png;base64,abc']
       })
     }))
+  })
+
+  it('clears transient tool output when a run handle is cleaned up', async () => {
+    invokeRunStart.mockRejectedValueOnce(new Error('start failed'))
+    await act(async () => {
+      root.render(<Probe />)
+    })
+
+    await expect(act(async () => {
+      await hookResult?.onSubmit('hello', [], { stream: true })
+    })).rejects.toThrow('start failed')
+
+    expect(chatStore.clearToolLiveOutputs).toHaveBeenCalledWith('submission-1')
   })
 })

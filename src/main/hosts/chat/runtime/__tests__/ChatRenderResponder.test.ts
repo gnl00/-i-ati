@@ -53,6 +53,40 @@ const dispatchAgentEvent = async (
 }
 
 describe('ChatRenderResponder', () => {
+  it('projects tool output batches into ephemeral run events', async () => {
+    const emitter = { emit: vi.fn() } as any
+    const placeholder: MessageEntity = {
+      id: 101,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: { role: 'assistant', content: '', segments: [] }
+    }
+    const responder = new ChatRenderResponder(emitter, [placeholder], placeholder)
+    const output = {
+      toolCallId: 'tool-output',
+      sequence: 1,
+      chunks: [{ stream: 'stdout' as const, text: 'building' }],
+      stdoutBytes: 8,
+      stderrBytes: 0
+    }
+
+    await dispatchAgentEvent(responder, {
+      type: 'tool.execution_progress',
+      phase: 'output',
+      timestamp: 200,
+      stepId: 'step-1',
+      toolCallId: 'tool-output',
+      toolCallIndex: 0,
+      toolName: 'execute_command',
+      output
+    })
+
+    expect(emitter.emit).toHaveBeenCalledWith(
+      RUN_TOOL_EVENTS.TOOL_EXECUTION_OUTPUT,
+      output
+    )
+  })
+
   it('keeps final text when a completed step also contains tool calls', async () => {
     const emitter = {
       emit: vi.fn()

@@ -21,6 +21,7 @@ import type {
   ToolFailureFact,
   ToolAbortedFact
 } from '../tools/ToolResultFact'
+import type { ToolOutputBatch } from '../../tools'
 
 export interface ToolAwaitingConfirmationEvent {
   type: 'tool.awaiting_confirmation'
@@ -55,6 +56,18 @@ export interface ToolExecutionCompletedEvent {
   result: ToolSuccessFact
 }
 
+export interface ToolExecutionOutputEvent {
+  type: 'tool.execution_progress'
+  timestamp: number
+  stepId: string
+  toolCallId: string
+  toolCallIndex: number
+  toolName: string
+  phase: 'output'
+  output: ToolOutputBatch
+  result?: never
+}
+
 export interface ToolExecutionFailedEvent {
   type: 'tool.execution_progress'
   timestamp: number
@@ -73,6 +86,7 @@ export type ToolEvent =
   | ToolAwaitingConfirmationEvent
   | ToolConfirmationDeniedEvent
   | ToolExecutionStartedEvent
+  | ToolExecutionOutputEvent
   | ToolExecutionCompletedEvent
   | ToolExecutionFailedEvent
   | ToolExecutionAbortedEvent

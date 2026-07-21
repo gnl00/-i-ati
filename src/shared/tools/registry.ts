@@ -9,6 +9,20 @@ import { withToolCallReasonDefinition } from './definitions-utils'
 export type { EmbeddedToolMetadata } from './metadata-types'
 export type ToolSource = 'embedded' | 'mcp'
 
+export type EmbeddedToolOutputStream = 'stdout' | 'stderr'
+
+export interface EmbeddedToolOutputChunk {
+  stream: EmbeddedToolOutputStream
+  text: string
+}
+
+export interface EmbeddedToolExecutionContext {
+  signal?: AbortSignal
+  onOutput?: (chunk: EmbeddedToolOutputChunk) => void
+  /** Set only by ToolExecutor after an embedded-tool metadata review or trusted auto approval. */
+  metadataConfirmationApproved?: boolean
+}
+
 export interface ToolDefinition {
   type: string
   source?: ToolSource
@@ -21,7 +35,7 @@ export interface ToolDefinition {
 
 export interface EmbeddedToolHandler {
   name: string
-  handler: (args: any) => Promise<any>
+  handler: (args: any, context?: EmbeddedToolExecutionContext) => Promise<any>
   definition?: ToolDefinition
   metadata?: EmbeddedToolMetadata
 }
@@ -35,7 +49,7 @@ class EmbeddedToolsRegistry {
    */
   register(
     toolName: string,
-    handler: (args: any) => Promise<any>,
+    handler: (args: any, context?: EmbeddedToolExecutionContext) => Promise<any>,
     definition?: ToolDefinition,
     metadata?: EmbeddedToolMetadata
   ): void {
@@ -96,7 +110,9 @@ class EmbeddedToolsRegistry {
   /**
    * 获取工具处理器
    */
-  getHandler(toolName: string): ((args: any) => Promise<any>) | undefined {
+  getHandler(
+    toolName: string
+  ): ((args: any, context?: EmbeddedToolExecutionContext) => Promise<any>) | undefined {
     const tool = this.tools.get(toolName)
     return tool?.handler
   }

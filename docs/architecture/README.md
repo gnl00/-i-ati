@@ -15,3 +15,5 @@ and data flow. Historical implementation summaries live in
 - [System prompt runtime context](system-prompt-runtime-context.md)
 - [Vision observation sidecar](vision-observation-sidecar.md)
 - [Subagent implementation](subagent-mvp.md)
+- [Command execution and workspace security boundaries](sandbox-design.md)
+- [Workspace path confinement](sandbox-design.md#workspace-file-operation-confinement)

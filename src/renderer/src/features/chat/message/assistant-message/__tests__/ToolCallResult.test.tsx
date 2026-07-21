@@ -37,6 +37,7 @@ vi.mock('framer-motion', async () => {
 })
 
 import { ToolCallResult, ToolCallResultPanel } from '../toolcall/ToolCallResult'
+import { useChatStore } from '@renderer/features/chat/state/chatStore'
 
 const createToolCallSegment = (
   status: string,
@@ -271,6 +272,7 @@ describe('ToolCallResult cost display', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
+    useChatStore.setState({ toolLiveOutputs: {} })
   })
 
   it('uses restrained panel entrance motion and removes spatial motion when reduced', async () => {
@@ -431,7 +433,7 @@ describe('ToolCallResult cost display', () => {
     expect(container.textContent).not.toContain('latest status')
 
     const responseButton = Array.from(document.body.querySelectorAll('button'))
-      .find((button) => button.textContent === 'Response')
+      .find((button) => button.textContent === 'Results')
     await act(async () => {
       responseButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
@@ -489,7 +491,7 @@ describe('ToolCallResult cost display', () => {
 
     await openToolCall(container)
 
-    expect(document.body.textContent).toContain('Preparing tool call parameters')
+    expect(document.body.textContent).toContain('Preparing parameters')
     expect(document.body.textContent).not.toContain('large streaming payload')
     expect(container.textContent).not.toContain('latest status')
   })
@@ -514,6 +516,42 @@ describe('ToolCallResult cost display', () => {
     expect(container.textContent).not.toContain('ready payload')
   })
 
+  it('shows live stdout and stderr in Results and switches to the terminal payload', async () => {
+    useChatStore.setState({ currentChatUuid: 'chat-live' })
+    useChatStore.getState().appendToolLiveOutput({
+      toolCallId: 'tool-1',
+      sequence: 1,
+      chunks: [
+        { stream: 'stdout', text: 'installing package\n' },
+        { stream: 'stderr', text: 'retry warning\n' }
+      ],
+      stdoutBytes: 19,
+      stderrBytes: 14
+    }, 'submission-live', 'chat-live')
+
+    await act(async () => {
+      root.render(<ToolCallResult toolCall={createToolCallSegment('running')} index={0} />)
+    })
+    await openToolCall(container)
+
+    const liveOutput = document.body.querySelector('[data-testid="tool-live-output"]')
+    expect(liveOutput?.textContent).toContain('installing package')
+    expect(liveOutput?.textContent).toContain('retry warning')
+    expect(container.textContent).not.toContain('installing package')
+
+    const completed = createToolCallSegment('completed', 100)
+    completed.content = {
+      ...completed.content,
+      result: { success: true, stdout: 'done' }
+    }
+    await act(async () => {
+      root.render(<ToolCallResult toolCall={completed} index={0} />)
+    })
+
+    expect(document.body.querySelector('[data-testid="tool-live-output"]')).toBeNull()
+    expect(document.body.textContent).toContain('done')
+  })
+
   it('lets the detail code viewer fill its viewport', async () => {
     await act(async () => {
       root.render(<ToolCallResult toolCall={createToolCallSegment('completed', 1680)} index={0} />)
@@ -522,7 +560,7 @@ describe('ToolCallResult cost display', () => {
     await openToolCall(container)
 
     const detailButton = Array.from(document.body.querySelectorAll('button'))
-      .find((button) => button.textContent === 'Response')
+      .find((button) => button.textContent === 'Results')
     await act(async () => {
       detailButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
