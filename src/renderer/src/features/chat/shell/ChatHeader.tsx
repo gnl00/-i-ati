@@ -40,12 +40,12 @@ const ChatHeader: React.FC<ChatHeaderProps> = (_props: ChatHeaderProps) => {
       style={{ userSelect: 'none' }}
     >
       <div
-        className="pointer-events-none absolute inset-x-0 top-0 -bottom-6 bg-white/90 dark:bg-zinc-950/50 backdrop-blur-3xl"
+        className="pointer-events-none absolute inset-x-0 top-0 -bottom-2 bg-white/90 dark:bg-zinc-950/50 backdrop-blur-3xl"
         style={{
           WebkitMaskImage:
-            'linear-gradient(to bottom, black 0%, black 50%, transparent 100%)',
+            'linear-gradient(to bottom, black 0%, black 70%, transparent 100%)',
           maskImage:
-            'linear-gradient(to bottom, black 0%, black 50%, transparent 100%)'
+            'linear-gradient(to bottom, black 0%, black 70%, transparent 100%)'
         }}
       />
 
