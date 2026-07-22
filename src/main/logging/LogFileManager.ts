@@ -7,6 +7,7 @@ import { promisify } from 'util'
 const gzip = promisify(gzipCallback)
 const LOG_FILE_PREFIX = 'app-'
 const PERF_LOG_FILE_PREFIX = 'perf-'
+const SCHEDULER_LOG_FILE_PREFIX = 'scheduler-'
 const REQUEST_LOG_FILE_PREFIX = 'request-'
 const LOG_FILE_SUFFIX = '.log'
 const LOG_FILE_GZIP_SUFFIX = '.log.gz'
@@ -41,6 +42,10 @@ function extractRequestDateKey(fileName: string): string | null {
   return extractDateKeyByPrefix(fileName, REQUEST_LOG_FILE_PREFIX)
 }
 
+function extractSchedulerDateKey(fileName: string): string | null {
+  return extractDateKeyByPrefix(fileName, SCHEDULER_LOG_FILE_PREFIX)
+}
+
 export class LogFileManager {
   constructor(
     private readonly retainDays = 7
@@ -63,6 +68,10 @@ export class LogFileManager {
     return path.join(this.getLogsDir(), `${PERF_LOG_FILE_PREFIX}${dateKey}${LOG_FILE_SUFFIX}`)
   }
 
+  getSchedulerLogFilePath(dateKey = this.getDateKey()): string {
+    return path.join(this.getLogsDir(), `${SCHEDULER_LOG_FILE_PREFIX}${dateKey}${LOG_FILE_SUFFIX}`)
+  }
+
   getRequestLogFilePath(dateKey = this.getDateKey()): string {
     return path.join(this.getLogsDir(), `${REQUEST_LOG_FILE_PREFIX}${dateKey}${LOG_FILE_SUFFIX}`)
   }
@@ -81,6 +90,7 @@ export class LogFileManager {
       if (
         !fileName.startsWith(LOG_FILE_PREFIX) &&
         !fileName.startsWith(PERF_LOG_FILE_PREFIX) &&
+        !fileName.startsWith(SCHEDULER_LOG_FILE_PREFIX) &&
         !fileName.startsWith(REQUEST_LOG_FILE_PREFIX)
       ) continue
 
@@ -104,6 +114,7 @@ export class LogFileManager {
   private extractManagedDateKey(fileName: string): string | null {
     if (fileName.startsWith(LOG_FILE_PREFIX)) return extractDateKey(fileName)
     if (fileName.startsWith(PERF_LOG_FILE_PREFIX)) return extractPerfDateKey(fileName)
+    if (fileName.startsWith(SCHEDULER_LOG_FILE_PREFIX)) return extractSchedulerDateKey(fileName)
     if (fileName.startsWith(REQUEST_LOG_FILE_PREFIX)) return extractRequestDateKey(fileName)
     return null
   }

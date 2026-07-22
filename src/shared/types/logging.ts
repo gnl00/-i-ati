@@ -1,5 +1,5 @@
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
-export type LogTarget = 'app' | 'perf'
+export type LogTarget = 'app' | 'perf' | 'scheduler'
 
 export interface SerializedLogError {
   name?: string

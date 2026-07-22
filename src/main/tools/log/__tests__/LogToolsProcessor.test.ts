@@ -185,6 +185,33 @@ describe('LogToolsProcessor', () => {
     expect(result.blocks?.[0].lines.some(line => line.text.includes('debug me'))).toBe(true)
   })
 
+  it('reads scheduler log files as a dedicated structured stream', async () => {
+    const filePath = join(logsDir, 'scheduler-2026-04-17.log')
+    await writeFile(filePath, [
+      '{"scope":"SchedulerService","msg":"tick.claimed_due_tasks","context":{"count":0}}',
+      '{"scope":"SchedulerService","msg":"task.started","context":{"taskId":"task-1"}}'
+    ].join('\n'), 'utf-8')
+
+    const result = await processLogSearch({
+      target: 'scheduler',
+      date: '2026-04-17',
+      scope: 'SchedulerService',
+      query: 'task.started',
+      context_before: 0,
+      context_after: 0
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.file_name).toBe('scheduler-2026-04-17.log')
+    expect(result.total_matches).toBe(1)
+    expect(result.blocks?.[0].lines).toEqual([
+      {
+        line: 2,
+        text: '{"scope":"SchedulerService","msg":"task.started","context":{"taskId":"task-1"}}'
+      }
+    ])
+  })
+
   it('returns an empty result when no search match is found', async () => {
     const filePath = join(logsDir, 'app-2026-04-17.log')
     await writeFile(filePath, ['alpha', 'beta'].join('\n'), 'utf-8')

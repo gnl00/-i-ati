@@ -92,7 +92,7 @@ const COLLAPSE_DURATION = 190
 // Total exit duration
 const EXIT_TOTAL = SLIDE_DURATION + COLLAPSE_DURATION
 
-const getTaskActionMeta = (status: string) => {
+const getTaskActionMeta = (status: string): { label: string; Icon: React.ComponentType<{ className?: string }> } => {
   if (status === 'pending' || status === 'running') {
     return {
       label: 'Cancel task',
@@ -106,7 +106,7 @@ const getTaskActionMeta = (status: string) => {
   }
 }
 
-const formatRunAt = (timestamp: number) => {
+const formatRunAt = (timestamp: number): string => {
   return new Intl.DateTimeFormat(undefined, {
     month: 'short',
     day: 'numeric',
@@ -114,6 +114,10 @@ const formatRunAt = (timestamp: number) => {
     minute: '2-digit'
   }).format(new Date(timestamp))
 }
+
+const scheduleDescription = (task: ScheduleTask): string => task.schedule_type === 'cron'
+  ? `${task.cron_expression} · ${task.timezone}`
+  : 'One time'
 
 const GoalTooltip: React.FC<{ goal: string; children: React.ReactElement }> = ({ goal, children }) => (
   <Tooltip>
@@ -200,7 +204,7 @@ const ChatScheduleBoard: React.FC<ChatScheduleBoardProps> = ({
 
   const shouldShowScrollFade = visibleTasks.length > 3
 
-  const setItemRef = (taskId: string, node: HTMLDivElement | null) => {
+  const setItemRef = (taskId: string, node: HTMLDivElement | null): void => {
     if (node) {
       itemRefs.current.set(taskId, node)
       return
@@ -208,7 +212,7 @@ const ChatScheduleBoard: React.FC<ChatScheduleBoardProps> = ({
     itemRefs.current.delete(taskId)
   }
 
-  const clearExitTimers = (taskId: string) => {
+  const clearExitTimers = (taskId: string): void => {
     const t1 = exitTimers.current.get(taskId)
     if (t1) {
       clearTimeout(t1)
@@ -221,7 +225,7 @@ const ChatScheduleBoard: React.FC<ChatScheduleBoardProps> = ({
     }
   }
 
-  const restoreTask = (taskId: string) => {
+  const restoreTask = (taskId: string): void => {
     clearExitTimers(taskId)
     setHiddenTaskIds(prev => {
       const next = new Set(prev)
@@ -240,7 +244,7 @@ const ChatScheduleBoard: React.FC<ChatScheduleBoardProps> = ({
     })
   }
 
-  const hideTask = (taskId: string) => {
+  const hideTask = (taskId: string): void => {
     const itemEl = itemRefs.current.get(taskId)
 
     if (itemEl) {
@@ -290,7 +294,7 @@ const ChatScheduleBoard: React.FC<ChatScheduleBoardProps> = ({
     setConfirmingTaskId(current => (current === taskId ? null : current))
   }
 
-  const handleTaskAction = async (task: ScheduleTask) => {
+  const handleTaskAction = async (task: ScheduleTask): Promise<void> => {
     const nextStatus = task.status === 'pending' || task.status === 'running' ? 'cancelled' : 'dismissed'
     const nextLastError = nextStatus === 'cancelled' ? 'Cancelled by user' : task.last_error
 
@@ -481,6 +485,17 @@ const ChatScheduleBoard: React.FC<ChatScheduleBoardProps> = ({
                               <span className="text-slate-300 dark:text-slate-700">·</span>
                               <span>{formatRunAt(task.run_at)}</span>
                             </div>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="inline-flex max-w-full truncate rounded-md border border-slate-200/70 px-1.5 py-0.5 text-[9px] font-medium text-slate-500 dark:border-slate-700/70 dark:text-slate-400">
+                                  {task.schedule_type === 'cron' ? 'Recurring' : 'One time'}
+                                  {task.last_run_status ? ` · Last ${task.last_run_status}` : ''}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent align="start" className={GOAL_TOOLTIP_CONTENT_CLASS_NAME}>
+                                {scheduleDescription(task)}
+                              </TooltipContent>
+                            </Tooltip>
                             {/** task.goal **/}
                             <GoalTooltip goal={task.goal}>
                               <p className="line-clamp-2 wrap-break-word text-[10px] font-medium leading-3 text-slate-600 dark:text-slate-100">

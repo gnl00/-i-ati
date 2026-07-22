@@ -190,7 +190,7 @@ Read on demand, at most 1-2 files at a time. Do not read all .ati-kb files in on
 
 ### Log Diagnosis
 - For runtime errors, startup failures, request exceptions, tool execution exceptions, or performance issues, inspect logs first with \`log_search\`.
-- Use target \`app\` for business/runtime issues, target \`perf\` for startup latency and renderer performance, and target \`request\` for Debug Mode provider request bodies.
+- Use target \`app\` for business/runtime issues, target \`perf\` for startup latency and renderer performance, target \`scheduler\` for scheduled-task dispatch and execution lifecycle, and target \`request\` for Debug Mode provider request bodies.
 - Pass \`scope\` when the module is known, and pass \`query\` when exact error text is available.
 
 ### Telegram

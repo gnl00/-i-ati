@@ -6,13 +6,15 @@ const {
   dbPrepareMock,
   dbPragmaMock,
   dbRunMock,
-  dbAllMock
+  dbAllMock,
+  dbGetMock
 } = vi.hoisted(() => ({
   dbExecMock: vi.fn(),
   dbPrepareMock: vi.fn(),
   dbPragmaMock: vi.fn(),
   dbRunMock: vi.fn(),
   dbAllMock: vi.fn(),
+  dbGetMock: vi.fn(),
 }))
 
 vi.mock('electron', () => ({
@@ -43,9 +45,11 @@ describe('AppDatabase', () => {
     vi.resetModules()
     dbPrepareMock.mockReturnValue({
       all: dbAllMock,
+      get: dbGetMock,
       run: dbRunMock
     })
     dbAllMock.mockReturnValue([])
+    dbGetMock.mockReturnValue(undefined)
   })
 
   it('migrates legacy smart message expiry from 48 hours to 7 days on initialize', async () => {
@@ -76,6 +80,27 @@ describe('AppDatabase', () => {
     expect(createIndexSql).toContain(
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_skills_chat_skill_unique ON chat_skills(chat_id, skill_name)'
     )
+  })
+
+  it('creates persisted schedule definitions, occurrences, and claim indexes', async () => {
+    const { AppDatabase } = await import('../Database')
+
+    AppDatabase.getInstance().initialize()
+
+    const taskTableSql = dbExecMock.mock.calls
+      .map(([sql]) => sql)
+      .find((sql) => typeof sql === 'string' && sql.includes('CREATE TABLE IF NOT EXISTS scheduled_tasks'))
+    const runTableSql = dbExecMock.mock.calls
+      .map(([sql]) => sql)
+      .find((sql) => typeof sql === 'string' && sql.includes('CREATE TABLE IF NOT EXISTS scheduled_task_runs'))
+    const indexSql = dbExecMock.mock.calls
+      .map(([sql]) => sql)
+      .find((sql) => typeof sql === 'string' && sql.includes('idx_scheduled_task_runs_due'))
+
+    expect(taskTableSql).toContain('schedule_type TEXT NOT NULL')
+    expect(taskTableSql).toContain('run_count INTEGER NOT NULL DEFAULT 0')
+    expect(runTableSql).toContain('UNIQUE (task_id, scheduled_for)')
+    expect(indexSql).toContain('idx_scheduled_task_runs_one_active')
   })
 
   it('adds token usage detail storage to messages', async () => {

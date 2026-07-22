@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { SCHEDULE_EVENTS } from '@shared/schedule/events'
+import type { ScheduleTask } from '@shared/tools/schedule'
 import { ScheduleEventEmitter } from '../event-emitter'
 
 const { sendMock, destroyedMock } = vi.hoisted(() => ({
@@ -19,7 +20,7 @@ vi.mock('@main/main-window', () => ({
 describe('ScheduleEventEmitter', () => {
   it('publishes schedule events over SCHEDULE_EVENT channel', () => {
     const emitter = new ScheduleEventEmitter({ chatId: 1, chatUuid: 'chat-1' })
-    emitter.emit(SCHEDULE_EVENTS.UPDATED, { task: { id: 'task-1' } as any })
+    emitter.emit(SCHEDULE_EVENTS.UPDATED, { task: { id: 'task-1' } as unknown as ScheduleTask })
 
     expect(sendMock).toHaveBeenCalledTimes(1)
     const [channel, envelope] = sendMock.mock.calls[0]

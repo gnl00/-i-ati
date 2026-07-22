@@ -1,4 +1,4 @@
-export type LogSearchTarget = 'app' | 'perf' | 'request'
+export type LogSearchTarget = 'app' | 'perf' | 'request' | 'scheduler'
 
 export interface LogSearchArgs {
   target: LogSearchTarget

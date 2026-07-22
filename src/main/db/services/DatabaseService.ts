@@ -5,7 +5,7 @@
 
 import { DbRuntime } from '../core/DbRuntime'
 import { DbAppServices } from './DbAppServices'
-import { ScheduledTaskRow } from '../dao/ScheduledTaskDao'
+import type { ClaimedScheduledRun, ScheduledTaskRow, ScheduledTaskRunRow } from '../dao/ScheduledTaskDao'
 import type { TodoListFilters, TodoRow } from '../dao/TodoDao'
 import type { SmartMessageCandidateSummaryRow } from '../dao/SmartMessageDao'
 import type { ScheduleTaskStatus } from '@shared/tools/schedule'
@@ -358,23 +358,8 @@ class DatabaseService {
 
   // ==================== Scheduled Task Methods ====================
 
-  public saveScheduledTask(task: ScheduledTaskRow): void {
-    this.requirePlanningService().saveScheduledTask(task)
-  }
-
-  public updateScheduledTask(task: ScheduledTaskRow): void {
-    this.requirePlanningService().updateScheduledTask(task)
-  }
-
-  public updateScheduledTaskStatus(
-    id: string,
-    status: ScheduleTaskStatus,
-    attemptCount: number,
-    lastError?: string,
-    resultMessageId?: number
-  ): void {
-    this.requirePlanningService().updateScheduledTaskStatus(id, status, attemptCount, lastError, resultMessageId)
-  }
+  public createScheduledTask(task: ScheduledTaskRow, run: ScheduledTaskRunRow): void { this.requirePlanningService().createScheduledTask(task, run) }
+  public updateScheduledTask(task: ScheduledTaskRow, run: ScheduledTaskRunRow): void { this.requirePlanningService().updateScheduledTask(task, run) }
 
   public getScheduledTaskById(id: string): ScheduledTaskRow | undefined {
     return this.requirePlanningService().getScheduledTaskById(id)
@@ -392,9 +377,17 @@ class DatabaseService {
     return this.requirePlanningService().getScheduledTasksByStatus(status, limit)
   }
 
-  public claimDueScheduledTasks(now: number, limit: number): ScheduledTaskRow[] {
-    return this.requirePlanningService().claimDueScheduledTasks(now, limit)
-  }
+  public getActiveScheduledTaskRun(taskId: string): ScheduledTaskRunRow | undefined { return this.requirePlanningService().getActiveScheduledTaskRun(taskId) }
+  public getScheduledTaskRuns(taskId: string, limit?: number): ScheduledTaskRunRow[] { return this.requirePlanningService().getScheduledTaskRuns(taskId, limit) }
+  public claimDueScheduledTaskRuns(now: number, limit: number): ClaimedScheduledRun[] { return this.requirePlanningService().claimDueScheduledTaskRuns(now, limit) }
+  public startScheduledTaskRunAttempt(runId: string, submissionId: string, now: number): ScheduledTaskRunRow | undefined { return this.requirePlanningService().startScheduledTaskRunAttempt(runId, submissionId, now) }
+  public deferScheduledTaskRun(runId: string, nextAttemptAt: number, now: number): void { this.requirePlanningService().deferScheduledTaskRun(runId, nextAttemptAt, now) }
+  public completeScheduledTaskRun(runId: string, resultMessageId: number | null, nextRun: ScheduledTaskRunRow | null, now: number): void { this.requirePlanningService().completeScheduledTaskRun(runId, resultMessageId, nextRun, now) }
+  public failScheduledTaskRun(runId: string, error: string, retryAt: number | null, nextRun: ScheduledTaskRunRow | null, now: number): void { this.requirePlanningService().failScheduledTaskRun(runId, error, retryAt, nextRun, now) }
+  public cancelScheduledTask(taskId: string, reason: string, now: number): { submissionId: string | null } { return this.requirePlanningService().cancelScheduledTask(taskId, reason, now) }
+  public dismissScheduledTask(taskId: string, now: number): void { this.requirePlanningService().dismissScheduledTask(taskId, now) }
+  public listRunningScheduledTaskRuns(): ClaimedScheduledRun[] { return this.requirePlanningService().listRunningScheduledTaskRuns() }
+  public recoverScheduledTaskRun(runId: string, nextRun: ScheduledTaskRunRow | null, now: number): void { this.requirePlanningService().recoverScheduledTaskRun(runId, nextRun, now) }
 
   public deleteScheduledTask(id: string): void {
     this.requirePlanningService().deleteScheduledTask(id)

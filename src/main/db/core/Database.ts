@@ -493,23 +493,49 @@ class AppDatabase {
       )
     `)
 
+    this.resetScheduledTaskSchemaGeneration()
+
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS scheduled_tasks (
         id TEXT PRIMARY KEY,
         chat_uuid TEXT NOT NULL,
         plan_id TEXT,
         goal TEXT NOT NULL,
+        schedule_type TEXT NOT NULL,
+        cron_expression TEXT,
         run_at INTEGER NOT NULL,
         timezone TEXT,
         status TEXT NOT NULL,
         payload TEXT,
-        attempt_count INTEGER NOT NULL DEFAULT 0,
         max_attempts INTEGER NOT NULL DEFAULT 3,
+        last_run_at INTEGER,
+        last_run_status TEXT,
+        run_count INTEGER NOT NULL DEFAULT 0,
         last_error TEXT,
         result_message_id INTEGER,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
         FOREIGN KEY (plan_id) REFERENCES task_plans(id) ON DELETE SET NULL
+      )
+    `)
+
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS scheduled_task_runs (
+        id TEXT PRIMARY KEY,
+        task_id TEXT NOT NULL,
+        scheduled_for INTEGER NOT NULL,
+        next_attempt_at INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        attempt_count INTEGER NOT NULL DEFAULT 0,
+        submission_id TEXT,
+        started_at INTEGER,
+        finished_at INTEGER,
+        last_error TEXT,
+        result_message_id INTEGER,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY (task_id) REFERENCES scheduled_tasks(id) ON DELETE CASCADE,
+        UNIQUE (task_id, scheduled_for)
       )
     `)
 
@@ -589,6 +615,10 @@ class AppDatabase {
       CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_status_run_at ON scheduled_tasks(status, run_at);
       CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_run_at ON scheduled_tasks(run_at);
       CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_plan_id ON scheduled_tasks(plan_id);
+      CREATE INDEX IF NOT EXISTS idx_scheduled_task_runs_due ON scheduled_task_runs(status, next_attempt_at);
+      CREATE INDEX IF NOT EXISTS idx_scheduled_task_runs_task ON scheduled_task_runs(task_id, scheduled_for DESC);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_scheduled_task_runs_one_active
+        ON scheduled_task_runs(task_id) WHERE status IN ('pending', 'running');
       CREATE INDEX IF NOT EXISTS idx_todos_chat_uuid ON todos(chat_uuid);
       CREATE INDEX IF NOT EXISTS idx_todos_status_updated_at ON todos(status, updated_at DESC);
     `)
@@ -605,6 +635,16 @@ class AppDatabase {
     }
 
     this.db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`)
+  }
+
+  private resetScheduledTaskSchemaGeneration(): void {
+    if (!this.db) throw new Error('Database not initialized')
+    const table = this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='scheduled_tasks'").get()
+    if (!table) return
+    const columns = this.db.prepare('PRAGMA table_info(scheduled_tasks)').all() as Array<{ name: string }>
+    if (columns.some(column => column.name === 'schedule_type')) return
+    this.db.exec('DROP TABLE IF EXISTS scheduled_task_runs; DROP TABLE scheduled_tasks;')
+    console.log('[Database] Scheduled task schema generation reset')
   }
 
   private migrateSmartMessageTtl(): void {

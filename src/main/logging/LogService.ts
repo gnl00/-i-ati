@@ -29,6 +29,9 @@ export class LogService {
   private perfDateKey: string | null = null
   private perfDestination: DestinationStream | null = null
   private perfLogger: PinoLogger | null = null
+  private schedulerDateKey: string | null = null
+  private schedulerDestination: DestinationStream | null = null
+  private schedulerLogger: PinoLogger | null = null
   private pendingWrites: Array<{
     level: LogLevel
     scope: string
@@ -46,6 +49,7 @@ export class LogService {
     this.initializePromise = (async () => {
       await this.rotateIfNeeded()
       await this.ensurePerfLogger()
+      await this.ensureSchedulerLogger()
       await this.fileManager.compressAndCleanup(this.currentDateKey ?? this.fileManager.getDateKey())
       this.initialized = true
     })()
@@ -63,6 +67,10 @@ export class LogService {
 
   createPerfLogger(scope: string, process: 'main' | 'renderer' = 'main'): ScopedLogger {
     return this.createScopedLogger(scope, process, 'perf')
+  }
+
+  createSchedulerLogger(scope: string, process: 'main' | 'renderer' = 'main'): ScopedLogger {
+    return this.createScopedLogger(scope, process, 'scheduler')
   }
 
   private createScopedLogger(
@@ -105,7 +113,7 @@ export class LogService {
   }): void {
     void this.ensureReadyForWrite()
 
-    const logger = input.target === 'perf' ? this.perfLogger : this.fileLogger
+    const logger = this.getLogger(input.target)
     if (!logger) {
       this.pendingWrites.push(input)
       return
@@ -154,13 +162,23 @@ export class LogService {
     }
 
     const nowDateKey = this.fileManager.getDateKey()
+    const shouldCleanup = this.currentDateKey !== nowDateKey
+      || this.perfDateKey !== nowDateKey
+      || this.schedulerDateKey !== nowDateKey
     if (this.currentDateKey !== nowDateKey) {
       await this.rotateIfNeeded()
-      await this.fileManager.compressAndCleanup(nowDateKey)
     }
 
     if (this.perfDateKey !== nowDateKey || !this.perfLogger) {
       await this.ensurePerfLogger()
+    }
+
+    if (this.schedulerDateKey !== nowDateKey || !this.schedulerLogger) {
+      await this.ensureSchedulerLogger()
+    }
+
+    if (shouldCleanup) {
+      await this.fileManager.compressAndCleanup(nowDateKey)
     }
 
     this.flushPendingWrites()
@@ -212,6 +230,35 @@ export class LogService {
     this.perfDateKey = nextDateKey
   }
 
+  private async ensureSchedulerLogger(): Promise<void> {
+    const nextDateKey = this.fileManager.getDateKey()
+    if (this.schedulerDateKey === nextDateKey && this.schedulerLogger) return
+
+    const schedulerLogPath = this.fileManager.getSchedulerLogFilePath(nextDateKey)
+    const previousDestination = this.schedulerDestination as (DestinationStream & { flushSync?: () => void; end?: () => void }) | null
+    previousDestination?.flushSync?.()
+    previousDestination?.end?.()
+    this.schedulerDestination = pino.destination({ dest: schedulerLogPath, mkdir: true, sync: false })
+    this.schedulerLogger = pino(
+      {
+        level: 'debug',
+        base: undefined,
+        timestamp: localIsoPinoTimestamp,
+        formatters: {
+          level: (label) => ({ level: label })
+        }
+      },
+      this.schedulerDestination
+    )
+    this.schedulerDateKey = nextDateKey
+  }
+
+  private getLogger(target: LogTarget | undefined): PinoLogger | null {
+    if (target === 'perf') return this.perfLogger
+    if (target === 'scheduler') return this.schedulerLogger
+    return this.fileLogger
+  }
+
   private flushPendingWrites(): void {
     if (this.pendingWrites.length === 0) return
 
@@ -219,7 +266,7 @@ export class LogService {
     this.pendingWrites = []
 
     for (const entry of queuedWrites) {
-      const logger = entry.target === 'perf' ? this.perfLogger : this.fileLogger
+      const logger = this.getLogger(entry.target)
       if (!logger) {
         this.pendingWrites.push(entry)
         continue
@@ -237,6 +284,10 @@ export function createLogger(scope: string, process: 'main' | 'renderer' = 'main
 
 export function createPerfLogger(scope: string, process: 'main' | 'renderer' = 'main'): ScopedLogger {
   return logService.createPerfLogger(scope, process)
+}
+
+export function createSchedulerLogger(scope: string, process: 'main' | 'renderer' = 'main'): ScopedLogger {
+  return logService.createSchedulerLogger(scope, process)
 }
 
 export function shouldLog(level: LogLevel): boolean {

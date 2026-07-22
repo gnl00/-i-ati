@@ -1,28 +1,15 @@
 import { ipcMain } from 'electron'
-import { chatDb } from '@main/db/chat'
 import { planningDb } from '@main/db/planning'
 import { createLogger } from '@main/logging/LogService'
-import { ScheduleEventEmitter } from '@main/services/scheduler/event-emitter'
-import { SCHEDULE_EVENTS } from '@shared/schedule/events'
+import { schedulerService } from '@main/services/scheduler/SchedulerService'
 import { DB_SCHEDULED_TASKS_LIST, DB_SCHEDULED_TASK_UPDATE_STATUS } from '@shared/constants'
 import type { ScheduleTaskStatus } from '@shared/tools/schedule'
+import type { ScheduledTaskRow } from '@main/db/dao/ScheduledTaskDao'
 
 const logger = createLogger('DatabaseIPC')
 
-const emitScheduledTaskUpdated = (taskId: string): void => {
-  const task = planningDb.getScheduledTaskById(taskId)
-  if (!task) return
-
-  const chat = chatDb.getChatByUuid(task.chat_uuid)
-  const emitter = new ScheduleEventEmitter({
-    chatId: chat?.id,
-    chatUuid: task.chat_uuid
-  })
-  emitter.emit(SCHEDULE_EVENTS.UPDATED, { task })
-}
-
 export function registerScheduledTaskHandlers(): void {
-  const handleScheduledTasksList = async () => {
+  const handleScheduledTasksList = async (): Promise<ScheduledTaskRow[]> => {
     logger.info('scheduled_tasks.list')
     return planningDb.getScheduledTasks()
   }
@@ -55,15 +42,12 @@ export function registerScheduledTaskHandlers(): void {
         throw new Error(`Cannot dismiss task in status: ${task.status}`)
       }
 
-      planningDb.updateScheduledTaskStatus(
-        task.id,
-        args.status,
-        task.attempt_count,
-        args.lastError ?? task.last_error ?? undefined,
-        task.result_message_id ?? undefined
-      )
+      if (args.status === 'cancelled') {
+        schedulerService.cancelTask(task.id, args.lastError ?? 'Cancelled by user')
+      } else {
+        schedulerService.dismissTask(task.id)
+      }
 
-      emitScheduledTaskUpdated(task.id)
       return planningDb.getScheduledTaskById(task.id)
     }
   )

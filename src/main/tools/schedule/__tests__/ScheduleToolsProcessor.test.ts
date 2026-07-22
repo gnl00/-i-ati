@@ -1,257 +1,83 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { ScheduledTaskRow } from '@main/db/dao/ScheduledTaskDao'
-import type { ScheduleTaskStatus } from '@shared/tools/schedule'
-import {
-  processScheduleCancel,
-  processScheduleCreate,
-  processScheduleList,
-  processScheduleUpdate
-} from '../ScheduleToolsProcessor'
+import type { ScheduledTaskRow, ScheduledTaskRunRow } from '@main/db/dao/ScheduledTaskDao'
+import { processScheduleCancel, processScheduleCreate, processScheduleList, processScheduleUpdate } from '../ScheduleToolsProcessor'
 
-const taskStore: ScheduledTaskRow[] = []
+const tasks: ScheduledTaskRow[] = []
+const runs: ScheduledTaskRunRow[] = []
+const mocks = vi.hoisted(() => ({ wake: vi.fn(), cancelTask: vi.fn(), emit: vi.fn() }))
 
-vi.mock('@main/db/DatabaseService', () => ({
-  default: {
-    getChatByUuid: vi.fn((chatUuid: string) => ({ id: 1, uuid: chatUuid })),
-    saveRunEvent: vi.fn(() => 1),
-  }
+vi.mock('@main/db/chat', () => ({ chatDb: { getChatByUuid: vi.fn(() => ({ id: 1 })) } }))
+vi.mock('@main/services/scheduler/SchedulerService', () => ({
+  schedulerService: { wake: mocks.wake, cancelTask: mocks.cancelTask }
 }))
-
+vi.mock('@main/services/scheduler/event-emitter', () => ({ ScheduleEventEmitter: class { emit = mocks.emit } }))
 vi.mock('@main/db/planning', () => ({
   planningDb: {
-    saveScheduledTask: vi.fn((task: ScheduledTaskRow) => {
-      taskStore.push({ ...task })
+    createScheduledTask: vi.fn((task: ScheduledTaskRow, run: ScheduledTaskRunRow) => { tasks.push({ ...task }); runs.push({ ...run }) }),
+    updateScheduledTask: vi.fn((task: ScheduledTaskRow, run: ScheduledTaskRunRow) => {
+      tasks[tasks.findIndex(item => item.id === task.id)] = { ...task }
+      const index = runs.findIndex(item => item.task_id === task.id && item.status === 'pending')
+      if (index >= 0) runs.splice(index, 1)
+      runs.push({ ...run })
     }),
-    getScheduledTasksByChatUuid: vi.fn((chatUuid: string) => {
-      return taskStore.filter(task => task.chat_uuid === chatUuid).map(task => ({ ...task }))
-    }),
-    getScheduledTaskById: vi.fn((id: string) => {
-      const task = taskStore.find(item => item.id === id)
-      return task ? { ...task } : undefined
-    }),
-    updateScheduledTaskStatus: vi.fn((id: string, status: ScheduleTaskStatus, attemptCount: number, lastError?: string, resultMessageId?: number) => {
-      const task = taskStore.find(item => item.id === id)
-      if (!task) return
-      task.status = status
-      task.attempt_count = attemptCount
-      task.last_error = lastError ?? null
-      task.result_message_id = resultMessageId ?? null
-      task.updated_at = Date.now()
-    }),
-    updateScheduledTask: vi.fn((task: ScheduledTaskRow) => {
-      const index = taskStore.findIndex(item => item.id === task.id)
-      if (index >= 0) {
-        taskStore[index] = { ...task }
-      }
-    })
+    getScheduledTaskById: vi.fn((id: string) => tasks.find(item => item.id === id)),
+    getScheduledTasksByChatUuid: vi.fn((chatUuid: string) => tasks.filter(item => item.chat_uuid === chatUuid))
   }
 }))
-
-vi.mock('@main/services/scheduler/event-emitter', () => ({
-  ScheduleEventEmitter: class {
-    emit = vi.fn()
-  }
-}))
-
-const now = new Date('2026-02-05T12:00:00.000Z')
 
 describe('ScheduleToolsProcessor', () => {
   beforeEach(() => {
-    taskStore.length = 0
+    tasks.length = 0
+    runs.length = 0
     vi.useFakeTimers()
-    vi.setSystemTime(now)
+    vi.setSystemTime('2026-07-22T00:00:00Z')
     vi.clearAllMocks()
   })
 
-  it('fails schedule_create when chat_uuid is missing', async () => {
-    const res = await processScheduleCreate({
-      goal: 'test',
-      run_at: new Date(now.getTime() + 60000).toISOString()
-    })
-    expect(res.success).toBe(false)
-    expect(res.message).toContain('chat_uuid')
+  it('creates a once schedule and its first occurrence', async () => {
+    const result = await processScheduleCreate({ chat_uuid: 'chat-1', goal: 'once', run_at: '2026-07-22T01:00:00Z' })
+    expect(result.success).toBe(true)
+    expect(tasks[0]).toMatchObject({ schedule_type: 'once', cron_expression: null, status: 'pending', max_attempts: 3 })
+    expect(runs[0]).toMatchObject({ task_id: tasks[0].id, scheduled_for: Date.parse('2026-07-22T01:00:00Z'), status: 'pending' })
+    expect(mocks.wake).toHaveBeenCalledOnce()
   })
 
-  it('fails schedule_create with invalid run_at format', async () => {
-    const res = await processScheduleCreate({
-      chat_uuid: 'chat-1',
-      goal: 'test',
-      run_at: 'not-a-date'
-    })
-    expect(res.success).toBe(false)
-    expect(res.message).toContain('Invalid run_at')
+  it('creates a cron schedule in its timezone', async () => {
+    const result = await processScheduleCreate({ chat_uuid: 'chat-1', goal: 'daily', cron_expression: '30 9 * * *', timezone: 'Asia/Shanghai' })
+    expect(result.success).toBe(true)
+    expect(tasks[0]).toMatchObject({ schedule_type: 'cron', cron_expression: '30 9 * * *', timezone: 'Asia/Shanghai' })
+    expect(new Date(tasks[0].run_at).toISOString()).toBe('2026-07-22T01:30:00.000Z')
   })
 
-  it('clamps schedule_create run_at to minimum delay when it is too soon', async () => {
-    const res = await processScheduleCreate({
-      chat_uuid: 'chat-1',
-      goal: 'test',
-      run_at: new Date(now.getTime() + 5000).toISOString()
-    })
-    expect(res.success).toBe(true)
-    expect(res.task).toBeDefined()
-    expect(taskStore).toHaveLength(1)
-    expect(taskStore[0].run_at).toBe(now.getTime() + 30000)
+  it('requires exactly one scheduling form', async () => {
+    const result = await processScheduleCreate({ chat_uuid: 'chat-1', goal: 'invalid', run_at: '2026-07-22T01:00:00Z', cron_expression: '0 9 * * *', timezone: 'UTC' })
+    expect(result).toMatchObject({ success: false, message: expect.stringContaining('exactly one') })
   })
 
-  it('creates schedule_create with valid input', async () => {
-    const res = await processScheduleCreate({
-      chat_uuid: 'chat-1',
-      goal: 'test',
-      run_at: new Date(now.getTime() + 60000).toISOString(),
-      payload: { prompt: 'hello' },
-      max_attempts: 0
-    })
-    expect(res.success).toBe(true)
-    expect(res.task).toBeDefined()
-    expect(taskStore).toHaveLength(1)
-    expect(taskStore[0].chat_uuid).toBe('chat-1')
-    expect(taskStore[0].max_attempts).toBe(0)
+  it('requires a timezone offset for a once schedule', async () => {
+    const result = await processScheduleCreate({ chat_uuid: 'chat-1', goal: 'invalid', run_at: '2026-07-22T01:00:00' })
+    expect(result).toMatchObject({ success: false, message: expect.stringContaining('timezone offset') })
   })
 
-  it('lists schedules by chat_uuid', async () => {
-    taskStore.push({
-      id: 'task-1',
-      chat_uuid: 'chat-1',
-      plan_id: null,
-      goal: 'test',
-      run_at: now.getTime() + 60000,
-      timezone: null,
-      status: 'pending',
-      payload: null,
-      attempt_count: 0,
-      max_attempts: 0,
-      last_error: null,
-      result_message_id: null,
-      created_at: now.getTime(),
-      updated_at: now.getTime()
-    })
-    const res = await processScheduleList({ chat_uuid: 'chat-1' })
-    expect(res.success).toBe(true)
-    expect(res.tasks?.length).toBe(1)
+  it('rejects simultaneous specific day-of-month and day-of-week', async () => {
+    const result = await processScheduleCreate({ chat_uuid: 'chat-1', goal: 'invalid', cron_expression: '0 9 1 * 1', timezone: 'UTC' })
+    expect(result).toMatchObject({ success: false, message: expect.stringContaining('day-of-month') })
   })
 
-  it('cancels a pending schedule', async () => {
-    taskStore.push({
-      id: 'task-2',
-      chat_uuid: 'chat-2',
-      plan_id: null,
-      goal: 'test',
-      run_at: now.getTime() + 60000,
-      timezone: null,
-      status: 'pending',
-      payload: null,
-      attempt_count: 1,
-      max_attempts: 0,
-      last_error: null,
-      result_message_id: null,
-      created_at: now.getTime(),
-      updated_at: now.getTime()
-    })
-    const res = await processScheduleCancel({ chat_uuid: 'chat-2', id: 'task-2' })
-    expect(res.success).toBe(true)
-    expect(taskStore[0].status).toBe('cancelled')
+  it('updates a cron schedule and replaces its pending occurrence', async () => {
+    await processScheduleCreate({ chat_uuid: 'chat-1', goal: 'daily', cron_expression: '0 9 * * *', timezone: 'UTC' })
+    const result = await processScheduleUpdate({ chat_uuid: 'chat-1', id: tasks[0].id, cron_expression: '15 10 * * *' })
+    expect(result.success).toBe(true)
+    expect(tasks[0].cron_expression).toBe('15 10 * * *')
+    expect(runs).toHaveLength(1)
+    expect(mocks.wake).toHaveBeenCalledTimes(2)
   })
 
-  it('updates a pending schedule', async () => {
-    taskStore.push({
-      id: 'task-3',
-      chat_uuid: 'chat-3',
-      plan_id: null,
-      goal: 'test',
-      run_at: now.getTime() + 60000,
-      timezone: null,
-      status: 'pending',
-      payload: null,
-      attempt_count: 0,
-      max_attempts: 0,
-      last_error: null,
-      result_message_id: null,
-      created_at: now.getTime(),
-      updated_at: now.getTime()
-    })
-    const res = await processScheduleUpdate({
-      chat_uuid: 'chat-3',
-      id: 'task-3',
-      goal: 'updated',
-      run_at: new Date(now.getTime() + 120000).toISOString()
-    })
-    expect(res.success).toBe(true)
-    expect(taskStore[0].goal).toBe('updated')
-  })
-
-  it('clamps schedule_update run_at to minimum delay when it is too soon', async () => {
-    taskStore.push({
-      id: 'task-3b',
-      chat_uuid: 'chat-3',
-      plan_id: null,
-      goal: 'test',
-      run_at: now.getTime() + 60000,
-      timezone: null,
-      status: 'pending',
-      payload: null,
-      attempt_count: 0,
-      max_attempts: 0,
-      last_error: null,
-      result_message_id: null,
-      created_at: now.getTime(),
-      updated_at: now.getTime()
-    })
-    const res = await processScheduleUpdate({
-      chat_uuid: 'chat-3',
-      id: 'task-3b',
-      run_at: new Date(now.getTime() + 5000).toISOString()
-    })
-    expect(res.success).toBe(true)
-    expect(taskStore[0].run_at).toBe(now.getTime() + 30000)
-  })
-
-  it('rejects cancel when task does not belong to chat_uuid', async () => {
-    taskStore.push({
-      id: 'task-4',
-      chat_uuid: 'chat-owner',
-      plan_id: null,
-      goal: 'test',
-      run_at: now.getTime() + 60000,
-      timezone: null,
-      status: 'pending',
-      payload: null,
-      attempt_count: 0,
-      max_attempts: 0,
-      last_error: null,
-      result_message_id: null,
-      created_at: now.getTime(),
-      updated_at: now.getTime()
-    })
-    const res = await processScheduleCancel({ chat_uuid: 'chat-other', id: 'task-4' })
-    expect(res.success).toBe(false)
-    expect(res.message).toContain('chat_uuid')
-    expect(taskStore[0].status).toBe('pending')
-  })
-
-  it('rejects update when task is not pending', async () => {
-    taskStore.push({
-      id: 'task-5',
-      chat_uuid: 'chat-5',
-      plan_id: null,
-      goal: 'test',
-      run_at: now.getTime() + 60000,
-      timezone: null,
-      status: 'running',
-      payload: null,
-      attempt_count: 1,
-      max_attempts: 0,
-      last_error: null,
-      result_message_id: null,
-      created_at: now.getTime(),
-      updated_at: now.getTime()
-    })
-    const res = await processScheduleUpdate({
-      chat_uuid: 'chat-5',
-      id: 'task-5',
-      goal: 'updated'
-    })
-    expect(res.success).toBe(false)
-    expect(res.message).toContain('pending')
+  it('lists and cancels schedules within the chat boundary', async () => {
+    await processScheduleCreate({ chat_uuid: 'chat-1', goal: 'once', run_at: '2026-07-22T01:00:00Z' })
+    expect((await processScheduleList({ chat_uuid: 'chat-1' })).tasks).toHaveLength(1)
+    const result = await processScheduleCancel({ chat_uuid: 'chat-1', id: tasks[0].id })
+    expect(result.success).toBe(true)
+    expect(mocks.cancelTask).toHaveBeenCalledWith(tasks[0].id)
   })
 })

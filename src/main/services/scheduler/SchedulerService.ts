@@ -3,45 +3,76 @@ import { chatDb } from '@main/db/chat'
 import { configDb } from '@main/db/config'
 import { planningDb } from '@main/db/planning'
 import { RunService } from '@main/orchestration/chat/run'
-import { createLogger } from '@main/logging/LogService'
+import { createSchedulerLogger } from '@main/logging/LogService'
 import { SCHEDULE_EVENTS } from '@shared/schedule/events'
 import { resolveLiteModelRef } from '@shared/services/ChatModelResolver'
 import { ScheduleEventEmitter } from './event-emitter'
-import type { ScheduledTaskRow } from '@main/db/dao/ScheduledTaskDao'
+import { cronScheduleCalculator } from './CronScheduleCalculator'
+import type { ClaimedScheduledRun, ScheduledTaskRow, ScheduledTaskRunRow } from '@main/db/dao/ScheduledTaskDao'
 
-type ScheduledTaskPayload = {
-  prompt?: string
-  modelRef?: ModelRef
-}
+type ScheduledTaskPayload = { prompt?: string; modelRef?: ModelRef }
 
 const MAX_TIMEOUT_DELAY_MS = 2_147_483_647
 const MIN_DUE_RETRY_DELAY_MS = 1000
+const CHAT_BUSY_DELAY_MS = 30_000
+const RETRY_BASE_DELAY_MS = 30_000
+const RETRY_MAX_DELAY_MS = 15 * 60_000
+
+export const calculateScheduleRetryDelay = (attempt: number): number =>
+  Math.min(RETRY_MAX_DELAY_MS, RETRY_BASE_DELAY_MS * (2 ** Math.max(0, attempt - 1)))
 
 export class SchedulerService {
   private timer: NodeJS.Timeout | null = null
   private dueTimer: NodeJS.Timeout | null = null
   private isTicking = false
   private readonly runService = new RunService()
-  private readonly logger = createLogger('SchedulerService')
+  private readonly logger = createSchedulerLogger('SchedulerService')
 
-  start(intervalMs: number = 10000): void {
+  start(intervalMs = 10000): void {
     if (this.timer) return
-    this.timer = setInterval(() => {
-      void this.runTickAndReschedule()
-    }, intervalMs)
+    this.recoverInterruptedRuns()
+    this.timer = setInterval(() => void this.runTickAndReschedule(), intervalMs)
     void this.runTickAndReschedule()
     this.logger.info('scheduler.started', { intervalMs })
   }
 
   stop(): void {
     const wasRunning = Boolean(this.timer || this.dueTimer)
-    if (this.timer) {
-      clearInterval(this.timer)
-      this.timer = null
-    }
+    if (this.timer) clearInterval(this.timer)
+    this.timer = null
     this.clearDueTimer()
-    if (wasRunning) {
-      this.logger.info('scheduler.stopped')
+    if (wasRunning) this.logger.info('scheduler.stopped')
+  }
+
+  wake(): void {
+    if (!this.timer) return
+    void this.runTickAndReschedule()
+  }
+
+  cancelTask(taskId: string, reason = 'Cancelled by user'): ScheduledTaskRow | undefined {
+    const task = planningDb.getScheduledTaskById(taskId)
+    if (!task) return undefined
+    const { submissionId } = planningDb.cancelScheduledTask(taskId, reason, Date.now())
+    if (submissionId) this.runService.cancel(submissionId)
+    this.emitScheduleUpdated(taskId)
+    this.wake()
+    return planningDb.getScheduledTaskById(taskId)
+  }
+
+  dismissTask(taskId: string): ScheduledTaskRow | undefined {
+    planningDb.dismissScheduledTask(taskId, Date.now())
+    this.emitScheduleUpdated(taskId)
+    return planningDb.getScheduledTaskById(taskId)
+  }
+
+  private recoverInterruptedRuns(): void {
+    const now = Date.now()
+    for (const item of planningDb.listRunningScheduledTaskRuns()) {
+      const nextRun = item.task.schedule_type === 'cron' ? this.buildNextRunOrNull(item.task, now) : null
+      planningDb.recoverScheduledTaskRun(item.run.id, nextRun, now)
+      this.emitRunFinished(item.task.id, item.run.id)
+      this.emitScheduleUpdated(item.task.id)
+      this.logger.warn('task.recovered_interrupted', { taskId: item.task.id, runId: item.run.id })
     }
   }
 
@@ -51,34 +82,22 @@ export class SchedulerService {
   }
 
   private clearDueTimer(): void {
-    if (!this.dueTimer) return
-    clearTimeout(this.dueTimer)
+    if (this.dueTimer) clearTimeout(this.dueTimer)
     this.dueTimer = null
   }
 
   private scheduleNextDueTask(): void {
     this.clearDueTimer()
-
     try {
       const nextTask = planningDb.getScheduledTasksByStatus('pending', 1)[0]
       if (!nextTask) return
-
       const rawDelayMs = nextTask.run_at - Date.now()
-      const delayMs = Math.min(
-        MAX_TIMEOUT_DELAY_MS,
-        rawDelayMs <= 0 ? MIN_DUE_RETRY_DELAY_MS : rawDelayMs
-      )
-
+      const delayMs = Math.min(MAX_TIMEOUT_DELAY_MS, rawDelayMs <= 0 ? MIN_DUE_RETRY_DELAY_MS : rawDelayMs)
       this.dueTimer = setTimeout(() => {
         this.dueTimer = null
         void this.runTickAndReschedule()
       }, delayMs)
-
-      this.logger.debug('next_due_task.scheduled', {
-        taskId: nextTask.id,
-        runAt: nextTask.run_at,
-        delayMs
-      })
+      this.logger.debug('next_due_task.scheduled', { taskId: nextTask.id, runAt: nextTask.run_at, delayMs })
     } catch (error) {
       this.logger.error('next_due_task.schedule_failed', error)
     }
@@ -88,11 +107,9 @@ export class SchedulerService {
     if (this.isTicking) return
     this.isTicking = true
     try {
-      const tasks = planningDb.claimDueScheduledTasks(Date.now(), 5)
-      this.logger.debug('tick.claimed_due_tasks', { count: tasks.length })
-      for (const task of tasks) {
-        await this.runTask(task)
-      }
+      const runs = planningDb.claimDueScheduledTaskRuns(Date.now(), 5)
+      this.logger.debug('tick.claimed_due_tasks', { count: runs.length })
+      for (const item of runs) await this.runTask(item)
     } catch (error) {
       this.logger.error('tick.failed', error)
     } finally {
@@ -100,114 +117,101 @@ export class SchedulerService {
     }
   }
 
-  private async runTask(task: ScheduledTaskRow): Promise<void> {
-    const nextAttempt = (task.attempt_count || 0) + 1
+  private async runTask({ task, run }: ClaimedScheduledRun): Promise<void> {
+    const chat = chatDb.getChatByUuid(task.chat_uuid)
+    const emitter = new ScheduleEventEmitter({ chatId: chat?.id, chatUuid: task.chat_uuid })
+    let activeRun = run
     try {
-      const chat = chatDb.getChatByUuid(task.chat_uuid)
-      if (!chat?.id || !chat.uuid) {
-        throw new Error(`Chat not found for chat_uuid=${task.chat_uuid}`)
-      }
-
       if (this.runService.hasActiveRunForChat(task.chat_uuid)) {
-        this.logger.info('task.skipped.chat_busy', {
-          taskId: task.id,
-          chatUuid: task.chat_uuid
-        })
+        const nextAttemptAt = Date.now() + CHAT_BUSY_DELAY_MS
+        planningDb.deferScheduledTaskRun(run.id, nextAttemptAt, Date.now())
+        this.logger.info('task.deferred.chat_busy', { taskId: task.id, runId: run.id, nextAttemptAt })
+        this.emitScheduleUpdated(task.id)
         return
       }
 
-      const emitter = new ScheduleEventEmitter({
-        chatId: chat.id,
-        chatUuid: chat.uuid
-      })
+      const submissionId = uuidv4()
+      const started = planningDb.startScheduledTaskRunAttempt(run.id, submissionId, Date.now())
+      if (!started) throw new Error(`Scheduled run unavailable: ${run.id}`)
+      activeRun = started
+      if (!chat?.id || !chat.uuid) throw new Error(`Chat not found for chat_uuid=${task.chat_uuid}`)
 
       const payload = this.parsePayload(task.payload)
       const modelRef = payload.modelRef ?? this.resolveFallbackModelRef() ?? chat.modelRef
-      if (!modelRef) {
-        throw new Error(`No modelRef resolved for chat_uuid=${task.chat_uuid}`)
-      }
+      if (!modelRef) throw new Error(`No modelRef resolved for chat_uuid=${task.chat_uuid}`)
 
-      const prompt = payload.prompt?.trim() || task.goal
-      const submissionId = uuidv4()
+      this.logger.info('task.started', { taskId: task.id, runId: run.id, submissionId, attempt: started.attempt_count })
+      emitter.emit(SCHEDULE_EVENTS.STARTED, { task, run: started, submissionId, attempt: started.attempt_count })
 
-      this.logger.info('task.started', {
-        taskId: task.id,
-        chatUuid: task.chat_uuid,
-        submissionId,
-        attempt: nextAttempt
-      })
-      planningDb.updateScheduledTaskStatus(task.id, 'running', nextAttempt, undefined, undefined)
-      emitter.emit(SCHEDULE_EVENTS.STARTED, {
-        task: planningDb.getScheduledTaskById(task.id) ?? {
-          ...task,
-          status: 'running',
-          attempt_count: nextAttempt,
-          last_error: null,
-          result_message_id: null,
-          updated_at: Date.now()
-        },
-        submissionId,
-        attempt: nextAttempt
-      })
-
-      const submitResult = await this.runService.execute({
+      const result = await this.runService.execute({
         submissionId,
         chatId: chat.id,
         chatUuid: chat.uuid,
         modelRef,
         ...(chat.modelRef ? { chatModelRef: chat.modelRef } : {}),
-        input: {
-          textCtx: prompt,
-          mediaCtx: [],
-          source: 'schedule',
-          stream: true
-        }
+        input: { textCtx: payload.prompt?.trim() || task.goal, mediaCtx: [], source: 'schedule', stream: true }
       })
 
-      const assistantMessageId = submitResult.assistantMessageId
-      planningDb.updateScheduledTaskStatus(
-        task.id,
-        'completed',
-        nextAttempt,
-        undefined,
-        assistantMessageId
-      )
-      this.logger.info('task.completed', {
-        taskId: task.id,
-        chatUuid: task.chat_uuid,
-        attempt: nextAttempt,
-        assistantMessageId
-      })
-
-      const userMessage = submitResult.userMessageId
-        ? chatDb.getMessageById(submitResult.userMessageId)
-        : undefined
-      if (userMessage) {
-        emitter.emit(SCHEDULE_EVENTS.MESSAGE_CREATED, { message: userMessage })
-      }
-      if (assistantMessageId) {
-        const assistantMessage = chatDb.getMessageById(assistantMessageId)
-        if (assistantMessage) {
-          emitter.emit(SCHEDULE_EVENTS.MESSAGE_CREATED, { message: assistantMessage })
-        }
+      const currentTask = planningDb.getScheduledTaskById(task.id)
+      if (currentTask?.status === 'cancelled') {
+        this.emitRunFinished(task.id, run.id)
+        return
       }
 
-      emitter.emit(SCHEDULE_EVENTS.UPDATED, {
-        task: planningDb.getScheduledTaskById(task.id) ?? task
-      })
+      const nextRun = task.schedule_type === 'cron' ? this.buildNextRun(task, Date.now()) : null
+      planningDb.completeScheduledTaskRun(run.id, result.assistantMessageId ?? null, nextRun, Date.now())
+      this.emitMessages(emitter, result.userMessageId, result.assistantMessageId)
+      this.emitRunFinished(task.id, run.id)
+      this.emitScheduleUpdated(task.id)
+      this.logger.info('task.completed', { taskId: task.id, runId: run.id, attempt: started.attempt_count })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      const maxAttempts = task.max_attempts ?? 0
-      const status = maxAttempts === 0 || nextAttempt >= maxAttempts ? 'failed' : 'pending'
-      planningDb.updateScheduledTaskStatus(task.id, status, nextAttempt, message, undefined)
+      if (planningDb.getScheduledTaskById(task.id)?.status === 'cancelled') {
+        this.emitRunFinished(task.id, run.id)
+        this.logger.info('task.cancelled', { taskId: task.id, runId: run.id })
+        return
+      }
+      const attempt = activeRun.attempt_count
+      const maxAttempts = Math.max(1, task.max_attempts)
+      const retryAt = attempt > 0 && attempt < maxAttempts
+        ? Date.now() + calculateScheduleRetryDelay(attempt)
+        : null
+      const nextRun = retryAt === null && task.schedule_type === 'cron' ? this.buildNextRunOrNull(task, Date.now()) : null
+      planningDb.failScheduledTaskRun(run.id, message, retryAt, nextRun, Date.now())
+      if (retryAt === null) this.emitRunFinished(task.id, run.id)
       this.emitScheduleUpdated(task.id)
-      this.logger.error('task.failed', {
+      this.logger.error('task.failed', { taskId: task.id, runId: run.id, attempt, retryAt, error: message })
+    }
+  }
+
+  private buildNextRun(task: ScheduledTaskRow, after: number): ScheduledTaskRunRow {
+    if (!task.cron_expression || !task.timezone) throw new Error(`Cron schedule is incomplete: ${task.id}`)
+    const scheduledFor = cronScheduleCalculator.next(task.cron_expression, task.timezone, after)
+    const now = Date.now()
+    return {
+      id: uuidv4(), task_id: task.id, scheduled_for: scheduledFor, next_attempt_at: scheduledFor,
+      status: 'pending', attempt_count: 0, submission_id: null, started_at: null, finished_at: null,
+      last_error: null, result_message_id: null, created_at: now, updated_at: now
+    }
+  }
+
+  private buildNextRunOrNull(task: ScheduledTaskRow, after: number): ScheduledTaskRunRow | null {
+    try {
+      return this.buildNextRun(task, after)
+    } catch (error) {
+      this.logger.error('cron.next_occurrence_failed', {
         taskId: task.id,
-        chatUuid: task.chat_uuid,
-        nextAttempt,
-        status,
-        error: message
+        error: error instanceof Error ? error.message : String(error)
       })
+      return null
+    }
+  }
+
+  private emitMessages(emitter: ScheduleEventEmitter, userId?: number, assistantId?: number): void {
+    for (const id of [userId, assistantId]) {
+      if (!id) continue
+      const message = chatDb.getMessageById(id)
+      if (message) emitter.emit(SCHEDULE_EVENTS.MESSAGE_CREATED, { message })
     }
   }
 
@@ -215,30 +219,28 @@ export class SchedulerService {
     if (!payload) return {}
     try {
       const parsed = JSON.parse(payload)
-      if (parsed && typeof parsed === 'object') {
-        return parsed as ScheduledTaskPayload
-      }
-    } catch {
-      // ignore malformed payload
-    }
-    return {}
+      return parsed && typeof parsed === 'object' ? parsed as ScheduledTaskPayload : {}
+    } catch { return {} }
   }
 
   private resolveFallbackModelRef(): ModelRef | undefined {
     const config = configDb.getConfig()
-    if (!config) return undefined
-    return resolveLiteModelRef(config)
+    return config ? resolveLiteModelRef(config) : undefined
+  }
+
+  private emitRunFinished(taskId: string, runId: string): void {
+    const task = planningDb.getScheduledTaskById(taskId)
+    const run = planningDb.getScheduledTaskRuns(taskId).find(item => item.id === runId)
+    if (!task || !run) return
+    const chat = chatDb.getChatByUuid(task.chat_uuid)
+    new ScheduleEventEmitter({ chatId: chat?.id, chatUuid: task.chat_uuid }).emit(SCHEDULE_EVENTS.RUN_FINISHED, { task, run })
   }
 
   private emitScheduleUpdated(taskId: string): void {
     const task = planningDb.getScheduledTaskById(taskId)
     if (!task) return
     const chat = chatDb.getChatByUuid(task.chat_uuid)
-    const emitter = new ScheduleEventEmitter({
-      chatId: chat?.id,
-      chatUuid: task.chat_uuid
-    })
-    emitter.emit(SCHEDULE_EVENTS.UPDATED, { task })
+    new ScheduleEventEmitter({ chatId: chat?.id, chatUuid: task.chat_uuid }).emit(SCHEDULE_EVENTS.UPDATED, { task })
   }
 }
 

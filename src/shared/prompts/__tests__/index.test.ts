@@ -15,6 +15,7 @@ describe('shared prompts systemPrompt', () => {
     expect(prompt).toContain('log_search')
     expect(prompt).toContain('runtime errors')
     expect(prompt).toContain('target `app` for business/runtime issues')
+    expect(prompt).toContain('target `scheduler` for scheduled-task dispatch and execution lifecycle')
     expect(prompt).toContain('target `request` for Debug Mode provider request bodies')
   })
 

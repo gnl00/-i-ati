@@ -76,6 +76,11 @@ tools -> services
 services -> db facades / agent contracts / shared types
 ```
 
+Scheduled task execution follows the durable definition and occurrence model
+documented in [Scheduled task architecture](scheduled-tasks.md). Schedule tools
+write through `db/planning.ts`; `SchedulerService` claims persisted occurrences
+and executes them through the chat run boundary.
+
 `SubagentContextReader` is the narrow seam used by the subagent runtime to read
 work context and activity journal data. `WorkContextService` owns the canonical
 template and safe database-read semantics used by both the reader and the tool

@@ -5,13 +5,13 @@ export const logTools = [
     type: 'function',
     function: {
       name: 'log_search',
-      description: 'Inspect app, perf, or request log files for a specific date. Return the latest lines when no filters are provided, or matched blocks around query and scope hits.',
+      description: 'Inspect app, perf, request, or scheduler log files for a specific date. Return the latest lines when no filters are provided, or matched blocks around query and scope hits.',
       parameters: {
         type: 'object',
         properties: {
           target: {
             type: 'string',
-            enum: ['app', 'perf', 'request'],
+            enum: ['app', 'perf', 'request', 'scheduler'],
             description: 'Which log stream to inspect.'
           },
           date: {

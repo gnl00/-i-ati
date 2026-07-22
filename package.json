@@ -80,6 +80,7 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "cmdk": "1.0.0",
+    "cron-parser": "^5.6.2",
     "embla-carousel-react": "^8.5.1",
     "extract-zip": "^2.0.1",
     "framer-motion": "^12.29.0",

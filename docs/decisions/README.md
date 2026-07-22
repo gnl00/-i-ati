@@ -17,3 +17,4 @@ Use sequential names such as `0001-chat-runtime-host-boundary.md`.
 - [0007: Streaming command execution](0007-streaming-command-execution.md) - Accepted
 - [0008: Workspace path confinement](0008-workspace-path-confinement.md) - Accepted
 - [0009: Background tool-result compaction](0009-background-tool-result-compaction.md) - Accepted
+- [0010: Persisted cron schedule occurrences](0010-persisted-cron-schedule-occurrences.md) - Accepted

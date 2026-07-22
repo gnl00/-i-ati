@@ -44,6 +44,13 @@ vi.mock('@main/services/scheduler/event-emitter', () => ({
   }
 }))
 
+vi.mock('@main/services/scheduler/SchedulerService', () => ({
+  schedulerService: {
+    cancelTask: vi.fn(),
+    dismissTask: vi.fn()
+  }
+}))
+
 describe('registerScheduledTaskHandlers', () => {
   beforeEach(() => {
     ipcMainHandleMock.mockReset()
