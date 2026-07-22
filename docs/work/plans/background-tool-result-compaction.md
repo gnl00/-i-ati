@@ -26,6 +26,16 @@ runs.
    preparation.
 6. Renderer live events and renderer history reads use raw persisted content.
 7. Full raw delivery has no character guard in the hot replay path.
+8. Future-run request assembly wraps selected compact content in a
+   `compacted/lossy/result` JSON envelope.
+9. `tool_result_compactions.content` stores the bare compact payload.
+10. The complete serialized representation must provide positive size gain
+    against persisted raw content.
+11. Trusted semantic representations carry an internal
+    `contentRepresentation: semantic_compaction` sidecar and stay within
+    32,000 characters without inline image data.
+12. Raw historical replay uses the 1,000-character cold guard with 700 head and
+    300 tail source characters. Trusted semantic representations remain intact.
 
 `next submitted run` means a new desktop submission, schedule execution,
 Telegram submission, or another host invocation that rebuilds the initial
@@ -77,7 +87,9 @@ future run preparation
   -> reload persisted raw tool messages
   -> validate originalHash
   -> select configured compactor and newest version
-  -> seed compact content into the initial model transcript
+  -> wrap compact content in compacted/lossy/result JSON
+  -> attach trusted semantic_compaction provenance
+  -> seed the representation into the initial model transcript
 ```
 
 ## Runtime contracts
@@ -145,14 +157,39 @@ uses of `resolvePersistedToolResultMessages()`. Keep the pure selector helpers
 used by `RunRequestFactory`; remove overlay helpers after their final caller is
 gone.
 
+`InitialTranscriptSeedBuilder` creates the semantic-compaction representation
+after ready-row metadata, hash, version, and message-ID selection succeeds:
+
+```json
+{
+  "compacted": true,
+  "lossy": true,
+  "result": {}
+}
+```
+
+Valid JSON compact payloads become the structured `result` value.
+Text compact payloads become a JSON string value. The database continues to
+store the bare compact payload. Request assembly selects the envelope when its
+serialized length is smaller than persisted raw content, its length stays at or
+below 32,000 characters, and it contains no inline image data. Eligible seeds
+carry `contentRepresentation: semantic_compaction` as trusted host provenance.
+
 The request materializer keeps its current replay behavior:
 
 | Position | Model content |
 | --- | --- |
 | Immediate continuation after a tool result | Full raw hot content |
 | Older tool result inside the same active run | Existing cold projection |
-| Tool result in a new run with a matching ready row | Compact content |
+| Tool result in a new run with an eligible matching ready row | Complete JSON-wrapped compact content through the trusted sidecar |
 | Tool result in a new run with pending, failed, missing, or stale compact state | Raw cold fallback |
+| Tool result whose representation consumes the compact size gain | Persisted raw content |
+| Semantic representation above 32,000 characters or containing inline image data | Persisted raw content |
+
+Raw historical replay retains the 1,000-character cold guard, with the first
+700 and final 300 source characters separated by a visible omission marker.
+Trusted semantic representations bypass that raw guard and remain
+byte-for-byte intact.
 
 ## Failure behavior
 
@@ -227,6 +264,8 @@ architecture files.
 - Confirm the next request in the active run carries full raw content.
 - Settle the compact job and confirm a ready row is written.
 - Build a new run and confirm it selects the matching ready compact row.
+- Confirm request assembly wraps ready JSON and text payloads exactly once.
+- Confirm the complete envelope participates in positive-size-gain selection.
 - Confirm a ready row appearing during an active run does not mutate that run's
   transcript.
 - Confirm renderer IPC returns raw content after a ready row exists.

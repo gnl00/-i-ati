@@ -165,6 +165,39 @@ describe('GeminiAdapter request mapping', () => {
     )
   })
 
+  it('keeps semantic compaction structured in a Gemini function response', () => {
+    const adapter = new GeminiAdapter()
+    const representation = JSON.stringify({
+      compacted: true,
+      lossy: true,
+      result: { summary: 'x'.repeat(5_000) }
+    })
+
+    const requestBody = adapter.buildRequest(createTestUnifiedRequest({
+      adapterPluginId: 'google-gemini-compatible-adapter',
+      messages: [{
+        role: 'tool',
+        content: representation,
+        toolCallId: 'call-compact',
+        toolName: 'web_fetch'
+      }]
+    }))
+
+    expect(requestBody.contents[0]).toEqual({
+      role: 'user',
+      parts: [{
+        functionResponse: {
+          name: 'web_fetch',
+          response: {
+            compacted: true,
+            lossy: true,
+            result: { summary: 'x'.repeat(5_000) }
+          }
+        }
+      }]
+    })
+  })
+
   it('requires tool_call_reason in Gemini function declarations', () => {
     const adapter = new GeminiAdapter()
 

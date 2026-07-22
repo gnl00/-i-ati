@@ -45,7 +45,7 @@ next submitted run
   -> load raw history
   -> batch-load ready tool_result_compactions
   -> validate metadata, version, and original hash
-  -> seed matching compact content into the model transcript
+  -> wrap matching compact content for the model transcript
 ```
 
 The active run keeps one stable transcript snapshot. Its immediate
@@ -55,6 +55,30 @@ run performs the next database selection.
 
 Renderer reads return raw persisted messages. Compact rows are model-facing
 derived data and stay inside request preparation.
+
+Request assembly marks selected semantic compaction with a provider-neutral
+JSON representation:
+
+```json
+{
+  "compacted": true,
+  "lossy": true,
+  "result": {}
+}
+```
+
+`tool_result_compactions.content` stores the bare compactor payload. During a
+future submitted-run build, `InitialTranscriptSeedBuilder` parses valid JSON
+payloads into `result` and preserves text payloads as JSON strings. The complete
+serialized representation must remain shorter than the persisted raw tool
+content, stay within 32,000 characters, and contain no inline image data.
+Eligible transcript seeds and records carry the internal trusted provenance
+sidecar `contentRepresentation: semantic_compaction`. This sidecar preserves
+the complete semantic JSON through request materialization. Raw historical
+results continue through the 1,000-character cold replay guard, which retains
+the first 700 and final 300 source characters around a visible omission marker.
+Active-run model content and renderer content remain byte-equivalent raw
+payloads.
 
 The chat host depends on a narrow scheduling contract. It schedules a job and
 returns the raw result without waiting for compact content. The production
@@ -73,7 +97,9 @@ visible as a model-request failure.
 - Compact-agent latency leaves the active tool-result critical path.
 - The active model sees the exact tool output persisted in `messages.body`.
 - New runs reuse ready semantic compact content through the existing batch
-  selector.
+  selector and receive an explicit lossy-representation marker.
+- Representation overhead participates in positive-size-gain selection.
+- Compact rows remain reusable provider-neutral payloads in the database.
 - Renderer output remains stable across live delivery and history reload.
 - Pending, failed, missing, stale-hash, and stale-version rows select raw cold
   replay through the existing request guard.
@@ -91,6 +117,16 @@ visible as a model-request failure.
 - The live renderer event and hot transcript contain the persisted raw value.
 - A completed background job writes a ready compact row.
 - A new run selects a ready row whose metadata and raw hash match.
+- A selected ready row receives one `compacted/lossy/result` envelope during
+  request assembly.
+- JSON and text compact payloads retain their value inside `result`.
+- Representation overhead that consumes the size gain selects persisted raw
+  content.
+- Semantic envelopes above 32,000 characters or containing inline image data
+  select persisted raw content.
+- Trusted semantic envelopes remain intact during historical replay. Raw
+  historical results retain the 1,000-character request guard with 700 head
+  and 300 tail source characters.
 - The same run keeps its existing transcript snapshot after the background job
   becomes ready.
 - Renderer IPC history reads return raw content.

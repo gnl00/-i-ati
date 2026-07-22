@@ -7,7 +7,8 @@ export type {
   StepResult,
   ToolCall,
   ToolCallProps,
-  ToolCallStatus
+  ToolCallStatus,
+  ToolResultContentRepresentation
 } from './AgentRunTypes'
 export type {
   ToolConfirmationDecision,

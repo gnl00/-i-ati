@@ -123,7 +123,8 @@ export class DefaultChatInitialTranscriptRecordFactory implements ChatInitialTra
         toolCallIndex: matchedToolCall?.index ?? 0,
         toolName: seed.toolName || matchedToolCall?.function.name || 'tool',
         status: 'success',
-        content: projectToolResultContentForHistoryImport(seed.content)
+        content: projectToolResultContentForHistoryImport(seed.content),
+        contentRepresentation: seed.contentRepresentation
       }
       records.push(toolRecord)
     }

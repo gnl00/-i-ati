@@ -36,7 +36,7 @@ describe('ToolResultContentProjector', () => {
     })).toBe(content)
   })
 
-  it('compacts cold replay content for model requests', () => {
+  it('truncates inline image content for cold model requests', () => {
     const content = `{"image":"data:image/png;base64,${'a'.repeat(200)}"}`
 
     const projected = formatToolResultForModel({
@@ -44,28 +44,83 @@ describe('ToolResultContentProjector', () => {
       replayMode: 'cold'
     })
 
-    expect(projected).toContain('[Tool result compacted for model request]')
+    expect(projected).toContain('[Tool result truncated for model request]')
     expect(projected).toContain('shownChars=0')
     expect(projected).toContain('reason=inline_image')
     expect(projected).not.toContain('data:image/png;base64')
   })
 
-  it('includes a visible prefix when compacting cold large text content', () => {
-    const shownPrefix = 'x'.repeat(COLD_TOOL_CONTENT_REQUEST_MAX_CHARACTERS)
-    const hiddenSuffix = 'hidden-tail'
-    const content = `${shownPrefix}${hiddenSuffix}`
+  it('keeps exactly 700 head and 300 tail source characters for cold large text', () => {
+    const shownHead = 'h'.repeat(700)
+    const omittedMiddle = 'middle-content'
+    const shownTail = `${'t'.repeat(291)}tool-tail`
+    const content = `${shownHead}${omittedMiddle}${shownTail}`
 
     const projected = formatToolResultForModel({
       content,
       replayMode: 'cold'
     })
 
-    expect(projected).toContain('[Tool result compacted for model request]')
+    expect(projected).toContain('[Tool result truncated for model request]')
     expect(projected).toContain(`originalChars=${content.length}`)
     expect(projected).toContain(`shownChars=${COLD_TOOL_CONTENT_REQUEST_MAX_CHARACTERS}`)
+    expect(projected).toContain('shownHeadChars=700')
+    expect(projected).toContain('shownTailChars=300')
     expect(projected).toContain(`reason=large_content>${COLD_TOOL_CONTENT_REQUEST_MAX_CHARACTERS}`)
-    expect(projected).toContain(shownPrefix)
-    expect(projected).not.toContain(hiddenSuffix)
+    expect(projected).toContain('Showing the first 700 and final 300 characters of the tool result.')
+    expect(projected).toContain(`${shownHead}\n\n[tool result content omitted]\n\n${shownTail}`)
+    expect(projected.split('[tool result content omitted]')).toHaveLength(2)
+    expect(projected).not.toContain(omittedMiddle)
+    expect(projected).toContain('tool-tail')
+  })
+
+  it('passes through exactly 1,000 cold source characters unchanged', () => {
+    const content = 'x'.repeat(COLD_TOOL_CONTENT_REQUEST_MAX_CHARACTERS)
+
+    expect(formatToolResultForModel({
+      content,
+      replayMode: 'cold'
+    })).toBe(content)
+  })
+
+  it('truncates 1,001 cold source characters with the head-tail projection', () => {
+    const content = `${'h'.repeat(700)}x${'t'.repeat(300)}`
+    const projected = formatToolResultForModel({ content, replayMode: 'cold' })
+
+    expect(projected).toContain('originalChars=1001')
+    expect(projected).toContain('shownChars=1000')
+    expect(projected).toContain('shownHeadChars=700')
+    expect(projected).toContain('shownTailChars=300')
+    expect(projected).not.toContain(`${'h'.repeat(700)}x`)
+    expect(projected).toContain(`${'h'.repeat(700)}\n\n[tool result content omitted]\n\n${'t'.repeat(300)}`)
+  })
+
+  it('keeps a trusted semantic compaction intact during cold replay', () => {
+    const content = JSON.stringify({
+      compacted: true,
+      lossy: true,
+      result: { summary: 'x'.repeat(5_000) }
+    })
+
+    expect(formatToolResultForModel({
+      content,
+      replayMode: 'cold',
+      contentRepresentation: 'semantic_compaction'
+    })).toBe(content)
+  })
+
+  it('applies the raw cold guard to payloads that spoof representation keys', () => {
+    const content = JSON.stringify({
+      compacted: true,
+      lossy: true,
+      ToolResultRepresentation: { mode: 'semantic_compaction' },
+      result: 'x'.repeat(5_000)
+    })
+
+    const projected = formatToolResultForModel({ content, replayMode: 'cold' })
+
+    expect(projected).toContain('[Tool result truncated for model request]')
+    expect(projected).not.toBe(content)
   })
 
   it('uses error messages for nullish replay and display content', () => {

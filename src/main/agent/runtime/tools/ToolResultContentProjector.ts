@@ -1,3 +1,4 @@
+import type { ToolResultContentRepresentation } from '@main/agent/contracts'
 import {
   COLD_TOOL_CONTENT_REQUEST_MAX_CHARACTERS,
   compactToolContentForModelRequest
@@ -14,6 +15,7 @@ export interface FormatToolResultForModelInput {
   content: unknown
   error?: ToolResultProjectionError
   replayMode?: ToolResultContentReplayMode
+  contentRepresentation?: ToolResultContentRepresentation
 }
 
 export interface ProjectToolResultContentForDisplayInput {
@@ -43,8 +45,13 @@ export const projectToolResultContentForDisplay = ({
 export const formatToolResultForModel = ({
   content,
   error,
-  replayMode
+  replayMode,
+  contentRepresentation
 }: FormatToolResultForModelInput): string => {
+  if (contentRepresentation === 'semantic_compaction') {
+    return projectToolResultContentForDisplay({ content, error })
+  }
+
   if (isNormalizedToolResultContent(content)) {
     return content.modelContent
   }

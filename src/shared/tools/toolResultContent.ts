@@ -3,7 +3,10 @@ export interface ToolContentRequestGuardOptions {
 }
 
 export const DEFAULT_TOOL_CONTENT_REQUEST_MAX_CHARACTERS = 32_000
-export const COLD_TOOL_CONTENT_REQUEST_MAX_CHARACTERS = 4_000
+export const COLD_TOOL_CONTENT_REQUEST_MAX_CHARACTERS = 1_000
+
+const TOOL_CONTENT_REQUEST_HEAD_RATIO = 0.7
+const TOOL_CONTENT_OMISSION_MARKER = '[tool result content omitted]'
 
 const DATA_IMAGE_PATTERN = /data:image\/[a-zA-Z0-9.+-]+;base64,[a-zA-Z0-9+/=\r\n]+/
 
@@ -34,7 +37,7 @@ export const compactToolContentForModelRequest = (
 
   if (hasInlineImageData) {
     return [
-      '[Tool result compacted for model request]',
+      '[Tool result truncated for model request]',
       `originalChars=${content.length}`,
       'shownChars=0',
       `reason=${triggers.join(',')}`,
@@ -43,16 +46,27 @@ export const compactToolContentForModelRequest = (
     ].join('\n')
   }
 
-  const shownContent = content.slice(0, maxCharacters)
+  const shownHeadCharacters = Math.floor(maxCharacters * TOOL_CONTENT_REQUEST_HEAD_RATIO)
+  const shownTailCharacters = maxCharacters - shownHeadCharacters
+  const shownHead = content.slice(0, shownHeadCharacters)
+  const shownTail = shownTailCharacters > 0
+    ? content.slice(-shownTailCharacters)
+    : ''
 
   return [
-    '[Tool result compacted for model request]',
+    '[Tool result truncated for model request]',
     `originalChars=${content.length}`,
-    `shownChars=${shownContent.length}`,
+    `shownChars=${shownHead.length + shownTail.length}`,
+    `shownHeadChars=${shownHead.length}`,
+    `shownTailChars=${shownTail.length}`,
     `reason=${triggers.join(',')}`,
-    `Showing the first ${shownContent.length} characters of the tool result.`,
+    `Showing the first ${shownHead.length} and final ${shownTail.length} characters of the tool result.`,
     'Inspect the persisted tool result or local artifact for the original payload.',
     '',
-    shownContent
+    shownHead,
+    '',
+    TOOL_CONTENT_OMISSION_MARKER,
+    '',
+    shownTail
   ].join('\n')
 }

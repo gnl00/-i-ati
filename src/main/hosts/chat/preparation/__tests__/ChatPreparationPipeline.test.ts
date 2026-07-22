@@ -200,6 +200,19 @@ function findUserSeedIndexByContent(messages: ChatInitialTranscriptSeed[], marke
   ))
 }
 
+function parseToolResultRepresentation(content: unknown): {
+  compacted?: unknown
+  lossy?: unknown
+  result?: unknown
+} {
+  expect(typeof content).toBe('string')
+  return JSON.parse(content as string) as {
+    compacted?: unknown
+    lossy?: unknown
+    result?: unknown
+  }
+}
+
 describe('ChatPreparationPipeline', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -399,6 +412,7 @@ describe('ChatPreparationPipeline', () => {
   })
 
   it('uses compact tool content when its hash matches the persisted raw content', async () => {
+    const rawContent = JSON.stringify({ content: 'current raw result '.repeat(100) })
     const rawToolMessage = {
       id: 21,
       chatId: 1,
@@ -407,7 +421,7 @@ describe('ChatPreparationPipeline', () => {
         role: 'tool',
         name: 'web_fetch',
         toolCallId: 'call-fetch',
-        content: 'current raw result',
+        content: rawContent,
         segments: []
       }
     } as MessageEntity
@@ -436,8 +450,8 @@ describe('ChatPreparationPipeline', () => {
       messageId: 21,
       toolName: 'web_fetch',
       toolCallId: 'call-fetch',
-      content: 'current compact result',
-      originalHash: createHash('sha256').update('current raw result').digest('hex'),
+      content: '{"summary":"current compact result"}',
+      originalHash: createHash('sha256').update(rawContent).digest('hex'),
       level: 'balanced',
       compactorId: 'web-document',
       compactorVersion: 1,
@@ -449,10 +463,21 @@ describe('ChatPreparationPipeline', () => {
       message.kind === 'tool' && message.toolCallId === 'call-fetch'
     )
 
-    expect(toolSeed?.content).toBe('current compact result')
+    expect(parseToolResultRepresentation(toolSeed?.content)).toEqual({
+      compacted: true,
+      lossy: true,
+      result: {
+        summary: 'current compact result'
+      }
+    })
+    expect(toolSeed).toMatchObject({
+      contentRepresentation: 'semantic_compaction'
+    })
   })
 
   it('resolves repeated tool-call IDs by persisted message identity', async () => {
+    const firstRawContent = 'first raw result '.repeat(100)
+    const secondRawContent = 'second raw result '.repeat(100)
     const firstToolMessage = {
       id: 21,
       chatId: 1,
@@ -461,7 +486,7 @@ describe('ChatPreparationPipeline', () => {
         role: 'tool',
         name: 'web_fetch',
         toolCallId: 'repeated-call',
-        content: 'first raw result',
+        content: firstRawContent,
         segments: []
       }
     } as MessageEntity
@@ -473,7 +498,7 @@ describe('ChatPreparationPipeline', () => {
         role: 'tool',
         name: 'web_fetch',
         toolCallId: 'repeated-call',
-        content: 'second raw result',
+        content: secondRawContent,
         segments: []
       }
     } as MessageEntity
@@ -510,7 +535,7 @@ describe('ChatPreparationPipeline', () => {
         toolName: 'web_fetch',
         toolCallId: 'repeated-call',
         content: 'first compact result',
-        originalHash: createHash('sha256').update('first raw result').digest('hex'),
+        originalHash: createHash('sha256').update(firstRawContent).digest('hex'),
         level: 'balanced',
         compactorId: 'web-document',
         compactorVersion: 1,
@@ -521,7 +546,7 @@ describe('ChatPreparationPipeline', () => {
         toolName: 'web_fetch',
         toolCallId: 'repeated-call',
         content: 'second compact result',
-        originalHash: createHash('sha256').update('second raw result').digest('hex'),
+        originalHash: createHash('sha256').update(secondRawContent).digest('hex'),
         level: 'balanced',
         compactorId: 'web-document',
         compactorVersion: 1,
@@ -534,7 +559,9 @@ describe('ChatPreparationPipeline', () => {
       message.kind === 'tool' && message.toolCallId === 'repeated-call'
     )
 
-    expect(repeatedToolSeeds.map(message => message.content)).toEqual([
+    expect(repeatedToolSeeds.map(message => (
+      parseToolResultRepresentation(message.content).result
+    ))).toEqual([
       'first compact result',
       'second compact result'
     ])

@@ -106,6 +106,31 @@ describe('OpenAIResponsesAdapter request mapping', () => {
     }))
     expect(parameters.required).toEqual(['query', TOOL_CALL_REASON_PARAMETER_NAME])
   })
+
+  it('keeps the complete semantic compaction JSON in function call output', () => {
+    const adapter = new OpenAIResponsesAdapter()
+    const representation = JSON.stringify({
+      compacted: true,
+      lossy: true,
+      result: { summary: 'x'.repeat(5_000) }
+    })
+
+    const requestBody = adapter.buildRequest(createTestUnifiedRequest({
+      adapterPluginId: 'openai-responses-compatible-adapter',
+      messages: [{
+        role: 'tool',
+        content: representation,
+        toolCallId: 'call-compact',
+        toolName: 'web_fetch'
+      }]
+    }))
+
+    expect(requestBody.input[0]).toEqual({
+      type: 'function_call_output',
+      call_id: 'call-compact',
+      output: representation
+    })
+  })
 })
 
 describe('OpenAIResponsesAdapter response parsing', () => {

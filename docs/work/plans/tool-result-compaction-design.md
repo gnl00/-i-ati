@@ -53,7 +53,7 @@ tool execution
   -> later history import
   -> RequestMaterializer
   -> ToolResultContentProjector
-  -> cold result truncated to the first 4,000 characters
+  -> cold result truncated to the first 700 and final 300 source characters
   -> provider request
 ```
 
@@ -61,7 +61,7 @@ tool execution
 the complete `ChatMessage` into `messages.body`. This remains the raw data source.
 
 [`ToolResultContentProjector.ts`](../../../src/main/agent/runtime/tools/ToolResultContentProjector.ts)
-currently compacts cold results while the provider request is being assembled.
+currently truncates raw cold results while the provider request is being assembled.
 The implementation uses a character limit and preserves the beginning of the
 content.
 
@@ -85,13 +85,15 @@ later context assembly
   -> load raw tool messages
   -> batch-load ready compact results
   -> select compact model content
+  -> add compacted/lossy/result JSON and trusted semantic provenance
   -> provider request
 ```
 
-Future-run model content uses compact output when it provides positive size
-gain. Raw content covers disabled policies, unavailable compactors, empty
-output, zero-gain output, compaction failures, and incomplete background work.
-Database entities and renderer projections preserve the raw source.
+Future-run model content uses the complete JSON-wrapped compact representation
+when it provides positive size gain. Raw content covers disabled policies,
+unavailable compactors, empty output, zero-gain output, compaction failures,
+and incomplete background work. Database entities and renderer projections
+preserve the raw source.
 
 ## Storage
 
@@ -144,7 +146,8 @@ CREATE INDEX IF NOT EXISTS idx_tool_result_compactions_jobs
 ```
 
 `messages.body` stores the raw result. `tool_result_compactions.content` stores
-the provider-neutral compact representation.
+the bare provider-neutral compact payload. Request assembly adds the
+model-facing `compacted/lossy/result` envelope after ready-row selection.
 
 ### Levels
 
@@ -429,6 +432,7 @@ history messages
   -> load ready tool_result_compactions
   -> select content
   -> InitialTranscriptSeedBuilder
+  -> compacted/lossy/result JSON envelope plus internal provenance
   -> RequestMaterializer
   -> provider request
 ```
@@ -440,6 +444,26 @@ Hash mismatches select the current raw content. Ready lookups deduplicate IDs
 and use batches of 500. Repository updates preserve the stored raw content of
 tool messages across renderer updates.
 
+`InitialTranscriptSeedBuilder` wraps a selected ready payload as:
+
+```json
+{
+  "compacted": true,
+  "lossy": true,
+  "result": {}
+}
+```
+
+Valid JSON payloads retain their structured value under `result`.
+Text payloads become JSON string values. Request assembly compares the complete
+serialized representation with persisted raw content and selects the
+representation when it remains shorter, stays within 32,000 characters, and
+contains no inline image data. Eligible seeds and records carry the trusted
+internal `contentRepresentation: semantic_compaction` sidecar. The request
+materializer preserves these semantic representations byte-for-byte. Raw
+historical results continue through the 1,000-character cold guard, which
+retains 700 head and 300 tail source characters.
+
 Phase 1 selection:
 
 | Tool-result position | Selected content |
@@ -447,13 +471,15 @@ Phase 1 selection:
 | Immediate continuation in the active run | Full raw |
 | Older result in the same active run | Existing cold projection |
 | Result without ready compaction | Raw with existing request guard |
-| New-run result with ready metadata-declared compaction | Configured level |
+| New-run result with ready metadata-declared compaction and positive envelope gain | JSON-wrapped configured level |
+| New-run result whose envelope consumes the compact size gain | Persisted raw content |
 
 Phase 2 can add `minimal` selection according to message-pair distance and
 available context budget.
 
-The existing 4,000-character request guard remains as rollout protection for raw
-cold results.
+The 1,000-character request guard remains as rollout protection for raw cold
+results. Its visible omission marker separates 700 head and 300 tail source
+characters.
 
 ## Relationship with existing normalization
 
@@ -633,7 +659,8 @@ git diff --check
 6. Shared tool metadata controls compaction eligibility, level, and compactor.
 7. `web_fetch` declares `balanced` compaction in `webTools/metadata.ts`.
 8. `execute_command` declares `balanced` compaction in `command/metadata.ts`.
-9. New submitted runs prefer a positive-gain ready compact result.
+9. New submitted runs prefer an eligible positive-gain ready compact result
+   wrapped in `compacted/lossy/result` during request assembly.
 10. The current request guard handles raw fallback.
 11. Renderer history reads raw persisted content.
 12. `CompactAgent` provides reusable model-backed semantic extraction.

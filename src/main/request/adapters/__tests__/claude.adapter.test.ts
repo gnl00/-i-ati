@@ -280,4 +280,32 @@ describe('ClaudeAdapter request mapping', () => {
       content: [{ type: 'text', text: 'final answer' }]
     })
   })
+
+  it('keeps the complete semantic compaction JSON in a tool result block', () => {
+    const adapter = new ClaudeAdapter()
+    const representation = JSON.stringify({
+      compacted: true,
+      lossy: true,
+      result: { summary: 'x'.repeat(5_000) }
+    })
+
+    const requestBody = adapter.buildRequest(createTestUnifiedRequest({
+      adapterPluginId: 'claude-compatible-adapter',
+      messages: [{
+        role: 'tool',
+        content: representation,
+        toolCallId: 'call-compact',
+        toolName: 'web_fetch'
+      }]
+    }))
+
+    expect(requestBody.messages[0]).toEqual({
+      role: 'user',
+      content: [{
+        type: 'tool_result',
+        tool_use_id: 'call-compact',
+        content: representation
+      }]
+    })
+  })
 })

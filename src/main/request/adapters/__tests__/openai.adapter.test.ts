@@ -160,6 +160,31 @@ describe('OpenAIAdapter request mapping', () => {
     })
   })
 
+  it('keeps the complete semantic compaction JSON in a tool message', () => {
+    const adapter = new OpenAIAdapter()
+    const representation = JSON.stringify({
+      compacted: true,
+      lossy: true,
+      result: { summary: 'x'.repeat(5_000) }
+    })
+
+    const requestBody = adapter.buildRequest(createTestUnifiedRequest({
+      adapterPluginId: 'openai-chat-compatible-adapter',
+      messages: [{
+        role: 'tool',
+        content: representation,
+        toolCallId: 'call-compact',
+        toolName: 'web_fetch'
+      }]
+    }))
+
+    expect(requestBody.messages[0]).toEqual({
+      role: 'tool',
+      content: representation,
+      tool_call_id: 'call-compact'
+    })
+  })
+
   it('requires tool_call_reason in chat completions tool schemas', () => {
     const adapter = new OpenAIAdapter()
 

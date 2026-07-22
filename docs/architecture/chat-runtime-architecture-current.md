@@ -142,7 +142,19 @@ lookup for ready compactions associated with tool messages still present in the
 request. It reloads those persisted tool messages as the raw source. Shared
 selection helpers filter results through the current metadata configuration,
 validate the raw SHA-256 hash, and choose the newest compactor version by
-persisted message ID. Historical model seeds receive selected compact content.
+persisted message ID. `InitialTranscriptSeedBuilder` wraps selected content in
+a JSON representation shaped as `compacted/lossy/result`. Valid JSON compact
+payloads remain structured under `result`; text payloads become JSON string
+values. The complete serialized representation must remain shorter than the
+persisted raw content, stay within 32,000 characters, and contain no inline
+image data. Eligible seeds carry the trusted internal
+`contentRepresentation: semantic_compaction` sidecar through transcript
+materialization. `RequestMaterializer` uses this provenance to preserve the
+complete semantic JSON through historical replay. Raw historical tool results
+continue through the 1,000-character cold replay guard, which retains the
+first 700 and final 300 source characters around a visible omission marker.
+`tool_result_compactions.content` keeps the bare provider-neutral compact
+payload, and the request assembly boundary owns the representation envelope.
 Renderer live events, `ChatSessionStore` history, and renderer message IPC all
 use raw persisted content. Database updates preserve raw tool content. Ready
 lookups deduplicate IDs and query in batches of 500. Raw fallback continues

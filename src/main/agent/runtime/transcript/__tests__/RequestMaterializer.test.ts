@@ -534,7 +534,7 @@ describe('DefaultRequestMaterializer', () => {
     ])
   })
 
-  it('compacts inline image tool results during protocol replay', () => {
+  it('truncates inline image tool results during protocol replay', () => {
     const materializer = new DefaultRequestMaterializer()
     const transcript: AgentTranscript = {
       transcriptId: 'transcript-1',
@@ -567,7 +567,7 @@ describe('DefaultRequestMaterializer', () => {
 
     expect(request.messages[0]).toMatchObject({
       role: 'tool',
-      content: expect.stringContaining('[Tool result compacted for model request]'),
+      content: expect.stringContaining('[Tool result truncated for model request]'),
       toolCallId: 'call-1',
       toolName: 'vision_tool'
     })
@@ -618,7 +618,110 @@ describe('DefaultRequestMaterializer', () => {
     })
   })
 
-  it('compacts hot tool results that have already been consumed by a following assistant step', () => {
+  it('preserves a trusted semantic compaction when a following assistant step forces cold replay', () => {
+    const materializer = new DefaultRequestMaterializer()
+    const representation = JSON.stringify({
+      compacted: true,
+      lossy: true,
+      result: { summary: 'x'.repeat(5_000) }
+    })
+    const transcript: AgentTranscript = {
+      transcriptId: 'transcript-1',
+      createdAt: 1,
+      updatedAt: 3,
+      records: [
+        {
+          recordId: 'tool-1',
+          kind: 'tool_result',
+          timestamp: 2,
+          stepId: 'step-1',
+          toolCallId: 'call-1',
+          toolCallIndex: 0,
+          toolName: 'web_fetch',
+          status: 'success',
+          content: representation,
+          contentRepresentation: 'semantic_compaction'
+        },
+        {
+          recordId: 'assistant-1',
+          kind: 'assistant_step',
+          timestamp: 3,
+          step: {
+            stepId: 'step-2',
+            stepIndex: 1,
+            startedAt: 3,
+            completedAt: 3,
+            status: 'completed',
+            content: 'used compact evidence',
+            toolCalls: []
+          }
+        }
+      ]
+    }
+
+    const request = materializer.materialize({
+      transcript,
+      requestSpec: {
+        adapterPluginId: 'openai-chat-compatible-adapter',
+        baseUrl: 'https://example.invalid/v1',
+        apiKey: 'test-key',
+        model: 'test-model'
+      }
+    })
+
+    expect(request.messages[0]).toMatchObject({
+      role: 'tool',
+      content: representation
+    })
+    expect(JSON.parse((request.messages[0] as { content: string }).content)).toEqual({
+      compacted: true,
+      lossy: true,
+      result: { summary: 'x'.repeat(5_000) }
+    })
+  })
+
+  it('preserves a trusted semantic compaction with undefined replay mode', () => {
+    const materializer = new DefaultRequestMaterializer()
+    const representation = JSON.stringify({
+      compacted: true,
+      lossy: true,
+      result: { summary: 'x'.repeat(5_000) }
+    })
+    const transcript: AgentTranscript = {
+      transcriptId: 'transcript-1',
+      createdAt: 1,
+      updatedAt: 2,
+      records: [{
+        recordId: 'tool-1',
+        kind: 'tool_result',
+        timestamp: 2,
+        stepId: 'step-1',
+        toolCallId: 'call-1',
+        toolCallIndex: 0,
+        toolName: 'web_fetch',
+        status: 'success',
+        content: representation,
+        contentRepresentation: 'semantic_compaction'
+      }]
+    }
+
+    const request = materializer.materialize({
+      transcript,
+      requestSpec: {
+        adapterPluginId: 'openai-chat-compatible-adapter',
+        baseUrl: 'https://example.invalid/v1',
+        apiKey: 'test-key',
+        model: 'test-model'
+      }
+    })
+
+    expect(request.messages[0]).toMatchObject({
+      role: 'tool',
+      content: representation
+    })
+  })
+
+  it('truncates consumed hot tool results with a head-tail cold projection', () => {
     const materializer = new DefaultRequestMaterializer()
     const largeContent = `tool-prefix-${'x'.repeat(40_000)}-tool-tail`
     const transcript: AgentTranscript = {
@@ -667,15 +770,18 @@ describe('DefaultRequestMaterializer', () => {
 
     expect(request.messages[0]).toMatchObject({
       role: 'tool',
-      content: expect.stringContaining('[Tool result compacted for model request]'),
+      content: expect.stringContaining('[Tool result truncated for model request]'),
       toolCallId: 'call-1',
       toolName: 'read'
     })
     const requestContent = (request.messages[0] as { content: string }).content
     expect(requestContent).toContain(`shownChars=${COLD_TOOL_CONTENT_REQUEST_MAX_CHARACTERS}`)
+    expect(requestContent).toContain('shownHeadChars=700')
+    expect(requestContent).toContain('shownTailChars=300')
     expect(requestContent).toContain(`large_content>${COLD_TOOL_CONTENT_REQUEST_MAX_CHARACTERS}`)
     expect(requestContent).toContain('tool-prefix-')
-    expect(requestContent).not.toContain('-tool-tail')
+    expect(requestContent).toContain('-tool-tail')
+    expect(requestContent.split('[tool result content omitted]')).toHaveLength(2)
 
     const toolRecord = transcript.records[0]
     expect(toolRecord.kind).toBe('tool_result')

@@ -159,6 +159,7 @@ describe('DefaultChatInitialTranscriptRecordFactory', () => {
         {
           kind: 'tool',
           toolCallId: 'call-1',
+          contentRepresentation: 'semantic_compaction',
           content: [
             { type: 'text', text: 'result' },
             { type: 'image_url', image_url: { url: 'file://image.png', detail: 'auto' } }
@@ -179,6 +180,7 @@ describe('DefaultChatInitialTranscriptRecordFactory', () => {
       toolCallIndex: 3,
       toolName: 'read',
       status: 'success',
+      contentRepresentation: 'semantic_compaction',
       content: '[{"type":"text","text":"result"},{"type":"image_url","image_url":{"url":"file://image.png","detail":"auto"}}]'
     })
   })

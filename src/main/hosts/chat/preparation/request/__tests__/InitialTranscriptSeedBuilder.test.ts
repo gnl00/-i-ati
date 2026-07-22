@@ -1,9 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { InitialTranscriptSeedBuilder } from '../InitialTranscriptSeedBuilder'
+import {
+  InitialTranscriptSeedBuilder,
+  SEMANTIC_COMPACTION_REQUEST_MAX_CHARACTERS
+} from '../InitialTranscriptSeedBuilder'
+import { serializeSemanticCompactionToolResult } from '../ToolResultRepresentationSerializer'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 import type {
   ReadyToolResultCompaction
 } from '@main/orchestration/chat/toolResultCompaction/ToolResultCompactionOverlay'
+
+function parseToolResultRepresentation(content: unknown): Record<string, unknown> {
+  expect(typeof content).toBe('string')
+  return JSON.parse(content as string) as Record<string, unknown>
+}
 
 describe('InitialTranscriptSeedBuilder', () => {
   it('maps user, assistant, tool, and reasoning messages to transcript seed', () => {
@@ -98,11 +107,11 @@ describe('InitialTranscriptSeedBuilder', () => {
     }])
   })
 
-  it('uses a ready compaction for a persisted tool result', () => {
+  it('wraps a ready JSON compaction for a persisted tool result', () => {
     const builder = new InitialTranscriptSeedBuilder()
     const message = {
       role: 'tool',
-      content: 'raw result',
+      content: JSON.stringify({ content: 'raw result '.repeat(100) }),
       toolCallId: 'call-compact',
       name: 'web_fetch',
       segments: []
@@ -111,7 +120,7 @@ describe('InitialTranscriptSeedBuilder', () => {
       messageId: 42,
       toolName: 'web_fetch',
       toolCallId: 'call-compact',
-      content: 'balanced result',
+      content: JSON.stringify({ summary: 'balanced result', citations: ['https://example.com'] }),
       originalHash: 'hash-42',
       level: 'balanced',
       compactorId: 'web-document',
@@ -121,9 +130,47 @@ describe('InitialTranscriptSeedBuilder', () => {
 
     const seed = builder.build([message], new Map([[message, compaction]]))
 
+    expect(seed[0]).toMatchObject({ kind: 'tool' })
+    expect(parseToolResultRepresentation(seed[0].content)).toEqual({
+      compacted: true,
+      lossy: true,
+      result: {
+        summary: 'balanced result',
+        citations: ['https://example.com']
+      }
+    })
     expect(seed[0]).toMatchObject({
-      kind: 'tool',
-      content: 'balanced result'
+      contentRepresentation: 'semantic_compaction'
+    })
+  })
+
+  it('preserves a non-JSON compaction as the compacted-result string', () => {
+    const builder = new InitialTranscriptSeedBuilder()
+    const message = {
+      role: 'tool',
+      content: 'raw result '.repeat(100),
+      toolCallId: 'call-text-compact',
+      name: 'web_fetch',
+      segments: []
+    } as ChatMessage
+    const compaction = {
+      messageId: 42,
+      toolName: 'web_fetch',
+      toolCallId: 'call-text-compact',
+      content: 'balanced text result',
+      originalHash: 'hash-42',
+      level: 'balanced',
+      compactorId: 'web-document',
+      compactorVersion: 1,
+      updatedAt: 10
+    } as const
+
+    const seed = builder.build([message], new Map([[message, compaction]]))
+
+    expect(parseToolResultRepresentation(seed[0].content)).toEqual({
+      compacted: true,
+      lossy: true,
+      result: 'balanced text result'
     })
   })
 
@@ -160,18 +207,135 @@ describe('InitialTranscriptSeedBuilder', () => {
     })
   })
 
+  it('uses persisted raw content when the representation envelope matches the raw length', () => {
+    const builder = new InitialTranscriptSeedBuilder()
+    const compactedContent = '{"summary":"short"}'
+    const message = {
+      role: 'tool',
+      content: 'request-projected raw result',
+      toolCallId: 'call-overhead',
+      name: 'web_fetch',
+      segments: []
+    } as ChatMessage
+    const persistedRawContent = 'r'.repeat(
+      serializeSemanticCompactionToolResult(compactedContent).length
+    )
+    const compaction = {
+      messageId: 42,
+      toolName: 'web_fetch',
+      toolCallId: 'call-overhead',
+      content: compactedContent,
+      originalHash: 'hash-42',
+      level: 'balanced',
+      compactorId: 'web-document',
+      compactorVersion: 1,
+      updatedAt: 10
+    } as const
+
+    const seed = builder.build(
+      [message],
+      new Map([[message, compaction]]),
+      new Map([[message, persistedRawContent]])
+    )
+
+    expect(seed[0]).toMatchObject({
+      kind: 'tool',
+      content: persistedRawContent
+    })
+    expect(seed[0]).not.toHaveProperty('contentRepresentation')
+  })
+
+  it('uses persisted raw content when the representation is larger than raw', () => {
+    const builder = new InitialTranscriptSeedBuilder()
+    const message = {
+      role: 'tool',
+      content: 'short raw result',
+      toolCallId: 'call-negative-gain',
+      name: 'web_fetch',
+      segments: []
+    } as ChatMessage
+
+    const seed = builder.build([message], new Map([[message, {
+      messageId: 42,
+      toolName: 'web_fetch',
+      toolCallId: 'call-negative-gain',
+      content: 'larger compact result',
+      originalHash: 'hash-42',
+      level: 'balanced',
+      compactorId: 'web-document',
+      compactorVersion: 1,
+      updatedAt: 10
+    }]]))
+
+    expect(seed[0]).toMatchObject({ kind: 'tool', content: message.content })
+    expect(seed[0]).not.toHaveProperty('contentRepresentation')
+  })
+
+  it('uses persisted raw content when the representation exceeds the semantic limit', () => {
+    const builder = new InitialTranscriptSeedBuilder()
+    const compactedContent = JSON.stringify({ summary: 'c'.repeat(SEMANTIC_COMPACTION_REQUEST_MAX_CHARACTERS) })
+    const message = {
+      role: 'tool',
+      content: 'r'.repeat(40_000),
+      toolCallId: 'call-over-limit',
+      name: 'web_fetch',
+      segments: []
+    } as ChatMessage
+
+    const seed = builder.build([message], new Map([[message, {
+      messageId: 42,
+      toolName: 'web_fetch',
+      toolCallId: 'call-over-limit',
+      content: compactedContent,
+      originalHash: 'hash-42',
+      level: 'balanced',
+      compactorId: 'web-document',
+      compactorVersion: 1,
+      updatedAt: 10
+    }]]))
+
+    expect(seed[0]).toMatchObject({ kind: 'tool', content: message.content })
+    expect(seed[0]).not.toHaveProperty('contentRepresentation')
+  })
+
+  it('uses persisted raw content when the representation contains inline image data', () => {
+    const builder = new InitialTranscriptSeedBuilder()
+    const message = {
+      role: 'tool',
+      content: 'r'.repeat(10_000),
+      toolCallId: 'call-inline-image',
+      name: 'web_fetch',
+      segments: []
+    } as ChatMessage
+
+    const seed = builder.build([message], new Map([[message, {
+      messageId: 42,
+      toolName: 'web_fetch',
+      toolCallId: 'call-inline-image',
+      content: JSON.stringify({ image: `data:image/png;base64,${'a'.repeat(200)}` }),
+      originalHash: 'hash-42',
+      level: 'balanced',
+      compactorId: 'web-document',
+      compactorVersion: 1,
+      updatedAt: 10
+    }]]))
+
+    expect(seed[0]).toMatchObject({ kind: 'tool', content: message.content })
+    expect(seed[0]).not.toHaveProperty('contentRepresentation')
+  })
+
   it('keeps repeated tool-call IDs associated with their source messages', () => {
     const builder = new InitialTranscriptSeedBuilder()
     const firstMessage = {
       role: 'tool',
-      content: 'first raw result',
+      content: 'first raw result '.repeat(100),
       toolCallId: 'repeated-call',
       name: 'web_fetch',
       segments: []
     } as ChatMessage
     const secondMessage = {
       ...firstMessage,
-      content: 'second raw result'
+      content: 'second raw result '.repeat(100)
     } as ChatMessage
     const firstCompaction = {
       messageId: 41,
@@ -204,10 +368,11 @@ describe('InitialTranscriptSeedBuilder', () => {
       ])
     )
 
-    expect(seed.map(message => message.content)).toEqual([
-      'first compact result',
-      'second compact result'
-    ])
+    const compactedResults = seed.map(message => (
+      parseToolResultRepresentation(message.content).result
+    ))
+
+    expect(compactedResults).toEqual(['first compact result', 'second compact result'])
   })
 
   it('keeps hidden vision observation source in user transcript seed', () => {
