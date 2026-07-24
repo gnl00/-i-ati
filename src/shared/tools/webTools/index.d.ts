@@ -2,6 +2,7 @@ export interface WebSearchArgs {
   query: string
   engine?: 'bing' | 'google'
   snippetsOnly?: boolean
+  chat_uuid?: string
 }
 
 /** @deprecated Use WebSearchResponse instead */
@@ -19,6 +20,7 @@ export interface WebSearchResultV2 {
   title: string       // 从网页 <title> 提取
   snippet: string     // 从 Bing 搜索结果提取
   content: string     // 完整抓取内容
+  artifact?: WebFetchArtifact
   error?: string      // 失败时的错误信息
 }
 
@@ -32,6 +34,17 @@ export interface WebFetchArgs {
   url: string
   cleanMode?: 'lite' | 'full'
   prompt: string
+  chat_uuid?: string
+}
+
+export interface WebFetchArtifact {
+  kind: 'workspace_artifact'
+  sourcePath: string
+  readPath: string
+  sizeBytes: number
+  sha256: string
+  mimeType?: string
+  summary: string
 }
 
 export interface WebFetchResponse {
@@ -39,5 +52,6 @@ export interface WebFetchResponse {
   url: string           // 最终 URL（可能经过重定向）
   title: string         // 页面标题
   content: string       // 提取的页面内容
+  artifact?: WebFetchArtifact
   error?: string        // 失败时的错误信息
 }

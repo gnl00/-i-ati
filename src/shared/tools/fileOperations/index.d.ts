@@ -9,6 +9,7 @@ export interface ReadTextFileArgs {
   chat_uuid?: string
   encoding?: string
   start_line?: number
+  start_column?: number
   end_line?: number
   around_line?: number
   window_size?: number
@@ -21,6 +22,10 @@ export interface ReadTextFileResponse {
   lines?: number
   returned_start_line?: number
   returned_end_line?: number
+  returned_start_column?: number
+  returned_end_column?: number
+  next_start_line?: number
+  next_start_column?: number
   truncated?: boolean
   error?: string
 }

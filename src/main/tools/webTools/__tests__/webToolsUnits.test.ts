@@ -1,3 +1,7 @@
+import { createHash } from 'crypto'
+import { mkdtemp, readFile, rm, writeFile } from 'fs/promises'
+import { tmpdir } from 'os'
+import { join } from 'path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@main/logging/LogService', () => ({
@@ -6,13 +10,14 @@ vi.mock('@main/logging/LogService', () => ({
 
 import { Semaphore } from '../util/Semaphore'
 import { waitForCondition } from '../util/waitForCondition'
-import { readCapped } from '../http/HttpFetcher'
+import { downloadViaHttp } from '../http/HttpFetcher'
+import { WEB_FETCH_DOWNLOAD_MAX_BYTES } from '../artifacts/constants'
 import { postCleanLite, postCleanFull } from '../extract/postClean'
 import { extractMainHtml } from '../extract/ContentExtractor'
 import { bingSearchEngine } from '../search-engine/bing'
 
 // 构造带 ReadableStream body 的 Response mock（避免依赖真实 fetch）
-function makeStreamResponse(chunks: Uint8Array[]): Response {
+function makeStreamResponse(chunks: Uint8Array[], headers = new Headers()): Response {
   let i = 0
   const reader = {
     read: async (): Promise<{ done: boolean; value?: Uint8Array }> => {
@@ -23,7 +28,10 @@ function makeStreamResponse(chunks: Uint8Array[]): Response {
   }
   return {
     body: { getReader: () => reader },
-    headers: new Headers()
+    headers,
+    ok: true,
+    status: 200,
+    url: 'https://example.com/final'
   } as unknown as Response
 }
 
@@ -34,7 +42,10 @@ function makeBodylessResponse(bytes: Uint8Array, contentLength?: number): Respon
   return {
     body: null,
     headers,
-    arrayBuffer: async (): Promise<ArrayBuffer> => bytes.buffer.slice(0) as ArrayBuffer
+    arrayBuffer: async (): Promise<ArrayBuffer> => bytes.buffer.slice(0) as ArrayBuffer,
+    ok: true,
+    status: 200,
+    url: 'https://example.com/final'
   } as unknown as Response
 }
 
@@ -213,47 +224,109 @@ describe('waitForCondition', () => {
   })
 })
 
-describe('readCapped', () => {
-  it('caps the total length when the running sum exceeds max on a large final chunk', async () => {
-    const chunks = [new Uint8Array(4).fill(1), new Uint8Array(4).fill(2), new Uint8Array(10).fill(3)]
-    const out = await readCapped(makeStreamResponse(chunks), 10)
-    expect(out.length).toBe(10)
+describe('downloadViaHttp', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
-  it('caps to max when the very first chunk already exceeds it, and copies (source mutation does not leak)', async () => {
-    const first = new Uint8Array(20).fill(7)
-    const out = await readCapped(makeStreamResponse([first]), 10)
-    expect(out.length).toBe(10)
-    // 结果是拷贝：改动源 buffer 不应影响已返回的数据
-    first.fill(9)
-    expect(Array.from(out)).toEqual(new Array(10).fill(7))
+  it('streams the complete response to the supplied spool and returns byte/hash facts', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'ati-http-spool-'))
+    const path = join(root, 'response.part')
+    await writeFile(path, '')
+    const chunks = [new Uint8Array([1, 2, 3]), new Uint8Array([4, 5])]
+    const headers = new Headers({ 'content-type': 'application/octet-stream', 'content-length': '999' })
+    vi.stubGlobal('fetch', vi.fn(async () => makeStreamResponse(chunks, headers)))
+    const result = await downloadViaHttp('https://example.com/requested', 'agent', {
+      absolutePath: path,
+      relativePath: '.tmp/web-fetch/response.part'
+    })
+    expect(Array.from(await readFile(path))).toEqual([1, 2, 3, 4, 5])
+    expect(result).toMatchObject({
+      requestedUrl: 'https://example.com/requested',
+      finalUrl: 'https://example.com/final',
+      declaredContentLength: 999,
+      receivedBytes: 5,
+      sha256: createHash('sha256').update(new Uint8Array([1, 2, 3, 4, 5])).digest('hex')
+    })
+    await rm(root, { recursive: true, force: true })
   })
 
-  it('throws for a body-less response whose content-length exceeds the cap', async () => {
-    const resp = makeBodylessResponse(new Uint8Array(4), 100)
-    await expect(readCapped(resp, 10)).rejects.toThrow(/Response too large/)
+  it.each([
+    ['missing', undefined],
+    ['invalid', 'unknown']
+  ])('keeps %s Content-Length diagnostic undefined', async (_label, contentLength) => {
+    const root = await mkdtemp(join(tmpdir(), 'ati-http-length-'))
+    const path = join(root, 'response.part')
+    await writeFile(path, '')
+    const headers = new Headers()
+    if (contentLength !== undefined) headers.set('content-length', contentLength)
+    vi.stubGlobal('fetch', vi.fn(async () => makeStreamResponse([new Uint8Array([1])], headers)))
+    const result = await downloadViaHttp('https://example.com/length', 'agent', {
+      absolutePath: path,
+      relativePath: '.tmp/web-fetch/response.part'
+    })
+    expect(result.declaredContentLength).toBeUndefined()
+    await rm(root, { recursive: true, force: true })
   })
 
-  it('returns the full body for a body-less response under the cap', async () => {
-    const bytes = new Uint8Array([1, 2, 3, 4])
-    const resp = makeBodylessResponse(bytes, 4)
-    const out = await readCapped(resp, 10)
-    expect(Array.from(out)).toEqual([1, 2, 3, 4])
+  it('uses received bytes for the hard limit and removes an oversized spool', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'ati-http-cap-'))
+    const path = join(root, 'response.part')
+    await writeFile(path, '')
+    const oneMiB = new Uint8Array(1024 * 1024)
+    vi.stubGlobal('fetch', vi.fn(async () => makeStreamResponse(
+      Array.from({ length: 51 }, () => oneMiB),
+      new Headers({ 'content-length': '1' })
+    )))
+    await expect(downloadViaHttp('https://example.com/large', 'agent', {
+      absolutePath: path,
+      relativePath: '.tmp/web-fetch/response.part'
+    })).rejects.toThrow('WEB_FETCH_DOWNLOAD_TOO_LARGE')
+    await expect(readFile(path)).rejects.toMatchObject({ code: 'ENOENT' })
+    expect(WEB_FETCH_DOWNLOAD_MAX_BYTES).toBe(50 * 1024 * 1024)
+    await rm(root, { recursive: true, force: true })
+  })
+
+  it('rejects a bodyless response from declared length before materializing its array buffer', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'ati-http-bodyless-cap-'))
+    const path = join(root, 'response.part')
+    await writeFile(path, '')
+    const response = makeBodylessResponse(new Uint8Array([1]), WEB_FETCH_DOWNLOAD_MAX_BYTES + 1)
+    const arrayBuffer = vi.spyOn(response, 'arrayBuffer')
+    vi.stubGlobal('fetch', vi.fn(async () => response))
+    await expect(downloadViaHttp('https://example.com/bodyless-large', 'agent', {
+      absolutePath: path,
+      relativePath: '.tmp/web-fetch/response.part'
+    })).rejects.toThrow('WEB_FETCH_DOWNLOAD_TOO_LARGE')
+    expect(arrayBuffer).not.toHaveBeenCalled()
+    await rm(root, { recursive: true, force: true })
   })
 
   it('throws and cancels the reader when the signal is already aborted', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'ati-http-abort-'))
+    const path = join(root, 'response.part')
+    await writeFile(path, '')
     const cancel = vi.fn(async () => {})
     const read = vi.fn(async () => ({ done: false, value: new Uint8Array(4) }))
     const resp = {
       body: { getReader: () => ({ read, cancel }) },
-      headers: new Headers()
+      headers: new Headers(),
+      ok: true,
+      status: 200,
+      url: 'https://example.com/final'
     } as unknown as Response
+    vi.stubGlobal('fetch', vi.fn(async () => resp))
     const controller = new AbortController()
     controller.abort()
 
-    await expect(readCapped(resp, 100, controller.signal)).rejects.toThrow('Fetch aborted')
+    await expect(downloadViaHttp('https://example.com/abort', 'agent', {
+      absolutePath: path,
+      relativePath: '.tmp/web-fetch/response.part'
+    }, controller.signal)).rejects.toThrow('Fetch aborted')
     expect(read).not.toHaveBeenCalled()
     expect(cancel).toHaveBeenCalled()
+    await expect(readFile(path)).rejects.toMatchObject({ code: 'ENOENT' })
+    await rm(root, { recursive: true, force: true })
   })
 })
 

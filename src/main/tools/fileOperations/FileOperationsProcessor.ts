@@ -81,6 +81,7 @@ import type {
 const logger = createLogger('FileOperationsProcessor')
 const DEFAULT_READ_WINDOW_SIZE = 200
 const MAX_READ_WINDOW_SIZE = 500
+export const READ_RESULT_MAX_CHARACTERS = 32_000
 const DEFAULT_GLOB_MAX_RESULTS = 100
 const DEFAULT_EDIT_DIAGNOSTICS_LIMIT = 5
 const MAX_EDIT_DIAGNOSTICS_LIMIT = 20
@@ -296,7 +297,16 @@ export async function processReadTextFile(
   contract: FileToolPathContract = 'legacy-ipc'
 ): Promise<ReadTextFileResponse> {
   try {
-    const { file_path, chat_uuid, encoding = 'utf-8', start_line, end_line, around_line, window_size } = args
+    const {
+      file_path,
+      chat_uuid,
+      encoding = 'utf-8',
+      start_line,
+      start_column,
+      end_line,
+      around_line,
+      window_size
+    } = args
     const resolvedPath = resolveFilePath(file_path, chat_uuid, 'existing', contract)
     const absolutePath = resolvedPath.absolutePath
     logger.debug('read_text_file.exists_check', { absolutePath, exists: existsSync(absolutePath) })
@@ -316,17 +326,72 @@ export async function processReadTextFile(
       around_line,
       window_size
     )
-    const resultContent = lines.slice(startIndex, endIndex).join('\n')
+    const normalizedStartColumn = start_line !== undefined
+      ? Math.max(1, Math.floor(start_column ?? 1))
+      : 1
+    const windowLines = lines.slice(startIndex, endIndex)
+    if (windowLines.length > 0) {
+      windowLines[0] = windowLines[0].slice(normalizedStartColumn - 1)
+    }
+    const fullWindowContent = windowLines.join('\n')
+    const characterLimited = fullWindowContent.length > READ_RESULT_MAX_CHARACTERS
+    let characterEnd = Math.min(fullWindowContent.length, READ_RESULT_MAX_CHARACTERS)
+    const lastCodeUnit = fullWindowContent.charCodeAt(characterEnd - 1)
+    const nextCodeUnit = fullWindowContent.charCodeAt(characterEnd)
+    if (
+      characterEnd < fullWindowContent.length
+      && lastCodeUnit >= 0xD800
+      && lastCodeUnit <= 0xDBFF
+      && nextCodeUnit >= 0xDC00
+      && nextCodeUnit <= 0xDFFF
+    ) {
+      characterEnd--
+    }
+    const resultContent = fullWindowContent.slice(0, characterEnd)
     const returnedStartLine = startIndex + 1
-    const returnedEndLine = endIndex
+    let returnedEndLine = returnedStartLine
+    let returnedEndColumn = normalizedStartColumn - 1
+    let nextStartLine = returnedStartLine
+    let nextStartColumn = normalizedStartColumn
+    for (let characterIndex = 0; characterIndex < resultContent.length; characterIndex++) {
+      const character = resultContent[characterIndex]
+      if (character === '\n') {
+        returnedEndLine = nextStartLine
+        returnedEndColumn = nextStartColumn - 1
+        nextStartLine++
+        nextStartColumn = 1
+      } else {
+        returnedEndLine = nextStartLine
+        returnedEndColumn = nextStartColumn
+        nextStartColumn++
+      }
+    }
+    const hasLineContinuation = truncated && !characterLimited
+    if (!characterLimited && resultContent.endsWith('\n')) {
+      returnedEndLine = endIndex
+      returnedEndColumn = 0
+    }
+    if (hasLineContinuation) {
+      nextStartLine = endIndex + 1
+      nextStartColumn = 1
+    }
+    const resultTruncated = truncated || characterLimited
 
     logger.info('read_text_file.success', {
       filePath: file_path,
       totalLines,
       returnedStartLine,
       returnedEndLine,
-      truncated
+      truncated: resultTruncated
     })
+    if (characterLimited) {
+      logger.info('read_text_file.character_limit_applied', {
+        filePath: displayResolvedPath(resolvedPath, file_path, contract),
+        returnedCharacters: resultContent.length,
+        nextStartLine,
+        nextStartColumn
+      })
+    }
     return {
       success: true,
       file_path: displayResolvedPath(resolvedPath, file_path, contract),
@@ -334,7 +399,11 @@ export async function processReadTextFile(
       lines: totalLines,
       returned_start_line: returnedStartLine,
       returned_end_line: returnedEndLine,
-      truncated
+      returned_start_column: normalizedStartColumn,
+      returned_end_column: returnedEndColumn,
+      next_start_line: resultTruncated ? nextStartLine : undefined,
+      next_start_column: resultTruncated ? nextStartColumn : undefined,
+      truncated: resultTruncated
     }
   } catch (error: any) {
     logger.error('read_text_file.failed', error)

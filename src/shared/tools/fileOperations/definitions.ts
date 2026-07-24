@@ -22,6 +22,10 @@ export const fileOperationsTools = [
             type: 'number',
             description: 'Optional: The line number to start reading from (1-indexed).'
           },
+          start_column: {
+            type: 'number',
+            description: 'Optional: The column to start reading from on start_line (1-indexed). Use next_start_column when continuing a character-limited read.'
+          },
           end_line: {
             type: 'number',
             description: 'Optional: The line number to stop reading at (inclusive).'

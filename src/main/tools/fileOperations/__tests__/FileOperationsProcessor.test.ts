@@ -138,6 +138,58 @@ describe('FileOperationsProcessor.read_text_file', () => {
     expect(result.content?.split('\n')).toHaveLength(500)
   })
 
+  it('continues a single long UTF-8 line by column without repeating or skipping characters', async () => {
+    const filePath = join(userDataDir, 'workspaces', 'chat-long-line', 'sample.txt')
+    await mkdir(dirname(filePath), { recursive: true })
+    const expected = '中文🙂'.repeat(20_000)
+    await writeFile(filePath, expected, 'utf-8')
+
+    let startLine = 1
+    let startColumn = 1
+    let reconstructed = ''
+    let calls = 0
+    for (;;) {
+      const result = await processReadTextFile({
+        chat_uuid: 'chat-long-line',
+        file_path: 'sample.txt',
+        start_line: startLine,
+        start_column: startColumn,
+        end_line: 1
+      })
+      expect(result.success).toBe(true)
+      expect(result.content!.length).toBeLessThanOrEqual(32_000)
+      reconstructed += result.content
+      calls++
+      if (!result.truncated) break
+      startLine = result.next_start_line!
+      startColumn = result.next_start_column!
+    }
+
+    expect(calls).toBeGreaterThan(1)
+    expect(reconstructed).toBe(expected)
+  })
+
+  it('keeps the selected end-line metadata when the read window ends with a blank line', async () => {
+    const filePath = join(userDataDir, 'workspaces', 'chat-trailing-line', 'sample.txt')
+    await mkdir(dirname(filePath), { recursive: true })
+    await writeFile(filePath, 'first line\n', 'utf-8')
+
+    const result = await processReadTextFile({
+      chat_uuid: 'chat-trailing-line',
+      file_path: 'sample.txt',
+      start_line: 1,
+      end_line: 2
+    })
+
+    expect(result).toMatchObject({
+      success: true,
+      content: 'first line\n',
+      returned_end_line: 2,
+      returned_end_column: 0,
+      truncated: false
+    })
+  })
+
   it('greps both files and directories through a single entry point', async () => {
     const rootDir = join(userDataDir, 'workspaces', 'chat-5')
     const filePath = join(rootDir, 'src', 'sample.ts')

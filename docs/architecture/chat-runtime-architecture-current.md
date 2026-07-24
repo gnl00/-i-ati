@@ -110,6 +110,16 @@ the active run. The immediate continuation therefore receives the complete raw
 content. Later steps in that active run use the same in-memory transcript
 snapshot and retain the existing cold projection behavior for older results.
 
+`web_search` and `web_fetch` also protect the active hot continuation at the
+tool boundary. Direct responses spool into the active workspace. Completed
+files above 3 MiB, non-text files, and extracted text above the inline budget
+become workspace artifacts, and the immediate result carries a bounded
+descriptor. Non-text artifacts preserve the original source for a suitable
+workspace file tool. The embedded `read` tool consumes artifact `content.md`
+notes and extracted text in line windows with a 32,000-character ceiling and
+line/column continuation coordinates. See
+[ADR-0011](../decisions/0011-size-based-web-fetch-workspace-artifacts.md).
+
 The scheduler reads registered tool metadata and places configured jobs into a
 bounded FIFO queue. One job runs at a time, eight jobs may wait, and the first
 drain starts through `setImmediate`. Identity-keyed singleflight shares queued

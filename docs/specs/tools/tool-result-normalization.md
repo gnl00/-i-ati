@@ -112,6 +112,16 @@ Phase 1 is implemented in:
 
 Active-run replay uses raw tool result content. Terminal snapshots and cold history use `modelContent`, a compact text representation with artifact references. VLM summaries and multimodal hot-image adapter support are tracked as Phase 2 and Phase 4 work.
 
+Web fetch tools apply an additional producer-side active-run bound. Every
+direct response spools into the active workspace. Completed sources above
+3 MiB, non-text files, and extracted text above the inline budget return a
+compact `workspace_artifact` descriptor. The descriptor exposes the preserved
+source file, effective MIME, and a bounded `content.md` note. This producer
+contract complements cold replay normalization because hot results bypass the
+request guard. The `read` tool limits each text follow-up result to 32,000
+characters and supplies line/column continuation coordinates. See
+[ADR-0011](../../decisions/0011-size-based-web-fetch-workspace-artifacts.md).
+
 ## Acceptance
 
 - Active-run tool results remain available to the next model step with original content.

@@ -45,6 +45,10 @@ For executable embedded tools:
   active continuation, raw renderer delivery, immutable raw facts, execution
   metrics, queue bounds, input budgets, secret redaction, cancellation, atomic
   claim behavior, and future-run replay selection coverage.
+- Tools that can return large active-run content should apply a bounded
+  model-visible contract before returning. Workspace-readable artifacts use
+  confined relative paths and a bounded reader; direct HTTP tools follow
+  [ADR-0011](../../decisions/0011-size-based-web-fetch-workspace-artifacts.md).
 
 For model-output tools used only to constrain a maintenance request:
 - Keep the definition under `src/shared/tools/<tool-group>/definitions.ts` and export it with `satisfies ToolDefinition`.
