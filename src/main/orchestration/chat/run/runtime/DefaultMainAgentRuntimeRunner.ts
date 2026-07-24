@@ -40,7 +40,13 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
     private readonly options: {
       modelStreamExecutor?: ModelStreamExecutor
       toolResultCompactionTrigger?: ToolResultCompactionTrigger
-      notificationSinkFactory?: (chatTitle: string) => AgentEventSink
+      notificationSinkFactory?: (
+        chatTitle: string,
+        options: {
+          notifyOnFailure: boolean
+          occurrenceKey?: string
+        }
+      ) => AgentEventSink
     } = {}
   ) {}
 
@@ -74,10 +80,20 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
     ], renderEventMapper))
 
     // Register notification sink last so render pipeline completes even if notifications fail.
-    // Only register for interactive desktop runs (source undefined/null); exclude 'schedule' and 'telegram'.
-    if (!input.runInput.input.source && this.options.notificationSinkFactory) {
+    // Desktop interactive and scheduler runs share native terminal notifications.
+    const source = input.runInput.input.source
+    if (
+      (source === undefined || source === 'schedule')
+      && this.options.notificationSinkFactory
+    ) {
       eventBus.register(this.options.notificationSinkFactory(
-        input.prepared.chatContext.chat.title
+        input.prepared.chatContext.chat.title,
+        {
+          notifyOnFailure: input.runInput.input.nativeNotification?.notifyOnFailure ?? true,
+          ...(input.runInput.input.nativeNotification?.occurrenceKey
+            ? { occurrenceKey: input.runInput.input.nativeNotification.occurrenceKey }
+            : {})
+        }
       ))
     }
 

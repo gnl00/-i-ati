@@ -11,6 +11,10 @@ export type HostRunInputState = {
   stream?: boolean
   chatUserInstruction?: string
   permissionApprovalMode?: PermissionApprovalMode
+  nativeNotification?: {
+    notifyOnFailure: boolean
+    occurrenceKey?: string
+  }
 }
 
 export type MainAgentRunInput = {

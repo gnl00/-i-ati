@@ -40,7 +40,11 @@ vi.mock('../../main-window', () => ({
 }))
 
 import type { AgentEvent } from '../../agent/runtime/events/AgentEvent'
-import { AgentNotificationSink, liveNotificationCount } from '../AgentNotificationSink'
+import {
+  AgentNotificationSink,
+  liveNotificationCount,
+  notifyTerminalRunFailure
+} from '../AgentNotificationSink'
 
 function completedEvent(content?: string): AgentEvent {
   return {
@@ -136,7 +140,7 @@ describe('AgentNotificationSink', () => {
 
   it('accumulates the badge count across multiple background notifications', () => {
     sink.handle(completedEvent('first'))
-    sink.handle(completedEvent('second'))
+    new AgentNotificationSink().handle(completedEvent('second'))
     expect(mocks.app.badgeCount).toBe(2)
   })
 
@@ -189,6 +193,74 @@ describe('AgentNotificationSink', () => {
       body: 'boom',
       silent: true
     })
+  })
+
+  it('suppresses a retryable failure and notifies once when the run completes', () => {
+    const retryableSink = new AgentNotificationSink('Recurring check', {
+      notifyOnFailure: false
+    })
+    retryableSink.handle(failedEvent('temporary failure'))
+    retryableSink.handle(completedEvent('recovered'))
+    retryableSink.handle(completedEvent('duplicate terminal event'))
+
+    expect(mocks.notificationInstances).toHaveLength(1)
+    expect(mocks.notificationInstances[0].options).toMatchObject({
+      title: 'Recurring check',
+      body: 'recovered',
+      silent: false
+    })
+    expect(mocks.app.badgeCount).toBe(1)
+  })
+
+  it('deduplicates one occurrence across retry sink instances', () => {
+    const firstAttemptSink = new AgentNotificationSink('Recurring check', {
+      notifyOnFailure: false,
+      occurrenceKey: 'occurrence-dedup-test'
+    })
+    const secondAttemptSink = new AgentNotificationSink('Recurring check', {
+      notifyOnFailure: true,
+      occurrenceKey: 'occurrence-dedup-test'
+    })
+
+    firstAttemptSink.handle(completedEvent('completed before finalization'))
+    secondAttemptSink.handle(failedEvent('finalization retried'))
+
+    expect(mocks.notificationInstances).toHaveLength(1)
+    expect(mocks.app.badgeCount).toBe(1)
+  })
+
+  it('deduplicates the scheduler terminal fallback after a runtime failure notification', () => {
+    const runtimeSink = new AgentNotificationSink('Recurring check', {
+      notifyOnFailure: true,
+      occurrenceKey: 'occurrence-direct-failure-dedup-test'
+    })
+
+    runtimeSink.handle(failedEvent('runtime failure'))
+    notifyTerminalRunFailure({
+      title: 'Recurring check',
+      body: 'scheduler fallback failure',
+      occurrenceKey: 'occurrence-direct-failure-dedup-test'
+    })
+
+    expect(mocks.notificationInstances).toHaveLength(1)
+    expect(mocks.notificationInstances[0].options.body).toBe('runtime failure')
+    expect(mocks.app.badgeCount).toBe(1)
+  })
+
+  it('routes a direct terminal failure through the shared native notification behavior', () => {
+    notifyTerminalRunFailure({
+      title: 'Missing chat task',
+      body: 'Chat not found',
+      occurrenceKey: 'occurrence-direct-failure-display-test'
+    })
+
+    expect(mocks.notificationInstances).toHaveLength(1)
+    expect(mocks.notificationInstances[0].options).toEqual({
+      title: 'Missing chat task',
+      body: 'Chat not found',
+      silent: true
+    })
+    expect(mocks.app.badgeCount).toBe(1)
   })
 
   it('uses chat title for completion notifications when provided', () => {

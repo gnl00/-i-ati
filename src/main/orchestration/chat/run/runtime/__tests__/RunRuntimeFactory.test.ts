@@ -2,9 +2,11 @@ import { describe, expect, it, vi } from 'vitest'
 
 const {
   mainAgentRuntimeRunnerConstructorMock,
-  toolResultCompactionSchedulerMock
+  toolResultCompactionSchedulerMock,
+  notificationSinkConstructorMock
 } = vi.hoisted(() => ({
   mainAgentRuntimeRunnerConstructorMock: vi.fn(),
+  notificationSinkConstructorMock: vi.fn(),
   toolResultCompactionSchedulerMock: {
     schedule: vi.fn()
   }
@@ -23,7 +25,11 @@ vi.mock('@main/orchestration/chat/toolResultCompaction/ToolResultCompactionSched
 }))
 
 vi.mock('@main/notifications/AgentNotificationSink', () => ({
-  AgentNotificationSink: class {}
+  AgentNotificationSink: class {
+    constructor(...args: unknown[]) {
+      notificationSinkConstructorMock(...args)
+    }
+  }
 }))
 
 vi.mock('@main/orchestration/chat/maintenance', () => ({
@@ -61,6 +67,18 @@ describe('RunRuntimeFactory', () => {
         toolResultCompactionTrigger: toolResultCompactionSchedulerMock,
         notificationSinkFactory: expect.any(Function)
       })
+    )
+
+    const runnerOptions = mainAgentRuntimeRunnerConstructorMock.mock.calls[0][2] as {
+      notificationSinkFactory: (
+        chatTitle: string,
+        options: { notifyOnFailure: boolean }
+      ) => unknown
+    }
+    runnerOptions.notificationSinkFactory('Recurring check', { notifyOnFailure: false })
+    expect(notificationSinkConstructorMock).toHaveBeenCalledWith(
+      'Recurring check',
+      { notifyOnFailure: false }
     )
   })
 })

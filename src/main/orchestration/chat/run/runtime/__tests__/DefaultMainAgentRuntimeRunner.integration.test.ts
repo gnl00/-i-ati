@@ -6,6 +6,7 @@ import { CHAT_RENDER_EVENTS } from '@shared/chat/render-events'
 import DatabaseService from '@main/db/DatabaseService'
 import { SkillService } from '@main/services/skills/SkillService'
 import { DefaultMainAgentRuntimeRunner } from '../DefaultMainAgentRuntimeRunner'
+import type { AgentEvent } from '@main/agent/runtime/events/AgentEvent'
 
 const noopToolResultCompactionTrigger = {
   schedule: vi.fn()
@@ -185,6 +186,88 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     vi.mocked(DatabaseService.getSkills).mockReturnValue([])
     vi.mocked(SkillService.listSkills).mockResolvedValue([])
     vi.mocked(SkillService.getSkillContent).mockResolvedValue('')
+  })
+
+  async function runWithNotificationSource(
+    source: string | undefined,
+    notifyOnFailure = true
+  ): Promise<{
+    notificationSinkFactory: ReturnType<typeof vi.fn>
+    notificationHandle: ReturnType<typeof vi.fn>
+  }> {
+    const notificationHandle = vi.fn<(event: AgentEvent) => void>()
+    const notificationSinkFactory = vi.fn(() => ({ handle: notificationHandle }))
+    const modelStreamExecutor: ModelStreamExecutor = {
+      execute: vi.fn(async () => createAsyncStream([
+        {
+          kind: 'delta',
+          responseId: 'notification-response',
+          model: 'model-1',
+          content: 'Scheduled work completed',
+          finishReason: 'stop'
+        },
+        {
+          kind: 'final',
+          responseId: 'notification-response',
+          model: 'model-1'
+        }
+      ]))
+    }
+    const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
+      modelStreamExecutor,
+      toolResultCompactionTrigger: noopToolResultCompactionTrigger,
+      notificationSinkFactory
+    })
+
+    await runner.run({
+      runInput: {
+        ...input,
+        input: {
+          ...input.input,
+          ...(source === undefined ? {} : { source }),
+          nativeNotification: { notifyOnFailure }
+        }
+      },
+      prepared,
+      emitter: {
+        emit: vi.fn(),
+        setChatMeta: vi.fn()
+      } as any,
+      signal: new AbortController().signal,
+      toolConfirmationRequester: {
+        request: vi.fn(async () => ({ approved: true }))
+      }
+    })
+
+    return { notificationSinkFactory, notificationHandle }
+  }
+
+  it('registers native notifications for an interactive main-agent run', async () => {
+    const { notificationSinkFactory } = await runWithNotificationSource(undefined)
+
+    expect(notificationSinkFactory).toHaveBeenCalledWith('NewChat', {
+      notifyOnFailure: true
+    })
+  })
+
+  it('registers a scheduled run and delivers one loop completion event', async () => {
+    const { notificationSinkFactory, notificationHandle } = await runWithNotificationSource(
+      'schedule',
+      false
+    )
+
+    expect(notificationSinkFactory).toHaveBeenCalledWith('NewChat', {
+      notifyOnFailure: false
+    })
+    expect(
+      notificationHandle.mock.calls.filter(([event]) => event.type === 'loop.completed')
+    ).toHaveLength(1)
+  })
+
+  it('keeps Telegram main-agent runs on their host notification path', async () => {
+    const { notificationSinkFactory } = await runWithNotificationSource('telegram')
+
+    expect(notificationSinkFactory).not.toHaveBeenCalled()
   })
 
   it('sends the complete raw tool result to the immediate continuation', async () => {

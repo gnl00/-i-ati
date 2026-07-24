@@ -98,6 +98,42 @@ stable while a recurring parent returns to `pending`. The task board labels
 recurring definitions and shows expression, timezone, next run, and last-run
 status.
 
+## Native notifications
+
+Scheduled executions enter the main-agent runtime with `source: schedule`.
+`DefaultMainAgentRuntimeRunner` registers `AgentNotificationSink` for scheduled
+and interactive desktop runs. Telegram and other host sources retain their
+host-owned notification paths.
+
+The sink consumes one agent-loop terminal event. `loop.completed` produces a
+completion notification; `loop.failed` produces a failure notification when
+the current attempt exhausts the occurrence retry budget. `SchedulerService`
+passes `nativeNotification.notifyOnFailure: false` for retryable attempts and
+`true` for the final attempt. A successful attempt always produces the
+completion notification. This gives each occurrence at most one native
+notification across all retries. Every attempt carries the stable occurrence
+run ID as `occurrenceKey`; the sink keeps a bounded 1000-key process-local
+deduplication set for cross-attempt and repeated terminal delivery.
+
+Failures can also settle before the agent loop starts. Missing chats, unresolved
+models, and chat preparation errors reach `SchedulerService` before
+`DefaultMainAgentRuntimeRunner` creates its event sink. On the final attempt,
+the scheduler calls the notification module's direct terminal-failure entry
+with the same occurrence key. The direct entry shares foreground gating,
+deduplication, native display, badge, strong-reference, and click-to-focus
+behavior with `AgentNotificationSink`.
+
+The fallback is limited to execution attempts that have not returned
+successfully. An explicit execution-settled flag keeps later cron calculation
+and persistence errors on the scheduler state path without presenting them as
+agent execution failures. Startup recovery continues through persisted
+occurrence state and schedule events.
+
+Foreground gating keeps visible, focused sessions on the existing renderer
+feedback path. Background, minimized, and unfocused sessions receive the native
+notification with summary text, badge increment, and click-to-focus behavior.
+Streaming message updates remain on the renderer event path.
+
 ## Operational data
 
 Scheduler control-plane logs route through `createSchedulerLogger()` into

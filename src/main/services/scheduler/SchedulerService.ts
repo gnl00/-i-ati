@@ -6,6 +6,7 @@ import { RunService } from '@main/orchestration/chat/run'
 import { createSchedulerLogger } from '@main/logging/LogService'
 import { SCHEDULE_EVENTS } from '@shared/schedule/events'
 import { resolveLiteModelRef } from '@shared/services/ChatModelResolver'
+import { notifyTerminalRunFailure } from '@main/notifications/AgentNotificationSink'
 import { ScheduleEventEmitter } from './event-emitter'
 import { cronScheduleCalculator } from './CronScheduleCalculator'
 import type { ClaimedScheduledRun, ScheduledTaskRow, ScheduledTaskRunRow } from '@main/db/dao/ScheduledTaskDao'
@@ -118,10 +119,12 @@ export class SchedulerService {
   }
 
   private async runTask({ task, run }: ClaimedScheduledRun): Promise<void> {
-    const chat = chatDb.getChatByUuid(task.chat_uuid)
-    const emitter = new ScheduleEventEmitter({ chatId: chat?.id, chatUuid: task.chat_uuid })
+    let chat: ChatEntity | undefined
     let activeRun = run
+    let executionSucceeded = false
     try {
+      chat = chatDb.getChatByUuid(task.chat_uuid)
+      const emitter = new ScheduleEventEmitter({ chatId: chat?.id, chatUuid: task.chat_uuid })
       if (this.runService.hasActiveRunForChat(task.chat_uuid)) {
         const nextAttemptAt = Date.now() + CHAT_BUSY_DELAY_MS
         planningDb.deferScheduledTaskRun(run.id, nextAttemptAt, Date.now())
@@ -149,8 +152,18 @@ export class SchedulerService {
         chatUuid: chat.uuid,
         modelRef,
         ...(chat.modelRef ? { chatModelRef: chat.modelRef } : {}),
-        input: { textCtx: payload.prompt?.trim() || task.goal, mediaCtx: [], source: 'schedule', stream: true }
+        input: {
+          textCtx: payload.prompt?.trim() || task.goal,
+          mediaCtx: [],
+          source: 'schedule',
+          stream: true,
+          nativeNotification: {
+            notifyOnFailure: started.attempt_count >= Math.max(1, task.max_attempts),
+            occurrenceKey: run.id
+          }
+        }
       })
+      executionSucceeded = true
 
       const currentTask = planningDb.getScheduledTaskById(task.id)
       if (currentTask?.status === 'cancelled') {
@@ -166,7 +179,8 @@ export class SchedulerService {
       this.logger.info('task.completed', { taskId: task.id, runId: run.id, attempt: started.attempt_count })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      if (planningDb.getScheduledTaskById(task.id)?.status === 'cancelled') {
+      const currentTask = planningDb.getScheduledTaskById(task.id)
+      if (currentTask?.status === 'cancelled') {
         this.emitRunFinished(task.id, run.id)
         this.logger.info('task.cancelled', { taskId: task.id, runId: run.id })
         return
@@ -178,7 +192,16 @@ export class SchedulerService {
         : null
       const nextRun = retryAt === null && task.schedule_type === 'cron' ? this.buildNextRunOrNull(task, Date.now()) : null
       planningDb.failScheduledTaskRun(run.id, message, retryAt, nextRun, Date.now())
-      if (retryAt === null) this.emitRunFinished(task.id, run.id)
+      if (retryAt === null) {
+        if (currentTask && !executionSucceeded) {
+          notifyTerminalRunFailure({
+            title: chat?.title ?? task.goal,
+            body: message,
+            occurrenceKey: run.id
+          })
+        }
+        this.emitRunFinished(task.id, run.id)
+      }
       this.emitScheduleUpdated(task.id)
       this.logger.error('task.failed', { taskId: task.id, runId: run.id, attempt, retryAt, error: message })
     }
