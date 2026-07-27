@@ -826,7 +826,7 @@ const ChatWindow: React.FC = () => {
     <>
       <ChatHeader />
 
-      <div className="relative z-0 -mt-11 min-h-svh max-h-svh overflow-hidden flex flex-col bg-chat-light dark:bg-chat-dark">
+      <div className="relative z-0 -mt-10 min-h-svh max-h-svh overflow-hidden flex flex-col bg-chat-light dark:bg-chat-dark">
         {shouldRenderWelcomeStage ? (
           <div
             className={cn(
