@@ -35,6 +35,10 @@ export type {
   ChatCoordinatorActions
 } from './chatCoordinatorStore'
 export type {
+  ArtifactsTab,
+  ToolCallInspectorSelection
+} from './chatViewStore'
+export type {
   RunPhase,
   PostRunJobStatus,
   PostRunJobsState,

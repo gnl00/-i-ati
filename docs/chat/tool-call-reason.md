@@ -32,9 +32,10 @@ The renderer reads tool-call reasons at the tool row level:
 - `src/renderer/src/features/chat/message/assistant-message/model/toolCallReason.ts` exposes `getReasonFromToolCall(segment)`.
 - `getReasonFromToolCall` reads `tool_call_reason` from object args and JSON string args, trims the value, and returns a visible reason for non-empty strings.
 - `ToolCallTriggerContent` calls `getReasonFromToolCall` and renders the reason below the tool name inside the tool row.
-- `ToolCallResultPanel` filters `tool_call_reason` from summary and detail parameter output through `filterDisplayParamEntries`.
+- `ToolCallInspectorDetails` filters `tool_call_reason` from the Parameters section through `filterDisplayParamEntries`.
 - Summary parameter components receive filtered entries, so the synthetic reason field stays out of normal tool parameters.
-- `SupportSegmentGroup` uses the same `ToolCallTriggerContent` and `ToolCallResultPanel` row renderer for grouped tool rows.
+- `SupportSegmentGroup` uses the same `ToolCallTriggerContent` and `inspectToolCall` action for grouped tool rows.
+- The selected tool reason remains in the inspector header while Parameters contains executable arguments.
 
 Streaming updates can add `tool_call_reason` while a tool call remains `pending`. `areToolCallSegmentsEqual` compares the extracted reason from the previous and next segments, so memoized tool rows re-render when a streamed args patch adds or changes the reason.
 

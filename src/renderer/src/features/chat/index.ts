@@ -5,7 +5,9 @@ export type {
   ChatState,
   ChatAction,
   RunPhase,
-  PostRunJobsState
+  PostRunJobsState,
+  ArtifactsTab,
+  ToolCallInspectorSelection
 } from './state/chatStore'
 export { getChatFromList, getChatWorkspacePath } from './chatWorkspace'
 export { default as ChatStatsPanel } from './input/toolbar/ChatStatsPanel'
@@ -13,3 +15,7 @@ export { default as ChatWindow } from './shell/ChatWindow'
 export { default as ChatSheet } from './shell/ChatSheet'
 export { default as ChatSheetHover } from './shell/ChatSheetHover'
 export { TaskPlanBar } from './task/TaskPlanBar'
+export {
+  ToolCallInspectorContent,
+  findSelectedToolCall
+} from './message/assistant-message/toolcall/ToolCallInspectorContent'

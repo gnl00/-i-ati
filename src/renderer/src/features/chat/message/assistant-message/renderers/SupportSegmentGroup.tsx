@@ -7,7 +7,6 @@ import React, { memo, useEffect, useMemo, useState } from 'react'
 import { fixMalformedCodeBlocks } from '../../markdown/markdown-components'
 import { ErrorMessage } from '../../error-message'
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
-import { buildToolLiveOutputKey } from '@renderer/features/chat/state/chatRunUiStore'
 import type { SupportSegmentRenderItem } from '../model/assistantMessageMapper'
 import {
   formatReasoningDurationText,
@@ -20,8 +19,7 @@ import {
   getToolCallHeaderState,
   getToolCallTriggerButtonClassName,
   getToolCallTriggerAriaLabel,
-  ToolCallTriggerContent,
-  ToolCallResultPanel
+  ToolCallTriggerContent
 } from '../toolcall/ToolCallResult'
 import { AssistantSegmentPopout } from './AssistantSegmentPopout'
 import { SupportSegmentHeader } from './SupportSegmentHeader'
@@ -413,16 +411,14 @@ const SupportToolCallGroupRow = memo(({
 }: {
   item: ToolCallRenderItem
 }) => {
-  const [isOpen, setIsOpen] = useState(false)
-  const liveOutput = useChatStore(state => (
-    item.segment.toolCallId
-      ? state.toolLiveOutputs[
-          buildToolLiveOutputKey(state.currentChatUuid, item.segment.toolCallId)
-        ]
-      : undefined
+  const currentChatUuid = useChatStore(state => state.currentChatUuid)
+  const inspectToolCall = useChatStore(state => state.inspectToolCall)
+  const isSelected = useChatStore(state => (
+    Boolean(currentChatUuid)
+    && state.toolCallInspectorSelection?.chatUuid === currentChatUuid
+    && state.toolCallInspectorSelection.segmentId === item.segment.segmentId
   ))
   const {
-    toolResponse,
     isError,
     isPending,
     isRunning,
@@ -430,44 +426,37 @@ const SupportToolCallGroupRow = memo(({
   } = getToolCallHeaderState(item.segment)
 
   return (
-    <AssistantSegmentPopout
-      open={isOpen}
-      onOpenChange={setIsOpen}
-      contentClassName={cn(
-        isError
-          ? 'border-red-200/65 dark:border-red-900/35'
-          : 'border-slate-200/70 dark:border-slate-800/70'
-      )}
-      renderTrigger={({ isOpen }) => (
-        <button
-          type="button"
-          data-testid={`support-segment-row-${item.segment.segmentId}`}
-          aria-label={getToolCallTriggerAriaLabel(item.segment.name, statusLabel)}
-          className={getToolCallTriggerButtonClassName({
-            isError,
-            isRunning,
-            isPending,
-            density: 'compact'
-          })}
-        >
-          <ToolCallTriggerContent
-            toolCall={item.segment}
-            isError={isError}
-            isRunning={isRunning}
-            isPending={isPending}
-            isOpen={isOpen}
-            density="compact"
-            className="w-full"
-          />
-        </button>
-      )}
+    <button
+      type="button"
+      data-testid={`support-segment-row-${item.segment.segmentId}`}
+      aria-label={getToolCallTriggerAriaLabel(item.segment.name, statusLabel)}
+      aria-pressed={isSelected}
+      onClick={() => {
+        if (!currentChatUuid) return
+        inspectToolCall({
+          chatUuid: currentChatUuid,
+          segmentId: item.segment.segmentId,
+          toolCallId: item.segment.toolCallId
+        })
+      }}
+      className={getToolCallTriggerButtonClassName({
+        isError,
+        isRunning,
+        isPending,
+        isSelected,
+        density: 'compact'
+      })}
     >
-      <ToolCallResultPanel
+      <ToolCallTriggerContent
         toolCall={item.segment}
-        toolResponse={toolResponse}
-        liveOutput={isRunning ? liveOutput : undefined}
+        isError={isError}
+        isRunning={isRunning}
+        isPending={isPending}
+        isSelected={isSelected}
+        density="compact"
+        className="w-full"
       />
-    </AssistantSegmentPopout>
+    </button>
   )
 }, (prevProps, nextProps) => areSupportSegmentRenderItemsEqual(prevProps.item, nextProps.item))
 

@@ -5,7 +5,7 @@ import { cn } from '@renderer/shared/lib/utils'
 const SEARCH_RESULT_RAIL_SCROLL_RATIO = 0.72
 const SEARCH_RESULT_RAIL_MIN_SCROLL = 220
 
-interface WebSearchResult {
+export interface WebSearchResult {
   query: string
   success: boolean
   link: string

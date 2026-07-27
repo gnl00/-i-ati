@@ -1,6 +1,6 @@
 import { cn } from '@renderer/shared/lib/utils'
 import { useChatStore } from '@renderer/features/chat'
-import { BarChart3, FileCode, Monitor } from 'lucide-react'
+import { BarChart3, FileCode, Monitor, Wrench } from 'lucide-react'
 import React from 'react'
 
 export const FloatingArtifactsToggle: React.FC = () => {
@@ -21,6 +21,8 @@ export const FloatingArtifactsToggle: React.FC = () => {
       )}
     >
       <button
+        type="button"
+        aria-label="Open Stats"
         className="p-2 rounded-full text-gray-600 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10 transition-all group relative"
         onClick={() => {
           setArtifactsActiveTab('stats')
@@ -32,9 +34,25 @@ export const FloatingArtifactsToggle: React.FC = () => {
         <div className="absolute right-full mr-2 px-2 py-1 rounded bg-gray-900 text-white text-[10px] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">Stats</div>
       </button>
 
+      <button
+        type="button"
+        aria-label="Open Tools"
+        className="p-2 rounded-full text-gray-600 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10 transition-all group relative"
+        onClick={() => {
+          setArtifactsActiveTab('tools')
+          setArtifactsPanel(true)
+        }}
+        title="Open Tools"
+      >
+        <Wrench className="w-4 h-4" />
+        <div className="absolute right-full mr-2 px-2 py-1 rounded bg-gray-900 text-white text-[10px] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">Tools</div>
+      </button>
+
       <div className="mx-1.5 h-px bg-gray-200/50 dark:bg-white/10" />
 
       <button
+        type="button"
+        aria-label="Open Preview"
         className="p-2 rounded-full text-gray-600 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10 transition-all group relative"
         onClick={() => {
           setArtifactsActiveTab('preview')
@@ -46,9 +64,9 @@ export const FloatingArtifactsToggle: React.FC = () => {
         <div className="absolute right-full mr-2 px-2 py-1 rounded bg-gray-900 text-white text-[10px] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">Preview</div>
       </button>
 
-      <div className="mx-1.5 h-px bg-gray-200/50 dark:bg-white/10" />
-
       <button
+        type="button"
+        aria-label="Open Files"
         className="p-2 rounded-full text-gray-600 dark:text-gray-400 hover:bg-black/5 dark:hover:bg-white/10 transition-all group relative"
         onClick={() => {
           setArtifactsActiveTab('files')

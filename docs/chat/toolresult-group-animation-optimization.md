@@ -9,6 +9,10 @@
 
 ## 当前实现分析
 
+> 2026-07-27 更新：工具详情现由 Artifacts panel 的 Tools tab 承载。本文关于
+> `ToolCallResultPanel` 浮层的章节保留为历史决策记录；当前详情动效和布局见
+> [Tool Call Inspector](./tool-call-inspector.md)。
+
 ### 现有动画机制
 
 #### 1. ToolCallResult 单个项动画
@@ -39,8 +43,8 @@
 
 **特点**: 水平滑入配合 scale 变换，使用 spring 动画
 
-#### 3. Panel 展开/折叠动画
-**位置**: `ToolCallResultPanel.tsx:920-924`
+#### 3. 历史详情浮层动画
+**位置**: 该实现已由 Tools tab 替代
 
 ```tsx
 <motion.div
@@ -96,7 +100,7 @@
 3. 相邻元素的 `layout="position"` 重排与新项进入动画使用不同曲线
 4. 导致"内容先出现，容器后撑开"的视觉错位
 
-### 问题 3: ToolCallResultPanel 弹出不流畅
+### 问题 3: 历史详情浮层入场不流畅
 
 **当前实现**:
 - Panel 打开时只有 `opacity` 和 `y` 动画
@@ -187,7 +191,7 @@ const supportSegmentRowAppendTransition: Transition = {
 4. ✅ 退出动画对称（x: -8），保持视觉一致性
 5. ✅ 移除 `willChange`，避免长聊天累积合成层
 
-#### 3. 优化 ToolCallResultPanel 弹出
+#### 3. 历史 ToolCallResultPanel 入场优化
 
 **修改文件**: `ToolCallResult.tsx`
 
@@ -369,9 +373,9 @@ return <div ref={itemRef}>...</div>
 
 ### 优先级排序
 
-#### Phase 1: 当前实施
+#### Phase 1: 2026-07-11 实施记录
 - Group 行追加使用属性级 transition
-- ToolResult panel 增加 reduced-motion 感知的克制入场
+- 当时的 ToolResult panel 增加 reduced-motion 感知的克制入场
 - 更新相邻单元测试与手动验收场景
 
 #### Phase 2: 性能证据驱动的后续工作
@@ -489,7 +493,7 @@ useAnimationPerformance(import.meta.env.DEV && hasLiveTiming)
 |-----|------|---------|---------|
 | 插入方向不明确 | 垂直淡入 (y: 3) | 水平滑入 (x: -16/-12) | ✅ 已实施 |
 | 缺少生长感 | 仅 opacity + y | 添加 scale: 0.97/0.98 | ✅ 已实施 |
-| Panel 打开生硬 | 仅 opacity + y | 添加 scale + 调整时长 | ✅ 已实施 |
+| 历史浮层入场生硬 | 仅 opacity + y | 添加 scale + 调整时长 | 已由 Tools tab 取代 |
 | 行项动画时序不协调 | 单一 duration 控制全部属性 | 按 layout/x/opacity/scale 分配 transition | ✅ 已实施 |
 
 **验收方式**: 录屏逐帧分析 + Chrome Performance trace 帧率验证
@@ -508,3 +512,4 @@ useAnimationPerformance(import.meta.env.DEV && hasLiveTiming)
 
 - **2026-07-11**: 初始文档创建，分析当前实现并提出优化方案
 - **2026-07-11**: 实施水平滑入动画，从垂直 (y) 改为水平 (x) 方向，添加 scale 变换
+- **2026-07-27**: 工具详情迁移到 Artifacts Tools tab，浮层相关内容转为历史记录

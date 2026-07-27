@@ -4,19 +4,15 @@ import { cn } from '@renderer/shared/lib/utils'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 import { motion, useReducedMotion } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
-import { Braces, Check, Clipboard, FileText, List, Loader2, PencilLine, Search, Trash2, X } from 'lucide-react'
+import { Check, Clipboard, FileText, List, Loader2, PencilLine, Search, Trash2, X } from 'lucide-react'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { WebSearchResults } from './WebSearchResults'
+import { WebSearchResults, type WebSearchResult } from './WebSearchResults'
 import { SubagentResults } from './SubagentResults'
-import { AssistantSegmentPopout } from '../renderers/AssistantSegmentPopout'
 import type { SupportSegmentHeaderTone } from '../renderers/SupportSegmentHeader'
 import { getReasonFromToolCall } from '../model/toolCallReason'
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
-import {
-  buildToolLiveOutputKey,
-  type ToolLiveOutput
-} from '@renderer/features/chat/state/chatRunUiStore'
+import type { ToolLiveOutput } from '@renderer/features/chat/state/chatRunUiStore'
 
 export interface ToolCallResultProps {
   toolCall: ToolCallSegment
@@ -72,38 +68,6 @@ const TOOL_CALL_ARGS_READY_STATUSES = new Set([
 
 function filterDisplayParamEntries(entries: Array<[string, unknown]>): Array<[string, unknown]> {
   return entries.filter(([key]) => key !== TOOL_CALL_REASON_PARAMETER_NAME)
-}
-
-function getDisplayArgs(args: ToolCallResponse['args']): ToolCallResponse['args'] {
-  if (!args) {
-    return args
-  }
-
-  if (typeof args === 'string') {
-    try {
-      const parsed = JSON.parse(args)
-      if (isRecord(parsed)) {
-        return Object.fromEntries(filterDisplayParamEntries(Object.entries(parsed)))
-      }
-    } catch {
-      return args
-    }
-
-    return args
-  }
-
-  return Object.fromEntries(filterDisplayParamEntries(Object.entries(args)))
-}
-
-function getDisplayToolResponsePayload(toolResponse: ToolCallResponse | undefined): ToolCallResponse | undefined {
-  if (!toolResponse || toolResponse.args === undefined) {
-    return toolResponse
-  }
-
-  return {
-    ...toolResponse,
-    args: getDisplayArgs(toolResponse.args)
-  }
 }
 
 function isRecord(value: unknown): value is WikiResultRecord {
@@ -323,17 +287,21 @@ function areToolCallArgsReady(
   return Boolean(segment?.isError || segment?.cost !== undefined || hasToolCallTerminalPayload(content))
 }
 
-function formatValue(value: unknown): string {
-  if (value === null || value === undefined) return ''
-  if (typeof value === 'string') {
-    return value.length > 200 ? `${value.slice(0, 200)}…` : value
+function getToolCallParamEntries(
+  args: ToolCallResponse['args']
+): Array<[string, unknown]> {
+  if (!args) return []
+  if (typeof args === 'string') {
+    try {
+      const parsed = JSON.parse(args)
+      return isRecord(parsed)
+        ? filterDisplayParamEntries(Object.entries(parsed))
+        : []
+    } catch {
+      return [['input', args]]
+    }
   }
-  try {
-    const json = JSON.stringify(value)
-    return json.length > 200 ? `${json.slice(0, 200)}…` : json
-  } catch {
-    return String(value)
-  }
+  return filterDisplayParamEntries(Object.entries(args))
 }
 
 function hasSameToolCallIdentity(previous: ToolCallSegment, next: ToolCallSegment): boolean {
@@ -401,7 +369,7 @@ export const areToolCallSegmentsEqual = (
   )
 }
 
-const ToolCallDuration = React.memo(({
+export const ToolCallDuration = React.memo(({
   cost,
   isRunning,
   runningStartedAt,
@@ -459,12 +427,14 @@ export function getToolCallTriggerButtonClassName({
   isError,
   isRunning,
   isPending,
+  isSelected = false,
   density = 'regular',
   className
 }: {
   isError: boolean
   isRunning: boolean
   isPending: boolean
+  isSelected?: boolean
   density?: 'regular' | 'compact'
   className?: string
 }): string {
@@ -478,6 +448,7 @@ export function getToolCallTriggerButtonClassName({
     isError && 'border-red-200/68 hover:border-red-300/74 dark:border-red-900/38 dark:hover:border-red-800/58',
     (isRunning || isPending) && !isError
       && 'border-amber-200/56 hover:border-amber-300/68 dark:border-amber-900/32 dark:hover:border-amber-800/52',
+    isSelected && 'border-slate-400/70 bg-slate-100/88 shadow-xs dark:border-slate-600/80 dark:bg-white/8',
     className
   )
 }
@@ -487,7 +458,7 @@ export const ToolCallTriggerContent = React.memo(({
   isError,
   isRunning,
   isPending,
-  isOpen,
+  isSelected,
   density = 'regular',
   className
 }: {
@@ -495,7 +466,7 @@ export const ToolCallTriggerContent = React.memo(({
   isError: boolean
   isRunning: boolean
   isPending: boolean
-  isOpen: boolean
+  isSelected: boolean
   density?: 'regular' | 'compact'
   className?: string
 }) => {
@@ -521,7 +492,7 @@ export const ToolCallTriggerContent = React.memo(({
         className={cn(
           'inline-flex shrink-0 items-center justify-center rounded-md border transition-transform duration-150 ease-out',
           isCompact ? 'h-5 w-5' : 'h-6 w-6',
-          isOpen && 'scale-105',
+          isSelected && 'scale-105',
           statusIconClassName
         )}
         aria-hidden="true"
@@ -571,57 +542,6 @@ export const ToolCallTriggerContent = React.memo(({
 })
 
 ToolCallTriggerContent.displayName = 'ToolCallTriggerContent'
-
-function SegmentedToggle({
-  leftLabel,
-  rightLabel,
-  rightActive,
-  onLeftClick,
-  onRightClick
-}: {
-  leftLabel: string
-  rightLabel: string
-  rightActive: boolean
-  onLeftClick: (e: React.MouseEvent<HTMLButtonElement>) => void
-  onRightClick: (e: React.MouseEvent<HTMLButtonElement>) => void
-}) {
-  return (
-    <div className="relative inline-grid grid-cols-2 items-center rounded-xl bg-white/52 p-1 ring-1 ring-slate-200/38 dark:bg-white/4 dark:ring-white/5">
-      <motion.span
-        layout
-        transition={{ type: 'spring', stiffness: 520, damping: 38 }}
-        className={cn(
-          'absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-lg bg-slate-800/92 dark:bg-slate-100',
-          rightActive ? 'left-[calc(50%+2px)]' : 'left-1'
-        )}
-      />
-      <button
-        type="button"
-        onClick={onLeftClick}
-        className={cn(
-          'relative z-10 rounded-lg px-2.5 py-1 text-[10px] font-semibold transition-colors',
-          !rightActive
-            ? 'text-white dark:text-slate-900'
-            : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'
-        )}
-      >
-        {leftLabel}
-      </button>
-      <button
-        type="button"
-        onClick={onRightClick}
-        className={cn(
-          'relative z-10 rounded-lg px-2.5 py-1 text-[10px] font-semibold transition-colors',
-          rightActive
-            ? 'text-white dark:text-slate-900'
-            : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300'
-        )}
-      >
-        {rightLabel}
-      </button>
-    </div>
-  )
-}
 
 function WikiStatusLine({ payload }: { payload: WikiResultRecord }) {
   const status = getStringField(payload, 'index_status')
@@ -815,7 +735,7 @@ function WikiToolSummary({
   return <WikiSearchSummary payload={payload} />
 }
 
-export type ToolCallResultPanelProps = {
+export type ToolCallInspectorDetailsProps = {
   toolCall: ToolCallSegment
   toolResponse: ToolCallResponse | undefined
   liveOutput?: ToolLiveOutput
@@ -841,15 +761,15 @@ const LiveToolOutput = React.memo(({ output }: { output: ToolLiveOutput }) => {
     }
     return (
       <section>
-        <div className="sticky top-0 border-b border-slate-200/60 bg-slate-100/95 px-3 py-1 text-[9px] font-semibold uppercase tracking-wider text-slate-500 backdrop-blur-xs dark:border-slate-800 dark:bg-slate-900/95 dark:text-slate-400">
+        <div className="sticky top-0 border-b border-white/8 bg-zinc-900/95 px-3 py-1 text-[9px] font-semibold uppercase tracking-wider text-zinc-500 backdrop-blur-xs">
           {label}
         </div>
         <pre
           className={cn(
             'wrap-break-word whitespace-pre-wrap px-3 py-2 font-mono text-[11px] leading-relaxed',
             label === 'stderr'
-              ? 'text-amber-700 dark:text-amber-300'
-              : 'text-slate-700 dark:text-slate-200'
+              ? 'text-amber-300'
+              : 'text-zinc-200'
           )}
         >
           {content}
@@ -862,7 +782,7 @@ const LiveToolOutput = React.memo(({ output }: { output: ToolLiveOutput }) => {
     <div
       ref={viewportRef}
       data-testid="tool-live-output"
-      className="h-[176px] w-full overflow-auto overscroll-contain bg-white/70 custom-scrollbar dark:bg-[#09090b]"
+      className="mb-3 mr-3 h-[176px] overflow-auto overscroll-contain rounded-md border border-black/10 bg-[#09090b] custom-scrollbar dark:border-white/10"
       onScroll={(event) => {
         const viewport = event.currentTarget
         isPinnedRef.current = (
@@ -880,277 +800,294 @@ const LiveToolOutput = React.memo(({ output }: { output: ToolLiveOutput }) => {
 
 LiveToolOutput.displayName = 'LiveToolOutput'
 
-export const ToolCallResultPanel = React.memo(({
-  toolCall: tc,
+function getResultPayload(toolResponse: ToolCallResponse | undefined): unknown {
+  return toolResponse?.result
+    ?? toolResponse?.raw
+    ?? (toolResponse?.error !== undefined
+      ? { success: false, message: toolResponse.error }
+      : undefined)
+    ?? (isDirectToolResultPayload(toolResponse) ? toolResponse : undefined)
+}
+
+function serializeInspectorValue(value: unknown): string {
+  if (typeof value === 'string') return value
+  if (value === undefined) return ''
+  try {
+    return JSON.stringify(value, null, 2)
+  } catch {
+    return String(value)
+  }
+}
+
+function isInspectorComplexValue(value: unknown): boolean {
+  if (value !== null && typeof value === 'object') return true
+  const serialized = serializeInspectorValue(value)
+  return serialized.includes('\n') || serialized.length > 160
+}
+
+const InspectorCopyButton: React.FC<{
+  content: unknown
+  label: string
+  toastLabel: string
+}> = ({
+  content,
+  label,
+  toastLabel
+}) => (
+  <Button
+    type="button"
+    variant="ghost"
+    size="icon"
+    aria-label={label}
+    className="h-6 w-6 rounded-md text-zinc-400 transition-colors hover:bg-zinc-200/70 hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-zinc-400/70 focus-visible:ring-offset-0 dark:text-zinc-500 dark:hover:bg-white/8 dark:hover:text-zinc-200 dark:focus-visible:ring-zinc-500/80"
+    onClick={() => {
+      void navigator.clipboard.writeText(serializeInspectorValue(content))
+      toast.success(toastLabel)
+    }}
+  >
+    <Clipboard className="h-3 w-3" />
+  </Button>
+)
+
+const InspectorSection: React.FC<{
+  label: string
+  copyContent: unknown
+  copyLabel: string
+  children: React.ReactNode
+  action?: React.ReactNode
+  isFirst?: boolean
+  isLast?: boolean
+}> = ({
+  label,
+  copyContent,
+  copyLabel,
+  children,
+  action,
+  isFirst = false,
+  isLast = false
+}) => (
+  <section
+    className={cn(
+      'relative pl-7',
+      !isLast && 'border-b border-black/[0.06] dark:border-white/[0.07]'
+    )}
+    data-testid={`tool-inspector-${label.toLowerCase().replace(' ', '-')}`}
+  >
+    <span
+      className="absolute inset-y-0 left-[9px] w-1.5"
+      aria-hidden="true"
+    >
+      <span className={cn(
+        'absolute left-[2.5px] top-0 h-4 w-px',
+        isFirst ? 'bg-transparent' : 'bg-slate-300 dark:bg-slate-700'
+      )} />
+      <span className="absolute left-0 top-[13px] h-1.5 w-1.5 border border-slate-400 bg-white dark:border-slate-500 dark:bg-zinc-950" />
+      <span className={cn(
+        'absolute bottom-0 left-[2.5px] top-4 w-px',
+        isLast ? 'bg-transparent' : 'bg-slate-300 dark:bg-slate-700'
+      )} />
+    </span>
+    <div className="min-w-0 overflow-hidden">
+      <div className="flex h-8 items-center justify-between px-3">
+        <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+          {label}
+        </span>
+        <div className="flex items-center gap-1">
+          {action}
+          <InspectorCopyButton
+            content={copyContent}
+            label={`Copy ${label.toLowerCase()}`}
+            toastLabel={`${copyLabel} copied`}
+          />
+        </div>
+      </div>
+      {children}
+    </div>
+  </section>
+)
+
+export const ToolCallInspectorDetails = React.memo(({
+  toolCall,
   toolResponse,
   liveOutput
-}: ToolCallResultPanelProps) => {
-  const [showDetails, setShowDetails] = useState(false)
-  const hasSelectedLiveResultsRef = useRef(false)
+}: ToolCallInspectorDetailsProps) => {
   const shouldReduceMotion = Boolean(useReducedMotion())
-
-  useEffect(() => {
-    if (liveOutput && !hasSelectedLiveResultsRef.current) {
-      hasSelectedLiveResultsRef.current = true
-      setShowDetails(true)
-    }
-  }, [liveOutput])
-
-  const resultPayload = useMemo(() => {
-    return toolResponse?.result
-      ?? toolResponse?.raw
-      ?? (toolResponse?.error !== undefined
-        ? { success: false, message: toolResponse.error }
-        : undefined)
-      ?? (
-        isDirectToolResultPayload(toolResponse)
-          ? toolResponse
-          : undefined
-      )
-  }, [toolResponse])
-
-  const toolName = toolResponse?.toolName ?? tc.name
-  const isWebSearch = toolName === 'web_search'
-  const isWikiTool = isWikiToolName(toolName)
-  const hasWikiSummaryPayload = isWikiTool
-    && (hasToolCallTerminalPayload(toolResponse) || isDirectToolResultPayload(toolResponse))
-  const webSearchPayload = useMemo(() => {
-    if (!isWebSearch) {
-      return null
-    }
-
-    const payload = toolResponse?.result ?? toolResponse?.raw ?? toolResponse
-    return payload?.results ? payload : null
-  }, [isWebSearch, toolResponse])
+  const [isExpanded, setIsExpanded] = useState(false)
+  const resultPayload = useMemo(() => getResultPayload(toolResponse), [toolResponse])
+  const detailPayload = resultPayload
+  const paramEntries = useMemo(
+    () => getToolCallParamEntries(toolResponse?.args),
+    [toolResponse?.args]
+  )
+  const areArgsReady = areToolCallArgsReady(toolResponse, toolCall)
+  const toolName = toolResponse?.toolName ?? toolCall.name
+  const webSearchPayload = toolName === 'web_search'
+    ? (toolResponse?.result ?? toolResponse?.raw ?? toolResponse)
+    : undefined
   const isSubagentTool = toolName === 'subagent_spawn' || toolName === 'subagent_wait'
-  const subagentData = isSubagentTool ? (resultPayload ?? toolResponse) : null
-  const wikiSummaryPayload = hasWikiSummaryPayload ? resultPayload : null
-  const detailPayload = useMemo(() => (
-    resultPayload ?? getDisplayToolResponsePayload(toolResponse)
-  ), [resultPayload, toolResponse])
-  const areArgsReady = areToolCallArgsReady(toolResponse, tc)
-  const [isJsonExpanded, setIsJsonExpanded] = useState(false)
-  const shouldPrepareSummary = !showDetails && areArgsReady
-  const shouldPrepareDetails = showDetails && areArgsReady
-
-  const paramEntries = useMemo(() => {
-    if (!shouldPrepareSummary) return []
-    const args = toolResponse?.args
-    if (!args) return []
-    if (typeof args === 'string') {
-      try {
-        const parsed = JSON.parse(args)
-        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-          return filterDisplayParamEntries(Object.entries(parsed) as Array<[string, unknown]>)
-        }
-      } catch {
-        return [['input', args]] as Array<[string, unknown]>
-      }
-      return []
-    }
-    return filterDisplayParamEntries(Object.entries(args) as Array<[string, unknown]>)
-  }, [shouldPrepareSummary, toolResponse?.args])
-
-  const contentString = useMemo(() => {
-    if (!shouldPrepareDetails) return ''
-    return typeof resultPayload?.content === 'string' ? resultPayload.content : ''
-  }, [resultPayload, shouldPrepareDetails])
-
-  const contentLineCount = useMemo(() => {
-    if (!shouldPrepareDetails) return 0
-    return contentString ? contentString.split('\n').length : 0
-  }, [contentString, shouldPrepareDetails])
-
-  const isContentLong = contentLineCount > JSON_LINE_THRESHOLD || contentString.length > CONTENT_CHAR_THRESHOLD
-
-  const jsonBaseContent = useMemo(() => {
-    if (!shouldPrepareDetails) return ''
-    if (!isJsonExpanded && isContentLong && detailPayload && typeof detailPayload === 'object') {
-      const preview = contentString
-        ? `${contentString.slice(0, CONTENT_CHAR_THRESHOLD)}${contentString.length > CONTENT_CHAR_THRESHOLD ? '...' : ''}`
-        : contentString
-      return JSON.stringify({ ...(detailPayload as Record<string, unknown>), content: preview }, null, 2)
-    }
-    return JSON.stringify(detailPayload, null, 2)
-  }, [contentString, detailPayload, isContentLong, isJsonExpanded, shouldPrepareDetails])
-
-  const jsonLines = useMemo(() => (
-    shouldPrepareDetails ? jsonBaseContent.split('\n') : []
-  ), [jsonBaseContent, shouldPrepareDetails])
-  const isJsonLong = isContentLong || jsonLines.length > JSON_LINE_THRESHOLD
-  const visibleJsonContent = isJsonLong && !isJsonExpanded
-    ? jsonLines.slice(0, JSON_LINE_THRESHOLD).join('\n')
-    : jsonBaseContent
-
-  const onCopyClick = (e: React.MouseEvent, content: any) => {
-    e.stopPropagation()
-    const text = typeof content === 'string' ? content : visibleJsonContent
-    navigator.clipboard.writeText(text)
-    toast.success('Result Copied')
-  }
-
-  const detailViewportHeightClass = 'h-[176px]'
+  const isWikiTool = isWikiToolName(toolName)
+  const hasWebSearchResults = Boolean(
+    webSearchPayload
+    && isRecord(webSearchPayload)
+    && Array.isArray(webSearchPayload.results)
+  )
+  const hasSpecializedResult = hasWebSearchResults
+    || (isSubagentTool && resultPayload !== undefined)
+    || (isWikiTool && resultPayload !== undefined)
+  const resultText = useMemo(() => serializeInspectorValue(detailPayload), [detailPayload])
+  const resultLines = useMemo(() => resultText.split('\n'), [resultText])
+  const isResultLong = resultText.length > CONTENT_CHAR_THRESHOLD || resultLines.length > JSON_LINE_THRESHOLD
+  const visibleResult = isResultLong && !isExpanded
+    ? resultLines.slice(0, JSON_LINE_THRESHOLD).join('\n').slice(0, CONTENT_CHAR_THRESHOLD)
+    : resultText
+  const resultViewLabels = hasSpecializedResult
+    ? (['Formatted', 'Raw'] as const)
+    : (['Preview', 'Full'] as const)
+  const liveText = liveOutput
+    ? [liveOutput.stdout, liveOutput.stderr].filter(Boolean).join('\n')
+    : ''
 
   return (
     <motion.div
-      initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 4, scale: 0.985 }}
-      animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: shouldReduceMotion ? 0.12 : 0.21, ease: [0.22, 1, 0.36, 1] }}
-      className="relative overflow-hidden rounded-2xl"
+      initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: 5 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: shouldReduceMotion ? 0 : 0.17, ease: [0.22, 1, 0.36, 1] }}
+      className="pb-5"
+      data-testid="tool-call-inspector-details"
     >
-      {webSearchPayload ? (
-        <div
-          className="max-h-[min(456px,calc(100vh-160px))] overflow-y-auto bg-slate-100/50 p-3 overscroll-contain custom-scrollbar dark:bg-slate-900/34"
-          onWheel={(e) => e.stopPropagation()}
-          onTouchMove={(e) => e.stopPropagation()}
-        >
-          <WebSearchResults results={webSearchPayload.results} />
-        </div>
-      ) : isSubagentTool && subagentData ? (
-        <div
-          className="max-h-[min(456px,calc(100vh-160px))] overflow-y-auto overscroll-contain custom-scrollbar"
-          onWheel={(e) => e.stopPropagation()}
-          onTouchMove={(e) => e.stopPropagation()}
-        >
-          <SubagentResults
-            toolName={(toolResponse?.toolName ?? tc.name)}
-            payload={subagentData}
-          />
-        </div>
-      ) : (
-        <>
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/55 bg-slate-50/56 px-3 py-1 dark:border-slate-800/55 dark:bg-slate-900/36">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex h-5 w-5 items-center justify-center rounded-lg bg-slate-200/55 text-slate-600 dark:bg-white/6 dark:text-slate-300">
-                  <Braces className="h-3 w-3" />
-                </span>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  Output
-                </p>
-              </div>
-
-              <SegmentedToggle
-                leftLabel="Parameters"
-                rightLabel="Results"
-                rightActive={showDetails}
-                onLeftClick={(e) => {
-                  e.stopPropagation()
-                  setShowDetails(false)
-                }}
-                onRightClick={(e) => {
-                  e.stopPropagation()
-                  setShowDetails(true)
-                }}
-              />
-
-              {isJsonLong && showDetails && (
-                <SegmentedToggle
-                  leftLabel="Preview"
-                  rightLabel="Full"
-                  rightActive={isJsonExpanded}
-                  onLeftClick={(e) => {
-                    e.stopPropagation()
-                    setIsJsonExpanded(false)
-                  }}
-                  onRightClick={(e) => {
-                    e.stopPropagation()
-                    setIsJsonExpanded(true)
-                  }}
-                />
-              )}
-            </div>
-
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Copy tool result"
-              className="h-7 w-7 rounded-xl hover:bg-slate-200/70 dark:hover:bg-slate-700/60"
-              onClick={(e) => onCopyClick(
-                e,
-                liveOutput
-                  ? `${liveOutput.stdout}${liveOutput.stderr}`
-                  : tc.content
-              )}
-            >
-              <Clipboard className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
-            </Button>
-          </div>
-
-          {showDetails ? (
-            <div className="relative">
-              {liveOutput ? (
-                <LiveToolOutput output={liveOutput} />
-              ) : (
-                <div
-                  className={cn(
-                    detailViewportHeightClass,
-                    'w-full overflow-hidden overscroll-contain bg-white/70 dark:bg-[#09090b]'
-                  )}
-                  onWheel={(e) => e.stopPropagation()}
-                  onTouchMove={(e) => e.stopPropagation()}
-                >
-                  <SpeedCodeHighlight
-                    code={visibleJsonContent}
-                    language="json"
-                    className="h-full min-h-full overflow-auto custom-scrollbar"
-                    themeOverride="github-dim"
-                  />
-                </div>
-              )}
-              <div
-                className={cn(
-                  'absolute bottom-0 left-0 right-0 border-t border-slate-200/70 bg-slate-100/90 px-3 py-1.5 text-[10px] text-zinc-500 backdrop-blur-xs transition-opacity duration-150 dark:border-slate-800 dark:bg-slate-900/90 dark:text-zinc-400',
-                  !liveOutput && isJsonLong && !isJsonExpanded ? 'opacity-100' : 'pointer-events-none opacity-0'
-                )}
-              >
-                Showing a preview. Switch to &quot;Full&quot; to inspect the complete payload.
-              </div>
+      <InspectorSection
+        label="Parameters"
+        copyContent={areArgsReady ? Object.fromEntries(paramEntries) : ''}
+        copyLabel="Parameters"
+        isFirst
+      >
+        <div className="px-3 pb-3">
+          {!areArgsReady ? (
+            <p className="text-[11px] italic text-zinc-400 dark:text-zinc-500">Preparing parameters...</p>
+          ) : paramEntries.length > 0 ? (
+            <div className="space-y-2">
+              {paramEntries.map(([key, value]) => {
+                const isComplex = isInspectorComplexValue(value)
+                return (
+                  <div
+                    key={key}
+                    className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))] gap-x-3 gap-y-1.5"
+                  >
+                    <span className="truncate pt-0.5 font-mono text-[9px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                      {key}
+                    </span>
+                    <span className={cn(
+                      'wrap-break-word whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-zinc-700 dark:text-zinc-300',
+                      isComplex && 'rounded-md border border-black/[0.06] bg-zinc-50/80 px-2 py-1.5 dark:border-white/[0.08] dark:bg-black/20'
+                    )}>
+                      {serializeInspectorValue(value)}
+                    </span>
+                  </div>
+                )
+              })}
             </div>
           ) : (
-            <div
-              className="max-h-[240px] overflow-y-auto overscroll-contain px-3 py-2.5 custom-scrollbar"
-              onWheel={(e) => e.stopPropagation()}
-              onTouchMove={(e) => e.stopPropagation()}
-            >
-              {!areArgsReady ? (
-                <div className="text-[11px] italic text-zinc-400 dark:text-zinc-500">Preparing parameters...</div>
-              ) : isWikiTool && wikiSummaryPayload ? (
-                <WikiToolSummary toolName={toolName} payload={wikiSummaryPayload} />
-              ) : paramEntries.length > 0 ? (
-                <div className="space-y-1.5 pr-1">
-                  {paramEntries.map(([key, value]) => (
-                    <div key={key} className="flex items-start gap-2 py-1">
-                      <span className="min-w-[60px] shrink-0 text-[9px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{key}</span>
-                      <span className="wrap-break-word font-mono text-[11px] leading-snug text-zinc-700 dark:text-zinc-300">{formatValue(value)}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-[11px] italic text-zinc-400 dark:text-zinc-500">No parameters</div>
-              )}
-            </div>
+            <p className="text-[11px] italic text-zinc-400 dark:text-zinc-500">No parameters</p>
           )}
-        </>
+        </div>
+      </InspectorSection>
+
+      {liveOutput && (
+        <InspectorSection
+          label="Execution output"
+          copyContent={liveText}
+          copyLabel="Output"
+        >
+          <LiveToolOutput output={liveOutput} />
+        </InspectorSection>
       )}
+
+      <InspectorSection
+        label="Result"
+        copyContent={resultText}
+        copyLabel="Result"
+        isLast
+        action={isResultLong || hasSpecializedResult ? (
+          <div className="flex h-6 items-center rounded-md bg-zinc-100 p-0.5 dark:bg-white/[0.06]">
+            {resultViewLabels.map((label, index) => {
+              const active = index === 1 ? isExpanded : !isExpanded
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  aria-pressed={active}
+                  className={cn(
+                    'h-5 rounded-sm px-2 text-[9px] font-medium outline-hidden transition-colors',
+                    'focus-visible:ring-2 focus-visible:ring-zinc-400/70 focus-visible:ring-inset dark:focus-visible:ring-zinc-500/80',
+                    active
+                      ? 'bg-white text-zinc-800 shadow-xs dark:bg-zinc-800 dark:text-zinc-100'
+                      : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+                  )}
+                  onClick={() => setIsExpanded(index === 1)}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+        ) : undefined}
+      >
+        {hasSpecializedResult && isExpanded ? (
+          <div className="relative mb-3 mr-3 max-h-[min(520px,55vh)] overflow-auto overscroll-contain rounded-md border border-black/10 bg-[#09090b] custom-scrollbar dark:border-white/10">
+            <SpeedCodeHighlight
+              code={resultText}
+              language="json"
+              className="min-h-full"
+              themeOverride="github-dim"
+            />
+          </div>
+        ) : hasWebSearchResults && webSearchPayload && isRecord(webSearchPayload) ? (
+          <div className="pr-3 pb-3">
+            <WebSearchResults results={webSearchPayload.results as WebSearchResult[]} />
+          </div>
+        ) : isSubagentTool && resultPayload ? (
+          <div className="pr-3 pb-3">
+            <SubagentResults toolName={toolName} payload={resultPayload} />
+          </div>
+        ) : isWikiTool && resultPayload !== undefined ? (
+          <div className="pr-3 pb-3">
+            <WikiToolSummary toolName={toolName} payload={resultPayload} />
+          </div>
+        ) : resultText ? (
+          <div className="relative mb-3 mr-3 max-h-[min(520px,55vh)] overflow-auto overscroll-contain rounded-md border border-black/10 bg-[#09090b] custom-scrollbar dark:border-white/10">
+            <SpeedCodeHighlight
+              code={visibleResult}
+              language="json"
+              className="min-h-full"
+              themeOverride="github-dim"
+            />
+            {isResultLong && !isExpanded && (
+              <div className="sticky bottom-0 border-t border-white/10 bg-zinc-950/92 px-3 py-1.5 text-[10px] text-zinc-400 backdrop-blur-xs">
+                Showing a shortened preview. Choose Full for the complete payload.
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="pr-3 pb-3 text-[11px] italic text-zinc-400 dark:text-zinc-500">
+            Waiting for result
+          </p>
+        )}
+      </InspectorSection>
     </motion.div>
   )
 })
 
-ToolCallResultPanel.displayName = 'ToolCallResultPanel'
+ToolCallInspectorDetails.displayName = 'ToolCallInspectorDetails'
 
 const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }) => {
-  const [isOpen, setIsOpen] = useState(false)
-  const liveOutput = useChatStore(state => {
-    if (!tc.toolCallId) {
-      return undefined
-    }
-    return state.toolLiveOutputs[
-      buildToolLiveOutputKey(state.currentChatUuid, tc.toolCallId)
-    ]
-  })
+  const currentChatUuid = useChatStore(state => state.currentChatUuid)
+  const inspectToolCall = useChatStore(state => state.inspectToolCall)
+  const isSelected = useChatStore(state => (
+    Boolean(currentChatUuid)
+    && state.toolCallInspectorSelection?.chatUuid === currentChatUuid
+    && state.toolCallInspectorSelection.segmentId === tc.segmentId
+  ))
   const {
-    toolResponse,
     isError,
     isPending,
     isRunning,
@@ -1164,41 +1101,34 @@ const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }
       transition={{ type: 'spring', stiffness: 360, damping: 30 }}
       className="w-full max-w-full py-1 font-sans flow-root"
     >
-      <AssistantSegmentPopout
-        open={isOpen}
-        onOpenChange={setIsOpen}
-        contentClassName={cn(
-          isError
-            ? 'border-red-200/65 dark:border-red-900/35'
-            : 'border-slate-200/70 dark:border-slate-800/70'
-        )}
-        renderTrigger={({ isOpen }) => (
-          <button
-            type="button"
-            aria-label={getToolCallTriggerAriaLabel(tc.name, statusLabel)}
-            className={getToolCallTriggerButtonClassName({
-              isError,
-              isRunning,
-              isPending
-            })}
-          >
-            <ToolCallTriggerContent
-              toolCall={tc}
-              isError={isError}
-              isRunning={isRunning}
-              isPending={isPending}
-              isOpen={isOpen}
-              className="w-full"
-            />
-          </button>
-        )}
+      <button
+        type="button"
+        aria-label={getToolCallTriggerAriaLabel(tc.name, statusLabel)}
+        aria-pressed={isSelected}
+        onClick={() => {
+          if (!currentChatUuid) return
+          inspectToolCall({
+            chatUuid: currentChatUuid,
+            segmentId: tc.segmentId,
+            toolCallId: tc.toolCallId
+          })
+        }}
+        className={getToolCallTriggerButtonClassName({
+          isError,
+          isRunning,
+          isPending,
+          isSelected
+        })}
       >
-        <ToolCallResultPanel
+        <ToolCallTriggerContent
           toolCall={tc}
-          toolResponse={toolResponse}
-          liveOutput={isRunning ? liveOutput : undefined}
+          isError={isError}
+          isRunning={isRunning}
+          isPending={isPending}
+          isSelected={isSelected}
+          className="w-full"
         />
-      </AssistantSegmentPopout>
+      </button>
     </motion.div>
   )
 }

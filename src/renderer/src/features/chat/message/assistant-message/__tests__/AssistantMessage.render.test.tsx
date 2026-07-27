@@ -91,16 +91,9 @@ vi.mock('../toolcall/ToolCallResult', async () => {
     return <span>{toolCall.name}</span>
   }
 
-  const ToolCallResultPanel = ({
-    toolCall
-  }: {
-    toolCall: ToolCallSegment
-  }) => <div>{toolCall.name}</div>
-
   return {
     ToolCallResult,
     ToolCallTriggerContent,
-    ToolCallResultPanel,
     getToolCallTriggerButtonClassName: () => 'tool-call-trigger-button',
     getNormalizedStatus: (status: unknown) => typeof status === 'string' ? status.toLowerCase() : undefined,
     getToolCallHeaderState: (segment: ToolCallSegment) => {

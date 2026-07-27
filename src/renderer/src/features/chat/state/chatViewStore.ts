@@ -1,12 +1,21 @@
 import type { StateCreator } from 'zustand'
 
+export type ArtifactsTab = 'stats' | 'tools' | 'preview' | 'files'
+
+export type ToolCallInspectorSelection = {
+  chatUuid: string
+  segmentId: string
+  toolCallId?: string
+}
+
 export type ChatViewState = {
   imageSrcBase64List: ClipbordImg[]
   webSearchEnable: boolean
   webSearchProcessing: boolean
   artifacts: boolean
   artifactsPanelOpen: boolean
-  artifactsActiveTab: string
+  artifactsActiveTab: ArtifactsTab
+  toolCallInspectorSelection: ToolCallInspectorSelection | null
 }
 
 export type ChatViewActions = {
@@ -15,7 +24,8 @@ export type ChatViewActions = {
   toggleArtifacts: (state: boolean) => void
   toggleArtifactsPanel: () => void
   setArtifactsPanel: (open: boolean) => void
-  setArtifactsActiveTab: (tab: string) => void
+  setArtifactsActiveTab: (tab: ArtifactsTab) => void
+  inspectToolCall: (selection: ToolCallInspectorSelection) => void
   setImageSrcBase64List: (imgs: ClipbordImg[]) => void
 }
 
@@ -25,7 +35,8 @@ export const createInitialChatViewState = (): ChatViewState => ({
   webSearchProcessing: false,
   artifacts: false,
   artifactsPanelOpen: false,
-  artifactsActiveTab: 'stats'
+  artifactsActiveTab: 'stats',
+  toolCallInspectorSelection: null
 })
 
 export function createChatViewActions<T extends ChatViewState>(
@@ -38,6 +49,11 @@ export function createChatViewActions<T extends ChatViewState>(
     toggleArtifactsPanel: () => set((state) => ({ artifactsPanelOpen: !state.artifactsPanelOpen } as Partial<T>)),
     setArtifactsPanel: (open) => set({ artifactsPanelOpen: open } as Partial<T>),
     setArtifactsActiveTab: (tab) => set({ artifactsActiveTab: tab } as Partial<T>),
+    inspectToolCall: (selection) => set({
+      toolCallInspectorSelection: selection,
+      artifactsActiveTab: 'tools',
+      artifactsPanelOpen: true
+    } as Partial<T>),
     setImageSrcBase64List: (imgs) => set({ imageSrcBase64List: imgs } as Partial<T>)
   }
 }

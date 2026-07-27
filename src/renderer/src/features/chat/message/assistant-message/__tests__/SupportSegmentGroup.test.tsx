@@ -185,7 +185,7 @@ describe('SupportSegmentGroup', () => {
     ])
   })
 
-  it('shows live output from the grouped tool row popout', async () => {
+  it('opens the Tools inspector from a grouped tool row', async () => {
     useChatStore.setState({ currentChatUuid: 'chat-live' })
     useChatStore.getState().appendToolLiveOutput({
       toolCallId: 'tool-live',
@@ -204,16 +204,16 @@ describe('SupportSegmentGroup', () => {
       row(container, 'tool-live')?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
-    expect(document.body.querySelector('[data-testid="tool-live-output"]')?.textContent)
-      .toContain('building grouped command')
-
-    await act(async () => {
-      root.render(<SupportSegmentGroup items={[
-        toolCallItem({ id: 'tool-live', name: 'execute_command', order: 0, status: 'completed' })
-      ]} />)
+    expect(useChatStore.getState()).toMatchObject({
+      artifactsPanelOpen: true,
+      artifactsActiveTab: 'tools',
+      toolCallInspectorSelection: {
+        chatUuid: 'chat-live',
+        segmentId: 'segment-tool-live',
+        toolCallId: 'tool-live'
+      }
     })
-
-    expect(document.body.querySelector('[data-testid="tool-live-output"]')).toBeNull()
+    expect(row(container, 'tool-live')?.getAttribute('aria-pressed')).toBe('true')
   })
 
   it('keeps phase keys anchored to the first item while appending to a phase', () => {
