@@ -1,15 +1,22 @@
 import { TokensIcon } from '@radix-ui/react-icons'
-import { Badge } from "@renderer/shared/components/ui/badge"
 import { Button } from '@renderer/shared/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@renderer/shared/components/ui/popover'
 import { cn } from '@renderer/shared/lib/utils'
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
 import { useAppConfigStore } from '@renderer/infrastructure/config/appConfig'
 import { useAssistantStore } from '@renderer/features/assistants'
+import {
+  CircleGauge,
+  Sparkles,
+  Wrench
+} from 'lucide-react'
 import React, { useState } from 'react'
-import { getChatSkills } from '@renderer/infrastructure/persistence/ChatSkillRepository'
-import { getCompressedSummariesByChatId } from '@renderer/infrastructure/persistence/CompressedSummaryRepository'
-import { Wrench, Sparkles, Compass } from 'lucide-react'
+import {
+  buildChatStatsModel,
+  formatCompactTokenCount,
+  formatProgressPercent
+} from './chatStatsModel'
+import { useChatStatsData } from './useChatStatsData'
 
 interface ChatStatsPanelProps {
   variant?: 'popover' | 'inline'
@@ -21,197 +28,230 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
   const [isOpen, setIsOpen] = useState(false)
   const messages = useChatStore(state => state.messages)
   const currentChatId = useChatStore(state => state.currentChatId)
-  const { appConfig } = useAppConfigStore()
+  const currentChatUuid = useChatStore(state => state.currentChatUuid)
+  const selectedModelRef = useChatStore(state => state.selectedModelRef)
+  const compressionPending = useChatStore(
+    state => state.postRunJobs.compression === 'pending'
+  )
+  const compressionSummaryRevision = useChatStore(state => (
+    currentChatUuid
+      ? (state.compressionSummaryRevisionByChatUuid[currentChatUuid] ?? 0)
+      : 0
+  ))
+  const appConfig = useAppConfigStore(state => state.appConfig)
+  const mainModelRef = useAppConfigStore(state => state.mainModel)
+  const resolveModelRef = useAppConfigStore(state => state.resolveModelRef)
+  const providersRevision = useAppConfigStore(state => state.providersRevision)
   const { currentAssistant } = useAssistantStore()
   const [displayAssistant, setDisplayAssistant] = useState<Assistant | null>(null)
   const [isExiting, setIsExiting] = useState(false)
-  const [activeSkills, setActiveSkills] = useState<string[]>([])
-  const [compressionCount, setCompressionCount] = useState<number>(0)
-  const [activeCompressedMessageIds, setActiveCompressedMessageIds] = useState<Set<number>>(new Set())
+  const persistedStats = useChatStatsData(currentChatId, compressionSummaryRevision)
 
-  // Handle assistant change with exit animation
-  React.useEffect(() => {
+  React.useEffect((): (() => void) | undefined => {
     if (currentAssistant) {
       setDisplayAssistant(currentAssistant)
       setIsExiting(false)
     } else if (displayAssistant) {
-      // Start exit animation
       setIsExiting(true)
-      // Remove after animation completes
       const timer = setTimeout(() => {
         setDisplayAssistant(null)
         setIsExiting(false)
-      }, 300) // Match animation duration
-      return () => clearTimeout(timer)
+      }, 300)
+      return (): void => clearTimeout(timer)
     }
     return undefined
   }, [currentAssistant, displayAssistant])
 
-  React.useEffect(() => {
-    if (!currentChatId) {
-      setActiveSkills([])
-      setCompressionCount(0)
-      setActiveCompressedMessageIds(new Set())
-      return
-    }
-    getChatSkills(currentChatId)
-      .then(setActiveSkills)
-      .catch(() => setActiveSkills([]))
-    getCompressedSummariesByChatId(currentChatId)
-      .then(result => {
-        setCompressionCount(result.length)
-        const activeIds = new Set<number>()
-        result
-          .filter(summary => summary.status === 'active')
-          .forEach(summary => {
-            summary.messageIds.forEach(id => activeIds.add(id))
-          })
-        setActiveCompressedMessageIds(activeIds)
-      })
-      .catch(() => {
-        setCompressionCount(0)
-        setActiveCompressedMessageIds(new Set())
-      })
-  }, [currentChatId])
+  const activeModel = React.useMemo(
+    () => resolveModelRef(selectedModelRef ?? mainModelRef)?.model,
+    [mainModelRef, providersRevision, resolveModelRef, selectedModelRef]
+  )
 
-  const tokenTotal = React.useMemo(() => {
-    return messages.reduce((sum, msg) => sum + (msg.tokens || 0), 0)
-  }, [messages])
+  const stats = React.useMemo(() => buildChatStatsModel({
+    messages,
+    activeCompressedMessageIds: persistedStats.activeCompressedMessageIds,
+    contextWindowTokens: activeModel?.contextWindowTokens,
+    triggerTokenRatio: appConfig.compression?.triggerTokenRatio,
+    autoCompactEnabled: Boolean(
+      appConfig.compression?.enabled && appConfig.compression.autoCompress
+    ),
+    compressionPending
+  }), [
+    activeModel?.contextWindowTokens,
+    appConfig.compression?.autoCompress,
+    appConfig.compression?.enabled,
+    appConfig.compression?.triggerTokenRatio,
+    compressionPending,
+    messages,
+    persistedStats.activeCompressedMessageIds
+  ])
 
-  const selectedModelRef = useChatStore(state => state.selectedModelRef)
-
-  const activeModel = React.useMemo(() => {
-    const accountId = selectedModelRef?.accountId ?? appConfig?.tools?.mainModel?.accountId
-    const modelId = selectedModelRef?.modelId ?? appConfig?.tools?.mainModel?.modelId
-    if (!accountId || !modelId) {
-      return undefined
-    }
-
-    return appConfig?.accounts
-      ?.find(account => account.id === accountId)
-      ?.models.find(model => model.id === modelId)
-  }, [appConfig?.accounts, appConfig?.tools?.mainModel, selectedModelRef])
-
-  const compressionTokenTotal = React.useMemo(() => {
-    return messages.reduce((sum, msg) => {
-      if (msg.id && activeCompressedMessageIds.has(msg.id)) {
-        return sum
-      }
-      return sum + (msg.tokens || 0)
-    }, 0)
-  }, [activeCompressedMessageIds, messages])
-
-  const compressionUsagePercent = React.useMemo(() => {
-    const contextWindowTokens = activeModel?.contextWindowTokens
-    if (!contextWindowTokens || contextWindowTokens <= 0) {
-      return undefined
-    }
-    return Math.min(100, Math.round((compressionTokenTotal / contextWindowTokens) * 100))
-  }, [activeModel?.contextWindowTokens, compressionTokenTotal])
-
-  const compressionTriggerPercent = Math.round((appConfig?.compression?.triggerTokenRatio ?? 0.7) * 100)
-  const compressionProgressPercent = Math.min(compressionUsagePercent ?? 0, compressionTriggerPercent)
-  const compressionProgressWidth = compressionTriggerPercent > 0
-    ? Math.min(100, Math.round((compressionProgressPercent / compressionTriggerPercent) * 100))
-    : 0
-
-  const toolCallCount = React.useMemo(() => {
-    return messages.reduce((sum, msg) => {
-      const segments = msg.body.segments || []
-      const toolSegments = segments.filter(seg => seg.type === 'toolCall').length
-      return sum + toolSegments
-    }, 0)
-  }, [messages])
-
-  const toolResultCount = React.useMemo(() => {
-    return messages.filter(msg => msg.body.role === 'tool').length
-  }, [messages])
-
-  const compressionEnabled = appConfig?.compression?.enabled ?? true
+  const progressPercent = stats.progressToCompact === undefined
+    ? undefined
+    : Number((stats.progressToCompact * 100).toFixed(1))
+  const triggerPercent = formatProgressPercent(stats.triggerTokenRatio)
+  const hasInitialSnapshot = currentChatId === null || persistedStats.hasSnapshot
 
   const statsContent = (
-    <div className="flex h-fit flex-col">
-      {/* Content Area */}
-      <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-3 py-2">
-        {/* Parameters Group */}
-        <div className="shrink-0 space-y-3">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-1 dark:border-slate-800/60">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-              Overview
-            </span>
-          </div>
-
-          {/* Tools Status */}
-          <div className="flex w-full items-center gap-2">
-            <Badge
-              variant="outline"
-              className={cn(
-                "relative flex h-5 w-full justify-start overflow-hidden px-2 text-[10px] font-medium select-none",
-                compressionEnabled
-                  ? "bg-indigo-50/60 dark:bg-indigo-500/10 border-indigo-200/70 dark:border-indigo-500/20 text-indigo-700 dark:text-indigo-300"
-                  : "bg-slate-50/60 dark:bg-slate-800/50 border-slate-200/70 dark:border-slate-700 text-slate-400"
-              )}
+    <div
+      className={cn(
+        'flex min-h-0 flex-col text-zinc-900 dark:text-zinc-100',
+        variant === 'inline' ? 'min-h-full' : 'max-h-128'
+      )}
+    >
+      <section
+        className={cn(
+          'shrink-0 border-b border-zinc-200/80 dark:border-zinc-800/80',
+          variant === 'inline' ? 'px-2 py-2 sm:px-3 sm:py-3' : 'px-1.5 py-1.5'
+        )}
+        aria-labelledby="auto-compact-heading"
+      >
+        <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <CircleGauge
+              className="h-3.5 w-3.5 shrink-0 text-indigo-500 dark:text-indigo-400"
+              aria-hidden="true"
+            />
+            <h2
+              id="auto-compact-heading"
+              className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400"
             >
-              {compressionEnabled && (
-                <span
-                  className="absolute inset-y-0 left-0 w-full origin-left bg-indigo-200/45 transition-transform duration-300 dark:bg-indigo-400/15"
-                  style={{ transform: `scaleX(${compressionProgressWidth / 100})` }}
-                />
-              )}
-              <span className="relative z-10 inline-flex min-w-0 flex-1 items-center">
-                <Compass className="mr-1 h-3 w-3" />
-                <span className='min-w-0 flex-1 truncate space-x-1'>
-                  <span>Auto Compact</span>
-                  <span className='font-bold'>{compressionEnabled ? 'On' : 'Off'}</span>
-                  <span> | {compressionCount}</span>
-                  <span className='font-bold'> | {compressionUsagePercent ?? '--'}%</span>
+              Auto Compact
+            </h2>
+          </div>
+        </div>
+
+        <div className="mt-6 flex items-end justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+              Current accumulated
+            </p>
+            <p className="mt-1 truncate font-mono text-[18px] font-semibold tracking-tight tabular-nums text-zinc-900 dark:text-zinc-100">
+              {hasInitialSnapshot ? formatCompactTokenCount(stats.accumulatedTokens) : '—'}
+              <span className="px-1.5 font-sans text-xs font-normal text-zinc-400 dark:text-zinc-500">
+                /
+              </span>
+              {stats.thresholdTokens
+                ? `${formatCompactTokenCount(stats.thresholdTokens)} trigger`
+                : 'trigger unavailable'}
+            </p>
+          </div>
+          <span
+            className={cn(
+              'shrink-0 font-mono text-sm font-semibold tabular-nums',
+              stats.status === 'compacting'
+                ? 'text-amber-600 dark:text-amber-400'
+                : 'text-indigo-600 dark:text-indigo-400'
+            )}
+            aria-label={progressPercent === undefined
+              ? 'Compaction progress unavailable'
+              : `${formatProgressPercent(stats.progressToCompact)} to compact`}
+          >
+            {hasInitialSnapshot ? formatProgressPercent(stats.progressToCompact) : '—'}
+          </span>
+        </div>
+
+        <div
+          className="relative mt-4 h-1.5 overflow-hidden rounded-sm bg-zinc-200/80 dark:bg-zinc-800"
+          role="progressbar"
+          aria-label="Progress to automatic compaction"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={hasInitialSnapshot ? progressPercent : undefined}
+          aria-disabled={stats.status === 'disabled' || undefined}
+        >
+          <span
+            className={cn(
+              'absolute inset-y-0 left-0 origin-left rounded-sm transition-transform duration-500 ease-out motion-reduce:transition-none',
+              stats.status === 'compacting'
+                ? 'bg-amber-500 dark:bg-amber-400'
+                : stats.status === 'disabled' || stats.status === 'context-unavailable'
+                  ? 'bg-zinc-400 dark:bg-zinc-600'
+                  : 'bg-indigo-500 dark:bg-indigo-400'
+            )}
+            style={{
+              width: '100%',
+              transform: `scaleX(${hasInitialSnapshot ? (stats.progressToCompact ?? 0) : 0})`
+            }}
+          />
+          <span
+            className="absolute inset-y-0 right-0 w-px bg-zinc-500/70 dark:bg-zinc-300/70"
+            aria-hidden="true"
+          />
+        </div>
+
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[10px] text-zinc-500 dark:text-zinc-400">
+          {stats.contextWindowTokens ? (
+            <>
+              <span>
+                Model window{' '}
+                <span className="font-mono tabular-nums text-zinc-600 dark:text-zinc-300">
+                  {formatCompactTokenCount(stats.contextWindowTokens)}
                 </span>
               </span>
-            </Badge>
-          </div>
-
-          {/* Chat Stats */}
-          <div className="grid grid-cols-3 gap-2 select-none">
-            <div className="rounded-lg border border-slate-200/70 bg-white/60 px-2.5 py-2 dark:border-slate-800/70 dark:bg-slate-900/40">
-              <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-slate-400">
-                <TokensIcon className="h-3 w-3" />
-                Tokens
-              </div>
-              <div className="mt-1 text-sm font-semibold tabular-nums text-slate-700 dark:text-slate-200">
-                {tokenTotal}
-              </div>
-            </div>
-            <div className="rounded-lg border border-slate-200/70 bg-white/60 px-2.5 py-2 dark:border-slate-800/70 dark:bg-slate-900/40">
-              <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-slate-400">
-                <Wrench className="h-3 w-3" />
-                Tools
-              </div>
-              <div className="mt-1 text-sm font-semibold tabular-nums text-slate-700 dark:text-slate-200">
-                {toolCallCount} / {toolResultCount}
-              </div>
-            </div>
-            <div className="rounded-lg border border-slate-200/70 bg-white/60 px-2.5 py-2 dark:border-slate-800/70 dark:bg-slate-900/40">
-              <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-slate-400">
-                <Sparkles className="h-3 w-3" />
-                Skills
-              </div>
-              <div className="mt-1 text-sm font-semibold tabular-nums text-slate-700 dark:text-slate-200">
-                {activeSkills.length}
-              </div>
-            </div>
-          </div>
-
+              <span>
+                Trigger at{' '}
+                <span className="font-mono tabular-nums text-zinc-600 dark:text-zinc-300">
+                  {triggerPercent}
+                </span>
+              </span>
+            </>
+          ) : (
+            <span>Set a context window for the active model to calculate progress.</span>
+          )}
         </div>
-      </div>
+      </section>
+
+      <section
+        className={cn(
+          'shrink-0',
+          variant === 'inline' ? 'px-5 py-5 sm:px-6 sm:py-6' : 'px-4 py-4'
+        )}
+        aria-labelledby="chat-activity-heading"
+      >
+        <h2
+          id="chat-activity-heading"
+          className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400"
+        >
+          Activity
+        </h2>
+        <dl className="mt-4 grid grid-cols-3">
+          <div className="min-w-0 pr-3">
+            <dt className="flex items-center gap-1.5 text-[10px] text-zinc-500 dark:text-zinc-400">
+              <TokensIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
+              Total tokens
+            </dt>
+            <dd className="mt-2 truncate font-mono text-base font-semibold tabular-nums text-zinc-800 dark:text-zinc-100">
+              {formatCompactTokenCount(stats.totalConversationTokens)}
+            </dd>
+          </div>
+          <div className="min-w-0 border-l border-zinc-200/80 px-3 dark:border-zinc-800/80">
+            <dt className="flex items-center gap-1.5 text-[10px] text-zinc-500 dark:text-zinc-400">
+              <Wrench className="h-3 w-3 shrink-0" aria-hidden="true" />
+              Calls / results
+            </dt>
+            <dd className="mt-2 truncate font-mono text-base font-semibold tabular-nums text-zinc-800 dark:text-zinc-100">
+              {stats.toolCallCount} / {stats.toolResultCount}
+            </dd>
+          </div>
+          <div className="min-w-0 border-l border-zinc-200/80 pl-3 dark:border-zinc-800/80">
+            <dt className="flex items-center gap-1.5 text-[10px] text-zinc-500 dark:text-zinc-400">
+              <Sparkles className="h-3 w-3 shrink-0" aria-hidden="true" />
+              Active skills
+            </dt>
+            <dd className="mt-2 truncate font-mono text-base font-semibold tabular-nums text-zinc-800 dark:text-zinc-100">
+              {persistedStats.activeSkills.length}
+            </dd>
+          </div>
+        </dl>
+      </section>
     </div>
   )
 
   if (variant === 'inline') {
     return (
-      <div className="h-full min-h-0 overflow-y-auto bg-white/55 px-3 py-3 dark:bg-slate-950/60">
-        <div className="mx-auto w-full max-w-xl overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 shadow-xs dark:border-slate-800/80 dark:bg-slate-950/95">
-          {statsContent}
-        </div>
+      <div className="h-full min-h-0 overflow-y-auto bg-zinc-50/40 dark:bg-zinc-950/40">
+        {statsContent}
       </div>
     )
   }
@@ -219,73 +259,46 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
-        <div className="relative flex items-center group">
-          {/* Assistant Icon - Slides in/out with animation */}
+        <div className="group relative flex items-center">
           {displayAssistant && (
             <div
               key={displayAssistant.id}
               className={cn(
-                "flex items-center justify-center h-7 px-2 rounded-l-xl",
-                "bg-slate-50/50 dark:bg-slate-800/50",
-                "border-l border-t border-b border-slate-200/50 dark:border-slate-700/50",
-                "transition-all duration-300 ease-out",
+                'flex h-7 items-center justify-center rounded-l-xl border-y border-l border-slate-200/50 bg-slate-50/50 px-2 transition-all duration-300 ease-out dark:border-slate-700/50 dark:bg-slate-800/50',
                 isExiting
-                  ? "animate-out slide-out-to-right-2 fade-out-0 duration-300"
-                  : "animate-in slide-in-from-right-2 fade-in-0 duration-300",
-                "group-hover:bg-slate-100 dark:group-hover:bg-slate-700",
-                "group-hover:border-slate-300 dark:group-hover:border-slate-600",
-                isOpen && [
-                  "bg-slate-100 dark:bg-slate-700",
-                  "border-slate-300 dark:border-slate-600"
-                ]
+                  ? 'animate-out fade-out-0 slide-out-to-right-2 duration-300'
+                  : 'animate-in fade-in-0 slide-in-from-right-2 duration-300',
+                'group-hover:border-slate-300 group-hover:bg-slate-100 dark:group-hover:border-slate-600 dark:group-hover:bg-slate-700',
+                isOpen && 'border-slate-300 bg-slate-100 dark:border-slate-600 dark:bg-slate-700'
               )}
             >
-              <span className="text-xs leading-none text-gray-500 hover:text-gray-700 font-medium transition-all">
+              <span className="text-xs font-medium leading-none text-gray-500 transition-colors hover:text-gray-700">
                 {displayAssistant.name}
               </span>
             </div>
           )}
 
-          {/* Token Button - Connects seamlessly with assistant label */}
           <Button
             variant="outline"
             size="icon"
             role="combobox"
+            aria-label="Open chat statistics"
             className={cn(
-              "relative h-7 w-7 overflow-hidden",
-              "transition-all duration-300 ease-out",
-              "bg-slate-50/50 dark:bg-slate-800/50",
-              "border border-slate-200/50 dark:border-slate-700/50",
-              "group-hover:bg-slate-100 dark:group-hover:bg-slate-700",
-              "group-hover:border-slate-300 dark:group-hover:border-slate-600",
-              "group-hover:shadow-xs",
-              "active:scale-95",
-              currentAssistant ? [
-                // When assistant is present, remove left border radius to connect
-                "rounded-r-xl rounded-l-none",
-                "border-l-0"
-              ] : [
-                // When no assistant, keep full rounded
-                "rounded-xl"
-              ],
-              isOpen && [
-                "bg-slate-100 dark:bg-slate-700",
-                "border-slate-300 dark:border-slate-600",
-                "shadow-xs"
-              ]
+              'relative h-7 w-7 overflow-hidden border border-slate-200/50 bg-slate-50/50 transition-all duration-300 ease-out dark:border-slate-700/50 dark:bg-slate-800/50',
+              'group-hover:border-slate-300 group-hover:bg-slate-100 group-hover:shadow-xs dark:group-hover:border-slate-600 dark:group-hover:bg-slate-700',
+              'active:scale-95 motion-reduce:transition-none',
+              currentAssistant
+                ? 'rounded-l-none rounded-r-xl border-l-0'
+                : 'rounded-xl',
+              isOpen && 'border-slate-300 bg-slate-100 shadow-xs dark:border-slate-600 dark:bg-slate-700'
             )}
           >
-            {/* Animated background on hover */}
-            <div className="absolute inset-0 bg-linear-to-br from-slate-100/0 via-slate-100/50 to-slate-200/0 dark:from-slate-700/0 dark:via-slate-700/30 dark:to-slate-600/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
-            {/* TokensIcon */}
+            <span className="absolute inset-0 bg-linear-to-br from-slate-100/0 via-slate-100/50 to-slate-200/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 motion-reduce:transition-none dark:from-slate-700/0 dark:via-slate-700/30 dark:to-slate-600/0" />
             <TokensIcon
               className={cn(
-                "relative z-10 w-4 h-4 text-slate-500 dark:text-slate-400",
-                "transition-all duration-300 ease-out",
-                "group-hover:text-slate-700 dark:group-hover:text-slate-300",
-                "group-hover:scale-110 group-hover:rotate-90",
-                isOpen && "rotate-90 scale-110 text-slate-700 dark:text-slate-300"
+                'relative z-10 h-4 w-4 text-slate-500 transition-transform duration-300 ease-out motion-reduce:transition-none dark:text-slate-400',
+                'group-hover:scale-110 group-hover:rotate-90 group-hover:text-slate-700 dark:group-hover:text-slate-300',
+                isOpen && 'scale-110 rotate-90 text-slate-700 dark:text-slate-300'
               )}
             />
           </Button>
@@ -293,13 +306,9 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
       </PopoverTrigger>
       <PopoverContent
         className={cn(
-          "w-80 p-0 rounded-2xl overflow-hidden",
-          "bg-white/95 dark:bg-slate-950/95",
-          "backdrop-blur-xl",
-          "border border-slate-200/80 dark:border-slate-800/80",
-          "shadow-2xl shadow-slate-900/10 dark:shadow-black/50",
-          "animate-in fade-in-0 zoom-in-95 slide-in-from-top-2",
-          "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95"
+          'w-80 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 p-0 shadow-2xl shadow-slate-900/10 backdrop-blur-xl dark:border-slate-800/80 dark:bg-slate-950/95 dark:shadow-black/50',
+          'animate-in fade-in-0 slide-in-from-top-2 zoom-in-95 motion-reduce:animate-none',
+          'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95'
         )}
         sideOffset={12}
         align="end"

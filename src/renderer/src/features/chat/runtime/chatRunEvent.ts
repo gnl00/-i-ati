@@ -371,6 +371,9 @@ export async function handleChatRunEvent(
       handleMaintenancePending(chatUuid, chatStore, 'compression', runCompletedRef, true)
       return
     case RUN_MAINTENANCE_EVENTS.COMPRESSION_COMPLETED:
+      if (event.payload.result.summaryId && chatUuid) {
+        getLatestChatStore().invalidateCompressionSummariesForChat(chatUuid)
+      }
       handleMaintenanceCompleted(chatUuid, chatStore, 'compression', maybeCleanupAfterBackgroundJobs)
       return
     case RUN_MAINTENANCE_EVENTS.COMPRESSION_FAILED:

@@ -124,6 +124,7 @@ export type ChatRunScrollHint =
 
 export type ChatRunUiState = ChatRunStatusState & {
   runUiByChatUuid: Record<string, ChatRunStatusState>
+  compressionSummaryRevisionByChatUuid: Record<string, number>
   scrollHint: ChatRunScrollHint
   forceCompleteTypewriter: (() => void) | null
   toolLiveOutputs: Record<string, ToolLiveOutput>
@@ -140,6 +141,7 @@ export type ChatRunUiActions = {
   setLastRunOutcomeForChat: (chatUuid: string, outcome: RunOutcome) => void
   getRunStatusForChat: (chatUuid: string | null | undefined) => ChatRunStatusState
   restoreRunStatusForChat: (chatUuid: string | null | undefined) => void
+  invalidateCompressionSummariesForChat: (chatUuid: string) => void
   setScrollHint: (hint: ChatRunScrollHint) => void
   clearScrollHint: () => void
   setForceCompleteTypewriter: (fn: (() => void) | null) => void
@@ -168,6 +170,7 @@ export const createInitialChatRunStatusState = (): ChatRunStatusState => ({
 export const createInitialChatRunUiState = (): ChatRunUiState => ({
   ...createInitialChatRunStatusState(),
   runUiByChatUuid: {},
+  compressionSummaryRevisionByChatUuid: {},
   scrollHint: { type: 'none' },
   forceCompleteTypewriter: null,
   toolLiveOutputs: {}
@@ -362,6 +365,12 @@ export function createChatRunUiActions<T extends ChatRunUiSliceState>(
         }
       } as Partial<T>
     }),
+    invalidateCompressionSummariesForChat: (chatUuid) => set((prevState) => ({
+      compressionSummaryRevisionByChatUuid: {
+        ...prevState.compressionSummaryRevisionByChatUuid,
+        [chatUuid]: (prevState.compressionSummaryRevisionByChatUuid[chatUuid] ?? 0) + 1
+      }
+    } as Partial<T>)),
     setScrollHint: (hint) => set({ scrollHint: hint } as Partial<T>),
     clearScrollHint: () => set({ scrollHint: { type: 'none' } } as Partial<T>),
     setForceCompleteTypewriter: (fn) => set({ forceCompleteTypewriter: fn } as Partial<T>),

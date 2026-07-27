@@ -28,6 +28,7 @@ const latestStore = {
   setPostRunJobStateForChat: vi.fn(),
   resetPostRunJobsForChat: vi.fn(),
   setLastRunOutcomeForChat: vi.fn(),
+  invalidateCompressionSummariesForChat: vi.fn(),
   clearPendingUserMessage: vi.fn(),
   appendToolLiveOutput: vi.fn(),
   clearToolLiveOutput: vi.fn(),
@@ -174,6 +175,7 @@ describe('handleChatRunEvent', () => {
     latestStore.setPostRunJobStateForChat.mockReset()
     latestStore.resetPostRunJobsForChat.mockReset()
     latestStore.setLastRunOutcomeForChat.mockReset()
+    latestStore.invalidateCompressionSummariesForChat.mockReset()
     latestStore.clearPendingUserMessage.mockReset()
     scheduleAssistantStreamingPerfRecentSessionFlush.mockReset()
     rendererLoggerError.mockReset()
@@ -683,5 +685,55 @@ describe('handleChatRunEvent', () => {
     expect(input.chatStore.setPostRunJobStateForChat).toHaveBeenCalledWith('chat-1', 'compression', 'pending')
     expect(input.chatStore.setRunPhaseForChat).toHaveBeenCalledWith('chat-1', 'post_run')
     expect(input.maybeCleanupAfterBackgroundJobs).not.toHaveBeenCalled()
+  })
+
+  it('invalidates persisted compression summaries after a summary is created', async () => {
+    const input = createInput()
+
+    await handleChatRunEvent(input, {
+      submissionId: 'submission-1',
+      chatId: 1,
+      chatUuid: 'chat-1',
+      timestamp: 5,
+      sequence: 5,
+      type: RUN_MAINTENANCE_EVENTS.COMPRESSION_COMPLETED,
+      payload: {
+        result: {
+          success: true,
+          summaryId: 42,
+          messageIds: [1, 2]
+        }
+      }
+    })
+
+    expect(latestStore.invalidateCompressionSummariesForChat).toHaveBeenCalledWith('chat-1')
+    expect(input.chatStore.setPostRunJobStateForChat).toHaveBeenCalledWith(
+      'chat-1',
+      'compression',
+      'idle'
+    )
+  })
+
+  it('keeps the summary revision stable when compression completes below threshold', async () => {
+    const input = createInput()
+
+    await handleChatRunEvent(input, {
+      submissionId: 'submission-1',
+      chatId: 1,
+      chatUuid: 'chat-1',
+      timestamp: 5,
+      sequence: 5,
+      type: RUN_MAINTENANCE_EVENTS.COMPRESSION_COMPLETED,
+      payload: {
+        result: {
+          success: true,
+          usedTokenCount: 699,
+          contextWindowTokens: 1000,
+          triggerTokenRatio: 0.7
+        }
+      }
+    })
+
+    expect(latestStore.invalidateCompressionSummariesForChat).not.toHaveBeenCalled()
   })
 })

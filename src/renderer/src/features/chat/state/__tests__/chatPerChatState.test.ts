@@ -59,6 +59,7 @@ describe('chat per-chat state buffers', () => {
       },
       lastRunOutcome: 'idle',
       runUiByChatUuid: {},
+      compressionSummaryRevisionByChatUuid: {},
       scrollHint: { type: 'none' },
       toolLiveOutputs: {}
     })
@@ -213,6 +214,19 @@ describe('chat per-chat state buffers', () => {
     state = useChatStore.getState()
     expect(state.runPhase).toBe('streaming')
     expect(state.postRunJobs.compression).toBe('pending')
+  })
+
+  it('invalidates compression summary snapshots per chat', () => {
+    const actions = useChatStore.getState()
+
+    actions.invalidateCompressionSummariesForChat('chat-1')
+    actions.invalidateCompressionSummariesForChat('chat-1')
+    actions.invalidateCompressionSummariesForChat('chat-2')
+
+    expect(useChatStore.getState().compressionSummaryRevisionByChatUuid).toEqual({
+      'chat-1': 2,
+      'chat-2': 1
+    })
   })
 
   it('updates and deletes messages from a background chat buffer', async () => {
