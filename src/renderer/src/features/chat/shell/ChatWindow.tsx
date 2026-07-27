@@ -1036,7 +1036,7 @@ const ChatWindow: React.FC = () => {
 
             <ResizablePanel
               id="input-panel"
-              defaultSize={25}
+              defaultSize={20}
               minSize={10}
               maxSize={70}
               className="relative bg-transparent"
