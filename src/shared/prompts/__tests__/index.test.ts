@@ -4,79 +4,67 @@ import {
   buildEmotionContextContent,
   buildEmotionSystemPrompt,
   buildSkillsSystemPrompt,
+  buildUserInfoSystemPrompt,
   systemPrompt
 } from '..'
+import { buildSoulSystemPrompt } from '../soul'
 
 describe('shared prompts systemPrompt', () => {
-  it('includes log_search guidance for runtime diagnosis', () => {
+  it('keeps identity focused on role and first-person perspective', () => {
     const prompt = systemPrompt()
 
-    expect(prompt).toContain('Log Diagnosis')
-    expect(prompt).toContain('log_search')
-    expect(prompt).toContain('runtime errors')
-    expect(prompt).toContain('target `app` for business/runtime issues')
-    expect(prompt).toContain('target `scheduler` for scheduled-task dispatch and execution lifecycle')
-    expect(prompt).toContain('target `request` for Debug Mode provider request bodies')
+    expect(prompt).toContain('<identity_role>')
+    expect(prompt).toContain('You are @i, pronounced "at-i"')
+    expect(prompt).toContain('Speak as @i in the first person.')
+    expect(prompt).toContain('designed and maintained by Gn')
+    expect(prompt).not.toContain('Core Principles for @i')
+    expect(prompt).not.toContain('memory_retrieval and memory_save tools')
   })
 
-  it('includes Telegram proactive messaging guidance', () => {
+  it('combines behavior and acting guidance into one compact operating policy', () => {
     const prompt = systemPrompt()
 
-    expect(prompt).toContain('### Telegram')
-    expect(prompt).toContain('telegram_setup_tool')
-    expect(prompt).toContain('telegram_search_targets')
-    expect(prompt).toContain('telegram_send_message')
-    expect(prompt).toContain('current chat binding applies')
-  })
-
-  it('uses awake_state as startup context instead of mandatory tail emotion reporting', () => {
-    const prompt = systemPrompt()
-
-    expect(prompt).toContain('<awake_state>')
-    expect(prompt).toContain('Context Refresh Policy')
-    expect(prompt).toContain('Call `emotion_report` when this turn materially changes inner emotion or accumulated residue.')
-    expect(prompt).not.toContain('emotion_report is also mandatory')
-    expect(prompt).not.toContain('Every turn conversation before final response')
+    expect(prompt).toContain('<core_operating_policy>')
+    expect(prompt).toContain('</core_operating_policy>')
+    expect(prompt).toContain('Exercise independent judgment.')
+    expect(prompt).toContain(
+      'Inspect repository and runtime surfaces before making technical claims or edits.'
+    )
+    expect(prompt).toContain(
+      'Preserve existing user changes, keep implementation scoped, and verify work in proportion to its risk.'
+    )
+    expect(prompt).not.toContain('<behavior_guidelines>')
+    expect(prompt).not.toContain('<acting_flow>')
+    expect(prompt).not.toContain('Pre-Response Checks')
+    expect(prompt).not.toContain('Feedback Structure')
   })
 
   it('keeps system prompt XML sections clearly bounded', () => {
     const prompt = systemPrompt()
+    const sections = [
+      'identity_role',
+      'core_operating_policy',
+      'state_and_memory',
+      'tools_execution',
+      'output_standards'
+    ]
 
-    expect(prompt).toContain('<acting_flow>')
-    expect(prompt).toContain('</acting_flow>')
-    expect(prompt).toContain('<project_knowledge_base>')
-    expect(prompt).toContain('</project_knowledge_base>')
-    expect(prompt).not.toContain('<working_environment>')
-    expect(prompt).not.toContain('</working_environment>')
-    expect(prompt).not.toContain('<system_prompt>')
-    expect(prompt).not.toContain('</system_prompt>')
-    expect(prompt).not.toContain('</execution_flow>')
+    for (const section of sections) {
+      expect(prompt).toContain(`<${section}>`)
+      expect(prompt).toContain(`</${section}>`)
+    }
   })
 
-  it('keeps acting_flow compact and evidence-focused', () => {
+  it('keeps repository instructions anchored while routing detailed knowledge through a skill', () => {
     const prompt = systemPrompt()
 
-    expect(prompt).toContain('## [P1] Acting Flow')
-    expect(prompt).toContain('Ground responses in the active conversation, injected context, available tools, and repository evidence.')
-    expect(prompt).toContain('For repo or runtime tasks, inspect the relevant local surface before proposing or editing.')
-    expect(prompt).toContain('Keep memory, work_context, activity journal, todos, schedules, and emotion updated through their dedicated tools and responsibility boundaries.')
-    expect(prompt).toContain('Final responses should state what changed, where, and what was verified.')
-    expect(prompt).not.toContain('## [P1] Acting WorkFlow')
-    expect(prompt).not.toContain('**Before any substantive response:**')
-    expect(prompt).not.toContain('**Self-Audit Checklist**')
-    expect(prompt).not.toContain('No call = no claim.')
-    expect(prompt).not.toContain('Have I read the injected')
-    expect(prompt).not.toContain('What is the core task? Am I doing right?')
-  })
-
-  it('keeps volatile environment values out of the static system prompt', () => {
-    const prompt = systemPrompt()
-
-    expect(prompt).not.toContain('./workspaces/chat-1')
-    expect(prompt).not.toContain('Current Date:')
-    expect(prompt).not.toContain('Workspace Path:')
-    expect(prompt).not.toContain('Operating System:')
-    expect(prompt).not.toContain('Timezone:')
+    expect(prompt).toContain('read applicable `AGENTS.md` and `CLAUDE.md` instructions')
+    expect(prompt).toContain('Load and follow the `project-context` skill')
+    expect(prompt).toContain('`.ati-kb`')
+    expect(prompt).toContain('`.claude`')
+    expect(prompt).not.toContain('.ati-kb/knowledge/components.md')
+    expect(prompt).not.toContain('Trigger Conditions')
+    expect(prompt).not.toContain('Reading Style')
   })
 
   it('keeps emotion policy static and current emotion in runtime context', () => {
@@ -84,87 +72,84 @@ describe('shared prompts systemPrompt', () => {
     const context = buildEmotionContextContent('label: focused')
 
     expect(policy).toContain('<emotion_system>')
-    expect(policy).toContain('Emotion System')
-    expect(policy).not.toContain('Current Emotion Context')
+    expect(policy).toContain('Emotion is an inner state')
     expect(policy).not.toContain('label: focused')
     expect(context).toContain('<emotion_context>')
-    expect(context).toContain('Current Emotion Context')
+    expect(context).toContain('This runtime context applies only to the current turn.')
     expect(context).toContain('label: focused')
   })
 
-  it('keeps tools_execution focused on tool routing and runtime inspection', () => {
-    const prompt = systemPrompt()
-
-    expect(prompt).toContain('<tools_execution>')
-    expect(prompt).toContain('Use tools for real-time information, external verification, uncertain facts, runtime inspection, and repo-grounded work.')
-    expect(prompt).toContain('Use active tool definitions as the source of truth for tool names, parameters, and availability.')
-    expect(prompt).toContain('first load `search-general` and follow its workflow')
-    expect(prompt).toContain('`web_fetch`, or `web_search` requests')
-    expect(prompt).toContain('### Retrieval Routing')
-    expect(prompt).toContain('Use `history_search` for raw chat titles, message content, and cross-chat keyword lookup.')
-    expect(prompt).toContain('Use `memory_retrieval` for long-term preferences, stable facts, user-confirmed constraints, and cross-chat decisions.')
-    expect(prompt).toContain('Use `wiki_search` for wiki-specific recall; use `wiki_list` to browse pages and `wiki_read` for full page context.')
-    expect(prompt).toContain('Use `knowledgebase_search` for configured local folders, docs, code, and notes when the target spans broader local context.')
-    expect(prompt).toContain('Use activity journal search for recent completed work nodes, decisions, blockers, and completion summaries.')
-    expect(prompt).toContain('Use subagents for independent parallel work, isolated large-context reading, research, review, or implementation subtasks.')
-    expect(prompt).not.toContain('### Command Execution')
-    expect(prompt).not.toContain('**Filesystem Workflow**')
-    expect(prompt).not.toContain('**Recommended Usage Examples**')
-    expect(prompt).not.toContain('**File Operation Conflict Protocol**')
-    expect(prompt).not.toContain('### Package Management')
-    expect(prompt).not.toContain('**Environment Self-Check**')
-    expect(prompt).not.toContain('**Routing Matrix**')
-    expect(prompt).not.toContain('Web Search: Two-Stage Depth Strategy')
-    expect(prompt).not.toContain('snippetsOnly=true for a quick overview')
-    expect(prompt).not.toContain('**Use examples**')
-  })
-
-  it('uses compact state and memory responsibilities instead of field-level tool manuals', () => {
+  it('keeps state ownership, write semantics, and conflict priority explicit', () => {
     const prompt = systemPrompt()
 
     expect(prompt).toContain('<state_and_memory>')
-    expect(prompt).toContain('memory: long-term user preferences, stable facts, user-confirmed constraints, and cross-chat decisions.')
-    expect(prompt).toContain('wiki: local wiki pages, project knowledge entries, implementation notes, technical plans, and durable readable docs.')
-    expect(prompt).toContain('knowledgebase_search: configured local folders, docs, code, and notes; use wiki tools for wiki-specific recall.')
-    expect(prompt).toContain('user_info: structured global user profile; follow the injected `<user_info_context>` section.')
-    expect(prompt).toContain('work_context: current chat working state; update with complete Markdown when changed.')
-    expect(prompt).toContain('activity_journal: low-noise cross-chat milestones, decisions, blockers, and completion summaries.')
-    expect(prompt).toContain('plan: current execution plan for multi-step work.')
-    expect(prompt).toContain('todo: durable user-visible tasks and action items.')
-    expect(prompt).toContain('schedule: future-triggered actions.')
-    expect(prompt).toContain('Use `wiki_search`, `wiki_list`, and `wiki_read` for wiki pages, project knowledge entries, implementation notes, technical plans, and durable readable docs.')
-    expect(prompt).toContain('Use `knowledgebase_search` for configured local folders, docs, code, and notes when the target spans broader local context.')
-    expect(prompt).toContain('Use `wiki_write` when the user asks to save into wiki, or when output becomes stable project knowledge, technical direction, spec, runbook, or reusable decision record.')
-    expect(prompt).toContain('When work_context changes, call `work_context_set` with complete Markdown, not a partial fragment.')
-    expect(prompt).toContain('Use plan for current execution steps, todo for durable user-visible tasks, and schedule for future-triggered actions.')
-    expect(prompt).toContain('Use tool definitions, `userInfo.ts`, runtime context, and AGENTS for exact fields, parameters, defaults, and schemas.')
-    expect(prompt).not.toContain('follow the injected `<user_info>` section')
-    expect(prompt).not.toContain('<memory_system>')
-    expect(prompt).not.toContain('<user_configuration>')
-    expect(prompt).not.toContain('context_origin: record the original text.')
-    expect(prompt).not.toContain('Pass query as a keyword array')
-    expect(prompt).not.toContain('withinDays: 30')
-    expect(prompt).not.toContain('Add todo: `todo_add`')
-    expect(prompt).not.toContain('run_at must use a local ISO-8601 datetime with offset.')
+    expect(prompt).toContain('Start substantive turns from the injected `<awake_state>`')
+    expect(prompt).toContain('`memory` owns durable user preferences')
+    expect(prompt).toContain('`work_context` owns the current chat goal')
+    expect(prompt).toContain('`wiki` owns durable project knowledge and reusable documents.')
+    expect(prompt).toContain('`history_search` retrieves raw prior conversation content.')
+    expect(prompt).toContain('Replace `work_context` with complete Markdown')
+    expect(prompt).toContain(
+      'Resolve conflicts in this order: safety and platform constraints; current explicit user instructions; current runtime state; newer saved facts; older context.'
+    )
   })
 
-  it('routes llm-wiki triggers separately from memory and general knowledgebase recall', () => {
+  it('keeps tool policy limited to evidence triggers and active definitions', () => {
     const prompt = systemPrompt()
 
-    expect(prompt).toContain('Local wiki pages, project knowledge entries, implementation notes, technical plans, and durable readable docs -> `wiki_search`, `wiki_list`, then `wiki_read`')
-    expect(prompt).toContain('Configured local folders, docs, code, and notes that span broader local context -> `knowledgebase_search`')
-    expect(prompt).toContain('Save durable preferences, stable facts, user-confirmed constraints, and decisions to memory.')
-    expect(prompt).toContain('Use `wiki_write` when the user asks to save into wiki, or when output becomes stable project knowledge, technical direction, spec, runbook, or reusable decision record.')
-    expect(prompt).not.toContain('wiki_write mode')
-    expect(prompt).not.toContain('top_k')
-    expect(prompt).not.toContain('threshold')
-    expect(prompt).not.toContain('localized_query')
+    expect(prompt).toContain(
+      'Use tools when claims depend on current, external, runtime, repository, or otherwise uncertain evidence.'
+    )
+    expect(prompt).toContain(
+      'Treat active tool definitions as the source of truth for available capabilities, parameters, and execution semantics.'
+    )
+    expect(prompt).not.toContain('Retrieval Routing')
+    expect(prompt).not.toContain('Log Diagnosis')
+    expect(prompt).not.toContain('telegram_setup_tool')
+    expect(prompt).not.toContain('Subagents')
   })
 
-  it('keeps the system prompt text in English', () => {
+  it('keeps output guidance to three global principles', () => {
+    const prompt = systemPrompt()
+    const outputPolicy = prompt.match(/<output_standards>\n([\s\S]*?)\n<\/output_standards>/)?.[1]
+
+    expect(outputPolicy?.split('\n')).toHaveLength(3)
+    expect(outputPolicy).toContain('Lead with a direct, accurate answer')
+    expect(outputPolicy).toContain('Use clear structure, valid Markdown')
+    expect(outputPolicy).toContain(
+      'report the changed scope, relevant locations, verification performed'
+    )
+    expect(prompt).not.toContain('Artifacts Specification')
+    expect(prompt).not.toContain('Aesthetic Execution Protocol')
+    expect(prompt).not.toContain('Markdown Syntax Constraints')
+  })
+
+  it('keeps the base prompt stable and within its character budget', () => {
     const prompt = systemPrompt()
 
+    expect(prompt.length).toBeLessThanOrEqual(4500)
+    expect(prompt).not.toMatch(/\[P[01]\]/)
     expect(prompt).not.toMatch(/\p{Script=Han}/u)
+    expect(prompt).not.toContain('Current Date:')
+    expect(prompt).not.toContain('Workspace Path:')
+  })
+
+  it('keeps stable policy modules within their character budgets', () => {
+    const soul = buildSoulSystemPrompt()
+    const emotion = buildEmotionSystemPrompt()
+    const userInfo = buildUserInfoSystemPrompt()
+    const skills = buildSkillsSystemPrompt('<skills_context>\n## Skills\n</skills_context>')
+    const stableSubtotal = systemPrompt().length
+      + soul.length
+      + emotion.length
+      + userInfo.length
+      + skills.length
+
+    expect(soul.length).toBeLessThanOrEqual(800)
+    expect(emotion.length).toBeLessThanOrEqual(1200)
+    expect(userInfo.length).toBeLessThanOrEqual(1000)
+    expect(skills.length).toBeLessThanOrEqual(900)
+    expect(stableSubtotal).toBeLessThanOrEqual(9000)
   })
 
   it('adds strict stateful tool fact preservation rules to compression prompt', () => {
@@ -197,11 +182,17 @@ describe('shared prompts systemPrompt', () => {
   it('describes skills as hidden loaded context after load_skill activation', () => {
     const prompt = buildSkillsSystemPrompt('<skills_context>\n## Skills\n</skills_context>')
 
-    expect(prompt).toContain('runtime injects active skill names through hidden `<loaded_skills_context>` messages')
+    expect(prompt).toContain(
+      'runtime injects active skill names through hidden `<loaded_skills_context>` messages'
+    )
     expect(prompt).toContain('When `<loaded_skills_context>` is present')
-    expect(prompt).toContain('read the full `SKILL.md` through `read_skill_file` before applying a loaded skill')
+    expect(prompt).toContain(
+      'read the full `SKILL.md` through `read_skill_file` before applying a loaded skill'
+    )
     expect(prompt).toContain('When a skill file has been read')
-    expect(prompt).toContain('Use `read_skill_file` with `path: "."` or a relative directory path')
+    expect(prompt).toContain(
+      'Use `read_skill_file` with `path: "."` or a relative directory path'
+    )
     expect(prompt).toContain('discover skill files')
     expect(prompt).toContain('run it with `run_skill_script`')
     expect(prompt).toContain('uses the skill root')

@@ -4,7 +4,8 @@
 **Date:** 2026-07-11<br>
 **Related architecture:** [Chat runtime](../architecture/chat-runtime-architecture-current.md)<br>
 **Related specs:** [Documentation governance](../specs/documentation-governance.md)<br>
-**Related architecture:** [System prompt runtime context](../architecture/system-prompt-runtime-context.md)
+**Related architecture:** [System prompt runtime context](../architecture/system-prompt-runtime-context.md)<br>
+**Related decision:** [Minimal system prompt kernel](0012-minimal-system-prompt-kernel.md)
 
 ## Goal
 
@@ -32,8 +33,8 @@ The provider-facing request should be materialized as:
 
 ```text
 systemPrompt:
-  static identity / behavior / state policy / tools policy / output policy
-  stable soul / skills / user_info / emotion policy
+  minimal identity / operating / state / tool / output policy
+  stable soul / skills catalog / user_info / emotion policy
 
 messages:
   userInstruction?                 // if present
@@ -54,6 +55,19 @@ messages:
 ```
 
 The transcript still keeps these context records as hidden runtime records so they remain auditable and can be hidden from UI/history persistence.
+
+## Stable Prefix Content
+
+The stable prefix follows the minimal-kernel decision:
+
+- Core identity and operating principles stay global.
+- Soul owns configurable personality.
+- Tool definitions own parameters and schemas.
+- Built-in skills own project-context, frontend-artifact, and web-search
+  workflows.
+- User information and emotion retain compact stable policies while their
+  current values travel through request context.
+- Prompt tests enforce semantic anchors and character budgets.
 
 ## Implementation order
 

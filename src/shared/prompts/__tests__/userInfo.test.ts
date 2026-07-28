@@ -10,7 +10,7 @@ describe('buildUserInfoPrompt', () => {
     const prompt = buildUserInfoSystemPrompt()
 
     expect(prompt).toContain('<user_info_system>')
-    expect(prompt).toContain('User Info Policy')
+    expect(prompt).toContain('global state conflict order')
     expect(prompt).toContain('If user_info_context shows `preferredAddress` is missing')
     expect(prompt).toContain('user_info_set')
     expect(prompt).not.toContain('Gn')

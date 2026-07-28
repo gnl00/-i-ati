@@ -16,7 +16,7 @@ vi.mock('@main/services/userInfo/UserInfoService', () => ({
 
 vi.mock('@main/hosts/chat/config/AppConfigStore', () => ({
   AppConfigStore: class {
-    getConfig() {
+    getConfig(): ReturnType<typeof getConfigMock> {
       return getConfigMock()
     }
   }
@@ -32,7 +32,7 @@ describe('UserInfoPromptProvider', () => {
     const prompt = await provider.build()
 
     expect(prompt).toContain('<user_info_system>')
-    expect(prompt).toContain('User Info Policy')
+    expect(prompt).toContain('global state conflict order')
     expect(prompt).not.toContain('ati_bot')
   })
 

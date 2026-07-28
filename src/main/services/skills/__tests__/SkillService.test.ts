@@ -77,6 +77,39 @@ describe('SkillService', () => {
     expect(content).toContain('snippetsOnly: true')
   })
 
+  it('lists and reads the built-in project and frontend artifact skills', async () => {
+    const list = await SkillService.listSkills()
+    const projectContextSkill = list.find(item => item.name === 'project-context')
+    const frontendArtifactSkill = list.find(item => item.name === 'frontend-artifact')
+
+    expect(projectContextSkill).toMatchObject({
+      name: 'project-context',
+      source: 'built-in'
+    })
+    expect(projectContextSkill?.path).toBe(
+      path.join(process.cwd(), 'resources', 'skills', 'project-context', 'SKILL.md')
+    )
+    expect(projectContextSkill?.description).toContain('repository architecture')
+
+    expect(frontendArtifactSkill).toMatchObject({
+      name: 'frontend-artifact',
+      source: 'built-in'
+    })
+    expect(frontendArtifactSkill?.path).toBe(
+      path.join(process.cwd(), 'resources', 'skills', 'frontend-artifact', 'SKILL.md')
+    )
+    expect(frontendArtifactSkill?.description).toContain('runnable frontend artifact')
+
+    const [projectContextContent, frontendArtifactContent] = await Promise.all([
+      SkillService.getSkillContent('project-context'),
+      SkillService.getSkillContent('frontend-artifact')
+    ])
+    expect(projectContextContent).toContain('## Project Knowledge Routing')
+    expect(projectContextContent).toContain('`.ati-kb/knowledge/api.md`')
+    expect(frontendArtifactContent).toContain('## Aesthetic Direction')
+    expect(frontendArtifactContent).toContain('`preview.sh`')
+  })
+
   it('lets an installed skill override a built-in skill with the same name', async () => {
     const sourcePath = path.join(userDataPath, 'search-skill.md')
     const content = [

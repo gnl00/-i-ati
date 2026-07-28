@@ -30,8 +30,6 @@ export const buildSoulSystemPrompt = (content: string = defaultSoulPrompt): stri
 
   return [
     '<soul_prompt>',
-    '## [P1] Soul',
-    '',
     normalizedContent,
     '</soul_prompt>'
   ].join('\n')

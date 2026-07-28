@@ -34,6 +34,10 @@ Built-in skills are app resources under `resources/skills` in development and `p
 ```text
 resources/
   skills/
+    frontend-artifact/
+      SKILL.md
+    project-context/
+      SKILL.md
     search-general/
       SKILL.md
 ```
@@ -42,8 +46,12 @@ resources/
 
 Built-in skills use the same `SKILL.md` format as user-installed skills. `SkillService.listSkills()` merges built-in metadata with user-installed metadata, marks built-in entries with `source: 'built-in'`, and lets a user-installed skill with the same normalized name take precedence for listing and content reads.
 
-The current built-in skill is:
+The current built-in skills are:
 
+- `frontend-artifact`: runnable frontend artifact creation, preview workflow,
+  and visual execution quality.
+- `project-context`: repository instruction discovery and focused `.ati-kb` /
+  `.claude` knowledge routing.
 - `search-general`: mandatory workflow for any user request that asks to search, web search, look up, browse, find latest/current information, verify facts, cite sources, or use `web_search`/`web_fetch`.
 
 ## Main-Process Service
@@ -147,7 +155,18 @@ The generated context has one data section:
 
 The system prompt tells the model that available skills are discoverable options. When the current task clearly matches an available skill, the model should call `load_skill`; the tool result confirms activation, and the runtime injects the active skill names through a hidden user context message.
 
-General web search details live in the built-in `search-general` skill. The static system prompt keeps only the minimal trigger rule: when the user asks to search, web search, browse, look up, find latest/current information, verify facts, cite sources, or use `web_search`/`web_fetch`, first load `search-general`, then follow its workflow.
+Specialized workflow details live in built-in skills:
+
+- `project-context` carries repository instruction and project knowledge
+  routing. The static system prompt keeps one trigger for repository work that
+  requires local instructions, architecture, conventions, or knowledge.
+- `frontend-artifact` carries runnable artifact, preview, and aesthetic
+  execution conventions.
+- `search-general` carries web search depth and source-selection workflow.
+
+The available-skills catalog descriptions provide the normal activation
+surface. The static system prompt retains only cross-task triggers that protect
+core repository behavior.
 
 ## Loaded Skills Context Injection
 
