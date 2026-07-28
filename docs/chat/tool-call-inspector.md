@@ -51,6 +51,10 @@ The floating Artifacts pill includes a Tools action and follows the existing
 Artifacts lifecycle. It appears while Artifacts is active and the panel is
 closed. Clicking the action opens the Tools tab.
 
+Pressing Escape once closes the Artifacts panel by changing only
+`artifactsPanelOpen`. The active tab and tool call selection remain available
+when the panel opens again.
+
 ## Verification
 
 - `src/renderer/src/features/chat/message/assistant-message/__tests__/ToolCallResult.test.tsx`

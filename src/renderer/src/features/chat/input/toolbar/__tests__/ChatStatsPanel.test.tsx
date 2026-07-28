@@ -111,7 +111,7 @@ describe('ChatStatsPanel', () => {
     expect(container.textContent).not.toContain('Context unavailable')
 
     const terms = Array.from(container.querySelectorAll('dt')).map(term => term.textContent)
-    expect(terms).toEqual(['Total tokens', 'Calls / results', 'Active skills'])
+    expect(terms).toEqual(['Tokens', 'Tools', 'Skills'])
     expect(container.querySelectorAll('section')).toHaveLength(2)
     expect(container.querySelector('article')).toBeNull()
   })

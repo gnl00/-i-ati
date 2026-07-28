@@ -47,6 +47,16 @@ import { ArtifactsPanel } from '../ArtifactsPanel'
 describe('ArtifactsPanel', () => {
   let container: HTMLDivElement
   let root: Root
+  let rootIsMounted: boolean
+
+  const renderPanel = async (): Promise<void> => {
+    await act(async () => root.render(<ArtifactsPanel />))
+    rootIsMounted = true
+  }
+
+  const dispatchKeyDown = async (event: KeyboardEvent): Promise<void> => {
+    await act(async () => document.dispatchEvent(event))
+  }
 
   beforeEach(() => {
     ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
@@ -54,6 +64,7 @@ describe('ArtifactsPanel', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
+    rootIsMounted = false
     useChatStore.setState({
       currentChatUuid: 'chat-1',
       artifactsPanelOpen: true,
@@ -63,12 +74,14 @@ describe('ArtifactsPanel', () => {
   })
 
   afterEach(async () => {
-    await act(async () => root.unmount())
+    if (rootIsMounted) {
+      await act(async () => root.unmount())
+    }
     container.remove()
   })
 
   it('delays workspace loading until Preview or Files is opened and keeps it mounted', async () => {
-    await act(async () => root.render(<ArtifactsPanel />))
+    await renderPanel()
     expect(workspaceFilesMock).not.toHaveBeenCalled()
     expect(container.querySelector('[data-testid="artifacts-footer"]')).toBeNull()
 
@@ -87,7 +100,7 @@ describe('ArtifactsPanel', () => {
   })
 
   it('keeps tab dimensions stable and exposes a visible keyboard focus treatment', async () => {
-    await act(async () => root.render(<ArtifactsPanel />))
+    await renderPanel()
 
     const toolsTab = Array.from(container.querySelectorAll<HTMLElement>('[role="tab"]'))
       .find(tab => tab.textContent === 'Tools')
@@ -98,5 +111,115 @@ describe('ArtifactsPanel', () => {
     expect(toolsTab?.className).toContain('min-w-12')
     expect(toolsTab?.className).toContain('focus-visible:ring-2')
     expect(toolsPanel?.className).not.toContain('animate-in')
+
+    const closeButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Close artifacts"]'
+    )
+    expect(closeButton?.title).toBe('Close artifacts (Esc)')
+  })
+
+  it('closes the panel with one Escape and preserves the active tab and tool selection', async () => {
+    const selection = {
+      chatUuid: 'chat-1',
+      segmentId: 'segment-1',
+      toolCallId: 'tool-call-1'
+    }
+    useChatStore.setState({
+      artifactsActiveTab: 'tools',
+      toolCallInspectorSelection: selection
+    })
+    await renderPanel()
+
+    await dispatchKeyDown(new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      key: 'Escape'
+    }))
+
+    const state = useChatStore.getState()
+    expect(state.artifactsPanelOpen).toBe(false)
+    expect(state.artifactsActiveTab).toBe('tools')
+    expect(state.toolCallInspectorSelection).toEqual(selection)
+  })
+
+  it('closes the panel when Escape was already default prevented', async () => {
+    await renderPanel()
+    const escapeEvent = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      key: 'Escape'
+    })
+    escapeEvent.preventDefault()
+    expect(escapeEvent.defaultPrevented).toBe(true)
+
+    await dispatchKeyDown(escapeEvent)
+
+    expect(useChatStore.getState().artifactsPanelOpen).toBe(false)
+  })
+
+  it('closes the panel before a child can stop Escape propagation', async () => {
+    await renderPanel()
+    const child = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Close artifacts"]'
+    )
+    child?.addEventListener('keydown', event => event.stopPropagation())
+
+    await act(async () => child?.dispatchEvent(new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      key: 'Escape'
+    })))
+
+    expect(useChatStore.getState().artifactsPanelOpen).toBe(false)
+  })
+
+  it('keeps the panel open while Escape belongs to an IME composition', async () => {
+    await renderPanel()
+
+    await dispatchKeyDown(new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      isComposing: true,
+      key: 'Escape'
+    }))
+
+    expect(useChatStore.getState().artifactsPanelOpen).toBe(true)
+
+    const legacyImeEscape = new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      key: 'Escape'
+    })
+    Object.defineProperty(legacyImeEscape, 'keyCode', { value: 229 })
+    await dispatchKeyDown(legacyImeEscape)
+
+    expect(useChatStore.getState().artifactsPanelOpen).toBe(true)
+  })
+
+  it('keeps the panel open for other keys', async () => {
+    await renderPanel()
+
+    await dispatchKeyDown(new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      key: 'Enter'
+    }))
+
+    expect(useChatStore.getState().artifactsPanelOpen).toBe(true)
+  })
+
+  it('removes the Escape listener when the panel unmounts', async () => {
+    await renderPanel()
+    await act(async () => root.unmount())
+    rootIsMounted = false
+
+    useChatStore.setState({ artifactsPanelOpen: true })
+    await dispatchKeyDown(new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      key: 'Escape'
+    }))
+
+    expect(useChatStore.getState().artifactsPanelOpen).toBe(true)
   })
 })

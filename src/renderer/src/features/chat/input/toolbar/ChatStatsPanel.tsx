@@ -126,7 +126,7 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
             <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
               Current accumulated
             </p>
-            <p className="mt-1 truncate font-mono text-[18px] font-semibold tracking-tight tabular-nums text-zinc-900 dark:text-zinc-100">
+            <p className="mt-1 truncate font-mono text-base font-semibold tracking-tight tabular-nums text-zinc-900 dark:text-zinc-100">
               {hasInitialSnapshot ? formatCompactTokenCount(stats.accumulatedTokens) : '—'}
               <span className="px-1.5 font-sans text-xs font-normal text-zinc-400 dark:text-zinc-500">
                 /
@@ -219,27 +219,27 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
           <div className="min-w-0 pr-3">
             <dt className="flex items-center gap-1.5 text-[10px] text-zinc-500 dark:text-zinc-400">
               <TokensIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
-              Total tokens
+              Tokens
             </dt>
-            <dd className="mt-2 truncate font-mono text-base font-semibold tabular-nums text-zinc-800 dark:text-zinc-100">
+            <dd className="mt-2 truncate font-mono text-xs font-semibold tabular-nums text-zinc-800 dark:text-zinc-100">
               {formatCompactTokenCount(stats.totalConversationTokens)}
             </dd>
           </div>
           <div className="min-w-0 border-l border-zinc-200/80 px-3 dark:border-zinc-800/80">
             <dt className="flex items-center gap-1.5 text-[10px] text-zinc-500 dark:text-zinc-400">
               <Wrench className="h-3 w-3 shrink-0" aria-hidden="true" />
-              Calls / results
+              Tools
             </dt>
-            <dd className="mt-2 truncate font-mono text-base font-semibold tabular-nums text-zinc-800 dark:text-zinc-100">
-              {stats.toolCallCount} / {stats.toolResultCount}
+            <dd className="mt-2 truncate font-mono text-xs font-semibold tabular-nums text-zinc-800 dark:text-zinc-100">
+              {stats.toolCallCount}/{stats.toolResultCount}
             </dd>
           </div>
           <div className="min-w-0 border-l border-zinc-200/80 pl-3 dark:border-zinc-800/80">
             <dt className="flex items-center gap-1.5 text-[10px] text-zinc-500 dark:text-zinc-400">
               <Sparkles className="h-3 w-3 shrink-0" aria-hidden="true" />
-              Active skills
+              Skills
             </dt>
-            <dd className="mt-2 truncate font-mono text-base font-semibold tabular-nums text-zinc-800 dark:text-zinc-100">
+            <dd className="mt-2 truncate font-mono text-xs font-semibold tabular-nums text-zinc-800 dark:text-zinc-100">
               {persistedStats.activeSkills.length}
             </dd>
           </div>
