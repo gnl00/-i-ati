@@ -43,14 +43,20 @@ const ToolInspectorEmptyState: React.FC<{
   title = 'Select a tool call',
   description = 'Choose a tool row in the conversation to inspect its parameters and result.'
 }) => (
-  <div className="flex h-full items-start justify-center px-8 pt-[24%] text-center" data-testid="tool-inspector-empty">
-    <div className="max-w-[280px]">
-      <span className="mx-auto mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200/80 bg-white/70 text-slate-500 dark:border-slate-800 dark:bg-white/[0.04] dark:text-slate-400">
-        <Wrench className="h-4 w-4" />
-      </span>
-      <h3 className="text-[12px] font-semibold text-zinc-800 dark:text-zinc-200">{title}</h3>
-      <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">{description}</p>
+  <div
+    className="flex h-full w-full flex-col items-center justify-center bg-zinc-50/50 p-8 text-center animate-in fade-in slide-in-from-bottom-4 duration-200 [animation-timing-function:cubic-bezier(0.23,1,0.32,1)] motion-reduce:slide-in-from-bottom-0 dark:bg-zinc-950"
+    data-testid="tool-inspector-empty"
+  >
+    <div
+      className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-black/5 bg-zinc-100/60 text-zinc-300 shadow-xs dark:border-white/8 dark:bg-zinc-900 dark:text-zinc-700"
+      data-testid="tool-inspector-empty-icon"
+    >
+      <Wrench className="h-10 w-10" />
     </div>
+    <h3 className="mb-1.5 text-sm font-semibold text-zinc-700 dark:text-zinc-100">{title}</h3>
+    <p className="max-w-[240px] text-xs leading-5 text-zinc-500 dark:text-zinc-400">
+      {description}
+    </p>
   </div>
 )
 

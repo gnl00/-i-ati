@@ -54,12 +54,14 @@ const WorkspaceTabs: React.FC<{
         forceMount
         className="m-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden data-[state=active]:animate-in data-[state=active]:fade-in data-[state=active]:duration-300"
       >
-        <FilesTabToolbar
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          onRefresh={files.handleRefresh}
-          isLoading={files.isLoadingTree}
-        />
+        {files.workspaceTree.length > 0 && (
+          <FilesTabToolbar
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            onRefresh={files.handleRefresh}
+            isLoading={files.isLoadingTree}
+          />
+        )}
         <ArtifactsFilesTab files={files} searchQuery={searchQuery} />
       </TabsContent>
       {(activeTab === 'preview' || activeTab === 'files') && (

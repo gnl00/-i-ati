@@ -3,8 +3,9 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { UseWorkspaceFilesReturn } from '../useWorkspaceFiles'
 
-const workspaceFilesMock = vi.hoisted(() => vi.fn(() => ({
+const workspaceFilesMock = vi.hoisted(() => vi.fn<() => UseWorkspaceFilesReturn>(() => ({
   workspaceTree: [],
   selectedFilePath: undefined,
   selectedFileContent: undefined,
@@ -26,7 +27,7 @@ vi.mock('../ArtifactsPreviewTab', () => ({
 
 vi.mock('../ArtifactsFilesTab', () => ({
   ArtifactsFilesTab: () => <div data-testid="files-content">Files content</div>,
-  FilesTabToolbar: () => <div>Files toolbar</div>
+  FilesTabToolbar: () => <div data-testid="files-toolbar">Files toolbar</div>
 }))
 
 vi.mock('../ArtifactsFooter', () => ({
@@ -60,7 +61,18 @@ describe('ArtifactsPanel', () => {
 
   beforeEach(() => {
     ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
-    workspaceFilesMock.mockClear()
+    workspaceFilesMock.mockReset()
+    workspaceFilesMock.mockReturnValue({
+      workspaceTree: [],
+      selectedFilePath: undefined,
+      selectedFileContent: undefined,
+      selectedFileName: undefined,
+      workspacePath: '/workspace',
+      isLoadingTree: false,
+      isLoadingFile: false,
+      handleFileSelect: vi.fn(),
+      handleRefresh: vi.fn()
+    })
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -99,6 +111,33 @@ describe('ArtifactsPanel', () => {
     expect(container.querySelector('[data-testid="artifacts-footer"]')).toBeNull()
   })
 
+  it('shows the Files toolbar only when the workspace contains files', async () => {
+    useChatStore.setState({ artifactsActiveTab: 'files' })
+    await renderPanel()
+
+    expect(container.querySelector('[data-testid="files-content"]')).toBeTruthy()
+    expect(container.querySelector('[data-testid="files-toolbar"]')).toBeNull()
+
+    workspaceFilesMock.mockReturnValue({
+      workspaceTree: [{
+        name: 'README.md',
+        path: '/workspace/README.md',
+        type: 'file'
+      }],
+      selectedFilePath: undefined,
+      selectedFileContent: undefined,
+      selectedFileName: undefined,
+      workspacePath: '/workspace',
+      isLoadingTree: false,
+      isLoadingFile: false,
+      handleFileSelect: vi.fn(),
+      handleRefresh: vi.fn()
+    })
+    await act(async () => root.render(<ArtifactsPanel />))
+
+    expect(container.querySelector('[data-testid="files-toolbar"]')).toBeTruthy()
+  })
+
   it('keeps tab dimensions stable and exposes a visible keyboard focus treatment', async () => {
     await renderPanel()
 
@@ -116,6 +155,36 @@ describe('ArtifactsPanel', () => {
       'button[aria-label="Close artifacts"]'
     )
     expect(closeButton?.title).toBe('Close artifacts (Esc)')
+  })
+
+  it('centers the Tools empty state within the available content area', async () => {
+    await renderPanel()
+
+    const emptyState = container.querySelector<HTMLElement>(
+      '[data-testid="tool-inspector-empty"]'
+    )
+
+    expect(emptyState?.className).toContain('h-full')
+    expect(emptyState?.className).toContain('items-center')
+    expect(emptyState?.className).toContain('justify-center')
+    expect(emptyState?.className).toContain('animate-in')
+    expect(emptyState?.className).toContain('fade-in')
+    expect(emptyState?.className).toContain('slide-in-from-bottom-4')
+    expect(emptyState?.className).toContain('duration-200')
+    expect(emptyState?.className).toContain(
+      '[animation-timing-function:cubic-bezier(0.23,1,0.32,1)]'
+    )
+    expect(emptyState?.className).toContain('motion-reduce:slide-in-from-bottom-0')
+
+    const emptyStateIcon = container.querySelector<HTMLElement>(
+      '[data-testid="tool-inspector-empty-icon"]'
+    )
+    expect(emptyStateIcon?.className).toContain('h-14')
+    expect(emptyStateIcon?.className).toContain('w-14')
+    expect(emptyStateIcon?.className).toContain('rounded-2xl')
+    expect(emptyStateIcon?.className).toContain('bg-zinc-100/60')
+    expect(emptyStateIcon?.className).toContain('shadow-xs')
+    expect(emptyStateIcon?.querySelector('svg')?.getAttribute('class')).toContain('h-10')
   })
 
   it('closes the panel with one Escape and preserves the active tab and tool selection', async () => {
