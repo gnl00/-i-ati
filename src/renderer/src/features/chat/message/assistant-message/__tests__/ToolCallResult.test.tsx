@@ -115,17 +115,28 @@ describe('ToolCallResult', () => {
 
   it('keeps the terminal duration visible in the tool row', async () => {
     await act(async () => root.render(<ToolCallResult toolCall={createToolCall()} index={0} />))
-    expect(container.textContent).toContain('0.080s')
+    expect(container.textContent).toContain('0.08s')
+  })
+
+  it('rounds the terminal duration to two decimal places', async () => {
+    const toolCall = {
+      ...createToolCall(),
+      cost: 1086
+    }
+    await act(async () => root.render(<ToolCallResult toolCall={toolCall} index={0} />))
+
+    expect(container.textContent).toContain('1.09s')
+    expect(container.textContent).not.toContain('1.086s')
   })
 
   it('updates the running duration from the execution start', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(10_000)
     await act(async () => root.render(<ToolCallResult toolCall={createToolCall('running')} index={0} />))
-    expect(container.textContent).toContain('0.080s')
+    expect(container.textContent).toContain('0.08s')
 
     await act(async () => vi.advanceTimersByTime(1000))
-    expect(container.textContent).toContain('1.080s')
+    expect(container.textContent).toContain('1.08s')
   })
 
   it('keeps the reason in the row and filters it from inspector parameters', async () => {
@@ -267,7 +278,8 @@ describe('ToolCallResult', () => {
       )
       expect(copyButton?.className).toContain('h-6')
       expect(copyButton?.className).toContain('w-6')
-      expect(copyButton?.className).toContain('transition-colors')
+      expect(copyButton?.className).toContain('transition-all')
+      expect(copyButton?.className).toContain('hover:scale-110')
       expect(copyButton?.title).toBe(label)
 
       await act(async () => {

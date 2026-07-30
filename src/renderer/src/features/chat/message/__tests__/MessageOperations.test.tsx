@@ -78,13 +78,29 @@ describe('MessageOperations', () => {
 
     expect(compactButton?.className).toContain('h-6')
     expect(compactButton?.className).toContain('w-6')
-    expect(compactButton?.className).toContain('transition-colors')
+    expect(compactButton?.className).toContain('transition-all')
+    expect(compactButton?.className).toContain('duration-300')
+    expect(compactButton?.className).toContain('ease-out')
     expect(compactButton?.className).toContain('hover:bg-black/5')
-    expect(compactButton?.className).not.toContain('hover:scale-110')
+    expect(compactButton?.className).toContain('hover:scale-110')
+    expect(compactButton?.className).toContain('active:scale-95')
     expect(compactButton?.className).not.toContain('backdrop-blur-sm')
     expect(compactButton?.className).not.toContain('message-operation-button')
     expect(compactIcon?.getAttribute('class')).toContain('w-3')
+    expect(compactIcon?.parentElement?.className).toContain('group-hover:rotate-12')
+    expect(compactIcon?.parentElement?.className).toContain('group-active:rotate-0')
     expect(compactButton?.title).toBe('Copy inspector')
+
+    for (const button of [footerButton, compactButton]) {
+      expect(button?.className).toContain('motion-reduce:transition-colors')
+      expect(button?.className).toContain('motion-reduce:hover:scale-none')
+      expect(button?.className).toContain('motion-reduce:active:scale-none')
+    }
+    for (const icon of [footerIcon, compactIcon]) {
+      expect(icon?.parentElement?.className).toContain('motion-reduce:transition-none')
+      expect(icon?.parentElement?.className).toContain('motion-reduce:group-hover:rotate-none')
+      expect(icon?.parentElement?.className).toContain('motion-reduce:group-active:rotate-none')
+    }
   })
 
   it('keeps assistant actions and meta hidden until the message is hovered', () => {

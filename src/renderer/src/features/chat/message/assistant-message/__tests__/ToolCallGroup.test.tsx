@@ -110,7 +110,7 @@ describe('ToolCallGroup', () => {
     expect(container.querySelector('[data-testid="tool-call-inline-panel-segment-1"]')?.getAttribute('data-state')).toBe('expanded')
     const firstSurface = container.querySelector('[data-testid="tool-call-detail-surface-segment-1"]')
     expect(firstSurface?.classList.contains('border-slate-200/35')).toBe(true)
-    expect(firstSurface?.classList.contains('bg-slate-100/45')).toBe(true)
+    expect(firstSurface?.classList.contains('bg-gray-100/45')).toBe(true)
     const firstDetails = container.querySelector('[data-testid="tool-call-inspector-details"]')
 
     await act(async () => second?.click())

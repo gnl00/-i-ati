@@ -124,7 +124,7 @@ function formatWikiCount(count: number | undefined, singular: string, plural: st
 }
 
 function formatToolCost(costMs: number): string {
-  return `${(Math.max(0, costMs) / 1000).toFixed(3)}s`
+  return `${(Math.max(0, costMs) / 1000).toFixed(2)}s`
 }
 
 function easeOutQuart(progress: number): number {

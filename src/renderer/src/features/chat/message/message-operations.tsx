@@ -30,6 +30,16 @@ export interface MessageOperationButtonsProps {
 }
 
 const operationMetaTextClassName = "min-w-0 truncate text-[11px] font-medium leading-none text-gray-400 tabular-nums dark:text-gray-500"
+const operationButtonMotionClassName = cn(
+  'transition-all duration-300 ease-out hover:scale-110 active:scale-95',
+  'motion-reduce:scale-none! motion-reduce:transition-colors',
+  'motion-reduce:hover:scale-none motion-reduce:active:scale-none'
+)
+const operationIconMotionClassName = cn(
+  'transition-transform duration-200 group-hover:rotate-12 group-active:rotate-0',
+  'motion-reduce:transition-none',
+  'motion-reduce:group-hover:rotate-none motion-reduce:group-active:rotate-none'
+)
 
 interface OperationButtonProps {
   icon: React.ReactNode
@@ -71,22 +81,23 @@ const OperationButton: React.FC<OperationButtonProps> = ({
         onMouseLeave={isCompact ? undefined : () => setShowTooltip(false)}
         className={cn(
           'flex items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2',
+          operationButtonMotionClassName,
           isCompact
             ? [
-              'h-6 w-6 text-zinc-400 transition-colors duration-150',
+              'h-6 w-6 text-zinc-400',
               'hover:bg-black/5 hover:text-zinc-700 dark:text-zinc-500 dark:hover:bg-white/6 dark:hover:text-zinc-200',
               'focus-visible:ring-zinc-400/40 dark:focus-visible:ring-zinc-500/60',
               isPressed && 'bg-black/[0.07] text-zinc-700 dark:bg-white/10 dark:text-zinc-200'
             ]
             : [
-              'h-7 w-7 transition-all duration-300 ease-out',
+              'h-7 w-7',
               'hover:bg-gray-100 dark:hover:bg-gray-800',
-              'hover:scale-110',
               'focus-visible:ring-blue-500/30',
               'backdrop-blur-sm',
               'message-operation-button',
-              isPressed && 'scale-95! ring-2 ring-blue-500/20'
-            ]
+              isPressed && 'ring-2 ring-blue-500/20'
+            ],
+          isPressed && 'scale-95!'
         )}
         style={isCompact
           ? undefined
@@ -96,12 +107,7 @@ const OperationButton: React.FC<OperationButtonProps> = ({
         aria-label={label}
         title={isCompact ? label : undefined}
       >
-        <div className={cn(
-          !isCompact && [
-            'transition-transform duration-200',
-            'group-hover:rotate-12 group-active:rotate-0'
-          ]
-        )}>
+        <div className={operationIconMotionClassName}>
           {icon}
         </div>
       </button>
