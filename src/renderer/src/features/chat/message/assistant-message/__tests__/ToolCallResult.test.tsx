@@ -96,8 +96,14 @@ describe('ToolCallResult', () => {
     const toolCall = createToolCall()
     await act(async () => root.render(<ToolCallResult toolCall={toolCall} index={0} />))
 
+    const result = container.querySelector('[data-testid="tool-call-result"]')
+    const trigger = container.querySelector('button')
+    expect(result?.classList.contains('w-[90%]')).toBe(true)
+    expect(result?.classList.contains('max-w-full')).toBe(true)
+    expect(trigger?.classList.contains('w-full')).toBe(true)
+
     await act(async () => {
-      container.querySelector('button')?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      trigger?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
     expect(useChatStore.getState()).toMatchObject({

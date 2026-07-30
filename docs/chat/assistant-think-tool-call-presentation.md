@@ -25,14 +25,14 @@ with the execution sequence.
 Each reasoning segment renders as an independent disclosure:
 
 ```text
-Think · 4s ----------------------------------------- chevron
+Think ----------------------------------------- 4s chevron
   expanded reasoning content
 ```
 
-The header contains the stable `Think` label, optional duration, a flexible
-hairline, and a chevron. The control exposes `aria-expanded` and
-`aria-controls`. Its horizontal inset matches the assistant text `px-2`
-baseline.
+The header contains the stable `Think` label, a flexible hairline, optional
+duration, and a chevron. The control exposes `aria-expanded` and
+`aria-controls`. Its wrapper uses 90% of the assistant content width, and its
+horizontal inset matches the assistant text `px-2` baseline.
 
 The body stays mounted inside `SizeAnimatedPanel` while its expanded state
 changes. It preserves Markdown rendering and malformed code-block repair.
@@ -68,10 +68,10 @@ Status color stays on the compact icon. The row and list surfaces remain
 neutral. Tool names and reasons share one line when space permits and use a
 stacked layout at narrow widths.
 
-The list frame uses a low-alpha border and translucent surface without a
-shadow. Row separators stay visible at a lower contrast. The expanded detail
-region uses a slightly stronger gray inset surface as the primary hierarchy
-cue.
+The list frame occupies 90% of the available assistant content width. It uses
+a low-alpha border, translucent surface, and flat elevation. Row separators
+stay visible at a lower contrast. The expanded detail region uses a slightly
+stronger gray inset surface as the primary hierarchy cue.
 
 One row per list can be expanded. Its persistent `SizeAnimatedPanel` renders a
 slightly tinted inset detail region directly below the row. The row control
@@ -120,6 +120,7 @@ is following the tail.
   long-list visibility policy.
 - `toolcall/ToolCallResult.tsx` owns shared tool status, row content, timing,
   and detail-body renderers.
+- `toolcall/toolCallLayout.ts` owns the shared transcript width token.
 - `toolcall/ToolCallInspectorContent.tsx` composes the stable Tools inspector.
 - `renderers/AssistantSupportSegmentList.tsx` renders the projected units.
 
@@ -128,8 +129,9 @@ is following the tail.
 Focused verification covers:
 
 - grouping boundaries and streaming singleton shell stability;
-- Think default state, duration, horizontal inset, accessibility, and reduced
-  motion;
+- Think default state, duration order, 90% content width, horizontal inset,
+  accessibility, and reduced motion;
+- 90% width for grouped and standalone tool-call results;
 - single-row expansion within a tool list;
 - inline detail rendering and passive inspector selection;
 - reason extraction and parameter filtering;

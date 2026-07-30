@@ -104,7 +104,7 @@ const ReasoningSegmentComponent: React.FC<ReasoningSegmentProps> = ({
   }, [isStreaming])
 
   return (
-    <div data-testid="reasoning-segment" className="my-1.5 w-full max-w-[760px] px-2">
+    <div data-testid="reasoning-segment" className="my-1.5 w-[90%] max-w-full px-2">
       <button
         type="button"
         aria-label="Toggle think"
@@ -130,6 +130,11 @@ const ReasoningSegmentComponent: React.FC<ReasoningSegmentProps> = ({
         >
           Think
         </span>
+        <span
+          aria-hidden="true"
+          data-testid="reasoning-hairline"
+          className="h-px min-w-6 flex-1 bg-slate-200/55 transition-colors group-hover:bg-slate-300/55 dark:bg-white/8 dark:group-hover:bg-white/12"
+        />
         {durationText ? (
           <span
             data-testid="reasoning-duration"
@@ -138,11 +143,6 @@ const ReasoningSegmentComponent: React.FC<ReasoningSegmentProps> = ({
             {durationText}
           </span>
         ) : null}
-        <span
-          aria-hidden="true"
-          data-testid="reasoning-hairline"
-          className="h-px min-w-6 flex-1 bg-slate-200/55 transition-colors group-hover:bg-slate-300/55 dark:bg-white/8 dark:group-hover:bg-white/12"
-        />
         <ChevronDown
           aria-hidden="true"
           data-testid="reasoning-chevron"

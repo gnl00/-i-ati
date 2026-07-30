@@ -13,6 +13,7 @@ import {
   ToolCallInspectorDetails,
   ToolCallTriggerContent
 } from './ToolCallResult'
+import { TOOL_CALL_RESULT_WIDTH_CLASS_NAME } from './toolCallLayout'
 
 type ToolCallRenderItem = SupportSegmentRenderItem & { segment: ToolCallSegment }
 
@@ -181,7 +182,10 @@ const ToolCallGroupComponent: React.FC<ToolCallGroupProps> = ({
   return (
     <div
       data-testid="tool-call-group"
-      className="my-2 w-full max-w-170 overflow-hidden rounded-lg border border-slate-200/45 bg-white/30 dark:border-white/6 dark:bg-white/1.5"
+      className={cn(
+        TOOL_CALL_RESULT_WIDTH_CLASS_NAME,
+        'my-2 overflow-hidden rounded-lg border border-slate-200/45 bg-white/30 dark:border-white/6 dark:bg-white/1.5'
+      )}
     >
       {visible.map(item => (
         <ToolCallGroupRow

@@ -99,6 +99,8 @@ describe('ToolCallGroup', () => {
     expect(group?.classList.contains('rounded-lg')).toBe(true)
     expect(group?.classList.contains('border-slate-200/45')).toBe(true)
     expect(group?.classList.contains('bg-white/30')).toBe(true)
+    expect(group?.classList.contains('w-[90%]')).toBe(true)
+    expect(group?.classList.contains('max-w-full')).toBe(true)
     expect(group?.classList.contains('shadow-xs')).toBe(false)
 
     const first = container.querySelector<HTMLButtonElement>('[data-testid="support-segment-row-segment-1"]')

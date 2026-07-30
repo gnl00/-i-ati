@@ -13,6 +13,7 @@ import type { SupportSegmentHeaderTone } from '../renderers/SupportSegmentHeader
 import { getReasonFromToolCall } from '../model/toolCallReason'
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
 import type { ToolLiveOutput } from '@renderer/features/chat/state/chatRunUiStore'
+import { TOOL_CALL_RESULT_WIDTH_CLASS_NAME } from './toolCallLayout'
 
 export interface ToolCallResultProps {
   toolCall: ToolCallSegment
@@ -439,7 +440,7 @@ export function getToolCallTriggerButtonClassName({
   className?: string
 }): string {
   return cn(
-    'group/toolcall inline-flex w-full max-w-[680px] cursor-pointer justify-start rounded-lg border text-left outline-hidden',
+    'group/toolcall inline-flex w-full cursor-pointer justify-start rounded-lg border text-left outline-hidden',
     'transition-[background-color,border-color,box-shadow] duration-150 ease-out',
     'border-slate-200/36 bg-white/34 hover:border-slate-200/54 hover:bg-slate-50/82',
     'focus-visible:ring-2 focus-visible:ring-slate-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
@@ -1075,10 +1076,11 @@ const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }
 
   return (
     <motion.div
+      data-testid="tool-call-result"
       initial={{ opacity: 0, y: 8, scale: 0.985 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ type: 'spring', stiffness: 360, damping: 30 }}
-      className="w-full max-w-full py-1 font-sans flow-root"
+      className={cn(TOOL_CALL_RESULT_WIDTH_CLASS_NAME, 'py-1 font-sans flow-root')}
     >
       <button
         type="button"

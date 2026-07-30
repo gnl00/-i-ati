@@ -47,6 +47,8 @@ describe('ReasoningSegment', () => {
     expect(panel?.getAttribute('data-state')).toBe('collapsed')
     expect(segment?.classList.contains('px-2')).toBe(true)
     expect(segment?.classList.contains('my-1.5')).toBe(true)
+    expect(segment?.classList.contains('w-[90%]')).toBe(true)
+    expect(segment?.classList.contains('max-w-full')).toBe(true)
     expect(trigger?.classList.contains('bg-transparent')).toBe(true)
     expect(label?.classList.contains('font-medium')).toBe(true)
     expect(label?.classList.contains('text-slate-400')).toBe(true)
@@ -78,5 +80,22 @@ describe('ReasoningSegment', () => {
     expect(container.querySelector('[data-testid="reasoning-duration"]')?.textContent).toBe('1s')
     await act(async () => vi.advanceTimersByTime(1250))
     expect(container.querySelector('[data-testid="reasoning-duration"]')?.textContent).toBe('2s')
+  })
+
+  it('places the duration immediately before the disclosure chevron', async () => {
+    const segment = createSegment({ endedAt: BASE_TIME.getTime() + 1250 })
+    await act(async () => root.render(<ReasoningSegment segment={segment} />))
+
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Toggle think"]')
+    const childTestIds = Array.from(trigger?.children ?? []).map(
+      child => child.getAttribute('data-testid')
+    )
+
+    expect(childTestIds).toEqual([
+      'reasoning-label',
+      'reasoning-hairline',
+      'reasoning-duration',
+      'reasoning-chevron'
+    ])
   })
 })
