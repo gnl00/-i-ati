@@ -6,6 +6,12 @@
 
 2026-07-03 review follow-up fixed the main accordion height path by keeping one `support-segment-middle-panel` mounted for every collapsible group and toggling its `expanded` state between compact and detailed display.
 
+2026-07-30 historical status: the mixed support accordion was replaced by
+standalone Think disclosures and tool-only lists. The persistent
+`SizeAnimatedPanel` and separated row/panel motion contracts remain active.
+Current behavior is defined in
+[Assistant Think and Tool Call Presentation](../../../chat/assistant-think-tool-call-presentation.md).
+
 The current production entry renders `Home` from `src/renderer/src/app/App.tsx`. `src/renderer/src/dev/test-pages/SupportSegmentStreamingMergeTestPage.tsx` remains a dormant visual playground file.
 
 ## Scope
@@ -143,7 +149,7 @@ Implementation notes:
 - render an inner `min-h-0 overflow-hidden` content wrapper
 - set `aria-hidden={!expanded}` on the outer panel
 - set inert behavior while collapsed so mounted buttons inside hidden content stay out of focus order
-- use Tailwind v4 syntax from [Tailwind CSS v4 syntax rules](../guides/development/tailwindcss-v4-syntax-rules.md)
+- use Tailwind v4 syntax from [Tailwind CSS v4 syntax rules](../../../guides/development/tailwindcss-v4-syntax-rules.md)
 
 Initial consumers:
 

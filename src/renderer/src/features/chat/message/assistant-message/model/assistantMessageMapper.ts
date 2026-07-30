@@ -163,9 +163,7 @@ export function mapAssistantMessage(
   const supportItems = orderedItems
     .filter((entry): entry is { kind: 'support'; item: SupportSegmentRenderItem } => entry.kind === 'support')
     .map(entry => entry.item)
-  const supportUnits = buildSupportRenderUnits(supportItems, {
-    groupSingletons: isLatest && isStreaming
-  })
+  const supportUnits = buildSupportRenderUnits(supportItems)
 
   return {
     header: {

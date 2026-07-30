@@ -7,7 +7,7 @@ import type {
 } from '@renderer/features/chat/message/assistant-message/model/assistantMessageMapper'
 import { buildSupportRenderUnits } from '@renderer/features/chat/message/assistant-message/model/assistantSupportGrouping'
 import { AssistantSupportSegmentContent } from '@renderer/features/chat/message/assistant-message/renderers/AssistantSupportSegmentContent'
-import { SupportSegmentGroup } from '@renderer/features/chat/message/assistant-message/renderers/SupportSegmentGroup'
+import { ToolCallGroup } from '@renderer/features/chat/message/assistant-message/toolcall/ToolCallGroup'
 import { cn } from '@renderer/shared/lib/utils'
 
 interface PlaybackStep {
@@ -113,12 +113,12 @@ const buildPlaybackSteps = (): PlaybackStep[] => {
   const thoughtStreaming = supportItem(createReasoningSegment({
     id: 'thought-anchor',
     order: 2,
-    content: 'The first support item can anchor the group while new tool and thought rows append into the same shell.'
+    content: 'Think remains independent while adjacent tool calls append into their shared list.'
   }), 2, true)
   const thoughtDone = supportItem(createReasoningSegment({
     id: 'thought-anchor',
     order: 2,
-    content: 'The first support item can anchor the group while new tool and thought rows append into the same shell.',
+    content: 'Think remains independent while adjacent tool calls append into their shared list.',
     done: true
   }), 2)
   const patchRunning = supportItem(createToolSegment({
@@ -170,7 +170,7 @@ const buildPlaybackSteps = (): PlaybackStep[] => {
     },
     {
       label: '04',
-      status: 'Thought row appends as streaming tail',
+      status: 'Think disclosure appends as the streaming tail',
       items: [readDone, searchDone, thoughtStreaming]
     },
     {
@@ -242,7 +242,7 @@ const buildAccordionStressSteps = (): PlaybackStep[] => {
     order: 4,
     status: 'completed',
     reason: 'Verify the completed group can collapse.',
-    result: 'SupportSegmentGroup regression passed.'
+    result: 'ToolCallGroup regression passed.'
   }), 4)
 
   return [
@@ -272,8 +272,8 @@ function SupportUnitPreview({
     <div className="flex flex-col items-start gap-1.5">
       {units.map(unit => (
         <div key={unit.key} style={{ order: unit.order }} className="w-full">
-          {unit.type === 'supportGroup' ? (
-            <SupportSegmentGroup
+          {unit.type === 'toolGroup' ? (
+            <ToolCallGroup
               items={unit.items}
               forceReducedMotion={forceReducedMotion}
             />
@@ -298,7 +298,7 @@ function PlaybackPanel({
   forceReducedMotion?: boolean
 }) {
   const units = useMemo(() => (
-    buildSupportRenderUnits(step.items, { groupSingletons: true })
+    buildSupportRenderUnits(step.items)
   ), [step.items])
 
   return (
@@ -365,13 +365,13 @@ export default function SupportSegmentStreamingMergeTestPage() {
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div className="min-w-0 space-y-1">
             <p className="text-[11px] font-semibold uppercase text-slate-500 dark:text-slate-400">
-              Support Segment Streaming Merge
+              Think and Tool Call Streaming
             </p>
             <h1 className="text-xl font-semibold text-slate-950 dark:text-white">
-              Stable support group append playground
+              Independent Think and tool list playground
             </h1>
             <p className="max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-400">
-              Step through tool and thought appends while watching the group shell, phase rows, and reduced-motion fallback.
+              Step through Think and tool-call appends while watching list boundaries, inline details, and reduced-motion fallback.
             </p>
           </div>
 

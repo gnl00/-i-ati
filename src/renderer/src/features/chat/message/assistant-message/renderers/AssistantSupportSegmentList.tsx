@@ -3,9 +3,9 @@ import type { SupportRenderUnit, SupportSegmentRenderItem } from '../model/assis
 import { AssistantSupportSegmentContent } from './AssistantSupportSegmentContent'
 import {
   areSupportSegmentRenderItemListsEqual,
-  areSupportSegmentRenderItemsEqual,
-  SupportSegmentGroup
-} from './SupportSegmentGroup'
+  areSupportSegmentRenderItemsEqual
+} from '../model/supportSegmentEquality'
+import { ToolCallGroup } from '../toolcall/ToolCallGroup'
 
 const AssistantSupportSegmentItem = memo(({
   item
@@ -31,7 +31,7 @@ const areSupportRenderUnitsEqual = (
       return areSupportSegmentRenderItemsEqual(unit.item, nextUnit.item)
     }
 
-    if (unit.type === 'supportGroup' && nextUnit.type === 'supportGroup') {
+    if (unit.type === 'toolGroup' && nextUnit.type === 'toolGroup') {
       return areSupportSegmentRenderItemListsEqual(unit.items, nextUnit.items)
     }
 
@@ -44,8 +44,8 @@ const AssistantSupportRenderUnit = memo(({
 }: {
   unit: SupportRenderUnit
 }) => {
-  if (unit.type === 'supportGroup') {
-    return <SupportSegmentGroup items={unit.items} />
+  if (unit.type === 'toolGroup') {
+    return <ToolCallGroup items={unit.items} />
   }
 
   return <AssistantSupportSegmentItem item={unit.item} />

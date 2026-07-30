@@ -323,10 +323,10 @@ describe('mapAssistantMessage', () => {
 
     expect(renderState.transcript.supportUnits).toHaveLength(1)
     expect(renderState.transcript.supportUnits[0]).toMatchObject({
-      type: 'supportGroup',
+      type: 'toolGroup',
       order: 0
     })
-    expect(renderState.transcript.supportUnits[0].type === 'supportGroup'
+    expect(renderState.transcript.supportUnits[0].type === 'toolGroup'
       ? renderState.transcript.supportUnits[0].items.map(item => item.segment.segmentId)
       : []
     ).toEqual(['tool-1', 'tool-2', 'tool-3'])
@@ -360,17 +360,17 @@ describe('mapAssistantMessage', () => {
 
     expect(renderState.transcript.supportUnits).toHaveLength(1)
     expect(renderState.transcript.supportUnits[0]).toMatchObject({
-      type: 'supportGroup',
-      key: 'support-group:preview-streaming-tool-0',
+      type: 'toolGroup',
+      key: 'tool-group:preview-streaming-tool-0',
       order: 0
     })
-    expect(renderState.transcript.supportUnits[0].type === 'supportGroup'
+    expect(renderState.transcript.supportUnits[0].type === 'toolGroup'
       ? renderState.transcript.supportUnits[0].items.map(item => item.segment.segmentId)
       : []
     ).toEqual(['streaming-tool'])
   })
 
-  it('keeps settled singleton support items as single render units', () => {
+  it('wraps settled singleton tool calls in the shared tool list', () => {
     const renderState = mapAssistantMessage({
       committedMessage: {
         role: 'assistant',
@@ -392,13 +392,13 @@ describe('mapAssistantMessage', () => {
 
     expect(renderState.transcript.supportUnits).toHaveLength(1)
     expect(renderState.transcript.supportUnits[0]).toMatchObject({
-      type: 'single',
-      key: 'committed-settled-tool-0',
+      type: 'toolGroup',
+      key: 'tool-group:committed-settled-tool-0',
       order: 0
     })
   })
 
-  it('groups tool, reasoning, and tool into one support render unit', () => {
+  it('keeps think independent from adjacent tool calls', () => {
     const renderState = mapAssistantMessage({
       committedMessage: {
         role: 'assistant',
@@ -424,18 +424,19 @@ describe('mapAssistantMessage', () => {
       accounts: []
     })
 
-    expect(renderState.transcript.supportUnits).toHaveLength(1)
-    expect(renderState.transcript.supportUnits[0]).toMatchObject({
-      type: 'supportGroup',
-      order: 0
-    })
-    expect(renderState.transcript.supportUnits[0].type === 'supportGroup'
-      ? renderState.transcript.supportUnits[0].items.map(item => item.segment.segmentId)
-      : []
-    ).toEqual(['tool-1', 'reasoning-1', 'tool-2'])
+    expect(renderState.transcript.supportUnits.map(unit => unit.type)).toEqual([
+      'toolGroup',
+      'single',
+      'toolGroup'
+    ])
+    expect(renderState.transcript.supportUnits.map(unit => (
+      unit.type === 'single'
+        ? unit.item.segment.segmentId
+        : unit.items[0]?.segment.segmentId
+    ))).toEqual(['tool-1', 'reasoning-1', 'tool-2'])
   })
 
-  it('groups consecutive reasoning segments into one support render unit', () => {
+  it('keeps consecutive think segments as independent disclosures', () => {
     const renderState = mapAssistantMessage({
       committedMessage: {
         role: 'assistant',
@@ -453,18 +454,17 @@ describe('mapAssistantMessage', () => {
       accounts: []
     })
 
-    expect(renderState.transcript.supportUnits).toHaveLength(1)
-    expect(renderState.transcript.supportUnits[0]).toMatchObject({
-      type: 'supportGroup',
-      order: 0
-    })
-    expect(renderState.transcript.supportUnits[0].type === 'supportGroup'
-      ? renderState.transcript.supportUnits[0].items.map(item => item.segment.segmentId)
-      : []
-    ).toEqual(['reasoning-1', 'reasoning-2', 'reasoning-3'])
+    expect(renderState.transcript.supportUnits.map(unit => unit.type)).toEqual([
+      'single',
+      'single',
+      'single'
+    ])
+    expect(renderState.transcript.supportUnits.map(unit => (
+      unit.type === 'single' ? unit.item.segment.segmentId : 'group'
+    ))).toEqual(['reasoning-1', 'reasoning-2', 'reasoning-3'])
   })
 
-  it('keeps text order gaps as support group boundaries', () => {
+  it('keeps text order gaps as tool list boundaries', () => {
     const renderState = mapAssistantMessage({
       committedMessage: {
         role: 'assistant',
@@ -491,10 +491,10 @@ describe('mapAssistantMessage', () => {
     })
 
     expect(renderState.transcript.supportItems.map(item => item.order)).toEqual([0, 2])
-    expect(renderState.transcript.supportUnits.map(unit => unit.type)).toEqual(['single', 'single'])
+    expect(renderState.transcript.supportUnits.map(unit => unit.type)).toEqual(['toolGroup', 'toolGroup'])
   })
 
-  it('keeps layer changes as support group boundaries during streaming', () => {
+  it('keeps layer changes as tool list boundaries during streaming', () => {
     const renderState = mapAssistantMessage({
       committedMessage: {
         role: 'assistant',
@@ -533,16 +533,16 @@ describe('mapAssistantMessage', () => {
       { id: 'committed-tool', layer: 'committed', order: 0 },
       { id: 'preview-tool', layer: 'preview', order: 1 }
     ])
-    expect(renderState.transcript.supportUnits.map(unit => unit.type)).toEqual(['supportGroup', 'supportGroup'])
+    expect(renderState.transcript.supportUnits.map(unit => unit.type)).toEqual(['toolGroup', 'toolGroup'])
     expect(renderState.transcript.supportUnits.map(unit => (
-      unit.type === 'supportGroup' ? unit.items.map(item => item.segment.segmentId) : []
+      unit.type === 'toolGroup' ? unit.items.map(item => item.segment.segmentId) : []
     ))).toEqual([
       ['committed-tool'],
       ['preview-tool']
     ])
   })
 
-  it('keeps errors as support group boundaries', () => {
+  it('keeps errors as tool list boundaries', () => {
     const renderState = mapAssistantMessage({
       committedMessage: {
         role: 'assistant',
@@ -569,12 +569,14 @@ describe('mapAssistantMessage', () => {
     })
 
     expect(renderState.transcript.supportUnits.map(unit => unit.type)).toEqual([
+      'toolGroup',
       'single',
-      'single',
-      'single'
+      'toolGroup'
     ])
     expect(renderState.transcript.supportUnits.map(unit => (
-      unit.type === 'single' ? unit.item.segment.segmentId : 'group'
+      unit.type === 'single'
+        ? unit.item.segment.segmentId
+        : unit.items[0]?.segment.segmentId
     ))).toEqual(['tool-1', 'error-1', 'tool-2'])
   })
 

@@ -25,6 +25,7 @@ export type ChatViewActions = {
   toggleArtifactsPanel: () => void
   setArtifactsPanel: (open: boolean) => void
   setArtifactsActiveTab: (tab: ArtifactsTab) => void
+  selectToolCall: (selection: ToolCallInspectorSelection) => void
   inspectToolCall: (selection: ToolCallInspectorSelection) => void
   setImageSrcBase64List: (imgs: ClipbordImg[]) => void
 }
@@ -49,6 +50,7 @@ export function createChatViewActions<T extends ChatViewState>(
     toggleArtifactsPanel: () => set((state) => ({ artifactsPanelOpen: !state.artifactsPanelOpen } as Partial<T>)),
     setArtifactsPanel: (open) => set({ artifactsPanelOpen: open } as Partial<T>),
     setArtifactsActiveTab: (tab) => set({ artifactsActiveTab: tab } as Partial<T>),
+    selectToolCall: (selection) => set({ toolCallInspectorSelection: selection } as Partial<T>),
     inspectToolCall: (selection) => set({
       toolCallInspectorSelection: selection,
       artifactsActiveTab: 'tools',

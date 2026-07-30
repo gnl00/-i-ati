@@ -504,7 +504,7 @@ export const ToolCallTriggerContent = React.memo(({
           )}
         />
       </span>
-      <span className="flex min-w-0 flex-col justify-center">
+      <span className="flex min-w-0 flex-col justify-center gap-0.5 sm:flex-row sm:items-center sm:gap-2">
         <span
           data-testid={`tool-call-trigger-name-${toolCall.segmentId}`}
           className={cn(
@@ -519,7 +519,7 @@ export const ToolCallTriggerContent = React.memo(({
             data-testid={`tool-call-trigger-reason-${toolCall.segmentId}`}
             title={reason}
             className={cn(
-              'mt-0.5 block w-full max-w-full truncate whitespace-nowrap font-medium leading-snug text-slate-500 dark:text-slate-400',
+              'block w-full max-w-full truncate whitespace-nowrap font-medium leading-snug text-slate-500 dark:text-slate-400 sm:min-w-0 sm:flex-1',
               isCompact ? 'text-[10px]' : 'text-[10.5px]'
             )}
           >

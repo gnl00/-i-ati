@@ -31,10 +31,11 @@ The renderer reads tool-call reasons at the tool row level:
 
 - `src/renderer/src/features/chat/message/assistant-message/model/toolCallReason.ts` exposes `getReasonFromToolCall(segment)`.
 - `getReasonFromToolCall` reads `tool_call_reason` from object args and JSON string args, trims the value, and returns a visible reason for non-empty strings.
-- `ToolCallTriggerContent` calls `getReasonFromToolCall` and renders the reason below the tool name inside the tool row.
+- `ToolCallTriggerContent` calls `getReasonFromToolCall` and renders the reason beside the tool name when width permits, with a stacked narrow-width layout.
 - `ToolCallInspectorDetails` filters `tool_call_reason` from the Parameters section through `filterDisplayParamEntries`.
 - Summary parameter components receive filtered entries, so the synthetic reason field stays out of normal tool parameters.
-- `SupportSegmentGroup` uses the same `ToolCallTriggerContent` and `inspectToolCall` action for grouped tool rows.
+- `ToolCallGroup` uses the same `ToolCallTriggerContent` for every row and keeps one inline detail region expanded.
+- Expanding a grouped tool row calls `selectToolCall`, which updates the Tools inspector selection while preserving the current Artifacts panel state.
 - The selected tool reason remains in the inspector header while Parameters contains executable arguments.
 
 Streaming updates can add `tool_call_reason` while a tool call remains `pending`. `areToolCallSegmentsEqual` compares the extracted reason from the previous and next segments, so memoized tool rows re-render when a streamed args patch adds or changes the reason.
@@ -56,4 +57,4 @@ Key coverage:
 - Tool execution argument cleanup: `src/main/agent/tools/__tests__/ToolExecutor.test.ts`
 - Renderer extraction: `src/renderer/src/features/chat/message/assistant-message/__tests__/toolCallReason.test.ts`
 - Row-level tool result rendering and filtering: `src/renderer/src/features/chat/message/assistant-message/__tests__/ToolCallResult.test.tsx`
-- Grouped support row rendering: `src/renderer/src/features/chat/message/assistant-message/__tests__/SupportSegmentGroup.test.tsx`
+- Grouped tool row rendering: `src/renderer/src/features/chat/message/assistant-message/__tests__/ToolCallGroup.test.tsx`

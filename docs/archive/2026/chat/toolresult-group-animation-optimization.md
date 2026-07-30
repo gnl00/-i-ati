@@ -11,7 +11,11 @@
 
 > 2026-07-27 更新：工具详情现由 Artifacts panel 的 Tools tab 承载。本文关于
 > `ToolCallResultPanel` 浮层的章节保留为历史决策记录；当前详情动效和布局见
-> [Tool Call Inspector](./tool-call-inspector.md)。
+> [Tool Call Inspector](../../../chat/tool-call-inspector.md)。
+>
+> 2026-07-30 更新：混合 `SupportSegmentGroup` 已演进为独立 Think disclosure
+> 与 tool-only list。本文保留动画决策记录，当前生产结构见
+> [Assistant Think and Tool Call Presentation](../../../chat/assistant-think-tool-call-presentation.md)。
 
 ### 现有动画机制
 
@@ -502,9 +506,9 @@ useAnimationPerformance(import.meta.env.DEV && hasLiveTiming)
 
 ## 相关文档
 
-- [Chat Message Rendering Optimization](./chat-message-rendering-optimization.md)
-- [Typewriter Stability Guidelines](./typewriter-stability-guidelines.md)
-- [Render Pipeline Optimization](../archive/2026/architecture/render-pipeline-optimization.md)
+- [Chat Message Rendering Optimization](../../../chat/chat-message-rendering-optimization.md)
+- [Typewriter Stability Guidelines](../../../chat/typewriter-stability-guidelines.md)
+- [Render Pipeline Optimization](../architecture/render-pipeline-optimization.md)
 
 ---
 
@@ -513,3 +517,4 @@ useAnimationPerformance(import.meta.env.DEV && hasLiveTiming)
 - **2026-07-11**: 初始文档创建，分析当前实现并提出优化方案
 - **2026-07-11**: 实施水平滑入动画，从垂直 (y) 改为水平 (x) 方向，添加 scale 变换
 - **2026-07-27**: 工具详情迁移到 Artifacts Tools tab，浮层相关内容转为历史记录
+- **2026-07-30**: 混合 support accordion 演进为独立 Think disclosure 与 tool-only list

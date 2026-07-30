@@ -8,18 +8,14 @@ export type SupportRenderUnit =
       item: SupportSegmentRenderItem
     }
   | {
-      type: 'supportGroup'
+      type: 'toolGroup'
       key: string
       order: number
       items: SupportSegmentRenderItem[]
     }
 
-export interface BuildSupportRenderUnitsOptions {
-  groupSingletons?: boolean
-}
-
 const isGroupableSupportItem = (item: SupportSegmentRenderItem): boolean => (
-  item.segment.type === 'toolCall' || item.segment.type === 'reasoning'
+  item.segment.type === 'toolCall'
 )
 
 const canJoinSupportGroup = (
@@ -40,15 +36,14 @@ const toSingleUnit = (item: SupportSegmentRenderItem): SupportRenderUnit => ({
 })
 
 const toSupportGroupUnit = (items: SupportSegmentRenderItem[]): SupportRenderUnit => ({
-  type: 'supportGroup',
-  key: `support-group:${items[0].key}`,
+  type: 'toolGroup',
+  key: `tool-group:${items[0].key}`,
   order: items[0].order,
   items
 })
 
 export function buildSupportRenderUnits(
-  items: SupportSegmentRenderItem[],
-  options: BuildSupportRenderUnitsOptions = {}
+  items: SupportSegmentRenderItem[]
 ): SupportRenderUnit[] {
   const units: SupportRenderUnit[] = []
   let index = 0
@@ -70,11 +65,7 @@ export function buildSupportRenderUnits(
       cursor += 1
     }
 
-    units.push(
-      groupItems.length > 1 || options.groupSingletons
-        ? toSupportGroupUnit(groupItems)
-        : toSingleUnit(first)
-    )
+    units.push(toSupportGroupUnit(groupItems))
     index = cursor
   }
 

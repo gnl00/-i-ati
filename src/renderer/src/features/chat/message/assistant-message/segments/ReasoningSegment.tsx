@@ -1,14 +1,12 @@
 import React, { memo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { useReducedMotion } from 'framer-motion'
+import { ChevronDown } from 'lucide-react'
+import { SizeAnimatedPanel } from '@renderer/shared/components/ui/size-animated-panel'
 import { cn } from '@renderer/shared/lib/utils'
-import { Button } from '@renderer/shared/components/ui/button'
-import { BrainCircuit, Clipboard, Lightbulb } from 'lucide-react'
-import { toast } from 'sonner'
 import { fixMalformedCodeBlocks } from '../../markdown/markdown-components'
 import { remarkPreserveLineBreaks } from '../../markdown/markdown-plugins'
-import { AssistantSegmentPopout } from '../renderers/AssistantSegmentPopout'
-import { SupportSegmentHeader } from '../renderers/SupportSegmentHeader'
 
 interface ReasoningSegmentProps {
   segment: ReasoningSegment
@@ -16,69 +14,38 @@ interface ReasoningSegmentProps {
 }
 
 interface ReasoningSegmentPanelProps {
-  content: string
   fixedContent: string
 }
 
 export const ReasoningSegmentPanel: React.FC<ReasoningSegmentPanelProps> = ({
-  content,
   fixedContent
 }) => {
-  const onCopyClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.stopPropagation()
-    void navigator.clipboard.writeText(content)
-    toast.success('Thought Copied')
-  }
-
   return (
-    <div data-testid="reasoning-thought-popout" className="relative overflow-hidden rounded-2xl">
-      <div className="flex items-center justify-between gap-3 border-b border-slate-200/55 bg-slate-50/56 px-3 py-1.5 dark:border-slate-800/55 dark:bg-slate-900/36">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="inline-flex h-5 w-5 items-center justify-center rounded-lg bg-slate-200/55 text-slate-600 dark:bg-white/6 dark:text-slate-300">
-            <BrainCircuit className="h-3 w-3" />
-          </span>
-          <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Output
-            </p>
-          </div>
-        </div>
-
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="Copy thought"
-          className="h-7 w-7 rounded-xl hover:bg-slate-200/70 dark:hover:bg-slate-700/60"
-          onClick={onCopyClick}
-        >
-          <Clipboard className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
-        </Button>
-      </div>
-
+    <div
+      data-testid="reasoning-think-content"
+      className="relative border-l border-slate-200/70 pl-3 dark:border-white/8"
+    >
       <div
-        className="max-h-[min(456px,calc(100vh-160px))] overflow-y-auto overscroll-contain px-1.5 py-2 custom-scrollbar"
+        className="max-h-[min(456px,calc(100vh-160px))] overflow-y-auto overscroll-contain pr-1 custom-scrollbar"
         onWheel={(event) => event.stopPropagation()}
         onTouchMove={(event) => event.stopPropagation()}
       >
-        <div className="border-l border-slate-300/40 pl-3 dark:border-slate-700/45">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm, remarkPreserveLineBreaks]}
-            skipHtml={false}
-            className={cn(
-              'prose prose-sm max-w-none',
-              'prose-slate dark:prose-invert',
-              'text-[12.5px] leading-6 text-slate-500 dark:text-slate-300',
-              'prose-p:my-1.5 prose-p:leading-6',
-              'prose-code:text-slate-700 dark:prose-code:text-slate-200',
-              'prose-code:bg-slate-200/38 dark:prose-code:bg-slate-800/52',
-              'prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-[10px]',
-              'prose-hr:my-2 prose-hr:border-slate-200 dark:prose-hr:border-slate-700',
-              'prose-strong:font-semibold prose-strong:text-slate-700 dark:prose-strong:text-slate-100'
-            )}
-          >
-            {fixedContent}
-          </ReactMarkdown>
-        </div>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm, remarkPreserveLineBreaks]}
+          skipHtml={false}
+          className={cn(
+            'prose prose-sm max-w-none',
+            'prose-slate dark:prose-invert',
+            'text-[12.5px] leading-6 text-slate-500 dark:text-slate-300',
+            'prose-p:my-1.5 prose-p:leading-6',
+            'prose-code:rounded-sm prose-code:bg-slate-200/38 prose-code:px-1 prose-code:py-0.5 prose-code:text-[10px] prose-code:text-slate-700',
+            'dark:prose-code:bg-slate-800/52 dark:prose-code:text-slate-200',
+            'prose-hr:my-2 prose-hr:border-slate-200 dark:prose-hr:border-slate-700',
+            'prose-strong:font-semibold prose-strong:text-slate-700 dark:prose-strong:text-slate-100'
+          )}
+        >
+          {fixedContent}
+        </ReactMarkdown>
       </div>
     </div>
   )
@@ -89,18 +56,11 @@ export function getReasoningDurationMs(
   isStreaming: boolean,
   liveNow: number
 ): number | undefined {
-  if (typeof segment.timestamp !== 'number') {
-    return undefined
-  }
-
+  if (typeof segment.timestamp !== 'number') return undefined
   if (typeof segment.endedAt === 'number' && segment.endedAt >= segment.timestamp) {
     return segment.endedAt - segment.timestamp
   }
-
-  if (isStreaming) {
-    return Math.max(0, liveNow - segment.timestamp)
-  }
-
+  if (isStreaming) return Math.max(0, liveNow - segment.timestamp)
   return undefined
 }
 
@@ -115,70 +75,97 @@ export function useReasoningDurationText(
   const [liveNow, setLiveNow] = React.useState(() => Date.now())
 
   React.useEffect(() => {
-    if (!isStreaming) {
-      return
-    }
-
+    if (!isStreaming) return
     setLiveNow(Date.now())
-
-    const timer = window.setInterval(() => {
-      setLiveNow(Date.now())
-    }, 250)
-
-    return () => {
-      window.clearInterval(timer)
-    }
+    const timer = window.setInterval(() => setLiveNow(Date.now()), 250)
+    return (): void => window.clearInterval(timer)
   }, [isStreaming])
 
-  const durationMs = React.useMemo(() => (
-    getReasoningDurationMs(segment, isStreaming, liveNow)
-  ), [isStreaming, liveNow, segment])
-
+  const durationMs = React.useMemo(
+    () => getReasoningDurationMs(segment, isStreaming, liveNow),
+    [isStreaming, liveNow, segment]
+  )
   return formatReasoningDurationText(durationMs)
 }
 
-export const ReasoningSegment: React.FC<ReasoningSegmentProps> = memo(({
+const ReasoningSegmentComponent: React.FC<ReasoningSegmentProps> = ({
   segment,
   isStreaming = false
 }) => {
   const fixedContent = fixMalformedCodeBlocks(segment.content)
-  const [isOpen, setIsOpen] = React.useState(false)
+  const [isOpen, setIsOpen] = React.useState(isStreaming)
+  const hasUserChoice = React.useRef(false)
+  const shouldReduceMotion = useReducedMotion()
   const durationText = useReasoningDurationText(segment, isStreaming)
+  const panelId = React.useId()
+
+  React.useEffect(() => {
+    if (!hasUserChoice.current) setIsOpen(isStreaming)
+  }, [isStreaming])
 
   return (
-    <div className="my-2 w-full">
-      <div className="inline-block max-w-[760px]">
-        <AssistantSegmentPopout
-          open={isOpen}
-          onOpenChange={setIsOpen}
-          renderTrigger={({ isOpen }) => (
-            <button
-              type="button"
-              aria-label="Inspect thought process"
-              className={cn(
-                'group inline-flex w-auto cursor-pointer items-center justify-start gap-0 rounded-xl px-0 py-0',
-                'border-0 ring-0 outline-hidden',
-                'text-left',
-                'focus:outline-hidden focus-visible:ring-2 focus-visible:ring-slate-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-slate-500/80'
-              )}
-            >
-              <SupportSegmentHeader
-                icon={Lightbulb}
-                name="Thought"
-                duration={durationText}
-                tone="neutral"
-                density="regular"
-                isOpen={isOpen}
-              />
-            </button>
+    <div data-testid="reasoning-segment" className="my-1.5 w-full max-w-[760px] px-2">
+      <button
+        type="button"
+        aria-label="Toggle think"
+        aria-expanded={isOpen}
+        aria-controls={panelId}
+        onClick={() => {
+          hasUserChoice.current = true
+          setIsOpen(current => !current)
+        }}
+        className={cn(
+          'group flex w-full cursor-pointer items-center gap-2 rounded-md py-1 text-left outline-hidden',
+          'bg-transparent transition-colors',
+          'focus-visible:ring-2 focus-visible:ring-slate-400/65 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-slate-500/75'
+        )}
+      >
+        <span
+          data-testid="reasoning-label"
+          className={cn(
+            'shrink-0 text-[11px] font-medium transition-colors',
+            'text-slate-400 group-hover:text-slate-500 dark:text-slate-500 dark:group-hover:text-slate-400',
+            isOpen && 'text-slate-500 dark:text-slate-400'
           )}
         >
-          <ReasoningSegmentPanel
-            content={segment.content}
-            fixedContent={fixedContent}
-          />
-        </AssistantSegmentPopout>
-      </div>
+          Think
+        </span>
+        {durationText ? (
+          <span
+            data-testid="reasoning-duration"
+            className="shrink-0 text-[10px] font-medium tabular-nums text-slate-300 transition-colors group-hover:text-slate-400 dark:text-slate-600 dark:group-hover:text-slate-500"
+          >
+            {durationText}
+          </span>
+        ) : null}
+        <span
+          aria-hidden="true"
+          data-testid="reasoning-hairline"
+          className="h-px min-w-6 flex-1 bg-slate-200/55 transition-colors group-hover:bg-slate-300/55 dark:bg-white/8 dark:group-hover:bg-white/12"
+        />
+        <ChevronDown
+          aria-hidden="true"
+          data-testid="reasoning-chevron"
+          className={cn(
+            'h-3.5 w-3.5 shrink-0 text-slate-300 transition-[color,transform] duration-200 group-hover:text-slate-400 dark:text-slate-600 dark:group-hover:text-slate-500 motion-reduce:transition-none',
+            isOpen && 'rotate-180'
+          )}
+        />
+      </button>
+      <SizeAnimatedPanel
+        id={panelId}
+        expanded={isOpen}
+        reducedMotion={Boolean(shouldReduceMotion)}
+        className="mt-1"
+        data-testid="reasoning-inline-panel"
+      >
+        <div className="py-2">
+          <ReasoningSegmentPanel fixedContent={fixedContent} />
+        </div>
+      </SizeAnimatedPanel>
     </div>
   )
-})
+}
+
+export const ReasoningSegment = memo(ReasoningSegmentComponent)
+ReasoningSegment.displayName = 'ReasoningSegment'

@@ -24,9 +24,9 @@ vi.mock('../renderers/AssistantSupportSegmentContent', () => ({
   }
 }))
 
-vi.mock('../renderers/SupportSegmentGroup', () => ({
-  SupportSegmentGroup: ({ items }: { items: SupportSegmentRenderItem[] }) => (
-    <div data-testid="support-segment-group">
+vi.mock('../toolcall/ToolCallGroup', () => ({
+  ToolCallGroup: ({ items }: { items: SupportSegmentRenderItem[] }) => (
+    <div data-testid="tool-call-group">
       {items.map((item) => {
         const args = item.segment.type === 'toolCall' && item.segment.content?.args
         const reason = args && typeof args === 'object' && !Array.isArray(args)
@@ -41,7 +41,10 @@ vi.mock('../renderers/SupportSegmentGroup', () => ({
         )
       })}
     </div>
-  ),
+  )
+}))
+
+vi.mock('../model/supportSegmentEquality', () => ({
   areSupportSegmentRenderItemsEqual: (
     previous: SupportSegmentRenderItem,
     next: SupportSegmentRenderItem
@@ -147,7 +150,7 @@ describe('AssistantSupportSegmentList', () => {
     expect(container.textContent).toContain('Find the matching renderer path.')
   })
 
-  it('renders grouped mixed support rows with each item visible', async () => {
+  it('keeps think separate from adjacent tool call groups', async () => {
     await act(async () => {
       root.render(
         <AssistantSupportSegmentList
@@ -174,8 +177,8 @@ describe('AssistantSupportSegmentList', () => {
       )
     })
 
-    expect(container.querySelectorAll('[data-testid="support-segment-group"]')).toHaveLength(1)
-    expect(container.querySelectorAll('[data-testid^="support-content-"]')).toHaveLength(0)
+    expect(container.querySelectorAll('[data-testid="tool-call-group"]')).toHaveLength(2)
+    expect(container.querySelectorAll('[data-testid^="support-content-"]')).toHaveLength(1)
     expect(container.textContent).toContain('read')
     expect(container.textContent).toContain('reasoning')
     expect(container.textContent).toContain('shell')

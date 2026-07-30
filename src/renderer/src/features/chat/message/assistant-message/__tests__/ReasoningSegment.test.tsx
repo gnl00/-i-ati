@@ -3,171 +3,80 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-
-vi.mock('sonner', () => ({
-  toast: {
-    success: vi.fn()
-  }
-}))
-
 import { ReasoningSegment } from '../segments/ReasoningSegment'
 
 const BASE_TIME = new Date('2026-06-26T00:00:00.000Z')
-
-const createReasoningSegment = (overrides: Partial<ReasoningSegment> = {}): ReasoningSegment => ({
+const createSegment = (overrides: Partial<ReasoningSegment> = {}): ReasoningSegment => ({
   type: 'reasoning',
-  segmentId: 'committed:step-1:reasoning:0',
-  content: 'Complete thought body\n\n- inspect current code\n- preserve the trigger',
+  segmentId: 'reasoning-1',
+  content: 'Inspect current code\n\n- preserve details',
   timestamp: BASE_TIME.getTime(),
   ...overrides
 })
 
-function getTrigger(container: HTMLElement): HTMLButtonElement {
-  const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Inspect thought process"]')
-  expect(trigger).toBeTruthy()
-  return trigger as HTMLButtonElement
-}
-
-function getPanel(): HTMLElement {
-  const panel = document.body.querySelector<HTMLElement>('[data-testid="reasoning-thought-popout"]')
-  expect(panel).toBeTruthy()
-  return panel as HTMLElement
-}
-
-async function openReasoning(container: HTMLElement) {
-  const trigger = getTrigger(container)
-  await act(async () => {
-    trigger.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-  })
-}
-
 describe('ReasoningSegment', () => {
   let container: HTMLDivElement
   let root: Root
-  let writeText: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     vi.useFakeTimers()
     vi.setSystemTime(BASE_TIME)
     ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
-
-    writeText = vi.fn(() => Promise.resolve())
-    Object.defineProperty(navigator, 'clipboard', {
-      configurable: true,
-      value: {
-        writeText
-      }
-    })
-
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
   })
 
   afterEach(async () => {
-    await act(async () => {
-      root.unmount()
-    })
+    await act(async () => root.unmount())
     container.remove()
     vi.useRealTimers()
   })
 
-  it('renders the thought body in the document portal after click', async () => {
-    await act(async () => {
-      root.render(<ReasoningSegment segment={createReasoningSegment()} />)
-    })
+  it('renders a collapsed inline Think disclosure for history', async () => {
+    await act(async () => root.render(<ReasoningSegment segment={createSegment()} />))
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Toggle think"]')
+    const panel = container.querySelector('[data-testid="reasoning-inline-panel"]')
+    const segment = container.querySelector('[data-testid="reasoning-segment"]')
+    const label = container.querySelector('[data-testid="reasoning-label"]')
+    const hairline = container.querySelector('[data-testid="reasoning-hairline"]')
+    const chevron = container.querySelector('[data-testid="reasoning-chevron"]')
 
-    expect(container.textContent).toContain('Thought')
-    expect(container.querySelector('[data-testid="support-segment-header"]')?.textContent).toContain('Thought')
-    expect(container.textContent).not.toContain('inspect current code')
+    expect(trigger?.textContent).toContain('Think')
+    expect(trigger?.getAttribute('aria-expanded')).toBe('false')
+    expect(panel?.getAttribute('data-state')).toBe('collapsed')
+    expect(segment?.classList.contains('px-2')).toBe(true)
+    expect(segment?.classList.contains('my-1.5')).toBe(true)
+    expect(trigger?.classList.contains('bg-transparent')).toBe(true)
+    expect(label?.classList.contains('font-medium')).toBe(true)
+    expect(label?.classList.contains('text-slate-400')).toBe(true)
+    expect(hairline?.classList.contains('bg-slate-200/55')).toBe(true)
+    expect(chevron?.classList.contains('text-slate-300')).toBe(true)
+    expect(container.querySelector('button[aria-label="Copy think"]')).toBeNull()
 
-    await openReasoning(container)
-
-    const panel = getPanel()
-    expect(document.body.contains(panel)).toBe(true)
-    expect(container.contains(panel)).toBe(false)
-    expect(panel.textContent).toContain('inspect current code')
-    expect(container.textContent).not.toContain('inspect current code')
+    await act(async () => trigger?.click())
+    expect(trigger?.getAttribute('aria-expanded')).toBe('true')
+    expect(panel?.getAttribute('data-state')).toBe('expanded')
+    expect(label?.classList.contains('text-slate-500')).toBe(true)
+    expect(container.textContent).toContain('preserve details')
   })
 
-  it('closes the popout on Escape', async () => {
-    await act(async () => {
-      root.render(<ReasoningSegment segment={createReasoningSegment()} />)
-    })
+  it('opens while streaming and preserves a user collapse after streaming settles', async () => {
+    const segment = createSegment({ timestamp: Date.now() })
+    await act(async () => root.render(<ReasoningSegment segment={segment} isStreaming />))
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Toggle think"]')
+    expect(trigger?.getAttribute('aria-expanded')).toBe('true')
 
-    await openReasoning(container)
-    expect(getPanel().textContent).toContain('inspect current code')
-
-    await act(async () => {
-      document.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape' }))
-    })
-
-    expect(document.body.querySelector('[data-testid="reasoning-thought-popout"]')).toBeNull()
-    expect(container.textContent).toContain('Thought')
+    await act(async () => trigger?.click())
+    await act(async () => root.render(<ReasoningSegment segment={segment} isStreaming={false} />))
+    expect(trigger?.getAttribute('aria-expanded')).toBe('false')
   })
 
-  it('updates the streaming duration with fake timers', async () => {
-    await act(async () => {
-      root.render(
-        <ReasoningSegment
-          segment={createReasoningSegment({
-            timestamp: Date.now()
-          })}
-          isStreaming={true}
-        />
-      )
-    })
-
-    expect(container.textContent).toContain('1s')
-
-    await act(async () => {
-      vi.advanceTimersByTime(1250)
-    })
-
-    expect(container.textContent).toContain('2s')
-  })
-
-  it('uses endedAt as a fixed duration', async () => {
-    const timestamp = Date.now()
-
-    await act(async () => {
-      root.render(
-        <ReasoningSegment
-          segment={createReasoningSegment({
-            timestamp,
-            endedAt: timestamp + 1600
-          })}
-          isStreaming={true}
-        />
-      )
-    })
-
-    expect(container.textContent).toContain('2s')
-    expect(container.querySelector('[data-testid="support-segment-header-duration"]')?.textContent).toContain('2s')
-
-    await act(async () => {
-      vi.advanceTimersByTime(5000)
-    })
-
-    expect(container.textContent).toContain('2s')
-  })
-
-  it('copies the complete original content', async () => {
-    const content = 'Complete original thought\n```ts\nconst value = 1'
-
-    await act(async () => {
-      root.render(<ReasoningSegment segment={createReasoningSegment({ content })} />)
-    })
-
-    await openReasoning(container)
-
-    const copyButton = document.body.querySelector<HTMLButtonElement>('button[aria-label="Copy thought"]')
-    expect(copyButton).toBeTruthy()
-
-    await act(async () => {
-      copyButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    })
-
-    expect(writeText).toHaveBeenCalledWith(content)
+  it('updates duration while streaming', async () => {
+    const segment = createSegment({ timestamp: Date.now(), content: 'Original\n```ts\nconst x = 1' })
+    await act(async () => root.render(<ReasoningSegment segment={segment} isStreaming />))
+    expect(container.querySelector('[data-testid="reasoning-duration"]')?.textContent).toBe('1s')
+    await act(async () => vi.advanceTimersByTime(1250))
+    expect(container.querySelector('[data-testid="reasoning-duration"]')?.textContent).toBe('2s')
   })
 })
