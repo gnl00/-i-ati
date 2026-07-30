@@ -3,7 +3,7 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { MessageOperations } from '../message-operations'
+import { CopyButton, MessageOperations } from '../message-operations'
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
@@ -20,6 +20,71 @@ describe('MessageOperations', () => {
     root = undefined
     container?.remove()
     container = undefined
+  })
+
+  it('exposes the shared copy control with consistent interaction styling', () => {
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+    const onClick = vi.fn()
+
+    act(() => {
+      root?.render(<CopyButton label="Copy result" onClick={onClick} />)
+    })
+
+    const button = container.querySelector<HTMLButtonElement>('button[aria-label="Copy result"]')
+    expect(button?.type).toBe('button')
+    expect(button?.className).toContain('message-operation-button')
+
+    act(() => {
+      button?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(onClick).toHaveBeenCalledOnce()
+  })
+
+  it('keeps the footer copy treatment and offers a quiet compact treatment', () => {
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    act(() => {
+      root?.render(
+        <>
+          <CopyButton label="Copy footer" onClick={vi.fn()} />
+          <CopyButton
+            variant="compact"
+            label="Copy inspector"
+            onClick={vi.fn()}
+          />
+        </>
+      )
+    })
+
+    const footerButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Copy footer"]'
+    )
+    const compactButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Copy inspector"]'
+    )
+    const footerIcon = footerButton?.querySelector('svg')
+    const compactIcon = compactButton?.querySelector('svg')
+
+    expect(footerButton?.className).toContain('w-7')
+    expect(footerButton?.className).toContain('hover:scale-110')
+    expect(footerButton?.className).toContain('backdrop-blur-sm')
+    expect(footerButton?.className).toContain('message-operation-button')
+    expect(footerIcon?.getAttribute('class')).toContain('w-4')
+
+    expect(compactButton?.className).toContain('h-6')
+    expect(compactButton?.className).toContain('w-6')
+    expect(compactButton?.className).toContain('transition-colors')
+    expect(compactButton?.className).toContain('hover:bg-black/5')
+    expect(compactButton?.className).not.toContain('hover:scale-110')
+    expect(compactButton?.className).not.toContain('backdrop-blur-sm')
+    expect(compactButton?.className).not.toContain('message-operation-button')
+    expect(compactIcon?.getAttribute('class')).toContain('w-3')
+    expect(compactButton?.title).toBe('Copy inspector')
   })
 
   it('keeps assistant actions and meta hidden until the message is hovered', () => {

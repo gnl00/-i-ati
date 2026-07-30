@@ -262,9 +262,16 @@ describe('ToolCallResult', () => {
     })
 
     for (const label of ['Copy parameters', 'Copy execution output', 'Copy result']) {
+      const copyButton = container.querySelector<HTMLButtonElement>(
+        `button[aria-label="${label}"]`
+      )
+      expect(copyButton?.className).toContain('h-6')
+      expect(copyButton?.className).toContain('w-6')
+      expect(copyButton?.className).toContain('transition-colors')
+      expect(copyButton?.title).toBe(label)
+
       await act(async () => {
-        container.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)
-          ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+        copyButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
       })
     }
 

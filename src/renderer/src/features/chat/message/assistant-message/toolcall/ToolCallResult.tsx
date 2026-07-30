@@ -1,14 +1,14 @@
 import { SpeedCodeHighlight } from '@renderer/features/chat/common/SpeedCodeHighlight'
-import { Button } from '@renderer/shared/components/ui/button'
 import { cn } from '@renderer/shared/lib/utils'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 import { motion, useReducedMotion } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
-import { Check, Clipboard, FileText, List, Loader2, PencilLine, Search, Trash2, X } from 'lucide-react'
+import { Check, FileText, List, Loader2, PencilLine, Search, Trash2, X } from 'lucide-react'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { WebSearchResults, type WebSearchResult } from './WebSearchResults'
 import { SubagentResults } from './SubagentResults'
+import { CopyButton } from '../../message-operations'
 import type { SupportSegmentHeaderTone } from '../renderers/SupportSegmentHeader'
 import { getReasonFromToolCall } from '../model/toolCallReason'
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
@@ -825,30 +825,6 @@ function isInspectorComplexValue(value: unknown): boolean {
   return serialized.includes('\n') || serialized.length > 160
 }
 
-const InspectorCopyButton: React.FC<{
-  content: unknown
-  label: string
-  toastLabel: string
-}> = ({
-  content,
-  label,
-  toastLabel
-}) => (
-  <Button
-    type="button"
-    variant="ghost"
-    size="icon"
-    aria-label={label}
-    className="h-6 w-6 rounded-md text-zinc-400 transition-colors hover:bg-zinc-200/70 hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-zinc-400/70 focus-visible:ring-offset-0 dark:text-zinc-500 dark:hover:bg-white/8 dark:hover:text-zinc-200 dark:focus-visible:ring-zinc-500/80"
-    onClick={() => {
-      void navigator.clipboard.writeText(serializeInspectorValue(content))
-      toast.success(toastLabel)
-    }}
-  >
-    <Clipboard className="h-3 w-3" />
-  </Button>
-)
-
 const InspectorSection: React.FC<{
   label: string
   copyContent: unknown
@@ -869,19 +845,19 @@ const InspectorSection: React.FC<{
   <section
     className={cn(
       'relative pl-7',
-      !isLast && 'border-b border-black/[0.06] dark:border-white/[0.07]'
+      !isLast && 'border-b border-black/6 dark:border-white/[0.07]'
     )}
     data-testid={`tool-inspector-${label.toLowerCase().replace(' ', '-')}`}
   >
     <span
-      className="absolute inset-y-0 left-[9px] w-1.5"
+      className="absolute inset-y-0 left-2.25 w-1.5"
       aria-hidden="true"
     >
       <span className={cn(
         'absolute left-[2.5px] top-0 h-4 w-px',
         isFirst ? 'bg-transparent' : 'bg-slate-300 dark:bg-slate-700'
       )} />
-      <span className="absolute left-0 top-[13px] h-1.5 w-1.5 border border-slate-400 bg-white dark:border-slate-500 dark:bg-zinc-950" />
+      <span className="absolute left-0 top-3.25 h-1.5 w-1.5 border border-slate-400 bg-white dark:border-slate-500 dark:bg-zinc-950" />
       <span className={cn(
         'absolute bottom-0 left-[2.5px] top-4 w-px',
         isLast ? 'bg-transparent' : 'bg-slate-300 dark:bg-slate-700'
@@ -894,10 +870,13 @@ const InspectorSection: React.FC<{
         </span>
         <div className="flex items-center gap-1">
           {action}
-          <InspectorCopyButton
-            content={copyContent}
+          <CopyButton
+            variant="compact"
             label={`Copy ${label.toLowerCase()}`}
-            toastLabel={`${copyLabel} copied`}
+            onClick={() => {
+              void navigator.clipboard.writeText(serializeInspectorValue(copyContent))
+              toast.success(`${copyLabel} copied`)
+            }}
           />
         </div>
       </div>
@@ -952,7 +931,7 @@ export const ToolCallInspectorDetails = React.memo(({
       initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, x: 5 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: shouldReduceMotion ? 0 : 0.17, ease: [0.22, 1, 0.36, 1] }}
-      className="pb-5"
+      className="pb-2"
       data-testid="tool-call-inspector-details"
     >
       <InspectorSection

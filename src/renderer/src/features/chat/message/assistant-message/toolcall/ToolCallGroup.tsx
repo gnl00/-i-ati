@@ -150,7 +150,7 @@ const ToolCallGroupRow = memo(({
       >
         <div
           data-testid={`tool-call-detail-surface-${item.segment.segmentId}`}
-          className="border-t border-slate-200/35 bg-slate-100/45 px-3 py-3 dark:border-white/5 dark:bg-white/[0.025]"
+          className="border-t border-slate-200/35 bg-gray-100/45 px-1 py-1 dark:border-white/5 dark:bg-white/2.5"
         >
           {hasOpened || expanded ? (
             <ToolCallInspectorDetails
@@ -181,7 +181,7 @@ const ToolCallGroupComponent: React.FC<ToolCallGroupProps> = ({
   return (
     <div
       data-testid="tool-call-group"
-      className="my-2 w-full max-w-[680px] overflow-hidden rounded-lg border border-slate-200/45 bg-white/30 dark:border-white/6 dark:bg-white/[0.015]"
+      className="my-2 w-full max-w-170 overflow-hidden rounded-lg border border-slate-200/45 bg-white/30 dark:border-white/6 dark:bg-white/1.5"
     >
       {visible.map(item => (
         <ToolCallGroupRow

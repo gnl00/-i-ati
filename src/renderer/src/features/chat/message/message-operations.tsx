@@ -36,16 +36,19 @@ interface OperationButtonProps {
   onClick?: () => void
   label: string
   delay?: number
+  variant?: 'default' | 'compact'
 }
 
 const OperationButton: React.FC<OperationButtonProps> = ({
   icon,
   onClick,
   label,
-  delay = 0
+  delay = 0,
+  variant = 'default'
 }) => {
   const [isPressed, setIsPressed] = useState(false)
   const [showTooltip, setShowTooltip] = useState(false)
+  const isCompact = variant === 'compact'
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     setIsPressed(true)
@@ -62,51 +65,89 @@ const OperationButton: React.FC<OperationButtonProps> = ({
   return (
     <div className="relative group">
       <button
+        type="button"
         onClick={handleClick}
-        onMouseEnter={() => setShowTooltip(true)}
-        onMouseLeave={() => setShowTooltip(false)}
+        onMouseEnter={isCompact ? undefined : () => setShowTooltip(true)}
+        onMouseLeave={isCompact ? undefined : () => setShowTooltip(false)}
         className={cn(
-          "w-7 h-7 rounded-md flex items-center justify-center",
-          "transition-all duration-300 ease-out",
-          "hover:bg-gray-100 dark:hover:bg-gray-800",
-          "hover:scale-110",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30",
-          "backdrop-blur-sm",
-          "message-operation-button",
-          isPressed && "scale-95! ring-2 ring-blue-500/20"
+          'flex items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2',
+          isCompact
+            ? [
+              'h-6 w-6 text-zinc-400 transition-colors duration-150',
+              'hover:bg-black/5 hover:text-zinc-700 dark:text-zinc-500 dark:hover:bg-white/6 dark:hover:text-zinc-200',
+              'focus-visible:ring-zinc-400/40 dark:focus-visible:ring-zinc-500/60',
+              isPressed && 'bg-black/[0.07] text-zinc-700 dark:bg-white/10 dark:text-zinc-200'
+            ]
+            : [
+              'h-7 w-7 transition-all duration-300 ease-out',
+              'hover:bg-gray-100 dark:hover:bg-gray-800',
+              'hover:scale-110',
+              'focus-visible:ring-blue-500/30',
+              'backdrop-blur-sm',
+              'message-operation-button',
+              isPressed && 'scale-95! ring-2 ring-blue-500/20'
+            ]
         )}
-        style={{
-          '--op-delay': `${delay}ms`
-        } as React.CSSProperties}
+        style={isCompact
+          ? undefined
+          : {
+            '--op-delay': `${delay}ms`
+          } as React.CSSProperties}
         aria-label={label}
+        title={isCompact ? label : undefined}
       >
         <div className={cn(
-          "transition-transform duration-200",
-          "group-hover:rotate-12 group-active:rotate-0"
+          !isCompact && [
+            'transition-transform duration-200',
+            'group-hover:rotate-12 group-active:rotate-0'
+          ]
         )}>
           {icon}
         </div>
       </button>
 
-      {/* Tooltip */}
-      <div
-        className={cn(
-          "absolute bottom-full left-1/2 -translate-x-1/2 mb-2",
-          "px-2 py-1 rounded text-xs font-medium whitespace-nowrap",
-          "bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900",
-          "transition-all duration-200 pointer-events-none",
-          "shadow-lg",
-          showTooltip
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 translate-y-1"
-        )}
-      >
-        {label}
-        <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900 dark:border-t-gray-100" />
-      </div>
+      {!isCompact && (
+        <div
+          className={cn(
+            'absolute bottom-full left-1/2 -translate-x-1/2 mb-2',
+            'px-2 py-1 rounded text-xs font-medium whitespace-nowrap',
+            'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900',
+            'transition-all duration-200 pointer-events-none',
+            'shadow-lg',
+            showTooltip
+              ? 'opacity-100 translate-y-0'
+              : 'opacity-0 translate-y-1'
+          )}
+        >
+          {label}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900 dark:border-t-gray-100" />
+        </div>
+      )}
     </div>
   )
 }
+
+export interface CopyButtonProps {
+  onClick: () => void
+  label?: string
+  delay?: number
+  variant?: 'default' | 'compact'
+}
+
+export const CopyButton: React.FC<CopyButtonProps> = ({
+  onClick,
+  label = 'Copy',
+  delay = 0,
+  variant = 'default'
+}) => (
+  <OperationButton
+    icon={<CopyIcon className={variant === 'compact' ? 'h-3 w-3' : 'h-4 w-4'} />}
+    onClick={onClick}
+    label={label}
+    delay={delay}
+    variant={variant}
+  />
+)
 
 const TokenUsageInfo: React.FC<{
   display: NonNullable<MessageOperationButtonsProps['tokenUsageDisplay']>
@@ -172,12 +213,7 @@ export const MessageOperations: React.FC<MessageOperationButtonsProps> = ({
   )
   const actionControls = (
     <>
-      <OperationButton
-        icon={<CopyIcon className="w-4 h-4" />}
-        onClick={onCopyClick}
-        label="Copy"
-        delay={0}
-      />
+      <CopyButton onClick={onCopyClick} />
 
       {!isUser && showRegenerate && onRegenerateClick && (
         <OperationButton
