@@ -36,8 +36,8 @@ function createWindow(onCreated?: (window: BrowserWindow) => void): void {
 
   // Create the browser window.
   const window = new BrowserWindow({
-    width: 770,
-    height: 850,
+    width: 870,
+    height: 925,
     show: false,
     // alwaysOnTop: true,
     frame: false,
