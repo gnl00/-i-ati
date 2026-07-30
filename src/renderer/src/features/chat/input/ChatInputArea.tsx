@@ -5,7 +5,6 @@ import { useMcpConnection } from '@renderer/features/settings'
 import { cn } from '@renderer/shared/lib/utils'
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
 import { useAppConfigStore } from '@renderer/infrastructure/config/appConfig'
-import { useAssistantStore } from '@renderer/features/assistants'
 import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import {
@@ -130,27 +129,16 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     void syncMcpRuntimeWithConfig(mcpServerConfig)
   }, [mcpServerConfig, syncMcpRuntimeWithConfig])
 
-  // Get currentAssistant from assistant store
-  const { currentAssistant } = useAssistantStore()
-
   const [inputContent, setInputContent] = useState<string>('')
   const [queuedMessages, setQueuedMessages] = useState<QueuedChatMessage[]>([])
   const [queuePaused, setQueuePaused] = useState<boolean>(false)
   const [editingQueue, setEditingQueue] = useState<boolean>(false)
-  const [currentUserInstruction, setCurrentUserInstruction] = useState<string>('')
   const [isDragging, setIsDragging] = useState<boolean>(false)
   const [workspacePathToSelect, setWorkspacePathToSelect] = useState<string | null>(null)
   const [modelMenuCollisionBoundary, setModelMenuCollisionBoundary] = useState<HTMLElement | null>(null)
   const [isWelcomeFocused, setIsWelcomeFocused] = useState<boolean>(false)
   const [isWelcomePopoverOpen, setIsWelcomePopoverOpen] = useState<boolean>(false)
   const [isWelcomeInteractionHeld, setIsWelcomeInteractionHeld] = useState<boolean>(false)
-
-  // Apply currentAssistant's systemPrompt to the request-level user instruction
-  useEffect(() => {
-    if (currentAssistant?.systemPrompt) {
-      setCurrentUserInstruction(currentAssistant.systemPrompt)
-    }
-  }, [currentAssistant])
 
   // Textarea ref
   const rootRef = useRef<HTMLDivElement>(null)
@@ -280,7 +268,6 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
   // Extend startNewChat to include local state reset
   const startNewChat = useCallback(() => {
     startNewChatBase()
-    setCurrentUserInstruction('')
     editUserInstructionDraft('')
     setQueuedMessages([])
     setQueuePaused(false)
@@ -296,7 +283,6 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     onMessagesUpdate?.()
     const thinking = toUnifiedRequestThinkingOption(effectiveThinkingLevel)
     handleChatSubmitCallback(payload.text, payload.images, {
-      userInstruction: payload.userInstruction,
       options: thinking ? { thinking } : undefined
     })
   }, [effectiveThinkingLevel, handleChatSubmitCallback, onMessagesUpdate])
@@ -356,15 +342,13 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
 
     const payload = {
       text: trimmedInput,
-      images: imageSrcBase64List,
-      userInstruction: currentUserInstruction
+      images: imageSrcBase64List
     }
 
     if (editingQueue) {
       const editedPayload = {
         text: trimmedInput,
-        images: imageSrcBase64List,
-        userInstruction: editingQueueRef.current?.userInstruction ?? currentUserInstruction
+        images: imageSrcBase64List
       }
 
       setEditingQueue(false)
@@ -402,7 +386,6 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     imageSrcBase64List,
     selectedModelRef,
     ensureSelectedModelRef,
-    currentUserInstruction,
     queuePaused,
     editingQueue,
     queuedMessages.length,

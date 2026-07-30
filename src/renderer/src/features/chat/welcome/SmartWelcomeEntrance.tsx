@@ -1,12 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowRight, BadgePlus, Bot, Check, ChevronDown, Pencil } from 'lucide-react'
-import { AddAssistantDrawer } from '@renderer/features/chat/input/toolbar/AddAssistantDrawer'
+import { ArrowRight } from 'lucide-react'
 import { getEmotionAssetUrl } from '@renderer/shared/assets/emotions/emotionAssetUrls'
-import { Popover, PopoverContent, PopoverTrigger } from '@renderer/shared/components/ui/popover'
 import { cn } from '@renderer/shared/lib/utils'
 import { getActiveSmartMessages } from '@renderer/infrastructure/persistence/SmartMessageRepository'
 import { useAppConfigStore } from '@renderer/infrastructure/config/appConfig'
-import { useAssistantStore } from '@renderer/features/assistants'
 import { pickEmotionEmoji } from '@shared/emotion/emotionAssetCatalog'
 import {
   getMsUntilNextSmartGreetingRefresh,
@@ -113,10 +110,6 @@ const getPointerActiveIndex = (
 
   return 2
 }
-
-const getAssistantInitial = (name: string): string => (
-  name.trim().charAt(0).toUpperCase() || 'A'
-)
 
 const EditableUserName: React.FC<GreetingProps> = ({
   username,
@@ -376,252 +369,6 @@ const MessageDeck: React.FC<MessageDeckProps> = ({
   )
 }
 
-const SmartWelcomeAssistantSelector: React.FC = () => {
-  const { getModelOptions, providersRevision } = useAppConfigStore()
-  const { assistants, currentAssistant, setCurrentAssistant, loadAssistants, isLoading } = useAssistantStore()
-  const [popoverOpen, setPopoverOpen] = useState(false)
-  const [createDrawerOpen, setCreateDrawerOpen] = useState(false)
-  const [editDrawerOpen, setEditDrawerOpen] = useState(false)
-  const [assistantToEdit, setAssistantToEdit] = useState<Assistant | null>(null)
-
-  useEffect(() => {
-    if (assistants.length === 0) {
-      void loadAssistants()
-    }
-  }, [assistants.length, loadAssistants])
-
-  const modelOptions = useMemo(() => getModelOptions(), [getModelOptions, providersRevision])
-  const currentAssistantLabel = currentAssistant?.name ?? 'General'
-  const currentAssistantDetail = currentAssistant?.description?.trim() || 'Default chat setup'
-
-  const getAssistantDetail = (assistant: Assistant): string => {
-    const description = assistant.description?.trim()
-    if (description) return description
-
-    const modelOption = modelOptions.find(option =>
-      option.account.id === assistant.modelRef.accountId
-      && option.model.id === assistant.modelRef.modelId
-    )
-
-    return modelOption?.model.label ?? 'Custom instructions'
-  }
-
-  const handleSelectAssistant = (assistant: Assistant | null) => {
-    setCurrentAssistant(assistant)
-    setPopoverOpen(false)
-  }
-
-  const handleCreateAssistant = () => {
-    setPopoverOpen(false)
-    setCreateDrawerOpen(true)
-  }
-
-  const handleEditAssistant = (assistant: Assistant) => {
-    setAssistantToEdit(assistant)
-    setPopoverOpen(false)
-    setEditDrawerOpen(true)
-  }
-
-  return (
-    <>
-      <div className="welcome-v2-assistant-selector">
-        <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              aria-label={`Current assistant: ${currentAssistantLabel}`}
-              aria-expanded={popoverOpen}
-              className={cn(
-                'welcome-v2-assistant-trigger group flex h-8 max-w-[184px] items-center gap-1.5 rounded-full border',
-                'border-border/32 bg-card/36 px-2.5 text-left text-muted-foreground shadow-xs backdrop-blur-xl',
-                'transition-[background-color,border-color,color,opacity,transform] duration-220 ease-(--welcome-v2-ease)',
-                'hover:border-border/62 hover:bg-card/58 hover:text-foreground/82',
-                'focus-visible:border-border/70 focus-visible:bg-card/64 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/18',
-                'active:scale-[0.99]'
-              )}
-            >
-              <span className="grid size-4 shrink-0 place-items-center text-muted-foreground/68 transition-colors duration-200 group-hover:text-foreground/72">
-                <Bot className="size-3" />
-              </span>
-              <span className="min-w-0 max-w-[122px] truncate text-[10.5px] font-semibold leading-4 text-current">
-                {currentAssistantLabel}
-              </span>
-              <ChevronDown
-                className={cn(
-                  'size-3 shrink-0 text-current opacity-55 transition-[opacity,transform] duration-200 ease-(--welcome-v2-ease) group-hover:opacity-72',
-                  popoverOpen && 'rotate-180'
-                )}
-              />
-            </button>
-          </PopoverTrigger>
-
-          <PopoverContent
-            align="end"
-            sideOffset={10}
-            className={cn(
-              'w-[min(340px,calc(100vw-32px))] rounded-2xl border-border/70 bg-popover/95 p-2',
-              'text-popover-foreground shadow-[0_30px_82px_-42px_rgba(15,23,42,0.58)] backdrop-blur-xl'
-            )}
-          >
-            <div className="px-2.5 pb-2 pt-1.5">
-              <p className="m-0 text-[11px] font-semibold uppercase leading-4 tracking-[0.16em] text-muted-foreground">
-                Assistant
-              </p>
-              <p className="m-0 truncate text-sm font-medium leading-5 text-foreground">
-                {currentAssistantLabel}
-              </p>
-              <p className="m-0 truncate text-xs leading-5 text-muted-foreground">
-                {currentAssistantDetail}
-              </p>
-            </div>
-
-            <div
-              className="max-h-[268px] overflow-y-auto pr-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-              aria-label="Assistant options"
-            >
-              <div
-                className={cn(
-                  'group/assistant flex items-center gap-1 rounded-xl p-1 transition-colors duration-160',
-                  currentAssistant === null ? 'bg-foreground/[0.045]' : 'hover:bg-foreground/[0.032]'
-                )}
-              >
-                <button
-                  type="button"
-                  aria-pressed={currentAssistant === null}
-                  className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/26"
-                  onClick={() => handleSelectAssistant(null)}
-                >
-                  <span className="grid size-8 shrink-0 place-items-center rounded-full bg-foreground/[0.055] text-foreground/70">
-                    <Bot className="size-4" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium leading-5 text-foreground">
-                      General
-                    </span>
-                    <span className="block truncate text-xs leading-4 text-muted-foreground">
-                      Default chat setup
-                    </span>
-                  </span>
-                  <Check
-                    className={cn(
-                      'size-4 shrink-0 text-foreground transition-opacity duration-160',
-                      currentAssistant === null ? 'opacity-80' : 'opacity-0'
-                    )}
-                  />
-                </button>
-              </div>
-
-              {isLoading && assistants.length === 0 ? (
-                <div className="px-3 py-3 text-xs text-muted-foreground">
-                  Loading assistants...
-                </div>
-              ) : (
-                assistants.map(assistant => {
-                  const isActive = currentAssistant?.id === assistant.id
-                  return (
-                    <div
-                      key={assistant.id}
-                      className={cn(
-                        'group/assistant flex items-center gap-1 rounded-xl p-1 transition-colors duration-160',
-                        isActive ? 'bg-foreground/[0.045]' : 'hover:bg-foreground/[0.032]'
-                      )}
-                    >
-                      <button
-                        type="button"
-                        aria-pressed={isActive}
-                        className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/26"
-                        onClick={() => handleSelectAssistant(isActive ? null : assistant)}
-                      >
-                        <span className="grid size-8 shrink-0 place-items-center rounded-full bg-foreground/[0.06] text-[12px] font-semibold text-foreground/72">
-                          {getAssistantInitial(assistant.name)}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-medium leading-5 text-foreground">
-                            {assistant.name}
-                          </span>
-                          <span className="block truncate text-xs leading-4 text-muted-foreground">
-                            {getAssistantDetail(assistant)}
-                          </span>
-                        </span>
-                        <Check
-                          className={cn(
-                            'size-4 shrink-0 text-foreground transition-opacity duration-160',
-                            isActive ? 'opacity-80' : 'opacity-0'
-                          )}
-                        />
-                      </button>
-
-                      <button
-                        type="button"
-                        title={`Edit ${assistant.name}`}
-                        aria-label={`Edit ${assistant.name}`}
-                        className={cn(
-                          'grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground',
-                          'opacity-0 transition-[background-color,color,opacity] duration-160',
-                          'hover:bg-foreground/[0.055] hover:text-foreground',
-                          'focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/26',
-                          'group-hover/assistant:opacity-100 group-focus-within/assistant:opacity-100',
-                          isActive && 'opacity-100'
-                        )}
-                        onClick={() => handleEditAssistant(assistant)}
-                      >
-                        <Pencil className="size-3.5" />
-                      </button>
-                    </div>
-                  )
-                })
-              )}
-            </div>
-
-            <div className="mt-2 border-t border-border/62 pt-2">
-              <button
-                type="button"
-                className={cn(
-                  'flex h-9 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border/70',
-                  'bg-transparent px-3 text-xs font-medium text-muted-foreground transition-[background-color,border-color,color] duration-180',
-                  'hover:border-foreground/12 hover:bg-foreground/[0.035] hover:text-foreground',
-                  'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/26'
-                )}
-                onClick={handleCreateAssistant}
-              >
-                <BadgePlus className="size-3.5" />
-                New Assistant
-              </button>
-            </div>
-          </PopoverContent>
-        </Popover>
-      </div>
-
-      <AddAssistantDrawer
-        isExpanded={true}
-        variant="compact"
-        modelOptions={modelOptions}
-        trigger={null}
-        open={createDrawerOpen}
-        onOpenChange={setCreateDrawerOpen}
-      />
-
-      {assistantToEdit && (
-        <AddAssistantDrawer
-          isExpanded={true}
-          variant="compact"
-          mode="edit"
-          assistantToEdit={assistantToEdit}
-          modelOptions={modelOptions}
-          trigger={null}
-          open={editDrawerOpen}
-          onOpenChange={(nextOpen) => {
-            setEditDrawerOpen(nextOpen)
-            if (!nextOpen) {
-              setAssistantToEdit(null)
-            }
-          }}
-        />
-      )}
-    </>
-  )
-}
-
 const SmartWelcomeEntrance: React.FC<SmartWelcomeEntranceProps> = ({
   className,
   isExiting = false,
@@ -763,8 +510,6 @@ const SmartWelcomeEntrance: React.FC<SmartWelcomeEntranceProps> = ({
       )}
     >
       <div className="welcome-v2-bg" aria-hidden="true" />
-      <SmartWelcomeAssistantSelector />
-
       <div className="welcome-v2-shell relative z-1 mx-auto flex h-full min-h-0 w-[min(940px,100%)] flex-col px-[clamp(20px,5vw,72px)] pb-[clamp(20px,4vh,46px)] pt-(--welcome-v2-safe-top)">
         <div className="welcome-v2-top relative flex shrink-0 basis-[clamp(134px,20vh,198px)] items-end">
           <Greeting

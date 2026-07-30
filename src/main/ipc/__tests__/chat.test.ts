@@ -41,12 +41,7 @@ vi.mock('@main/db/DatabaseService', () => ({
     deleteChat: vi.fn(),
     addSkill: vi.fn(),
     removeSkill: vi.fn(),
-    getSkills: vi.fn(),
-    saveAssistant: vi.fn(),
-    getAllAssistants: vi.fn(),
-    getAssistantById: vi.fn(),
-    updateAssistant: vi.fn(),
-    deleteAssistant: vi.fn()
+    getSkills: vi.fn()
   }
 }))
 

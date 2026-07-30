@@ -99,7 +99,6 @@ facades:
 - `db/config.ts`
 - `db/planning.ts`
 - `db/plugins.ts`
-- `db/assistants.ts`
 - `db/run-events.ts`
 - `db/smart-messages.ts`
 - `db/runtime.ts`
@@ -107,6 +106,13 @@ facades:
 These facades narrow each caller's available surface and support gradual
 migration toward existing database application services. New small features
 should reuse the closest domain facade.
+
+The retired Assistant preset capability is removed across its database facade,
+repository, service, IPC handlers, and schema. Database initialization applies
+an idempotent destructive migration that drops the legacy `assistants` table
+and all rows stored in it. The transcript `assistant` role, chat-level User
+Instruction, Scheduled run instructions, and Subagent execution remain
+independent runtime contracts.
 
 ### Chat message search projection
 

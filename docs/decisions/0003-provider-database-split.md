@@ -3,7 +3,8 @@
 **Status:** Accepted<br>
 **Date:** 2026-07-11<br>
 **Related specs:** [Documentation governance](../specs/documentation-governance.md)<br>
-**Related architecture:** [Provider account and model sync](../features/model-capabilities-sync.md)
+**Related architecture:** [Provider account and model sync](../features/model-capabilities-sync.md)<br>
+**Partially superseded by:** [ADR 0013: Remove Assistant presets](0013-remove-assistant-presets.md)
 
 ## Scope
 Refactor database layer to separate provider/account/model data into dedicated tables and repositories, add provider/model IPC + repository accessors, and update renderer persistence to use repository calls instead of full config saves.
@@ -22,6 +23,9 @@ Refactor database layer to separate provider/account/model data into dedicated t
   - `CompressedSummaryRepository`
   - `RunEventRepository`
   - `AssistantRepository`
+
+`AssistantRepository` records the historical 2026-07-11 implementation. ADR
+0013 retires that repository and its complete preset capability.
 
 ### DatabaseService
 - Now acts as a thin facade delegating to repositories.

@@ -145,15 +145,6 @@ export const PROVIDER_FETCH_MODELS = 'provider:fetch-models'
 
 export const MODELS_GET_MODEL_CAPABILITIES = 'models:get-model-capabilities'
 
-// Database Operations - Chat Submit Event Trace
-
-// Database Operations - Assistant
-export const DB_ASSISTANT_SAVE = 'db:assistant:save'
-export const DB_ASSISTANT_GET_ALL = 'db:assistant:get-all'
-export const DB_ASSISTANT_GET_BY_ID = 'db:assistant:get-by-id'
-export const DB_ASSISTANT_UPDATE = 'db:assistant:update'
-export const DB_ASSISTANT_DELETE = 'db:assistant:delete'
-
 // Database Operations - Task Planner
 export const DB_TASK_PLAN_SAVE = 'db:task-plan:save'
 export const DB_TASK_PLAN_UPDATE = 'db:task-plan:update'

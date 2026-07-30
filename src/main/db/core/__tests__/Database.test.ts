@@ -82,6 +82,22 @@ describe('AppDatabase', () => {
     )
   })
 
+  it('drops the legacy assistants table before creating the active schema', async () => {
+    const { AppDatabase } = await import('../Database')
+
+    AppDatabase.getInstance().initialize()
+
+    expect(dbExecMock).toHaveBeenCalledWith('DROP TABLE IF EXISTS assistants')
+
+    const schemaSql = dbExecMock.mock.calls
+      .map(([sql]) => sql)
+      .filter((sql): sql is string => typeof sql === 'string')
+      .join('\n')
+
+    expect(schemaSql).not.toContain('CREATE TABLE IF NOT EXISTS assistants')
+    expect(schemaSql).not.toContain('idx_assistants_')
+  })
+
   it('creates persisted schedule definitions, occurrences, and claim indexes', async () => {
     const { AppDatabase } = await import('../Database')
 

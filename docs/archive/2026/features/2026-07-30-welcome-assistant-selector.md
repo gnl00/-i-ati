@@ -1,5 +1,10 @@
 # Welcome Assistant Selector
 
+Archived: 2026-07-30<br>
+Reason: Assistant preset selection and management were retired<br>
+Original path: `docs/features/welcome-assistant-selector.md`<br>
+Replaced by: [ADR 0013: Remove Assistant presets](../../../decisions/0013-remove-assistant-presets.md)
+
 ## 背景
 
 `SmartWelcomeEntrance` 的主任务是帮助用户快速开始一次对话：展示问候语、智能推荐消息，并把选中的推荐 prompt 回填到输入框。

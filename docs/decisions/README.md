@@ -20,3 +20,4 @@ Use sequential names such as `0001-chat-runtime-host-boundary.md`.
 - [0010: Persisted cron schedule occurrences](0010-persisted-cron-schedule-occurrences.md) - Accepted
 - [0011: Size-based web fetch workspace artifacts](0011-size-based-web-fetch-workspace-artifacts.md) - Accepted
 - [0012: Minimal system prompt kernel](0012-minimal-system-prompt-kernel.md) - Accepted
+- [0013: Remove Assistant presets](0013-remove-assistant-presets.md) - Accepted

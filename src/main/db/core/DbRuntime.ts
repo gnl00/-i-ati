@@ -14,7 +14,6 @@ import { EmotionStateDao } from '../dao/EmotionStateDao'
 import { WorkContextDao } from '../dao/WorkContextDao'
 import { CompressedSummaryDao } from '../dao/CompressedSummaryDao'
 import { RunEventDao } from '../dao/RunEventDao'
-import { AssistantDao } from '../dao/AssistantDao'
 import { TaskPlanDao } from '../dao/TaskPlanDao'
 import { ScheduledTaskDao } from '../dao/ScheduledTaskDao'
 import { SmartMessageDao } from '../dao/SmartMessageDao'
@@ -33,7 +32,6 @@ import { PluginRepository } from '../repositories/PluginRepository'
 import { ProviderRepository } from '../repositories/ProviderRepository'
 import { CompressedSummaryRepository } from '../repositories/CompressedSummaryRepository'
 import { RunEventRepository } from '../repositories/RunEventRepository'
-import { AssistantRepository } from '../repositories/AssistantRepository'
 import { SmartMessageRepository } from '../repositories/SmartMessageRepository'
 import { TodoRepository } from '../repositories/TodoRepository'
 import { ToolResultCompactionRepository } from '../repositories/ToolResultCompactionRepository'
@@ -68,7 +66,6 @@ export class DbRuntime {
   private workContextRepo?: WorkContextDao
   private summaryRepo?: CompressedSummaryDao
   private runEventRepo?: RunEventDao
-  private assistantRepo?: AssistantDao
   private taskPlanRepo?: TaskPlanDao
   private scheduledTaskRepo?: ScheduledTaskDao
   private smartMessageRepo?: SmartMessageDao
@@ -89,7 +86,6 @@ export class DbRuntime {
   private _providerRepository?: ProviderRepository
   private _compressedSummaryRepository?: CompressedSummaryRepository
   private _runEventRepository?: RunEventRepository
-  private _assistantRepository?: AssistantRepository
   private _smartMessageRepository?: SmartMessageRepository
   private _pluginManifestSyncService?: PluginManifestSyncService
   private _toolResultCompactionRepository?: ToolResultCompactionRepository
@@ -124,7 +120,6 @@ export class DbRuntime {
     this.workContextRepo = new WorkContextDao(this.db)
     this.summaryRepo = new CompressedSummaryDao(this.db)
     this.runEventRepo = new RunEventDao(this.db)
-    this.assistantRepo = new AssistantDao(this.db)
     this.taskPlanRepo = new TaskPlanDao(this.db)
     this.scheduledTaskRepo = new ScheduledTaskDao(this.db)
     this.smartMessageRepo = new SmartMessageDao(this.db)
@@ -205,10 +200,6 @@ export class DbRuntime {
       hasDb: () => Boolean(this.db),
       getRunEventRepo: () => this.runEventRepo
     })
-    this._assistantRepository = new AssistantRepository({
-      hasDb: () => Boolean(this.db),
-      getAssistantRepo: () => this.assistantRepo
-    })
     this._smartMessageRepository = new SmartMessageRepository({
       hasDb: () => Boolean(this.db),
       getSmartMessageRepo: () => this.smartMessageRepo
@@ -262,7 +253,6 @@ export class DbRuntime {
     this.workContextRepo = undefined
     this.summaryRepo = undefined
     this.runEventRepo = undefined
-    this.assistantRepo = undefined
     this.taskPlanRepo = undefined
     this.scheduledTaskRepo = undefined
     this.smartMessageRepo = undefined
@@ -283,7 +273,6 @@ export class DbRuntime {
     this._providerRepository = undefined
     this._compressedSummaryRepository = undefined
     this._runEventRepository = undefined
-    this._assistantRepository = undefined
     this._smartMessageRepository = undefined
     this._toolResultCompactionRepository = undefined
     this.initialized = false
@@ -347,10 +336,6 @@ export class DbRuntime {
 
   get runEventRepository(): RunEventRepository {
     return this.requireService(this._runEventRepository, 'Run event repository')
-  }
-
-  get assistantRepository(): AssistantRepository {
-    return this.requireService(this._assistantRepository, 'Assistant repository')
   }
 
   get smartMessageRepository(): SmartMessageRepository {

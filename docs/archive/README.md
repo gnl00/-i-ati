@@ -33,6 +33,14 @@ defined by the [documentation governance spec](../specs/documentation-governance
 
 - [Chat store refactor summary](2026/renderer/chat-store-refactor-summary.md)
 
+### UI
+
+- [Welcome page metaballs effect](2026/ui/2026-07-30-welcome-blob-effect.md)
+
+### Features
+
+- [Welcome Assistant Selector](2026/features/2026-07-30-welcome-assistant-selector.md)
+
 ### Plugins, Telegram, and tools
 
 - [Request adapter plugin API](2026/plugins/request-adapter-plugin-api.md)

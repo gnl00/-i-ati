@@ -8,7 +8,6 @@ import {
 } from "@renderer/shared/components/ui/tooltip"
 import { cn } from '@renderer/shared/lib/utils'
 import { useChatStore, type RunPhase } from '@renderer/features/chat/state/chatStore'
-import { useAssistantStore } from '@renderer/features/assistants'
 import { invokeSelectDirectory } from '@renderer/infrastructure/ipc'
 import { getChatFromList, getChatWorkspacePath } from '@renderer/features/chat/chatWorkspace'
 import { saveChat } from '@renderer/infrastructure/persistence/ChatRepository'
@@ -51,7 +50,6 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
   const canCancelRun = runPhase === 'submitting' || runPhase === 'streaming'
   const isCancelling = runPhase === 'cancelling'
   const messages = useChatStore(state => state.messages)
-  const { setCurrentAssistant } = useAssistantStore()
   const {
     currentChatId: chatId,
     currentChatUuid: chatUuid,
@@ -86,9 +84,6 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
 
   // 优化的 New Chat 处理逻辑
   const handleNewChat = async () => {
-    // 清空 currentAssistant
-    setCurrentAssistant(null)
-
     // 如果当前 chat 存在且没有任何消息，直接清空 workspace 复用当前 chat
     if (chatId && chatUuid && messages.length === 0) {
       const currentChat = getChatFromList({ chatId, chatList })

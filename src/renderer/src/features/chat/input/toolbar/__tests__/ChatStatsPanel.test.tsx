@@ -54,10 +54,6 @@ vi.mock('@renderer/infrastructure/config/appConfig', () => ({
   useAppConfigStore: (selector: (state: typeof configState) => unknown): unknown => selector(configState)
 }))
 
-vi.mock('@renderer/features/assistants', () => ({
-  useAssistantStore: (): { currentAssistant: null } => ({ currentAssistant: null })
-}))
-
 vi.mock('../useChatStatsData', () => ({
   useChatStatsData: (): {
     chatId: number

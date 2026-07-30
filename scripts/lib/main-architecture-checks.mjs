@@ -61,7 +61,7 @@ export async function checkMainBoundaries({ mainRoot }) {
       } else if (target === `${normalizedRoot}/db/DatabaseService`
         || target === `${normalizedRoot}/db/services/DatabaseService`) {
         const relativeSource = normalize(relative(mainRoot, file))
-        if (!/^db\/(?:DatabaseService|assistants|chat|config|planning|plugins|run-events|runtime|smart-messages)\.ts$/.test(relativeSource)) {
+        if (!/^db\/(?:DatabaseService|chat|config|planning|plugins|run-events|runtime|smart-messages)\.ts$/.test(relativeSource)) {
           rule = 'production callers must use a domain database facade'
         }
       } else if (normalizedFile === `${normalizedRoot}/index.ts`

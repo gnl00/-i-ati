@@ -4,14 +4,14 @@ const {
   runtimeInitializeMock,
   runtimeIsReadyMock,
   runtimeCloseMock,
-  initializeBuiltInAssistantsMock,
+  appServicesConstructorMock,
   loggerInfoMock,
   loggerErrorMock
 } = vi.hoisted(() => ({
   runtimeInitializeMock: vi.fn(),
   runtimeIsReadyMock: vi.fn(),
   runtimeCloseMock: vi.fn(),
-  initializeBuiltInAssistantsMock: vi.fn(),
+  appServicesConstructorMock: vi.fn(),
   loggerInfoMock: vi.fn(),
   loggerErrorMock: vi.fn()
 }))
@@ -51,13 +51,16 @@ vi.mock('../../core/DbRuntime', () => ({
     scheduledTaskRepository = {}
     runEventRepository = {}
     compressedSummaryRepository = {}
-    assistantRepository = {}
     smartMessageRepository = {}
   }
 }))
 
-vi.mock('@main/bootstrap/AssistantBootstrap', () => ({
-  initializeBuiltInAssistants: initializeBuiltInAssistantsMock
+vi.mock('../DbAppServices', () => ({
+  DbAppServices: class {
+    constructor(runtime: unknown) {
+      appServicesConstructorMock(runtime)
+    }
+  }
 }))
 
 describe('DatabaseService', () => {
@@ -69,17 +72,19 @@ describe('DatabaseService', () => {
   })
 
   it('closes the db runtime when initialization fails after runtime assembly and retries cleanly', async () => {
-    initializeBuiltInAssistantsMock
-      .mockRejectedValueOnce(new Error('bootstrap failed'))
-      .mockResolvedValueOnce(undefined)
+    appServicesConstructorMock
+      .mockImplementationOnce(() => {
+        throw new Error('application service assembly failed')
+      })
+      .mockReturnValueOnce(undefined)
 
     const { default: databaseService } = await import('../DatabaseService')
 
-    await expect(databaseService.initialize()).rejects.toThrow('bootstrap failed')
+    await expect(databaseService.initialize()).rejects.toThrow('application service assembly failed')
     expect(runtimeCloseMock).toHaveBeenCalledTimes(1)
 
     await expect(databaseService.initialize()).resolves.toBeUndefined()
     expect(runtimeInitializeMock).toHaveBeenCalledTimes(2)
-    expect(initializeBuiltInAssistantsMock).toHaveBeenCalledTimes(2)
+    expect(appServicesConstructorMock).toHaveBeenCalledTimes(2)
   })
 })

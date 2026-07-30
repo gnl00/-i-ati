@@ -100,6 +100,7 @@ class AppDatabase {
     this.db.pragma('journal_mode = WAL')
     this.db.pragma('trusted_schema = OFF')
 
+    this.dropLegacyAssistantsTable()
     this.createTables()
     this.createIndexes()
     this.migrateSmartMessageTtl()
@@ -445,22 +446,6 @@ class AppDatabase {
     `)
 
     this.db.exec(`
-      CREATE TABLE IF NOT EXISTS assistants (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        description TEXT,
-        model_account_id TEXT NOT NULL,
-        model_model_id TEXT NOT NULL,
-        system_prompt TEXT NOT NULL,
-        sort_index INTEGER NOT NULL DEFAULT 0,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL,
-        is_built_in INTEGER DEFAULT 0,
-        is_default INTEGER DEFAULT 0
-      )
-    `)
-
-    this.db.exec(`
       CREATE TABLE IF NOT EXISTS task_plans (
         id TEXT PRIMARY KEY,
         chat_uuid TEXT,
@@ -600,9 +585,6 @@ class AppDatabase {
       CREATE INDEX IF NOT EXISTS idx_chat_run_events_chat_id ON chat_run_events(chat_id);
       CREATE INDEX IF NOT EXISTS idx_chat_run_events_chat_uuid ON chat_run_events(chat_uuid);
       CREATE INDEX IF NOT EXISTS idx_chat_run_events_timestamp ON chat_run_events(timestamp);
-      CREATE INDEX IF NOT EXISTS idx_assistants_is_built_in ON assistants(is_built_in);
-      CREATE INDEX IF NOT EXISTS idx_assistants_is_default ON assistants(is_default);
-      CREATE INDEX IF NOT EXISTS idx_assistants_order ON assistants(sort_index ASC, updated_at DESC);
       CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_skills_chat_skill_unique ON chat_skills(chat_id, skill_name);
       CREATE INDEX IF NOT EXISTS idx_chat_skills_chat_id ON chat_skills(chat_id);
       CREATE INDEX IF NOT EXISTS idx_chat_skills_skill_name ON chat_skills(skill_name);
@@ -635,6 +617,11 @@ class AppDatabase {
     }
 
     this.db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`)
+  }
+
+  private dropLegacyAssistantsTable(): void {
+    if (!this.db) throw new Error('Database not initialized')
+    this.db.exec('DROP TABLE IF EXISTS assistants')
   }
 
   private resetScheduledTaskSchemaGeneration(): void {

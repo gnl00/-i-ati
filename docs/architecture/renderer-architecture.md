@@ -2,7 +2,7 @@
 
 Status: Current<br>
 Owner: Renderer maintainers<br>
-Last verified: 2026-07-11<br>
+Last verified: 2026-07-30<br>
 Scope: `src/renderer/src`<br>
 Related specs: [Documentation governance](../specs/documentation-governance.md)<br>
 Related implementation: [`src/renderer/src`](../../src/renderer/src)<br>
@@ -31,8 +31,13 @@ cross-feature contexts such as the active color theme.
 `features/chat/` owns the chat shell, input, message rendering, runtime,
 schedule, transcript state, confirmations, and welcome surface. Settings owns
 provider, MCP, skill, plugin, memory, and knowledge-base management. Artifacts,
-assistants, subagents, task planner, and workspace each own their renderer-side
-state and behavior.
+subagents, task planner, and workspace each own their renderer-side state and
+behavior.
+
+Chat-level User Instruction remains part of chat session state and request
+materialization. The `assistant` message role and assistant-message renderers
+remain part of the transcript protocol. Assistant preset selection and
+management have been removed from renderer composition and persistence.
 
 Tests remain beside the capability they verify. Every top-level feature owns an
 `index.ts` public entry. Feature code imports another feature through that

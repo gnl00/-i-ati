@@ -21,7 +21,7 @@ const {
       currentChatId: 1,
       currentChatUuid: 'chat-1',
       selectedModelRef: modelRef,
-      userInstruction: '',
+      userInstruction: 'chat instruction',
       permissionApprovalMode: 'default',
       ensureSelectedModelRef: vi.fn(() => modelRef),
       setPendingUserMessage: vi.fn(),
@@ -147,6 +147,13 @@ describe('useChatRun', () => {
         stream: true
       })
     }))
+    const runInput = (
+      invokeRunStart.mock.calls as unknown as Array<[{ input: Record<string, unknown> }]>
+    )[0]?.[0].input
+    expect(runInput).toMatchObject({
+      chatUserInstruction: 'chat instruction'
+    })
+    expect(runInput).not.toHaveProperty('userInstruction')
   })
 
   it('sets pending user message for pure image submissions', async () => {

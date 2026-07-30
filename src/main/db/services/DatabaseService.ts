@@ -60,10 +60,6 @@ class DatabaseService {
       this.appServices = new DbAppServices(runtime)
 
       this.logger.info('initialize.completed', stats)
-
-      // 初始化内置 Assistants
-      const { initializeBuiltInAssistants } = await import('@main/bootstrap/AssistantBootstrap')
-      await initializeBuiltInAssistants()
     } catch (error) {
       if (runtime?.isReady()) {
         this.close()
@@ -95,10 +91,6 @@ class DatabaseService {
 
   private requireCompressedSummaryService() {
     return this.requireAppServices().compressedSummaryService
-  }
-
-  private requireAssistantService() {
-    return this.requireAppServices().assistantService
   }
 
   private requireSmartMessageDbService() {
@@ -601,31 +593,6 @@ class DatabaseService {
     return this.requireSmartMessageDbService().listRecentSmartMessageCandidateSummaries(since, limit)
   }
 
-  // ==================== Assistant Methods ====================
-
-  public saveAssistant(assistant: Assistant): string {
-    return this.requireAssistantService().saveAssistant(assistant)
-  }
-
-  public getAllAssistants(): Assistant[] {
-    return this.requireAssistantService().getAllAssistants()
-  }
-
-  public deleteAllAssistants(): void {
-    this.requireAssistantService().deleteAllAssistants()
-  }
-
-  public getAssistantById(id: string): Assistant | undefined {
-    return this.requireAssistantService().getAssistantById(id)
-  }
-
-  public updateAssistant(assistant: Assistant): void {
-    this.requireAssistantService().updateAssistant(assistant)
-  }
-
-  public deleteAssistant(id: string): void {
-    this.requireAssistantService().deleteAssistant(id)
-  }
 }
 
 // 导出单例实例

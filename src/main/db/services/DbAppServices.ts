@@ -1,6 +1,5 @@
 import type { DbRuntime } from '../core/DbRuntime'
 import { PluginRuntimeService } from '@main/services/plugins'
-import { AssistantService } from './AssistantService'
 import { ChatService } from './ChatService'
 import { CompressedSummaryService } from './CompressedSummaryService'
 import { ConfigService } from './ConfigService'
@@ -17,7 +16,6 @@ export class DbAppServices {
   public readonly pluginService: PluginService
   public readonly runEventService: RunEventService
   public readonly compressedSummaryService: CompressedSummaryService
-  public readonly assistantService: AssistantService
   public readonly smartMessageDbService: SmartMessageDbService
 
   constructor(runtime: DbRuntime) {
@@ -51,9 +49,6 @@ export class DbAppServices {
     })
     this.compressedSummaryService = new CompressedSummaryService({
       compressedSummaryRepository: () => runtime.compressedSummaryRepository
-    })
-    this.assistantService = new AssistantService({
-      assistantRepository: () => runtime.assistantRepository
     })
     this.smartMessageDbService = new SmartMessageDbService({
       smartMessageRepository: () => runtime.smartMessageRepository

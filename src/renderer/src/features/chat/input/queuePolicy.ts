@@ -10,7 +10,6 @@ export type ChatQueuePolicyInput = {
 export type QueuedChatMessage = {
   text: string
   images: ClipbordImg[]
-  userInstruction: string
 }
 
 export function isSubmissionBlocked(
@@ -34,7 +33,6 @@ export function mergeQueuedMessages(items: QueuedChatMessage[]): QueuedChatMessa
     return null
   }
 
-  const [first] = items
   const text = items
     .map(item => item.text.trim())
     .filter(Boolean)
@@ -43,7 +41,6 @@ export function mergeQueuedMessages(items: QueuedChatMessage[]): QueuedChatMessa
 
   return {
     text,
-    images,
-    userInstruction: first.userInstruction
+    images
   }
 }

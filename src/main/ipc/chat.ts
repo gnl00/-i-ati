@@ -1,6 +1,5 @@
 import { ipcMain } from 'electron'
 import { chatDb } from '@main/db/chat'
-import { assistantDb } from '@main/db/assistants'
 import { createLogger } from '@main/logging/LogService'
 import {
   RunService,
@@ -21,11 +20,6 @@ import {
   DB_CHAT_SKILL_ADD,
   DB_CHAT_SKILL_REMOVE,
   DB_CHAT_SKILLS_GET,
-  DB_ASSISTANT_SAVE,
-  DB_ASSISTANT_GET_ALL,
-  DB_ASSISTANT_GET_BY_ID,
-  DB_ASSISTANT_UPDATE,
-  DB_ASSISTANT_DELETE,
   RUN_START,
   RUN_CANCEL,
   RUN_TOOL_CONFIRM,
@@ -189,30 +183,5 @@ export function registerChatHandlers(): void {
   ipcMain.handle(LEGACY_RUN_TITLE_GENERATE, async (_event, data: TitleGenerationInput) => {
     console.log('[Title IPC] Generate title')
     return await runService.generateTitle(data)
-  })
-
-  ipcMain.handle(DB_ASSISTANT_SAVE, async (_event, data: Assistant) => {
-    logger.info('assistant.save', { id: data.id, name: data.name })
-    return assistantDb.saveAssistant(data)
-  })
-
-  ipcMain.handle(DB_ASSISTANT_GET_ALL, async (_event) => {
-    logger.info('assistant.get_all')
-    return assistantDb.getAllAssistants()
-  })
-
-  ipcMain.handle(DB_ASSISTANT_GET_BY_ID, async (_event, id: string) => {
-    logger.info('assistant.get_by_id', { id })
-    return assistantDb.getAssistantById(id)
-  })
-
-  ipcMain.handle(DB_ASSISTANT_UPDATE, async (_event, data: Assistant) => {
-    logger.info('assistant.update', { id: data.id, name: data.name })
-    return assistantDb.updateAssistant(data)
-  })
-
-  ipcMain.handle(DB_ASSISTANT_DELETE, async (_event, id: string) => {
-    logger.info('assistant.delete', { id })
-    return assistantDb.deleteAssistant(id)
   })
 }

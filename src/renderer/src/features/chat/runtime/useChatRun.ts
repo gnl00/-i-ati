@@ -15,7 +15,6 @@ const PENDING_CHAT_RUN_KEY = '__pending_chat__'
 
 export type ChatRunSubmitOptions = {
   tools?: any[]
-  userInstruction?: string
   stream?: boolean
   options?: IUnifiedRequest['options']
 }
@@ -226,7 +225,6 @@ export default function useChatRun() {
           textCtx,
           mediaCtx,
           tools: collectRunTools(state, options),
-          userInstruction: options.userInstruction,
           options: options.options,
           stream: options.stream,
           chatUserInstruction: state.userInstruction,

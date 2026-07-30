@@ -38,7 +38,6 @@ export type ChatSessionActions = {
   setChatUuid: (chatUuid: string | null) => void
   hydrateUserInstructionDraft: (chat?: ChatEntity | null) => void
   editUserInstructionDraft: (value: string) => void
-  applyAssistantInstructionPreset: (value: string) => void
   persistUserInstructionDraft: () => Promise<void>
   setPermissionApprovalMode: (mode: PermissionApprovalMode) => Promise<void>
   updateWorkspacePath: (workspacePath?: string) => Promise<void>
@@ -157,7 +156,6 @@ export function createChatSessionActions<T extends ChatSessionSliceState>(
       } as Partial<T>)
     },
     editUserInstructionDraft: (value) => set({ userInstruction: value } as Partial<T>),
-    applyAssistantInstructionPreset: (value) => set({ userInstruction: value } as Partial<T>),
     persistUserInstructionDraft: async () => {
       const state = get()
       const currentChat = getChatFromList({

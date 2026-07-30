@@ -1,5 +1,10 @@
 # 欢迎页面融合球效果说明
 
+Archived: 2026-07-30<br>
+Reason: The legacy welcome experiment was retired<br>
+Original path: `docs/ui/WELCOME_BLOB_EFFECT.md`<br>
+Replaced by: [Smart welcome message stack](../../../ui/smart-welcome-message-stack.md)
+
 > 本文保留早期融合球视觉方案的设计参数。当前生产欢迎页由
 > `@renderer/features/chat/welcome/SmartWelcomeEntrance` 实现；此前的卡片堆叠方案保留在
 > `@renderer/dev/experiments/welcome/SmartWelcomeEntranceLegacy`，用于开发期视觉对照。

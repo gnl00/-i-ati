@@ -2,11 +2,6 @@ import type { RemotePluginCatalogItem } from '@shared/plugins/remoteRegistry'
 import type { Plan, PlanStatus, PlanStep } from '@shared/task-planner/schemas'
 import type { ScheduleTask, ScheduleTaskStatus } from '@shared/tools/schedule'
 import {
-  DB_ASSISTANT_DELETE,
-  DB_ASSISTANT_GET_ALL,
-  DB_ASSISTANT_GET_BY_ID,
-  DB_ASSISTANT_SAVE,
-  DB_ASSISTANT_UPDATE,
   DB_CHAT_DELETE,
   DB_CHAT_GET_ALL,
   DB_CHAT_GET_BY_ID,
@@ -90,12 +85,6 @@ export const invokeDbMcpServersSave = (config: McpServerConfig): Promise<void> =
 export const invokeDbScheduledTasksList = (): Promise<ScheduleTask[]> => invokeIpc(DB_SCHEDULED_TASKS_LIST)
 export const invokeDbScheduledTaskUpdateStatus = (args: { id: string; status: ScheduleTaskStatus; lastError?: string | null }): Promise<ScheduleTask> =>
   invokeIpc(DB_SCHEDULED_TASK_UPDATE_STATUS, args)
-
-export const invokeDbAssistantSave = (data: Assistant): Promise<string> => invokeIpc(DB_ASSISTANT_SAVE, data)
-export const invokeDbAssistantGetAll = (): Promise<Assistant[]> => invokeIpc(DB_ASSISTANT_GET_ALL)
-export const invokeDbAssistantGetById = (id: string): Promise<Assistant | undefined> => invokeIpc(DB_ASSISTANT_GET_BY_ID, id)
-export const invokeDbAssistantUpdate = (data: Assistant): Promise<void> => invokeIpc(DB_ASSISTANT_UPDATE, data)
-export const invokeDbAssistantDelete = (id: string): Promise<boolean> => invokeIpc(DB_ASSISTANT_DELETE, id)
 
 export const invokeDbTaskPlanSave = (plan: Plan): Promise<void> => invokeIpc(DB_TASK_PLAN_SAVE, plan)
 export const invokeDbTaskPlanUpdate = (plan: Plan): Promise<void> => invokeIpc(DB_TASK_PLAN_UPDATE, plan)

@@ -40,21 +40,20 @@ describe('chat input queue policy', () => {
 
   it('merges short queued messages into one multiline payload', () => {
     expect(mergeQueuedMessages([
-      { text: 'yo', images: [], userInstruction: 'first instruction' },
-      { text: 'yo?', images: [], userInstruction: 'second instruction' },
-      { text: 'sha?', images: [], userInstruction: 'third instruction' }
+      { text: 'yo', images: [] },
+      { text: 'yo?', images: [] },
+      { text: 'sha?', images: [] }
     ])).toEqual({
       text: 'yo\nyo?\nsha?',
-      images: [],
-      userInstruction: 'first instruction'
+      images: []
     })
   })
 
   it('merges follow-up task details in order', () => {
     expect(mergeQueuedMessages([
-      { text: '帮我完成xxx，需要xxx', images: [], userInstruction: '' },
-      { text: '这里需要补充一下xxx', images: [], userInstruction: '' },
-      { text: '还有这里xxx', images: [], userInstruction: '' }
+      { text: '帮我完成xxx，需要xxx', images: [] },
+      { text: '这里需要补充一下xxx', images: [] },
+      { text: '还有这里xxx', images: [] }
     ])?.text).toBe('帮我完成xxx，需要xxx\n这里需要补充一下xxx\n还有这里xxx')
   })
 
@@ -63,8 +62,8 @@ describe('chat input queue policy', () => {
     const secondImage = 'data:image/png;base64,second' as unknown as ClipbordImg
 
     expect(mergeQueuedMessages([
-      { text: 'first', images: [firstImage], userInstruction: '' },
-      { text: 'second', images: [secondImage], userInstruction: '' }
+      { text: 'first', images: [firstImage] },
+      { text: 'second', images: [secondImage] }
     ])?.images).toEqual([firstImage, secondImage])
   })
 

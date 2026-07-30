@@ -14,7 +14,6 @@ export const invokeRunStart = (data: {
     textCtx: string
     mediaCtx: ClipbordImg[] | string[]
     tools?: unknown[]
-    userInstruction?: string
     options?: IUnifiedRequest['options']
     stream?: boolean
     chatUserInstruction?: string

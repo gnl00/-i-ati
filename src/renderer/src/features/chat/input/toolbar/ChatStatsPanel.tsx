@@ -4,7 +4,6 @@ import { Popover, PopoverContent, PopoverTrigger } from '@renderer/shared/compon
 import { cn } from '@renderer/shared/lib/utils'
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
 import { useAppConfigStore } from '@renderer/infrastructure/config/appConfig'
-import { useAssistantStore } from '@renderer/features/assistants'
 import {
   CircleGauge,
   Sparkles,
@@ -42,25 +41,7 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
   const mainModelRef = useAppConfigStore(state => state.mainModel)
   const resolveModelRef = useAppConfigStore(state => state.resolveModelRef)
   const providersRevision = useAppConfigStore(state => state.providersRevision)
-  const { currentAssistant } = useAssistantStore()
-  const [displayAssistant, setDisplayAssistant] = useState<Assistant | null>(null)
-  const [isExiting, setIsExiting] = useState(false)
   const persistedStats = useChatStatsData(currentChatId, compressionSummaryRevision)
-
-  React.useEffect((): (() => void) | undefined => {
-    if (currentAssistant) {
-      setDisplayAssistant(currentAssistant)
-      setIsExiting(false)
-    } else if (displayAssistant) {
-      setIsExiting(true)
-      const timer = setTimeout(() => {
-        setDisplayAssistant(null)
-        setIsExiting(false)
-      }, 300)
-      return (): void => clearTimeout(timer)
-    }
-    return undefined
-  }, [currentAssistant, displayAssistant])
 
   const activeModel = React.useMemo(
     () => resolveModelRef(selectedModelRef ?? mainModelRef)?.model,
@@ -260,24 +241,6 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <div className="group relative flex items-center">
-          {displayAssistant && (
-            <div
-              key={displayAssistant.id}
-              className={cn(
-                'flex h-7 items-center justify-center rounded-l-xl border-y border-l border-slate-200/50 bg-slate-50/50 px-2 transition-all duration-300 ease-out dark:border-slate-700/50 dark:bg-slate-800/50',
-                isExiting
-                  ? 'animate-out fade-out-0 slide-out-to-right-2 duration-300'
-                  : 'animate-in fade-in-0 slide-in-from-right-2 duration-300',
-                'group-hover:border-slate-300 group-hover:bg-slate-100 dark:group-hover:border-slate-600 dark:group-hover:bg-slate-700',
-                isOpen && 'border-slate-300 bg-slate-100 dark:border-slate-600 dark:bg-slate-700'
-              )}
-            >
-              <span className="text-xs font-medium leading-none text-gray-500 transition-colors hover:text-gray-700">
-                {displayAssistant.name}
-              </span>
-            </div>
-          )}
-
           <Button
             variant="outline"
             size="icon"
@@ -287,9 +250,7 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
               'relative h-7 w-7 overflow-hidden border border-slate-200/50 bg-slate-50/50 transition-all duration-300 ease-out dark:border-slate-700/50 dark:bg-slate-800/50',
               'group-hover:border-slate-300 group-hover:bg-slate-100 group-hover:shadow-xs dark:group-hover:border-slate-600 dark:group-hover:bg-slate-700',
               'active:scale-95 motion-reduce:transition-none',
-              currentAssistant
-                ? 'rounded-l-none rounded-r-xl border-l-0'
-                : 'rounded-xl',
+              'rounded-xl',
               isOpen && 'border-slate-300 bg-slate-100 shadow-xs dark:border-slate-600 dark:bg-slate-700'
             )}
           >
