@@ -253,6 +253,46 @@ describe('VisionObservationService', () => {
     expect(result.body.content).toContain('vision observation timed out after 25ms')
   })
 
+  it('aborts an active vision observation with the outer run signal', async () => {
+    const requestSignals: AbortSignal[] = []
+    const chatStepStore = createStore()
+    const service = new VisionObservationService({
+      appConfigStore: {
+        requireConfig: vi.fn(() => config as IAppConfig)
+      },
+      modelContextResolver: {
+        resolve: vi.fn(() => ({
+          model: config.accounts[0].models[0],
+          account: config.accounts[0],
+          providerDefinition: config.providerDefinitions[0]
+        }))
+      },
+      chatStepStore,
+      request: vi.fn((_request, signal) => {
+        if (signal) {
+          requestSignals.push(signal)
+        }
+        return new Promise<IUnifiedResponse>(() => {})
+      })
+    })
+    const controller = new AbortController()
+
+    const resultPromise = service.observe({
+      chat,
+      userMessage,
+      textCtx: 'inspect',
+      mediaCtx: ['data:image/png;base64,abc'],
+      signal: controller.signal
+    })
+    controller.abort()
+    const result = await resultPromise
+
+    expect(requestSignals[0]?.aborted).toBe(true)
+    expect(result.body.source).toBe(MESSAGE_SOURCE.VISION_OBSERVATION)
+    expect(result.body.content).toContain('status="failed"')
+    expect(result.body.content).toContain('vision observation aborted')
+  })
+
   it('persists failed hidden observation when configured model lacks vision', async () => {
     const chatStepStore = createStore()
     const service = new VisionObservationService({

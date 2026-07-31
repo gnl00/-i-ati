@@ -72,23 +72,42 @@ Interactive steering uses the main-owned active run queue:
 
 ```text
 run:steer (submissionId + chatUuid + queueItemId)
+  -> IPC shape and payload limits
   -> RunManager exact active-run lookup
-  -> AgentRun FIFO
-  -> AgentLoop stable checkpoint
+  -> bounded AgentRun FIFO
+  -> AgentLoop stable checkpoint + next-step budget gate
   -> user transcript record
   -> steering.consumed runtime fact
   -> ChatRenderResponder message boundary split
+  -> optional vision observation transcript record
 ```
 
 A stable checkpoint follows a complete assistant response. Tool-producing
 responses reach the checkpoint after the whole tool batch has emitted and
-persisted its results. Each checkpoint consumes one queue item. The chat host
+persisted its results. A checkpoint consumes one queue item when the loop budget
+admits the following model step. Items remain queued through a terminal budget
+boundary and return through `run.steering.returned`. The chat host
 persists the inserted user message, resets the render fold, and starts a fresh
 assistant draft, preserving `assistant A -> tool results -> inserted user ->
 assistant B` ordering. `run.steering.consumed` confirms a specific queue item;
 the runtime acknowledges that item after host persistence and event delivery.
 `run.steering.returned` releases pending and unacknowledged in-flight ids when
 the run reaches a terminal state first.
+
+The IPC boundary validates identifiers, text, data-URL image strings, and null
+clipboard placeholders before the request reaches `RunManager`. ArrayBuffer
+images require a MIME-aware conversion before steering submission. Each run
+accepts up to five pending steering items and enforces per-item and aggregate
+byte limits. Recently acknowledged ids use a bounded cache to preserve retry
+idempotency.
+
+Image steering uses the same visible user-message persistence boundary. The chat
+host creates a hidden `vision_observation` after the visible message, and the
+loop appends that model-readable observation before materializing the next
+provider request. The sidecar request shares the active run abort signal. Once
+the visible user message is persisted, cancellation settles that item as
+consumed and moves directly into loop abort cleanup. Raw image parts remain
+outside the provider request transcript.
 
 ## Service and tool direction
 

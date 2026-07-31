@@ -33,7 +33,7 @@ import { createInitialModelResponseParserState } from '../model/ModelResponsePar
 import type { AgentTranscript } from '../transcript/AgentTranscript'
 import type { ToolCallReadyFact } from '../tools/ToolCallReadyFact'
 import type { ToolResultFact } from '../tools/ToolResultFact'
-import type { LoopBudgetProgressSignal } from './LoopBudgetPolicy'
+import type { LoopBudgetProgressSignal, LoopBudgetState } from './LoopBudgetPolicy'
 import { mergeUsage } from './AgentLoopUsage'
 import type { AgentTranscriptUserRecord } from '../transcript/AgentTranscriptRecord'
 
@@ -453,7 +453,9 @@ export class DefaultAgentLoop implements AgentLoop {
       })
 
       if (step.toolCalls.length === 0) {
-        const steered = await this.consumeSteeringMessage(transcript, dependencies)
+        const steered = this.canStartNextStep(stepIndex, budgetState, dependencies)
+          ? await this.consumeSteeringMessage(transcript, dependencies)
+          : undefined
         if (steered) {
           transcript = steered
           stepIndex += 1
@@ -520,7 +522,9 @@ export class DefaultAgentLoop implements AgentLoop {
             progressSources
           })
         }
-        transcript = await this.consumeSteeringMessage(transcript, dependencies) ?? transcript
+        if (this.canStartNextStep(stepIndex, budgetState, dependencies)) {
+          transcript = await this.consumeSteeringMessage(transcript, dependencies) ?? transcript
+        }
         stepIndex += 1
         continue
       }
@@ -637,8 +641,36 @@ export class DefaultAgentLoop implements AgentLoop {
       timestamp,
       message
     })
+
+    const context = await dependencies.steeringMessageSource?.resolveContext?.(message)
+    let transcriptWithContext = nextTranscript
+    if (context) {
+      const contextTimestamp = dependencies.runtimeClock.now()
+      transcriptWithContext = dependencies.transcriptAppender.append({
+        transcript: nextTranscript,
+        records: [{
+          recordId: dependencies.loopIdentityProvider.nextTranscriptRecordId(),
+          kind: 'user',
+          timestamp: contextTimestamp,
+          source: context.source,
+          content: [...context.content]
+        }],
+        updatedAt: contextTimestamp
+      })
+    }
+
     dependencies.steeringMessageSource?.acknowledge(message.queueItemId)
-    return nextTranscript
+    return transcriptWithContext
+  }
+
+  private canStartNextStep(
+    stepIndex: number,
+    budgetState: LoopBudgetState,
+    dependencies: AgentLoopDependencies
+  ): boolean {
+    const nextStepIndex = stepIndex + 1
+    return nextStepIndex < budgetState.hardMaxSteps
+      && dependencies.loopBudgetPolicy.canStartStep(nextStepIndex, budgetState)
   }
 
   private async materializeLoadedSkillsContextRecords(

@@ -23,6 +23,7 @@ export type VisionRequestInput = {
   imageUrls: string[]
   prompt: string
   systemPrompt: string
+  signal?: AbortSignal
   timeoutLabel?: string
   timeoutMs?: number
 }
@@ -159,7 +160,8 @@ export class VisionRequestService {
       const response = await this.requestWithTimeout(
         request,
         input.timeoutLabel ?? 'vision request',
-        input.timeoutMs
+        input.timeoutMs,
+        input.signal
       )
       const text = response?.content?.trim()
       if (!text) {
@@ -179,11 +181,13 @@ export class VisionRequestService {
   private async requestWithTimeout(
     request: IUnifiedRequest,
     timeoutLabel: string,
-    timeoutMs = this.timeoutMs
+    timeoutMs = this.timeoutMs,
+    signal?: AbortSignal
   ): Promise<IUnifiedResponse> {
     const controller = new AbortController()
     let timedOut = false
     let timeout: ReturnType<typeof setTimeout> | null = null
+    let removeAbortListener: (() => void) | undefined
     const timeoutPromise = new Promise<never>((_, reject) => {
       timeout = setTimeout(() => {
         timedOut = true
@@ -191,11 +195,27 @@ export class VisionRequestService {
         reject(new Error(`${timeoutLabel} timed out after ${timeoutMs}ms`))
       }, timeoutMs)
     })
+    const abortPromise = signal
+      ? new Promise<never>((_, reject) => {
+          const onAbort = () => {
+            controller.abort()
+            const error = new Error(`${timeoutLabel} aborted`)
+            error.name = 'AbortError'
+            reject(error)
+          }
+          removeAbortListener = () => signal.removeEventListener('abort', onAbort)
+          signal.addEventListener('abort', onAbort, { once: true })
+          if (signal.aborted) {
+            onAbort()
+          }
+        })
+      : undefined
 
     try {
       return await Promise.race([
         this.request(request, controller.signal, () => {}, () => {}),
-        timeoutPromise
+        timeoutPromise,
+        ...(abortPromise ? [abortPromise] : [])
       ])
     } catch (error) {
       if (timedOut) {
@@ -206,6 +226,7 @@ export class VisionRequestService {
       if (timeout) {
         clearTimeout(timeout)
       }
+      removeAbortListener?.()
     }
   }
 }

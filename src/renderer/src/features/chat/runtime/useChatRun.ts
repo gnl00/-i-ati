@@ -1,6 +1,6 @@
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
 import { invokeRunCancel, invokeRunStart, invokeRunSteer, subscribeRunEvents } from '@renderer/infrastructure/ipc'
-import type { RunSteerResult } from '@shared/run/steering-events'
+import type { RunSteerImage, RunSteerResult } from '@shared/run/steering-events'
 import { v4 as uuidv4 } from 'uuid'
 import { toast } from 'sonner'
 import { bindChatRunEvents } from './chatRunEvent'
@@ -36,6 +36,42 @@ type ActiveRunHandle = {
 const activeRuns = new Map<string, ActiveRunHandle>()
 const backgroundTitleUnsubscribers = new Map<string, () => void>()
 
+const getRunKey = (chatUuid: string | null | undefined): string => (
+  chatUuid ?? PENDING_CHAT_RUN_KEY
+)
+
+const findActiveRunForChat = (
+  chatUuid: string | null | undefined
+): ActiveRunHandle | null => {
+  const key = getRunKey(chatUuid)
+  for (const handle of activeRuns.values()) {
+    if (getRunKey(handle.runChatUuidRef.current) === key) {
+      return handle
+    }
+  }
+
+  return null
+}
+
+export type ActiveChatRunIdentity = {
+  submissionId: string
+  chatUuid: string | null
+}
+
+export function getActiveChatRunIdentity(
+  chatUuid: string | null | undefined
+): ActiveChatRunIdentity | null {
+  const handle = findActiveRunForChat(chatUuid)
+  if (!handle) {
+    return null
+  }
+
+  return {
+    submissionId: handle.submissionId,
+    chatUuid: handle.runChatUuidRef.current
+  }
+}
+
 export const resetChatRunRegistryForTests = (): void => {
   for (const handle of activeRuns.values()) {
     if (handle.abortFallbackTimer) {
@@ -53,19 +89,6 @@ export const resetChatRunRegistryForTests = (): void => {
 
 export default function useChatRun() {
   const chatStore = useChatStore()
-
-  const getRunKey = (chatUuid: string | null | undefined): string => chatUuid ?? PENDING_CHAT_RUN_KEY
-
-  const findActiveRunForChat = (chatUuid: string | null | undefined): ActiveRunHandle | null => {
-    const key = getRunKey(chatUuid)
-    for (const handle of activeRuns.values()) {
-      if (getRunKey(handle.runChatUuidRef.current) === key) {
-        return handle
-      }
-    }
-
-    return null
-  }
 
   const resetRunLifecycle = (
     outcome: 'idle' | 'completed' | 'failed' | 'aborted' = 'idle',
@@ -313,6 +336,13 @@ export default function useChatRun() {
     text: string
     images: ClipbordImg[]
   }): Promise<RunSteerResult> => {
+    const images = payload.images.filter((image): image is RunSteerImage => (
+      typeof image === 'string' || image === null
+    ))
+    if (images.length !== payload.images.length) {
+      return { accepted: false, reason: 'invalid_request' }
+    }
+
     const currentChatUuid = useChatStore.getState().currentChatUuid
     const handle = findActiveRunForChat(currentChatUuid)
     const chatUuid = handle?.runChatUuidRef.current
@@ -323,7 +353,9 @@ export default function useChatRun() {
     return await invokeRunSteer({
       submissionId: handle.submissionId,
       chatUuid,
-      ...payload
+      queueItemId: payload.queueItemId,
+      text: payload.text,
+      images
     })
   }
 

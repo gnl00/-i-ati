@@ -220,6 +220,84 @@ describe('DefaultAgentRuntime', () => {
     expect(acknowledge).toHaveBeenCalledWith('queue-1')
   })
 
+  it('leaves steering queued when a completed text step exhausts the loop budget', async () => {
+    const take = vi.fn(() => ({
+      queueItemId: 'queue-after-budget',
+      text: 'guide the next step',
+      imageUrls: [],
+      content: [{ type: 'input_text' as const, text: 'guide the next step' }]
+    }))
+    const acknowledge = vi.fn()
+    const emitSteeringConsumed = vi.fn(async () => undefined)
+    const modelStreamExecutor: ModelStreamExecutor = {
+      execute: vi.fn(async () => createAsyncStream([
+        {
+          kind: 'delta',
+          responseId: 'resp-budget-text',
+          model: 'test-model',
+          content: 'Current answer',
+          finishReason: 'stop'
+        },
+        {
+          kind: 'final',
+          responseId: 'resp-budget-text',
+          model: 'test-model'
+        }
+      ]))
+    }
+
+    const runtime = new DefaultAgentRuntime({
+      requestSpecSource,
+      runDescriptorSource,
+      loopInputBootstrapper: new DefaultLoopInputBootstrapper(),
+      userRecordMaterializer: new DefaultUserRecordMaterializer(),
+      initialTranscriptMaterializer: new DefaultInitialTranscriptMaterializer(),
+      runtimeInfrastructure: createDefaultRuntimeInfrastructure(),
+      agentLoop: new DefaultAgentLoop(),
+      agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
+        modelStreamExecutor,
+        steeringMessageSource: { take, acknowledge },
+        agentEventEmitter: {
+          emitStepStarted: vi.fn(async () => undefined),
+          emitStepDelta: vi.fn(async () => undefined),
+          emitStepCompleted: vi.fn(async () => undefined),
+          emitStepFailed: vi.fn(async () => undefined),
+          emitStepAborted: vi.fn(async () => undefined),
+          emitToolAwaitingConfirmation: vi.fn(async () => undefined),
+          emitToolConfirmationDenied: vi.fn(async () => undefined),
+          emitToolExecutionStarted: vi.fn(async () => undefined),
+          emitToolExecutionOutput: vi.fn(async () => undefined),
+          emitToolExecutionCompleted: vi.fn(async () => undefined),
+          emitToolExecutionFailed: vi.fn(async () => undefined),
+          emitToolExecutionAborted: vi.fn(async () => undefined),
+          emitLoopCompleted: vi.fn(async () => undefined),
+          emitLoopFailed: vi.fn(async () => undefined),
+          emitLoopAborted: vi.fn(async () => undefined),
+          emitSteeringConsumed
+        }
+      })
+    })
+
+    const result = await runtime.run({
+      hostRequest: {
+        hostType: 'test',
+        hostRequestId: 'req-steer-budget-text',
+        submittedAt: Date.now(),
+        userContent: [{ type: 'input_text', text: 'hello' }]
+      },
+      execution: {
+        softMaxSteps: 1,
+        hardMaxSteps: 1
+      }
+    })
+
+    expect(result.status).toBe('completed')
+    expect(modelStreamExecutor.execute).toHaveBeenCalledTimes(1)
+    expect(take).not.toHaveBeenCalled()
+    expect(emitSteeringConsumed).not.toHaveBeenCalled()
+    expect(acknowledge).not.toHaveBeenCalled()
+  })
+
   it('consumes steering after the complete tool result batch', async () => {
     const modelStreamExecutor: ModelStreamExecutor = {
       execute: vi.fn(async ({ request }) => {
@@ -356,6 +434,91 @@ describe('DefaultAgentRuntime', () => {
       })
     ]))
     expect(toolExecutorDispatcher.dispatch).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves steering queued after tools when the next step reaches the hard limit', async () => {
+    const take = vi.fn(() => ({
+      queueItemId: 'queue-after-tool-budget',
+      text: 'guide the next step',
+      imageUrls: [],
+      content: [{ type: 'input_text' as const, text: 'guide the next step' }]
+    }))
+    const acknowledge = vi.fn()
+    const modelStreamExecutor: ModelStreamExecutor = {
+      execute: vi.fn(async () => createAsyncStream([
+        {
+          kind: 'delta',
+          responseId: 'resp-budget-tool',
+          model: 'test-model',
+          toolCalls: [{
+            argumentsMode: 'snapshot',
+            toolCall: {
+              id: 'tool-budget',
+              index: 0,
+              type: 'function',
+              function: {
+                name: 'sum',
+                arguments: '{"a":1,"b":1}'
+              }
+            }
+          }],
+          finishReason: 'tool_calls'
+        },
+        {
+          kind: 'final',
+          responseId: 'resp-budget-tool',
+          model: 'test-model'
+        }
+      ]))
+    }
+    const toolExecutorDispatcher: ToolExecutorDispatcher = {
+      dispatch: vi.fn(async (batch) => ({
+        status: 'completed' as const,
+        batchId: batch.batchId,
+        stepId: batch.stepId,
+        results: [{
+          stepId: batch.stepId,
+          toolCallId: 'tool-budget',
+          toolCallIndex: 0,
+          toolName: 'sum',
+          status: 'success' as const,
+          content: { result: 2 }
+        }]
+      }))
+    }
+    const runtime = new DefaultAgentRuntime({
+      requestSpecSource,
+      runDescriptorSource,
+      loopInputBootstrapper: new DefaultLoopInputBootstrapper(),
+      userRecordMaterializer: new DefaultUserRecordMaterializer(),
+      initialTranscriptMaterializer: new DefaultInitialTranscriptMaterializer(),
+      runtimeInfrastructure: createDefaultRuntimeInfrastructure(),
+      agentLoop: new DefaultAgentLoop(),
+      agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
+        modelStreamExecutor,
+        toolExecutorDispatcher,
+        steeringMessageSource: { take, acknowledge }
+      })
+    })
+
+    const result = await runtime.run({
+      hostRequest: {
+        hostType: 'test',
+        hostRequestId: 'req-steer-budget-tool',
+        submittedAt: Date.now(),
+        userContent: [{ type: 'input_text', text: 'use a tool' }]
+      },
+      execution: {
+        softMaxSteps: 1,
+        hardMaxSteps: 1
+      }
+    })
+
+    expect(result.status).toBe('failed')
+    expect(modelStreamExecutor.execute).toHaveBeenCalledTimes(1)
+    expect(toolExecutorDispatcher.dispatch).toHaveBeenCalledTimes(1)
+    expect(take).not.toHaveBeenCalled()
+    expect(acknowledge).not.toHaveBeenCalled()
   })
 
   it('executes tool batch with the final step tool-call snapshot when a later snapshot corrects earlier ready args', async () => {

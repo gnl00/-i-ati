@@ -1,5 +1,5 @@
 import ChatImageGallery from '@renderer/features/chat/shell/ChatImageGallery'
-import useChatRun from '@renderer/features/chat/runtime/useChatRun'
+import useChatRun, { getActiveChatRunIdentity } from '@renderer/features/chat/runtime/useChatRun'
 import { useSlashCommands } from '@renderer/features/chat/input/useSlashCommands'
 import { useMcpConnection } from '@renderer/features/settings'
 import { cn } from '@renderer/shared/lib/utils'
@@ -18,16 +18,22 @@ import ChatInputToolbar from './ChatInputToolbar'
 import ChatInputActions from './ChatInputActions'
 import SharedPromptSurface from './SharedPromptSurface'
 import { QueuedMessageRail } from './QueuedMessageRail'
-import { invokeCheckIsDirectory, subscribeRunEvents } from '@renderer/infrastructure/ipc'
-import { RUN_STEERING_EVENTS } from '@shared/run/steering-events'
+import { invokeCheckIsDirectory } from '@renderer/infrastructure/ipc'
+import { RUN_STEERING_LIMITS, type RunSteerResult } from '@shared/run/steering-events'
 import { v4 as uuidv4 } from 'uuid'
 import {
   isSubmissionBlocked,
-  mergeQueuedMessages,
   shouldQueueSubmission as getShouldQueueSubmission,
   type QueuedChatMessage,
   type QueuedChatMessagePayload
 } from './queuePolicy'
+import {
+  EMPTY_CHAT_INPUT_QUEUE_OWNER,
+  getChatInputQueueKey,
+  selectQueuedPayloadForFlush,
+  useChatInputQueueStore,
+  type ChatInputQueueScope
+} from './chatInputQueueStore'
 
 interface ChatInputAreaProps {
   onMessagesUpdate?: () => void
@@ -37,6 +43,23 @@ interface ChatInputAreaProps {
 
 export interface ChatInputAreaHandle {
   fillInput: (text: string) => void
+}
+
+function getSteerRejectionMessage(reason: RunSteerResult['reason']): string {
+  switch (reason) {
+    case 'queue_full':
+      return 'The current run insert queue is full'
+    case 'payload_too_large':
+      return 'Queued message is too large. Edit or remove it'
+    case 'invalid_request':
+      return 'Queued message is invalid. Edit or remove it'
+    case 'chat_mismatch':
+      return 'The active run belongs to another chat'
+    case 'run_not_found':
+    case 'run_finished':
+    default:
+      return 'The current run has already finished'
+  }
 }
 
 const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(({
@@ -51,7 +74,6 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
   const runPhase = useChatStore(state => state.runPhase)
   const postRunJobs = useChatStore(state => state.postRunJobs)
   const messages = useChatStore(state => state.messages)
-  const currentChatId = useChatStore(state => state.currentChatId)
   const currentChatUuid = useChatStore(state => state.currentChatUuid)
   const selectedModelRef = useChatStore(state => state.selectedModelRef)
   const selectedThinkingLevel = useChatStore(state => state.selectedThinkingLevel)
@@ -130,10 +152,26 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     void syncMcpRuntimeWithConfig(mcpServerConfig)
   }, [mcpServerConfig, syncMcpRuntimeWithConfig])
 
+  const activeRunIdentity = getActiveChatRunIdentity(currentChatUuid)
+  const queueScope = useMemo<ChatInputQueueScope>(() => ({
+    chatUuid: currentChatUuid,
+    submissionId: activeRunIdentity?.submissionId ?? null
+  }), [activeRunIdentity?.submissionId, currentChatUuid])
+  const queueKey = getChatInputQueueKey(queueScope)
+  const queueOwner = useChatInputQueueStore(state => (
+    state.owners[queueKey] ?? EMPTY_CHAT_INPUT_QUEUE_OWNER
+  ))
+  const queuedMessages = queueOwner.messages
+  const queuePaused = queueOwner.paused
+  const editingQueue = Boolean(queueOwner.editingMessage)
+  const setQueuedMessages = useCallback((update: React.SetStateAction<QueuedChatMessage[]>) => {
+    useChatInputQueueStore.getState().setMessages(queueScope, update)
+  }, [queueScope])
+  const setQueuePaused = useCallback((paused: boolean) => {
+    useChatInputQueueStore.getState().setPaused(queueScope, paused)
+  }, [queueScope])
+
   const [inputContent, setInputContent] = useState<string>('')
-  const [queuedMessages, setQueuedMessages] = useState<QueuedChatMessage[]>([])
-  const [queuePaused, setQueuePaused] = useState<boolean>(false)
-  const [editingQueue, setEditingQueue] = useState<boolean>(false)
   const [isDragging, setIsDragging] = useState<boolean>(false)
   const [workspacePathToSelect, setWorkspacePathToSelect] = useState<string | null>(null)
   const [modelMenuCollisionBoundary, setModelMenuCollisionBoundary] = useState<HTMLElement | null>(null)
@@ -151,7 +189,9 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
   const welcomeInteractionReleaseTimerRef = useRef<number | null>(null)
   const queueFlushingRef = useRef(false)
   const isComposingRef = useRef(false)
-  const editingQueueRef = useRef<QueuedChatMessage | null>(null)
+  const previousQueueKeyRef = useRef(queueKey)
+  const activeQueueKeyRef = useRef(queueKey)
+  activeQueueKeyRef.current = queueKey
 
   // Callback to handle command execution with textarea cleanup
   const handleCommandExecute = useCallback((_command: any) => {
@@ -268,13 +308,12 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
 
   // Extend startNewChat to include local state reset
   const startNewChat = useCallback(() => {
+    if (!currentChatUuid) {
+      useChatInputQueueStore.getState().clear(queueScope)
+    }
     startNewChatBase()
     editUserInstructionDraft('')
-    setQueuedMessages([])
-    setQueuePaused(false)
-    setEditingQueue(false)
-    editingQueueRef.current = null
-  }, [startNewChatBase, editUserInstructionDraft])
+  }, [currentChatUuid, editUserInstructionDraft, queueScope, startNewChatBase])
 
   const {
     onSubmit: handleChatSubmit,
@@ -293,8 +332,8 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
   }, [effectiveThinkingLevel, handleChatSubmitCallback, onMessagesUpdate])
 
   const enqueueMessage = useCallback((payload: QueuedChatMessagePayload) => {
-    if (queuedMessages.length >= 5) {
-      toast.warning('Queue is full (max 5)')
+    if (queuedMessages.length >= RUN_STEERING_LIMITS.maxPendingItems) {
+      toast.warning(`Queue is full (max ${RUN_STEERING_LIMITS.maxPendingItems})`)
       return
     }
     setQueuedMessages(prev => [...prev, {
@@ -312,7 +351,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
         caretOverlayRef.current?.updateCaret()
       }
     })
-  }, [queuedMessages.length, setImageSrcBase64List])
+  }, [queuedMessages.length, setImageSrcBase64List, setQueuedMessages])
 
   const isSubmitBlocked = isSubmissionBlocked(runPhase, postRunJobs)
   const shouldQueueSubmission = getShouldQueueSubmission({
@@ -349,26 +388,25 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     }
 
     if (editingQueue) {
-      const editingItem = editingQueueRef.current
+      const editingItem = queueOwner.editingMessage
       const editedPayload = {
         text: trimmedInput,
         images: imageSrcBase64List
       }
 
-      setEditingQueue(false)
-      editingQueueRef.current = null
       setInputContent('')
       setImageSrcBase64List([])
 
       if (shouldQueueSubmission) {
-        setQueuedMessages(prev => [{
+        useChatInputQueueStore.getState().finishEditing(queueScope, {
           ...editedPayload,
           id: editingItem?.id ?? uuidv4(),
           status: 'queued'
-        }, ...prev])
+        })
         return
       }
 
+      useChatInputQueueStore.getState().finishEditing(queueScope)
       useChatStore.getState().forceCompleteTypewriter?.()
       submitMessage(editedPayload)
       return
@@ -398,30 +436,15 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     ensureSelectedModelRef,
     queuePaused,
     editingQueue,
+    queueOwner.editingMessage,
+    queueScope,
     queuedMessages.length,
     shouldQueueSubmission,
     enqueueMessage,
     submitMessage,
-    setImageSrcBase64List
+    setImageSrcBase64List,
+    setQueuePaused
   ])
-
-  useEffect(() => {
-    return subscribeRunEvents(event => {
-      if (event.type === RUN_STEERING_EVENTS.STEERING_CONSUMED) {
-        setQueuedMessages(prev => prev.filter(item => item.id !== event.payload.queueItemId))
-        return
-      }
-
-      if (event.type === RUN_STEERING_EVENTS.STEERING_RETURNED) {
-        const returnedIds = new Set(event.payload.queueItemIds)
-        setQueuedMessages(prev => prev.map(item => (
-          returnedIds.has(item.id)
-            ? { ...item, status: 'queued' }
-            : item
-        )))
-      }
-    })
-  }, [])
 
   const insertQueuedMessage = useCallback(async () => {
     const first = queuedMessages[0]
@@ -449,14 +472,14 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
       setQueuedMessages(prev => prev.map(item => (
         item.id === first.id ? { ...item, status: 'queued' } : item
       )))
-      toast.warning('The current run has already finished')
+      toast.warning(getSteerRejectionMessage(result.reason))
     } catch {
       setQueuedMessages(prev => prev.map(item => (
         item.id === first.id ? { ...item, status: 'queued' } : item
       )))
       toast.error('Failed to insert queued message')
     }
-  }, [queuePaused, queuedMessages, runPhase, steerChatRun])
+  }, [queuePaused, queuedMessages, runPhase, setQueuedMessages, steerChatRun])
 
   useEffect(() => {
     if (
@@ -468,29 +491,32 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     ) {
       return
     }
-    if (queueFlushingRef.current) {
+    const queueScopeChanged = previousQueueKeyRef.current !== queueKey
+    if (queueScopeChanged) {
+      queueFlushingRef.current = false
+    } else if (queueFlushingRef.current) {
       return
     }
     if (queueTimerRef.current) {
       window.clearTimeout(queueTimerRef.current)
     }
+    const scheduledQueueKey = queueKey
     queueTimerRef.current = window.setTimeout(() => {
       const latestState = useChatStore.getState()
       if (isSubmissionBlocked(latestState.runPhase, latestState.postRunJobs)) {
         return
       }
-      setQueuedMessages(prev => {
-        if (prev.length === 0) {
-          return prev
-        }
-        const nextItem = mergeQueuedMessages(prev.filter(item => item.status === 'queued'))
-        if (!nextItem) {
-          return prev
-        }
-        queueFlushingRef.current = true
-        submitMessage(nextItem)
-        return []
+      const nextItem = selectQueuedPayloadForFlush({
+        owners: useChatInputQueueStore.getState().owners,
+        scheduledQueueKey,
+        activeQueueKey: activeQueueKeyRef.current
       })
+      if (!nextItem) {
+        return
+      }
+      queueFlushingRef.current = true
+      useChatInputQueueStore.getState().setMessages(queueScope, [])
+      submitMessage(nextItem)
     }, 200)
     return () => {
       if (queueTimerRef.current) {
@@ -502,6 +528,8 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     isSubmitBlocked,
     queuePaused,
     editingQueue,
+    queueKey,
+    queueScope,
     queuedMessages.length,
     queuedMessages[0]?.status,
     submitMessage
@@ -522,14 +550,32 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     if (hasError) {
       setQueuePaused(true)
     }
-  }, [messages, isSubmitBlocked])
+  }, [isSubmitBlocked, messages, setQueuePaused])
 
   useEffect(() => {
-    setQueuedMessages([])
-    setQueuePaused(false)
-    setEditingQueue(false)
-    editingQueueRef.current = null
-  }, [currentChatId, currentChatUuid])
+    if (previousQueueKeyRef.current === queueKey) {
+      return
+    }
+
+    previousQueueKeyRef.current = queueKey
+    queueFlushingRef.current = false
+    setInputContent('')
+    setImageSrcBase64List([])
+  }, [queueKey, setImageSrcBase64List])
+
+  useEffect(() => {
+    const editingMessage = queueOwner.editingMessage
+    if (!editingMessage) {
+      return
+    }
+
+    setInputContent(editingMessage.text)
+    setImageSrcBase64List(editingMessage.images)
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus()
+      caretOverlayRef.current?.updateCaret()
+    })
+  }, [queueKey, queueOwner.editingMessage, setImageSrcBase64List])
 
   const startEditQueuedMessage = useCallback(() => {
     if (
@@ -539,17 +585,17 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     ) {
       return
     }
-    const [first, ...rest] = queuedMessages
-    editingQueueRef.current = first
-    setEditingQueue(true)
-    setQueuedMessages(rest)
+    const first = useChatInputQueueStore.getState().beginEditing(queueScope)
+    if (!first) {
+      return
+    }
     setInputContent(first.text || '')
     setImageSrcBase64List(first.images || [])
     requestAnimationFrame(() => {
       textareaRef.current?.focus()
       caretOverlayRef.current?.updateCaret()
     })
-  }, [editingQueue, queuedMessages, setImageSrcBase64List])
+  }, [editingQueue, queueScope, queuedMessages, setImageSrcBase64List])
 
   const removeFirstQueuedMessage = useCallback(() => {
     setQueuedMessages(prev => {
@@ -559,7 +605,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
       }
       return prev.slice(1)
     })
-  }, [])
+  }, [setQueuedMessages])
 
   const onTextAreaChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value

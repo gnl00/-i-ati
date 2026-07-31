@@ -7,6 +7,7 @@ import DatabaseService from '@main/db/DatabaseService'
 import { SkillService } from '@main/services/skills/SkillService'
 import { DefaultMainAgentRuntimeRunner } from '../DefaultMainAgentRuntimeRunner'
 import type { AgentEvent } from '@main/agent/runtime/events/AgentEvent'
+import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 
 const noopToolResultCompactionTrigger = {
   schedule: vi.fn()
@@ -268,6 +269,128 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     const { notificationSinkFactory } = await runWithNotificationSource('telegram')
 
     expect(notificationSinkFactory).not.toHaveBeenCalled()
+  })
+
+  it('adds a vision observation for a steered image before the next provider request', async () => {
+    const rawImage = 'data:image/png;base64,steering-secret'
+    let modelCallCount = 0
+    let secondRequest: unknown
+    const modelStreamExecutor: ModelStreamExecutor = {
+      execute: vi.fn(async ({ request }) => {
+        modelCallCount += 1
+        if (modelCallCount === 2) {
+          secondRequest = request
+        }
+        return createAsyncStream([
+          {
+            kind: 'delta',
+            responseId: `resp-${modelCallCount}`,
+            model: 'model-1',
+            content: modelCallCount === 1 ? 'First answer' : 'Guided answer',
+            finishReason: 'stop'
+          },
+          {
+            kind: 'final',
+            responseId: `resp-${modelCallCount}`,
+            model: 'model-1'
+          }
+        ])
+      })
+    }
+    const observation: MessageEntity = {
+      id: 902,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'user',
+        source: MESSAGE_SOURCE.VISION_OBSERVATION,
+        content: '<vision_observation image_ref="message:301" status="ok">Summary: queue UI</vision_observation>',
+        segments: []
+      }
+    }
+    const visionObservationService = {
+      observe: vi.fn(async () => observation)
+    }
+    const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
+      modelStreamExecutor,
+      toolResultCompactionTrigger: noopToolResultCompactionTrigger,
+      visionObservationService
+    })
+    const takeSteeringMessage = vi.fn()
+      .mockReturnValueOnce({
+        queueItemId: 'queue-image',
+        text: 'Follow this screenshot',
+        images: [rawImage]
+      })
+      .mockReturnValue(undefined)
+    const acknowledgeSteeringMessage = vi.fn()
+    const localPrepared = {
+      ...prepared,
+      runSpec: {
+        ...prepared.runSpec,
+        modelContext: {
+          ...prepared.runSpec.modelContext,
+          model: {
+            ...prepared.runSpec.modelContext.model,
+            type: 'vlm'
+          }
+        },
+        requestSpec: {
+          ...prepared.runSpec.requestSpec,
+          modelType: 'vlm'
+        }
+      },
+      chatContext: {
+        ...prepared.chatContext,
+        chat: {
+          ...prepared.chatContext.chat,
+          messages: []
+        },
+        messageEntities: [],
+        assistantDraft: {
+          ...prepared.chatContext.assistantDraft,
+          body: {
+            ...prepared.chatContext.assistantDraft.body
+          }
+        }
+      }
+    } as any
+
+    await runner.run({
+      runInput: input,
+      prepared: localPrepared,
+      runtimeContext: {
+        getPermissionApprovalMode: vi.fn(() => undefined),
+        setPermissionApprovalMode: vi.fn(),
+        takeSteeringMessage,
+        acknowledgeSteeringMessage
+      },
+      emitter: {
+        emit: vi.fn(),
+        setChatMeta: vi.fn()
+      } as any,
+      signal: new AbortController().signal,
+      toolConfirmationRequester: {
+        request: vi.fn(async () => ({ approved: true }))
+      }
+    })
+
+    const serializedRequest = JSON.stringify(secondRequest)
+    expect(serializedRequest).toContain('<vision_observation')
+    expect(serializedRequest).toContain('Summary: queue UI')
+    expect(serializedRequest).not.toContain(rawImage)
+    expect(serializedRequest).not.toContain('input_image')
+    expect(visionObservationService.observe).toHaveBeenCalledWith(expect.objectContaining({
+      textCtx: 'Follow this screenshot',
+      mediaCtx: [rawImage],
+      userMessage: expect.objectContaining({
+        body: expect.objectContaining({ role: 'user' })
+      })
+    }))
+    expect(acknowledgeSteeringMessage).toHaveBeenCalledWith('queue-image')
+    expect(
+      saveMessageMock.mock.calls.filter(([message]) => message.body.role === 'user')
+    ).toHaveLength(1)
   })
 
   it('sends the complete raw tool result to the immediate continuation', async () => {

@@ -104,6 +104,38 @@ describe('AgentRun', () => {
     stepCommitter.getLastUsage.mockReturnValue(undefined)
   })
 
+  it('bounds pending steering items while keeping duplicate delivery idempotent', () => {
+    const run = new AgentRun(input as any, {
+      mainAgentRuntimeRunner: { run: vi.fn() },
+      chatAgentAdapter: { prepareRun: vi.fn() },
+      postRunJobService: { run: vi.fn() }
+    } as any, {
+      emitter: { emit: vi.fn(), setChatMeta: vi.fn() },
+      toolConfirmationRequester: {
+        request: vi.fn(async () => ({ approved: true }))
+      }
+    } as any)
+
+    for (let index = 1; index <= 5; index += 1) {
+      expect(run.steer({
+        queueItemId: `queue-${index}`,
+        text: `guide ${index}`,
+        images: []
+      })).toEqual({ accepted: true })
+    }
+
+    expect(run.steer({
+      queueItemId: 'queue-1',
+      text: 'duplicate delivery',
+      images: []
+    })).toEqual({ accepted: true })
+    expect(run.steer({
+      queueItemId: 'queue-6',
+      text: 'over capacity',
+      images: []
+    })).toEqual({ accepted: false, reason: 'queue_full' })
+  })
+
   it('completes the run and does not wait for post-run jobs', async () => {
     const postRunDeferred = createDeferred<void>()
     const postRunPlan = {
@@ -158,6 +190,11 @@ describe('AgentRun', () => {
     }
 
     const run = new AgentRun(input as any, services, runtime as any)
+    expect(run.steer({
+      queueItemId: 'queue-before-complete',
+      text: 'guide after this run',
+      images: []
+    })).toEqual({ accepted: true })
     const result = await run.run()
 
     expect(result).toEqual({
@@ -186,6 +223,16 @@ describe('AgentRun', () => {
       assistantMessageId: 102,
       usage: undefined
     })
+    expect(emitter.emit).toHaveBeenCalledWith(RUN_EVENTS.STEERING_RETURNED, {
+      queueItemIds: ['queue-before-complete']
+    })
+    const returnedOrder = emitter.emit.mock.invocationCallOrder[
+      emitter.emit.mock.calls.findIndex(([type]) => type === RUN_EVENTS.STEERING_RETURNED)
+    ]
+    const completedOrder = emitter.emit.mock.invocationCallOrder[
+      emitter.emit.mock.calls.findIndex(([type]) => type === RUN_EVENTS.RUN_COMPLETED)
+    ]
+    expect(returnedOrder).toBeLessThan(completedOrder)
 
     postRunDeferred.resolve()
     await postRunDeferred.promise

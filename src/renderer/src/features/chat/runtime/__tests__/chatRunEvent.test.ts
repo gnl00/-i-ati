@@ -2,9 +2,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHAT_HOST_EVENTS, CHAT_RENDER_EVENTS } from '@shared/run/events'
 import { RUN_LIFECYCLE_EVENTS } from '@shared/run/lifecycle-events'
 import { RUN_MAINTENANCE_EVENTS } from '@shared/run/maintenance-events'
+import { RUN_STEERING_EVENTS } from '@shared/run/steering-events'
 import { RUN_TOOL_EVENTS } from '@shared/run/tool-events'
 import type { MessageSegmentPatch } from '@shared/chat/render-events'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
+import {
+  getChatInputQueueKey,
+  resetChatInputQueueStoreForTests,
+  useChatInputQueueStore
+} from '@renderer/features/chat/input/chatInputQueueStore'
 
 const latestStore = {
   currentChatUuid: 'chat-live',
@@ -158,6 +164,7 @@ describe('handleChatRunEvent', () => {
   })
 
   beforeEach(() => {
+    resetChatInputQueueStoreForTests()
     latestStore.currentChatUuid = 'chat-live'
     latestStore.runPhase = 'idle'
     latestStore.postRunJobs = { title: 'idle', compression: 'idle' }
@@ -179,6 +186,38 @@ describe('handleChatRunEvent', () => {
     latestStore.clearPendingUserMessage.mockReset()
     scheduleAssistantStreamingPerfRecentSessionFlush.mockReset()
     rendererLoggerError.mockReset()
+  })
+
+  it('routes steering events through the active run subscription while the composer is absent', async () => {
+    const pendingScope = { chatUuid: null, submissionId: 'submission-1' }
+    const chatScope = { chatUuid: 'chat-1', submissionId: 'submission-1' }
+    useChatInputQueueStore.getState().setMessages(pendingScope, [{
+      id: 'queue-1',
+      status: 'inserting',
+      text: 'guide the run',
+      images: []
+    }])
+
+    await handleChatRunEvent(createInput(), {
+      submissionId: 'submission-1',
+      chatUuid: 'chat-1',
+      timestamp: 1,
+      sequence: 1,
+      type: RUN_STEERING_EVENTS.STEERING_RETURNED,
+      payload: { queueItemIds: ['queue-1'] }
+    })
+
+    const owner = useChatInputQueueStore.getState().owners[getChatInputQueueKey(chatScope)]
+    expect(owner).toMatchObject({
+      chatUuid: 'chat-1',
+      submissionId: 'submission-1'
+    })
+    expect(owner.messages).toEqual([{
+      id: 'queue-1',
+      status: 'queued',
+      text: 'guide the run',
+      images: []
+    }])
   })
 
   it('uses the latest store state when handling user message creation', async () => {

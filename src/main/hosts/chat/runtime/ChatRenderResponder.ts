@@ -17,19 +17,47 @@ import {
   type ToolResultCompactionTrigger
 } from './ToolResultCompactionTrigger'
 import { RUN_STEERING_EVENTS } from '@shared/run/steering-events'
+import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
+import type {
+  AgentSteeringContext,
+  AgentSteeringMessage
+} from '@main/agent/runtime/steering/SteeringMessageSource'
+import type { VisionObservationService } from '../vision'
+import { createLogger } from '@main/logging/LogService'
+
+const logger = createLogger('ChatRenderResponder')
+
+export type ChatRenderSteeringObservationOptions = {
+  chat: ChatEntity
+  visionObservationService: Pick<VisionObservationService, 'observe'>
+}
+
+const messageContentToText = (content: ChatMessage['content']): string => {
+  if (typeof content === 'string') {
+    return content
+  }
+
+  return content
+    .filter(part => part.type === 'text')
+    .map(part => part.text || '')
+    .join('')
+}
 
 export class ChatRenderResponder implements HostRenderEventSink {
   private readonly mapper = new ChatRenderMapper()
   private readonly output: ChatRenderOutput
+  private readonly steeringContextByQueueItemId = new Map<string, AgentSteeringContext>()
+  private readonly visionObservationService?: Pick<VisionObservationService, 'observe'>
   private renderStateSource: { snapshot(): AgentRenderState } | undefined
 
   constructor(
     private readonly emitter: import('@main/agent/contracts').RunEventEmitter,
-    messageEntities: MessageEntity[],
+    private readonly messageEntities: MessageEntity[],
     assistantDraft: MessageEntity,
     stepStore = new ChatStepStore(),
     toolResultCompactionTrigger: ToolResultCompactionTrigger = noopToolResultCompactionTrigger,
-    signal?: AbortSignal
+    private readonly signal?: AbortSignal,
+    private readonly steeringObservation?: ChatRenderSteeringObservationOptions
   ) {
     this.output = new ChatRenderOutput(
       emitter,
@@ -40,6 +68,7 @@ export class ChatRenderResponder implements HostRenderEventSink {
       toolResultCompactionTrigger,
       signal
     )
+    this.visionObservationService = steeringObservation?.visionObservationService
   }
 
   get messageEvents(): ChatEventMapper {
@@ -60,6 +89,12 @@ export class ChatRenderResponder implements HostRenderEventSink {
 
   getLastUsage(): ITokenUsage | undefined {
     return this.renderStateSource?.snapshot().lastUsage
+  }
+
+  takeSteeringContext(queueItemId: string): AgentSteeringContext | undefined {
+    const context = this.steeringContextByQueueItemId.get(queueItemId)
+    this.steeringContextByQueueItemId.delete(queueItemId)
+    return context
   }
 
   private emitPreview(state: AgentRenderMessageState | null, timestamp: number): void {
@@ -163,15 +198,53 @@ export class ChatRenderResponder implements HostRenderEventSink {
       case 'host.usage.updated':
         return
 
-      case 'host.steering.consumed':
-        this.output.consumeSteeringMessage({
+      case 'host.steering.consumed': {
+        const userMessage = this.output.consumeSteeringMessage({
           text: event.message.text,
           imageUrls: event.message.imageUrls
         })
+        await this.observeSteeringImages(event.message, userMessage)
         this.emitter.emit(RUN_STEERING_EVENTS.STEERING_CONSUMED, {
           queueItemId: event.message.queueItemId
         })
         return
+      }
+    }
+  }
+
+  private async observeSteeringImages(
+    message: AgentSteeringMessage,
+    userMessage: MessageEntity
+  ): Promise<void> {
+    if (
+      message.imageUrls.length === 0
+      || !this.steeringObservation
+      || !this.visionObservationService
+    ) {
+      return
+    }
+
+    try {
+      const observation = await this.visionObservationService.observe({
+        chat: this.steeringObservation.chat,
+        userMessage,
+        textCtx: message.text,
+        mediaCtx: message.imageUrls,
+        signal: this.signal
+      })
+      this.messageEntities.push(observation)
+      this.steeringContextByQueueItemId.set(message.queueItemId, {
+        source: observation.body.source ?? MESSAGE_SOURCE.VISION_OBSERVATION,
+        content: [{
+          type: 'input_text',
+          text: messageContentToText(observation.body.content)
+        }]
+      })
+    } catch (error) {
+      logger.warn('steering.vision_observation.failed', {
+        queueItemId: message.queueItemId,
+        error: error instanceof Error ? error.message : String(error)
+      })
     }
   }
 

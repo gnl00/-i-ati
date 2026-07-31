@@ -28,8 +28,8 @@ import {
   RUN_COMPRESSION_EXECUTE,
   RUN_TITLE_GENERATE
 } from '@shared/constants'
-import type { RunSteerRequest } from '@shared/run/steering-events'
 import { normalizePermissionApprovalMode, type PermissionApprovalMode } from '@tools/approval'
+import { validateRunSteerRequest } from './runSteerValidation'
 
 const runService = new RunService()
 const logger = createLogger('DatabaseIPC')
@@ -101,8 +101,14 @@ export function registerChatHandlers(): void {
 
   const handleRunSteer = async (
     _event: Electron.IpcMainInvokeEvent,
-    data: RunSteerRequest
-  ) => runService.steer(data)
+    data: unknown
+  ) => {
+    const validated = validateRunSteerRequest(data)
+    if (!validated.valid) {
+      return { accepted: false, reason: validated.reason }
+    }
+    return runService.steer(validated.request)
+  }
 
   const handleRunPermissionApprovalModeUpdate = async (
     _event: Electron.IpcMainInvokeEvent,

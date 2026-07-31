@@ -24,6 +24,7 @@ export type VisionObservationInput = {
   userMessage: MessageEntity
   textCtx: string
   mediaCtx: HostRunInputState['mediaCtx']
+  signal?: AbortSignal
   source?: string
   host?: ChatMessageHostMeta
 }
@@ -98,6 +99,7 @@ export class VisionObservationService {
         imageUrls,
         prompt: buildVisionUserText(input, imageUrls.length),
         systemPrompt: VISION_OBSERVATION_SYSTEM_PROMPT,
+        signal: input.signal,
         timeoutLabel: 'vision observation'
       })
 

@@ -10,8 +10,9 @@ import {
   RUN_TOOL_CONFIRM
 } from '@shared/constants'
 
-const { ipcMainHandleMock } = vi.hoisted(() => ({
-  ipcMainHandleMock: vi.fn()
+const { ipcMainHandleMock, runServiceSteerMock } = vi.hoisted(() => ({
+  ipcMainHandleMock: vi.fn(),
+  runServiceSteerMock: vi.fn()
 }))
 
 vi.mock('electron', () => ({
@@ -25,7 +26,7 @@ vi.mock('@main/orchestration/chat/run', () => ({
     start = vi.fn()
     cancel = vi.fn()
     resolveToolConfirmation = vi.fn()
-    steer = vi.fn()
+    steer = runServiceSteerMock
     updatePermissionApprovalModeForChat = vi.fn()
     executeCompression = vi.fn()
     generateTitle = vi.fn()
@@ -59,6 +60,7 @@ vi.mock('@main/logging/LogService', () => ({
 describe('registerChatHandlers', () => {
   beforeEach(() => {
     ipcMainHandleMock.mockReset()
+    runServiceSteerMock.mockReset()
   })
 
   it('registers run handlers on new run:* channels while keeping legacy request aliases', async () => {
@@ -82,5 +84,31 @@ describe('registerChatHandlers', () => {
     expect(registeredChannels).toContain(RUN_TITLE_GENERATE)
     expect(registeredChannels).toContain('chat-title:generate')
     expect(registeredChannels).not.toContain('chat-run:event')
+  })
+
+  it('rejects malformed run steering input before it reaches the run service', async () => {
+    const { registerChatHandlers } = await import('../chat')
+    registerChatHandlers()
+    const handler = ipcMainHandleMock.mock.calls.find(([channel]) => channel === RUN_STEER)?.[1]
+
+    await expect(handler({}, {
+      submissionId: 'submission-1',
+      chatUuid: 'chat-1',
+      queueItemId: 'queue-1',
+      text: null,
+      images: null
+    })).resolves.toEqual({ accepted: false, reason: 'invalid_request' })
+    expect(runServiceSteerMock).not.toHaveBeenCalled()
+
+    const validRequest = {
+      submissionId: 'submission-1',
+      chatUuid: 'chat-1',
+      queueItemId: 'queue-1',
+      text: 'guide',
+      images: [null]
+    }
+    runServiceSteerMock.mockReturnValue({ accepted: true })
+    await expect(handler({}, validRequest)).resolves.toEqual({ accepted: true })
+    expect(runServiceSteerMock).toHaveBeenCalledWith(validRequest)
   })
 })

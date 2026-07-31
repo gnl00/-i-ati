@@ -7,7 +7,15 @@ export interface AgentSteeringMessage {
   content: AgentContentPart[]
 }
 
+export interface AgentSteeringContext {
+  source: string
+  content: AgentContentPart[]
+}
+
 export interface SteeringMessageSource {
   take(): AgentSteeringMessage | undefined
+  resolveContext?(
+    message: AgentSteeringMessage
+  ): AgentSteeringContext | undefined | Promise<AgentSteeringContext | undefined>
   acknowledge(queueItemId: string): void
 }

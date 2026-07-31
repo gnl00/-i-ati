@@ -20,6 +20,7 @@ import {
 import { toAgentContentParts } from '@main/hosts/chat/runtime/MainAgentHostRequestBuilder'
 import { normalizeMediaUrls } from '@main/hosts/chat/persistence/ChatStepStore'
 import { ChatLoadedSkillsTranscriptContextProvider } from '@main/hosts/chat/runtime/LoadedSkillsTranscriptContextProvider'
+import { VisionObservationService } from '@main/hosts/chat/vision'
 import { HostRenderEventForwarder, HostRenderEventMapper } from '@main/hosts/shared/render'
 import { normalizePermissionApprovalMode } from '@tools/approval'
 import { DefaultAgentRunCompletionAdapter } from './AgentRunCompletionAdapter'
@@ -49,6 +50,7 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
           occurrenceKey?: string
         }
       ) => AgentEventSink
+      visionObservationService?: Pick<VisionObservationService, 'observe'>
     } = {}
   ) {}
 
@@ -68,7 +70,12 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
       input.prepared.chatContext.assistantDraft,
       undefined,
       this.options.toolResultCompactionTrigger,
-      input.signal
+      input.signal,
+      {
+        chat: input.prepared.chatContext.chat,
+        visionObservationService: this.options.visionObservationService
+          ?? new VisionObservationService()
+      }
     )
     const renderEventMapper = new HostRenderEventMapper()
     chatResponder.connectRenderStateSource(renderEventMapper)
@@ -145,6 +152,7 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
               )
             }
           },
+          resolveContext: (message) => chatResponder.takeSteeringContext(message.queueItemId),
           acknowledge: (queueItemId) => {
             input.runtimeContext?.acknowledgeSteeringMessage?.(queueItemId)
           }

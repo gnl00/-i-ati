@@ -16,12 +16,23 @@ Main remains responsible for execution, persistence, and ordering.
 and `chatUuid`. The renderer runtime registry owns active handles across
 composer remounts, including the Welcome-to-transcript transition. Main accepts
 the item into the active run's FIFO and consumes one item at the next stable
-checkpoint. Renderer queue state follows two shared events:
+checkpoint that has budget for a continuation step. Queue payload, paused state,
+and the current editing item live in a feature-owned store keyed by `chatUuid` or
+the pending `submissionId`. `chatRunEvent` routes events through the active-run
+lifetime, including intervals where the composer is remounting. Renderer queue
+state follows two shared events:
 
 - `run.steering.consumed` removes the matching `queueItemId` after the inserted
   user message has been persisted.
 - `run.steering.returned` restores pending or in-flight item ids when a run
   terminates before consumption is acknowledged.
+
+Main emits returned ids before the terminal lifecycle event, so the active-run
+subscription restores inserting items before its lifecycle cleanup runs.
+
+The pending submission owner migrates to the resolved chat owner when run events
+first carry a `chatUuid`. Chat switches select the corresponding owner, preserving
+each conversation's queued payload independently.
 
 `invokeRunStart` uses `modelRef` for the MainAgent chat-selected execution model. `chatModelRef` carries the same persisted chat model for desktop chat runs, while image understanding is handled by the VisionObservation sidecar during main-process preparation.
 
@@ -29,6 +40,11 @@ Image sends use two display paths for fast feedback:
 
 - `useChatRun` creates a pending user message when the submission has text or media, including pure image sends.
 - Main preparation emits `CHAT_READY` first, then emits the persisted visible user image message immediately after `StepBootstrapService` saves it. The later hidden vision observation arrives through the normal committed message path.
+
+Steered image messages follow the same image-understanding contract at a stable
+checkpoint: the visible user message is persisted once, the VisionObservation
+sidecar produces a hidden observation, and the next provider request receives
+the observation text with raw image parts removed.
 
 ## Files
 

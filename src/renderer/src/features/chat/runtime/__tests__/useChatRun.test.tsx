@@ -229,6 +229,22 @@ describe('useChatRun', () => {
     })
   })
 
+  it('rejects ArrayBuffer steering images before invoking IPC', async () => {
+    await act(async () => {
+      root.render(<Probe />)
+    })
+    await act(async () => {
+      await hookResult?.onSubmit('hello', [], { stream: true })
+    })
+
+    await expect(getHookResult().steer({
+      queueItemId: 'queue-buffer',
+      text: 'inspect this',
+      images: [new ArrayBuffer(4)]
+    })).resolves.toEqual({ accepted: false, reason: 'invalid_request' })
+    expect(invokeRunSteer).not.toHaveBeenCalled()
+  })
+
   it('keeps the active run available after the composer remounts', async () => {
     await act(async () => {
       root.render(<Probe />)

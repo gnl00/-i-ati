@@ -2,6 +2,7 @@ import { subscribeRunEvents } from '@renderer/infrastructure/ipc'
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
 import { createRendererLogger } from '@renderer/shared/logging/rendererLogger'
 import { scheduleAssistantStreamingPerfRecentSessionFlush } from '@renderer/features/chat/message/typewriter/assistantStreamingPerf'
+import { useChatInputQueueStore } from '@renderer/features/chat/input/chatInputQueueStore'
 import { CHAT_HOST_EVENTS } from '@shared/chat/host-events'
 import { CHAT_RENDER_EVENTS } from '@shared/chat/render-events'
 import type { MessageSegmentPatch } from '@shared/chat/render-events'
@@ -286,6 +287,7 @@ export async function handleChatRunEvent(
   const hadRunChatUuidBeforeEvent = Boolean(input.runChatUuidRef.current)
   const chatUuid = resolveRunEventChatUuid(input, event)
   rememberRunChatUuid(input, chatUuid)
+  useChatInputQueueStore.getState().routeRunEvent(event, chatUuid)
 
   switch (event.type) {
     case RUN_TOOL_EVENTS.TOOL_EXECUTION_OUTPUT:

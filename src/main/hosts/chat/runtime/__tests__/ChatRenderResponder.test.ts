@@ -3,6 +3,7 @@ import type { AgentEvent } from '@main/agent/runtime/events/AgentEvent'
 import { HostRenderEventMapper } from '@main/hosts/shared/render'
 import { RUN_TOOL_EVENTS } from '@shared/run/tool-events'
 import { RUN_STEERING_EVENTS } from '@shared/run/steering-events'
+import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 
 const { emitChatUpdatedMock, loggerWarnMock } = vi.hoisted(() => ({
   emitChatUpdatedMock: vi.fn(),
@@ -142,6 +143,148 @@ describe('ChatRenderResponder', () => {
     expect(emitter.emit).toHaveBeenCalledWith(
       RUN_STEERING_EVENTS.STEERING_CONSUMED,
       { queueItemId: 'queue-1' }
+    )
+  })
+
+  it('persists one steering user message and exposes its vision observation as runtime context', async () => {
+    const emitter = { emit: vi.fn() } as any
+    const firstAssistant: MessageEntity = {
+      id: 101,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: 'First answer',
+        segments: []
+      }
+    }
+    const observation: MessageEntity = {
+      id: 902,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'user',
+        source: MESSAGE_SOURCE.VISION_OBSERVATION,
+        content: '<vision_observation status="ok">Summary: settings dialog</vision_observation>',
+        segments: []
+      }
+    }
+    const visionObservationService = {
+      observe: vi.fn(async () => observation)
+    }
+    const messageEntities = [firstAssistant]
+    const responder = new ChatRenderResponder(
+      emitter,
+      messageEntities,
+      firstAssistant,
+      undefined,
+      undefined,
+      undefined,
+      {
+        chat: {
+          id: 1,
+          uuid: 'chat-1',
+          title: 'Chat',
+          messages: [],
+          createTime: 1,
+          updateTime: 1
+        },
+        visionObservationService
+      }
+    )
+
+    await dispatchAgentEvent(responder, {
+      type: 'steering.consumed',
+      timestamp: 101,
+      message: {
+        queueItemId: 'queue-image',
+        text: 'Use this screenshot',
+        imageUrls: ['data:image/png;base64,raw-image'],
+        content: [
+          { type: 'input_image', imageUrl: 'data:image/png;base64,raw-image' },
+          { type: 'input_text', text: 'Use this screenshot' }
+        ]
+      }
+    })
+
+    expect(visionObservationService.observe).toHaveBeenCalledWith(expect.objectContaining({
+      userMessage: expect.objectContaining({
+        id: 901,
+        body: expect.objectContaining({ role: 'user' })
+      }),
+      textCtx: 'Use this screenshot',
+      mediaCtx: ['data:image/png;base64,raw-image']
+    }))
+    expect(messageEntities).toEqual([
+      firstAssistant,
+      expect.objectContaining({ id: 901 }),
+      observation
+    ])
+    expect(responder.takeSteeringContext('queue-image')).toEqual({
+      source: MESSAGE_SOURCE.VISION_OBSERVATION,
+      content: [{
+        type: 'input_text',
+        text: '<vision_observation status="ok">Summary: settings dialog</vision_observation>'
+      }]
+    })
+    expect(responder.takeSteeringContext('queue-image')).toBeUndefined()
+  })
+
+  it('consumes steering text when vision observation persistence fails', async () => {
+    const emitter = { emit: vi.fn() } as any
+    const firstAssistant: MessageEntity = {
+      id: 101,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: 'First answer',
+        segments: []
+      }
+    }
+    const responder = new ChatRenderResponder(
+      emitter,
+      [firstAssistant],
+      firstAssistant,
+      undefined,
+      undefined,
+      undefined,
+      {
+        chat: {
+          id: 1,
+          uuid: 'chat-1',
+          title: 'Chat',
+          messages: [],
+          createTime: 1,
+          updateTime: 1
+        },
+        visionObservationService: {
+          observe: vi.fn(async () => {
+            throw new Error('vision observation persistence failed')
+          })
+        }
+      }
+    )
+
+    await dispatchAgentEvent(responder, {
+      type: 'steering.consumed',
+      timestamp: 101,
+      message: {
+        queueItemId: 'queue-image-failed',
+        text: 'Keep following this text',
+        imageUrls: ['data:image/png;base64,raw-image'],
+        content: [{ type: 'input_text', text: 'Keep following this text' }]
+      }
+    })
+
+    expect(emitter.emit).toHaveBeenCalledWith(
+      RUN_STEERING_EVENTS.STEERING_CONSUMED,
+      { queueItemId: 'queue-image-failed' }
+    )
+    expect(responder.takeSteeringContext('queue-image-failed')).toBeUndefined()
+    expect(loggerWarnMock).toHaveBeenCalledWith(
+      'steering.vision_observation.failed',
+      expect.objectContaining({ queueItemId: 'queue-image-failed' })
     )
   })
 
