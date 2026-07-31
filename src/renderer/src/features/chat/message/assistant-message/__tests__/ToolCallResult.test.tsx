@@ -98,9 +98,25 @@ describe('ToolCallResult', () => {
 
     const result = container.querySelector('[data-testid="tool-call-result"]')
     const trigger = container.querySelector('button')
+    const header = container.querySelector('[data-testid="tool-call-trigger-content-segment-tool-1"]')
+    const status = container.querySelector('[data-testid="tool-call-trigger-status-segment-tool-1"]')
+    const name = container.querySelector('[data-testid="tool-call-trigger-name-segment-tool-1"]')
+    const inspectorIcon = container.querySelector('[data-testid="tool-call-inspector-icon-segment-tool-1"]')
     expect(result?.classList.contains('w-[90%]')).toBe(true)
     expect(result?.classList.contains('max-w-full')).toBe(true)
     expect(trigger?.classList.contains('w-full')).toBe(true)
+    expect(trigger?.classList.contains('duration-150')).toBe(true)
+    expect(trigger?.classList.contains('border-slate-200/24')).toBe(true)
+    expect(trigger?.classList.contains('hover:border-slate-200/36')).toBe(true)
+    expect(header?.classList.contains('grid-cols-[auto_minmax(0,1fr)_auto_auto]')).toBe(true)
+    expect(status?.classList.contains('h-5')).toBe(true)
+    expect(status?.classList.contains('rounded-md')).toBe(true)
+    expect(status?.classList.contains('border-emerald-200/70')).toBe(true)
+    expect(status?.classList.contains('bg-emerald-50/85')).toBe(true)
+    expect(status?.querySelector('svg')?.classList.contains('text-emerald-700')).toBe(true)
+    expect(name?.textContent).toBe('search')
+    expect(name?.classList.contains('uppercase')).toBe(true)
+    expect(inspectorIcon?.getAttribute('aria-hidden')).toBe('true')
 
     await act(async () => {
       trigger?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
@@ -116,6 +132,8 @@ describe('ToolCallResult', () => {
       }
     })
     expect(container.querySelector('button')?.getAttribute('aria-pressed')).toBe('true')
+    expect(trigger?.classList.contains('border-slate-400/45')).toBe(true)
+    expect(status?.classList.contains('scale-[1.03]')).toBe(true)
     expect(container.querySelector('[role="dialog"]')).toBeNull()
   })
 

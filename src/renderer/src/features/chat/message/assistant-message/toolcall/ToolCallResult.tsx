@@ -3,13 +3,16 @@ import { cn } from '@renderer/shared/lib/utils'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 import { motion, useReducedMotion } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
-import { Check, FileText, List, Loader2, PencilLine, Search, Trash2, X } from 'lucide-react'
+import { Check, FileText, List, Loader2, PanelRightOpen, PencilLine, Search, Trash2, X } from 'lucide-react'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { WebSearchResults, type WebSearchResult } from './WebSearchResults'
 import { SubagentResults } from './SubagentResults'
 import { CopyButton } from '../../message-operations'
-import type { SupportSegmentHeaderTone } from '../renderers/SupportSegmentHeader'
+import {
+  SupportSegmentHeader,
+  type SupportSegmentHeaderTone
+} from '../renderers/SupportSegmentHeader'
 import { getReasonFromToolCall } from '../model/toolCallReason'
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
 import type { ToolLiveOutput } from '@renderer/features/chat/state/chatRunUiStore'
@@ -400,27 +403,23 @@ function getToolCallStatusIconMeta(args: {
   isPending: boolean
 }): {
   Icon: LucideIcon
-  className: string
   iconClassName?: string
 } {
   if (args.isError) {
     return {
-      Icon: X,
-      className: 'border-red-200/70 bg-red-50/85 text-red-600 dark:border-red-900/45 dark:bg-red-950/28 dark:text-red-300'
+      Icon: X
     }
   }
 
   if (args.isRunning || args.isPending) {
     return {
       Icon: Loader2,
-      className: 'border-amber-200/70 bg-amber-50/85 text-amber-700 dark:border-amber-900/45 dark:bg-amber-950/26 dark:text-amber-200',
-      iconClassName: args.isRunning ? 'animate-spin' : undefined
+      iconClassName: args.isRunning ? 'animate-spin motion-reduce:animate-none' : undefined
     }
   }
 
   return {
-    Icon: Check,
-    className: 'border-emerald-200/70 bg-emerald-50/85 text-emerald-700 dark:border-emerald-900/42 dark:bg-emerald-950/24 dark:text-emerald-300'
+    Icon: Check
   }
 }
 
@@ -442,14 +441,14 @@ export function getToolCallTriggerButtonClassName({
   return cn(
     'group/toolcall inline-flex w-full cursor-pointer justify-start rounded-lg border text-left outline-hidden',
     'transition-[background-color,border-color,box-shadow] duration-150 ease-out',
-    'border-slate-200/36 bg-white/34 hover:border-slate-200/54 hover:bg-slate-50/82',
+    'border-slate-200/24 bg-white/34 hover:border-slate-200/36 hover:bg-slate-50/82',
     'focus-visible:ring-2 focus-visible:ring-slate-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-    'dark:border-slate-800/70 dark:bg-white/3 dark:hover:border-slate-700/78 dark:hover:bg-white/5 dark:focus-visible:ring-slate-500/80',
+    'dark:border-slate-800/48 dark:bg-white/3 dark:hover:border-slate-700/60 dark:hover:bg-white/5 dark:focus-visible:ring-slate-500/80',
     density === 'compact' ? 'px-1.5 py-1' : 'px-2 py-1.5',
-    isError && 'border-red-200/68 hover:border-red-300/74 dark:border-red-900/38 dark:hover:border-red-800/58',
+    isError && 'border-red-200/38 hover:border-red-300/52 dark:border-red-900/28 dark:hover:border-red-800/42',
     (isRunning || isPending) && !isError
-      && 'border-amber-200/56 hover:border-amber-300/68 dark:border-amber-900/32 dark:hover:border-amber-800/52',
-    isSelected && 'border-slate-400/70 bg-slate-100/88 shadow-xs dark:border-slate-600/80 dark:bg-white/8',
+      && 'border-amber-200/34 hover:border-amber-300/48 dark:border-amber-900/24 dark:hover:border-amber-800/38',
+    isSelected && 'border-slate-400/45 bg-slate-100/88 shadow-xs dark:border-slate-600/60 dark:bg-white/8',
     className
   )
 }
@@ -461,7 +460,8 @@ export const ToolCallTriggerContent = React.memo(({
   isPending,
   isSelected,
   density = 'regular',
-  className
+  className,
+  trailing
 }: {
   toolCall: ToolCallSegment
   isError: boolean
@@ -470,75 +470,45 @@ export const ToolCallTriggerContent = React.memo(({
   isSelected: boolean
   density?: 'regular' | 'compact'
   className?: string
+  trailing?: React.ReactNode
 }) => {
   const reason = getReasonFromToolCall(toolCall)
-  const isCompact = density === 'compact'
   const {
     Icon: StatusIcon,
-    className: statusIconClassName,
     iconClassName
   } = getToolCallStatusIconMeta({ isError, isRunning, isPending })
+  const tone: SupportSegmentHeaderTone = isError
+    ? 'danger'
+    : isRunning || isPending
+      ? 'warning'
+      : 'success'
 
   return (
-    <span
-      data-testid={`tool-call-trigger-content-${toolCall.segmentId}`}
-      className={cn(
-        'grid max-w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center overflow-hidden',
-        isCompact ? 'gap-x-2' : 'gap-x-2.5',
-        className
-      )}
-    >
-      <span
-        data-testid={`tool-call-trigger-status-${toolCall.segmentId}`}
-        className={cn(
-          'inline-flex shrink-0 items-center justify-center rounded-md border transition-transform duration-150 ease-out',
-          isCompact ? 'h-5 w-5' : 'h-6 w-6',
-          isSelected && 'scale-105',
-          statusIconClassName
-        )}
-        aria-hidden="true"
-      >
-        <StatusIcon
-          className={cn(
-            isCompact ? 'h-3 w-3' : 'h-3.5 w-3.5',
-            iconClassName
-          )}
+    <SupportSegmentHeader
+      dataTestId={`tool-call-trigger-content-${toolCall.segmentId}`}
+      icon={StatusIcon}
+      name={toolCall.name}
+      description={reason}
+      duration={(
+        <ToolCallDuration
+          cost={toolCall.cost}
+          isRunning={isRunning}
+          runningStartedAt={toolCall.executionStartedAt ?? toolCall.timestamp}
+          dataTestId={`tool-call-trigger-duration-${toolCall.segmentId}`}
         />
-      </span>
-      <span className="flex min-w-0 flex-col justify-center gap-0.5 sm:flex-row sm:items-center sm:gap-2">
-        <span
-          data-testid={`tool-call-trigger-name-${toolCall.segmentId}`}
-          className={cn(
-            'block min-w-0 truncate font-semibold leading-none text-slate-500 dark:text-slate-200',
-            isCompact ? 'text-[10.5px]' : 'text-[11px]'
-          )}
-        >
-          {toolCall.name.toUpperCase()}
-        </span>
-        {reason ? (
-          <span
-            data-testid={`tool-call-trigger-reason-${toolCall.segmentId}`}
-            title={reason}
-            className={cn(
-              'block w-full max-w-full truncate whitespace-nowrap font-medium leading-snug text-slate-500 dark:text-slate-400 sm:min-w-0 sm:flex-1',
-              isCompact ? 'text-[10px]' : 'text-[10.5px]'
-            )}
-          >
-            {reason}
-          </span>
-        ) : null}
-      </span>
-      <ToolCallDuration
-        cost={toolCall.cost}
-        isRunning={isRunning}
-        runningStartedAt={toolCall.executionStartedAt ?? toolCall.timestamp}
-        dataTestId={`tool-call-trigger-duration-${toolCall.segmentId}`}
-        className={cn(
-          'shrink-0 justify-self-end self-center text-right font-medium tabular-nums leading-none text-slate-400 dark:text-slate-500',
-          isCompact ? 'text-[10px]' : 'text-[10.5px]'
-        )}
-      />
-    </span>
+      )}
+      trailing={trailing}
+      tone={tone}
+      density={density}
+      isOpen={isSelected}
+      className={className}
+      iconClassName={iconClassName}
+      testIds={{
+        icon: `tool-call-trigger-status-${toolCall.segmentId}`,
+        name: `tool-call-trigger-name-${toolCall.segmentId}`,
+        description: `tool-call-trigger-reason-${toolCall.segmentId}`
+      }}
+    />
   )
 })
 
@@ -958,7 +928,7 @@ export const ToolCallInspectorDetails = React.memo(({
                     </span>
                     <span className={cn(
                       'wrap-break-word whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-zinc-700 dark:text-zinc-300',
-                      isComplex && 'rounded-md border border-black/[0.06] bg-zinc-50/80 px-2 py-1.5 dark:border-white/[0.08] dark:bg-black/20'
+                      isComplex && 'rounded-md border border-black/6 bg-zinc-50/80 px-2 py-1.5 dark:border-white/8 dark:bg-black/20'
                     )}>
                       {serializeInspectorValue(value)}
                     </span>
@@ -1108,6 +1078,13 @@ const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }
           isPending={isPending}
           isSelected={isSelected}
           className="w-full"
+          trailing={(
+            <PanelRightOpen
+              aria-hidden="true"
+              data-testid={`tool-call-inspector-icon-${tc.segmentId}`}
+              className="h-3.5 w-3.5"
+            />
+          )}
         />
       </button>
     </motion.div>

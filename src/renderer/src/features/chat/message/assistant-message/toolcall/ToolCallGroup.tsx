@@ -89,7 +89,7 @@ const ToolCallGroupRow = memo(({
   return (
     <motion.div
       data-testid={`tool-call-group-row-${item.segment.segmentId}`}
-      className="border-t border-slate-200/45 first:border-t-0 dark:border-white/6"
+      className="border-t border-slate-200/28 first:border-t-0 dark:border-white/4"
       initial={shouldReduceMotion ? false : { opacity: 0, x: -6, scale: 0.995 }}
       animate={shouldReduceMotion ? undefined : { opacity: 1, x: 0, scale: 1 }}
       transition={shouldReduceMotion
@@ -117,29 +117,30 @@ const ToolCallGroupRow = memo(({
           onToggle()
         }}
         className={cn(
-          'group/toolrow flex w-full min-w-0 cursor-pointer items-center gap-2 px-3 py-2 text-left outline-hidden',
+          'group/support flex w-full min-w-0 cursor-pointer items-center px-2 py-1.5 text-left outline-hidden',
           'transition-colors duration-150 hover:bg-slate-50/55',
           'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-400/65',
+          expanded && 'bg-slate-50/45 dark:bg-white/[0.025]',
           'dark:hover:bg-white/[0.025] dark:focus-visible:ring-slate-500/75'
         )}
       >
-        <span className="min-w-0 flex-1">
-          <ToolCallTriggerContent
-            toolCall={item.segment}
-            isError={isError}
-            isRunning={isRunning}
-            isPending={isPending}
-            isSelected={expanded}
-            density="compact"
-            className="w-full"
-          />
-        </span>
-        <ChevronDown
-          aria-hidden="true"
-          data-testid={`tool-call-chevron-${item.segment.segmentId}`}
-          className={cn(
-            'h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform duration-200 motion-reduce:transition-none',
-            expanded && 'rotate-180'
+        <ToolCallTriggerContent
+          toolCall={item.segment}
+          isError={isError}
+          isRunning={isRunning}
+          isPending={isPending}
+          isSelected={expanded}
+          density="compact"
+          className="w-full"
+          trailing={(
+            <ChevronDown
+              aria-hidden="true"
+              data-testid={`tool-call-chevron-${item.segment.segmentId}`}
+              className={cn(
+                'h-3.5 w-3.5 transition-transform duration-200 motion-reduce:transition-none',
+                expanded && 'rotate-180'
+              )}
+            />
           )}
         />
       </button>
@@ -184,7 +185,7 @@ const ToolCallGroupComponent: React.FC<ToolCallGroupProps> = ({
       data-testid="tool-call-group"
       className={cn(
         TOOL_CALL_RESULT_WIDTH_CLASS_NAME,
-        'my-2 overflow-hidden rounded-lg border border-slate-200/45 bg-white/30 dark:border-white/6 dark:bg-white/1.5'
+        'my-2 overflow-hidden rounded-lg border border-slate-200/28 bg-white/30 dark:border-white/4 dark:bg-white/1.5'
       )}
     >
       {visible.map(item => (

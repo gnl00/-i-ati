@@ -38,8 +38,10 @@ describe('ReasoningSegment', () => {
     const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Toggle think"]')
     const panel = container.querySelector('[data-testid="reasoning-inline-panel"]')
     const segment = container.querySelector('[data-testid="reasoning-segment"]')
+    const header = container.querySelector('[data-testid="support-segment-header"]')
+    const icon = container.querySelector('[data-testid="reasoning-icon"]')
     const label = container.querySelector('[data-testid="reasoning-label"]')
-    const hairline = container.querySelector('[data-testid="reasoning-hairline"]')
+    const description = container.querySelector('[data-testid="reasoning-description"]')
     const chevron = container.querySelector('[data-testid="reasoning-chevron"]')
 
     expect(trigger?.textContent).toContain('Think')
@@ -50,16 +52,35 @@ describe('ReasoningSegment', () => {
     expect(segment?.classList.contains('w-[90%]')).toBe(true)
     expect(segment?.classList.contains('max-w-full')).toBe(true)
     expect(trigger?.classList.contains('bg-transparent')).toBe(true)
-    expect(label?.classList.contains('font-medium')).toBe(true)
-    expect(label?.classList.contains('text-slate-400')).toBe(true)
-    expect(hairline?.classList.contains('bg-slate-200/55')).toBe(true)
-    expect(chevron?.classList.contains('text-slate-300')).toBe(true)
+    expect(trigger?.classList.contains('border-b')).toBe(true)
+    expect(trigger?.classList.contains('border-slate-200/30')).toBe(true)
+    expect(trigger?.classList.contains('rounded-lg')).toBe(false)
+    expect(trigger?.classList.contains('shadow-none')).toBe(true)
+    expect(trigger?.classList.contains('px-2')).toBe(false)
+    expect(trigger?.classList.contains('hover:border-slate-200/50')).toBe(true)
+    expect(trigger?.classList.contains('hover:bg-slate-50/55')).toBe(true)
+    expect(trigger?.classList.contains('duration-150')).toBe(true)
+    expect(header?.classList.contains('grid-cols-[auto_minmax(0,1fr)_auto_auto]')).toBe(true)
+    expect(icon?.querySelector('svg')?.classList.contains('lucide-lightbulb')).toBe(true)
+    expect(icon?.classList.contains('h-5')).toBe(true)
+    expect(icon?.classList.contains('rounded-md')).toBe(true)
+    expect(icon?.classList.contains('border-slate-200/60')).toBe(true)
+    expect(icon?.classList.contains('bg-slate-100/65')).toBe(true)
+    expect(icon?.querySelector('svg')?.classList.contains('text-slate-500')).toBe(true)
+    expect(label?.classList.contains('font-semibold')).toBe(true)
+    expect(label?.classList.contains('uppercase')).toBe(true)
+    expect(description).toBeNull()
+    expect(chevron?.classList.contains('col-start-4')).toBe(true)
+    expect(container.querySelector('[data-testid="reasoning-hairline"]')).toBeNull()
+    expect(chevron?.querySelector('svg')?.classList.contains('motion-reduce:transition-none')).toBe(true)
     expect(container.querySelector('button[aria-label="Copy think"]')).toBeNull()
 
     await act(async () => trigger?.click())
     expect(trigger?.getAttribute('aria-expanded')).toBe('true')
     expect(panel?.getAttribute('data-state')).toBe('expanded')
-    expect(label?.classList.contains('text-slate-500')).toBe(true)
+    expect(trigger?.classList.contains('border-slate-200/50')).toBe(true)
+    expect(trigger?.classList.contains('bg-slate-50/45')).toBe(true)
+    expect(icon?.classList.contains('scale-[1.03]')).toBe(true)
     expect(container.textContent).toContain('preserve details')
   })
 
@@ -68,6 +89,8 @@ describe('ReasoningSegment', () => {
     await act(async () => root.render(<ReasoningSegment segment={segment} isStreaming />))
     const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Toggle think"]')
     expect(trigger?.getAttribute('aria-expanded')).toBe('true')
+    expect(container.querySelector('[data-testid="reasoning-description"]')?.textContent)
+      .toBe('Reasoning in progress')
 
     await act(async () => trigger?.click())
     await act(async () => root.render(<ReasoningSegment segment={segment} isStreaming={false} />))
@@ -86,16 +109,22 @@ describe('ReasoningSegment', () => {
     const segment = createSegment({ endedAt: BASE_TIME.getTime() + 1250 })
     await act(async () => root.render(<ReasoningSegment segment={segment} />))
 
-    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Toggle think"]')
-    const childTestIds = Array.from(trigger?.children ?? []).map(
+    const header = container.querySelector('[data-testid="support-segment-header"]')
+    const childTestIds = Array.from(header?.children ?? []).map(
       child => child.getAttribute('data-testid')
     )
 
     expect(childTestIds).toEqual([
-      'reasoning-label',
-      'reasoning-hairline',
+      'reasoning-icon',
+      null,
       'reasoning-duration',
       'reasoning-chevron'
     ])
+    expect(header?.querySelector('[data-testid="reasoning-label"]')?.textContent).toBe('Think')
+    expect(header?.querySelector('[data-testid="reasoning-description"]')).toBeNull()
+    expect(header?.querySelector('[data-testid="reasoning-duration"]')?.classList.contains('col-start-3'))
+      .toBe(true)
+    expect(header?.querySelector('[data-testid="reasoning-chevron"]')?.classList.contains('col-start-4'))
+      .toBe(true)
   })
 })
