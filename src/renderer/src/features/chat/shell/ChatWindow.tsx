@@ -1,5 +1,6 @@
+import { ArtifactsPanel } from '@renderer/features/artifacts'
 import ChatHeader from "@renderer/features/chat/shell/ChatHeader"
-import ChatArtifactsSplit from '@renderer/features/chat/shell/ChatArtifactsSplit'
+import ChatSidePanelLayout from '@renderer/features/chat/shell/ChatSidePanelLayout'
 import ChatInputArea, { type ChatInputAreaHandle } from "@renderer/features/chat/input/ChatInputArea"
 import { ChatInputToolConfirmation } from "@renderer/features/chat/input/ChatInputToolConfirmation"
 import ChatMessageComponent from "@renderer/features/chat/message/ChatMessageComponent"
@@ -40,6 +41,7 @@ const CHAT_ITEM_DEFAULT_ESTIMATE_PX = 160
 const CHAT_ITEM_PENDING_ASSISTANT_ESTIMATE_PX = 96
 const CHAT_ITEM_USER_ESTIMATE_PX = 180
 const CHAT_ITEM_ASSISTANT_ESTIMATE_PX = 220
+const ARTIFACTS_SIDE_PANEL_PREFERENCE_KEY = 'chat-artifacts'
 
 type PendingAssistantModel = {
   model?: string
@@ -148,6 +150,8 @@ const ChatWindow: React.FC = () => {
   const messages = useChatStore(state => state.messages)
   const previewMessage = useChatStore(state => state.preview.message)
   const pendingUserMessage = useChatStore(state => state.pendingUserMessage)
+  const artifactsPanelOpen = useChatStore(state => state.artifactsPanelOpen)
+  const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
   const chatUuid = useChatStore(state => state.currentChatUuid ?? undefined)
   const runPhase = useChatStore(state => state.runPhase)
   const selectedModelRef = useChatStore(state => state.selectedModelRef)
@@ -159,6 +163,10 @@ const ChatWindow: React.FC = () => {
   const onUserScrollUpIntentRef = useRef<((source: UserScrollSource) => void) | null>(null)
   const resolveModelRef = useAppConfigStore(state => state.resolveModelRef)
   const providersRevision = useAppConfigStore(state => state.providersRevision)
+  const closeArtifactsPanel = useCallback(
+    () => setArtifactsPanel(false),
+    [setArtifactsPanel]
+  )
   const selectedModel = useMemo(
     () => resolveModelRef(selectedModelRef),
     [providersRevision, resolveModelRef, selectedModelRef]
@@ -822,10 +830,16 @@ const ChatWindow: React.FC = () => {
 
       <div className="relative z-0 -mt-10 min-h-svh max-h-svh overflow-hidden flex flex-col bg-chat-light dark:bg-chat-dark">
         {shouldRenderWelcomeStage ? (
-          <ChatArtifactsSplit
-            groupId="welcome-horizontal-panel-group"
-            primaryPanelId="welcome-panel"
-            artifactsPanelId="welcome-artifacts-panel"
+          <ChatSidePanelLayout
+            open={artifactsPanelOpen}
+            onClose={closeArtifactsPanel}
+            preferenceKey={ARTIFACTS_SIDE_PANEL_PREFERENCE_KEY}
+            sidePanelLabel="Artifacts panel"
+            sidePanel={(
+              <div className="h-full w-full overflow-hidden pt-12">
+                <ArtifactsPanel />
+              </div>
+            )}
           >
             <div
               className={cn(
@@ -847,7 +861,7 @@ const ChatWindow: React.FC = () => {
                 )}
               />
             </div>
-          </ChatArtifactsSplit>
+          </ChatSidePanelLayout>
         ) : (
           <ResizablePanelGroup
             direction="vertical"
@@ -862,10 +876,16 @@ const ChatWindow: React.FC = () => {
               maxSize={85}
               className="flex flex-col overflow-hidden"
             >
-              <ChatArtifactsSplit
-                groupId="horizontal-panel-group"
-                primaryPanelId="chat-panel"
-                artifactsPanelId="artifacts-panel"
+              <ChatSidePanelLayout
+                open={artifactsPanelOpen}
+                onClose={closeArtifactsPanel}
+                preferenceKey={ARTIFACTS_SIDE_PANEL_PREFERENCE_KEY}
+                sidePanelLabel="Artifacts panel"
+                sidePanel={(
+                  <div className="h-full w-full overflow-hidden pt-12">
+                    <ArtifactsPanel />
+                  </div>
+                )}
               >
                   <div className="pointer-events-none absolute inset-x-0 top-0 z-40 overflow-hidden">
                     <AnimatePresence initial={false}>
@@ -989,7 +1009,7 @@ const ChatWindow: React.FC = () => {
                       <ArrowDown className="text-gray-400 p-1 m-1" />
                     </div>
                   )}
-              </ChatArtifactsSplit>
+              </ChatSidePanelLayout>
             </ResizablePanel>
 
             <ResizableHandle className="hover:bg-primary/10 active:bg-primary/20 bg-transparent transition-colors duration-200 [&>div]:hidden [&::before]:hidden" />

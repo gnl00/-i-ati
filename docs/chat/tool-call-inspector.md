@@ -71,11 +71,43 @@ workspace footer appears with Preview and Files.
 
 The chat header toggle opens and closes the Artifacts panel from both the
 welcome and conversation surfaces. It preserves the active tab and current
-tool selection across close and reopen.
+tool selection across close and reopen. The shared side-panel layout also
+preserves the last committed width while the panel is closed and while the
+welcome surface transitions into a conversation.
 
-Pressing Escape once closes the Artifacts panel by changing only
-`artifactsPanelOpen`. The active tab and tool call selection remain available
-when the panel opens again.
+The vertical separator supports pointer dragging plus Arrow Left, Arrow Right,
+Home, and End keyboard controls. The right panel targets 40% of the available
+width, keeps a 320px minimum at regular window sizes, and clamps safely when
+the window is too narrow for two 320px panes.
+
+## Side-panel motion
+
+One Framer Motion progress value drives the wide-screen structural width,
+content opacity, and the complete `translate3d(...)` transform. It uses a
+`{ type: 'spring', duration: 0.5, bounce: 0.1 }` transition, so rapid reversals
+continue from the current visual progress. The structural width combines the
+fixed panel width and its 8px trailing gutter. Panel width remains a separate
+motion value: pointer movement updates it directly through one animation frame,
+keyboard steps use a 120ms response, and committed widths remain available
+across close, reopen, and layout remounts.
+
+At container widths from 648px upward, the panel pushes the primary workspace.
+Below 648px it becomes a right-aligned overlay, keeping the primary workspace
+width stable while opacity and an 8px horizontal offset communicate open and
+close. Overlay width is capped at 480px with a 24px viewport inset. The
+fixed-width inner surface uses layout and paint containment in both modes.
+
+The Artifacts root DOM and its Preview/dev-server lifecycle stay mounted across
+visual close and reopen. Closing immediately applies `inert` and `aria-hidden`;
+the spring progress continues toward zero and then applies `visibility: hidden`.
+Opening restores visibility before the progress animation starts. Reduced-
+motion mode changes structural width immediately, keeps a 100ms opacity response,
+and holds the complete transform at `translate3d(0px, 0px, 0px)`.
+
+The header toggle is the visible close control. The generic side-panel layout
+owns the capture-phase Escape listener while open and delegates close through
+`onClose`; the closed panel has no Escape listener. The active tab and tool call
+selection remain available when the panel opens again.
 
 ## Verification
 
@@ -85,4 +117,10 @@ when the panel opens again.
 - `src/renderer/src/features/chat/message/assistant-message/__tests__/ToolCallGroup.test.tsx`
 - `src/renderer/src/features/artifacts/__tests__/ArtifactsPanel.test.tsx`
 - `src/renderer/src/features/chat/shell/__tests__/ChatHeader.test.tsx`
+- `src/renderer/src/features/chat/shell/__tests__/ChatSidePanelLayout.test.tsx`
 - `src/renderer/src/features/chat/state/__tests__/chatViewStore.test.ts`
+
+Manual acceptance covers open, close, rapid open-close-open reversal, pointer
+dragging under live transcript load, keyboard resizing, welcome-to-conversation
+width retention, and reduced-motion behavior at 500px, 640px, and 1000px
+window widths.

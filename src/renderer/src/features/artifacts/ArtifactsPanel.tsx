@@ -1,9 +1,5 @@
-import { Button } from '@renderer/shared/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@renderer/shared/components/ui/tabs'
 import { ChatStatsPanel, useChatStore, type ArtifactsTab } from '@renderer/features/chat'
-import {
-  X
-} from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { ArtifactsFilesTab, FilesTabToolbar } from './ArtifactsFilesTab'
 import { ArtifactsFooter } from './ArtifactsFooter'
@@ -76,7 +72,7 @@ const WorkspaceTabs: React.FC<{
 }
 
 export const ArtifactsPanel: React.FC = () => {
-  const { setArtifactsPanel, artifactsActiveTab, setArtifactsActiveTab } = useChatStore()
+  const { artifactsActiveTab, setArtifactsActiveTab } = useChatStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [hasMountedWorkspaceTabs, setHasMountedWorkspaceTabs] = useState(
     artifactsActiveTab === 'preview' || artifactsActiveTab === 'files'
@@ -87,23 +83,6 @@ export const ArtifactsPanel: React.FC = () => {
       setHasMountedWorkspaceTabs(true)
     }
   }, [artifactsActiveTab])
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape' || event.isComposing || event.keyCode === 229) return
-
-      event.preventDefault()
-      event.stopPropagation()
-      setArtifactsPanel(false)
-    }
-
-    document.addEventListener('keydown', handleKeyDown, true)
-    return (): void => document.removeEventListener('keydown', handleKeyDown, true)
-  }, [setArtifactsPanel])
-
-  const handleClose = (): void => {
-    setArtifactsPanel(false)
-  }
 
   return (
     <div className="h-full flex flex-col overflow-hidden rounded-lg border border-black/6 bg-zinc-50/95 shadow-xs backdrop-blur-xl dark:border-white/[0.08] dark:bg-zinc-950/95">
@@ -137,17 +116,6 @@ export const ArtifactsPanel: React.FC = () => {
               Files
             </TabsTrigger>
           </TabsList>
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 rounded-md text-zinc-500 transition-colors hover:bg-red-50 hover:text-red-500 dark:text-zinc-400 dark:hover:bg-red-950/30 dark:hover:text-red-300"
-            onClick={handleClose}
-            aria-label="Close artifacts"
-            title="Close artifacts (Esc)"
-          >
-            <X className="h-3 w-3" />
-          </Button>
         </div>
 
         <TabsContent
