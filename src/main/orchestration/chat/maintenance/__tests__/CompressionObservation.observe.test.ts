@@ -25,7 +25,6 @@ vi.mock('@main/main-window', () => ({
   mainWindow: null,
   createWindow: vi.fn(),
   getWinPosition: vi.fn(),
-  pinWindow: vi.fn(),
   setWinPosition: vi.fn()
 }))
 

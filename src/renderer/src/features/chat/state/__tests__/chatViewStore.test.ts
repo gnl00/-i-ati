@@ -45,4 +45,22 @@ describe('chat view state', () => {
       toolCallInspectorSelection: selection
     })
   })
+
+  it('toggles the Artifacts panel with one view state', () => {
+    expect(useChatStore.getState().artifactsPanelOpen).toBe(false)
+
+    useChatStore.getState().toggleArtifactsPanel()
+    expect(useChatStore.getState().artifactsPanelOpen).toBe(true)
+
+    useChatStore.getState().toggleArtifactsPanel()
+    expect(useChatStore.getState().artifactsPanelOpen).toBe(false)
+  })
+
+  it('sets the Artifacts panel state directly', () => {
+    useChatStore.getState().setArtifactsPanel(true)
+    expect(useChatStore.getState().artifactsPanelOpen).toBe(true)
+
+    useChatStore.getState().setArtifactsPanel(false)
+    expect(useChatStore.getState().artifactsPanelOpen).toBe(false)
+  })
 })

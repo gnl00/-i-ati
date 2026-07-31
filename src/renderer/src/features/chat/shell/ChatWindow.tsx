@@ -1,5 +1,5 @@
-import { ArtifactsPanel, FloatingArtifactsToggle } from '@renderer/features/artifacts'
 import ChatHeader from "@renderer/features/chat/shell/ChatHeader"
+import ChatArtifactsSplit from '@renderer/features/chat/shell/ChatArtifactsSplit'
 import ChatInputArea, { type ChatInputAreaHandle } from "@renderer/features/chat/input/ChatInputArea"
 import { ChatInputToolConfirmation } from "@renderer/features/chat/input/ChatInputToolConfirmation"
 import ChatMessageComponent from "@renderer/features/chat/message/ChatMessageComponent"
@@ -32,10 +32,6 @@ import {
 const CHAT_HEADER_OCCLUSION_PX = 48
 const CHAT_HEADER_OCCLUSION_PADDING_STYLE: React.CSSProperties = {
   paddingTop: CHAT_HEADER_OCCLUSION_PX
-}
-const CHAT_HEADER_OCCLUSION_HANDLE_STYLE: React.CSSProperties = {
-  marginTop: CHAT_HEADER_OCCLUSION_PX,
-  marginBottom: 8
 }
 const PENDING_USER_MESSAGE_ID = -1
 const CHAT_SCROLL_END_THRESHOLD_PX = 80
@@ -152,8 +148,6 @@ const ChatWindow: React.FC = () => {
   const messages = useChatStore(state => state.messages)
   const previewMessage = useChatStore(state => state.preview.message)
   const pendingUserMessage = useChatStore(state => state.pendingUserMessage)
-  const artifactsPanelOpen = useChatStore(state => state.artifactsPanelOpen)
-  const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
   const chatUuid = useChatStore(state => state.currentChatUuid ?? undefined)
   const runPhase = useChatStore(state => state.runPhase)
   const selectedModelRef = useChatStore(state => state.selectedModelRef)
@@ -828,26 +822,32 @@ const ChatWindow: React.FC = () => {
 
       <div className="relative z-0 -mt-10 min-h-svh max-h-svh overflow-hidden flex flex-col bg-chat-light dark:bg-chat-dark">
         {shouldRenderWelcomeStage ? (
-          <div
-            className={cn(
-              "welcome-stage",
-              isWelcomeComposerFocused && "welcome-stage-composer-focused",
-              isWelcomeExiting && "welcome-stage-exit"
-            )}
+          <ChatArtifactsSplit
+            groupId="welcome-horizontal-panel-group"
+            primaryPanelId="welcome-panel"
+            artifactsPanelId="welcome-artifacts-panel"
           >
-            <WelcomeMessage
-              isExiting={isWelcomeExiting}
-              isComposerFocused={isWelcomeComposerFocused}
-              onSuggestionClick={handleWelcomeSuggestionClick}
-              composer={(
-                <ChatInputArea
-                  ref={chatInputRef}
-                  welcomeVisualMode
-                  onWelcomeFocusStateChange={setIsWelcomeComposerFocused}
-                />
+            <div
+              className={cn(
+                "welcome-stage h-full",
+                isWelcomeComposerFocused && "welcome-stage-composer-focused",
+                isWelcomeExiting && "welcome-stage-exit"
               )}
-            />
-          </div>
+            >
+              <WelcomeMessage
+                isExiting={isWelcomeExiting}
+                isComposerFocused={isWelcomeComposerFocused}
+                onSuggestionClick={handleWelcomeSuggestionClick}
+                composer={(
+                  <ChatInputArea
+                    ref={chatInputRef}
+                    welcomeVisualMode
+                    onWelcomeFocusStateChange={setIsWelcomeComposerFocused}
+                  />
+                )}
+              />
+            </div>
+          </ChatArtifactsSplit>
         ) : (
           <ResizablePanelGroup
             direction="vertical"
@@ -862,19 +862,11 @@ const ChatWindow: React.FC = () => {
               maxSize={85}
               className="flex flex-col overflow-hidden"
             >
-              {/* 内层水平分割容器 */}
-              <ResizablePanelGroup
-                direction="horizontal"
-                className="flex-1 overflow-hidden"
-                id="horizontal-panel-group"
+              <ChatArtifactsSplit
+                groupId="horizontal-panel-group"
+                primaryPanelId="chat-panel"
+                artifactsPanelId="artifacts-panel"
               >
-                {/* 左侧：聊天区域 */}
-                <ResizablePanel
-                  defaultSize={artifactsPanelOpen ? 60 : 100}
-                  minSize={30}
-                  className="flex flex-col overflow-hidden relative"
-                  id="chat-panel"
-                >
                   <div className="pointer-events-none absolute inset-x-0 top-0 z-40 overflow-hidden">
                     <AnimatePresence initial={false}>
                       {displayPlans.length > 0 && (
@@ -997,39 +989,7 @@ const ChatWindow: React.FC = () => {
                       <ArrowDown className="text-gray-400 p-1 m-1" />
                     </div>
                   )}
-                </ResizablePanel>
-
-                {/* 右侧：Artifacts 面板 */}
-                {artifactsPanelOpen && (
-                  <>
-                    <ResizableHandle
-                      className="hover:bg-primary/10 active:bg-primary/20 bg-transparent transition-colors duration-200 [&>div]:hidden [&::before]:hidden"
-                      style={CHAT_HEADER_OCCLUSION_HANDLE_STYLE}
-                    />
-                    <ResizablePanel
-                      defaultSize={40}
-                      minSize={25}
-                      maxSize={70}
-                      collapsible={true}
-                      collapsedSize={0}
-                      onResize={(size) => {
-                        if (size === 0 && artifactsPanelOpen) {
-                          setArtifactsPanel(false)
-                        }
-                      }}
-                      className="bg-transparent overflow-hidden"
-                      id="artifacts-panel"
-                    >
-                      <div
-                        className="h-full w-full overflow-hidden"
-                        style={CHAT_HEADER_OCCLUSION_PADDING_STYLE}
-                      >
-                        <ArtifactsPanel />
-                      </div>
-                    </ResizablePanel>
-                  </>
-                )}
-              </ResizablePanelGroup>
+              </ChatArtifactsSplit>
             </ResizablePanel>
 
             <ResizableHandle className="hover:bg-primary/10 active:bg-primary/20 bg-transparent transition-colors duration-200 [&>div]:hidden [&::before]:hidden" />
@@ -1053,7 +1013,6 @@ const ChatWindow: React.FC = () => {
           </ResizablePanelGroup>
         )}
 
-        <FloatingArtifactsToggle />
       </div>
     </>
   )

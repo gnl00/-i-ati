@@ -129,9 +129,9 @@ body:
 - raw/preview/full controls for large payloads.
 
 Expanding a transcript tool row stores that call as the current inspector
-selection while preserving the current Artifacts tab and panel state. The
-Floating Artifacts **Tools** action opens the Tools tab with the most recently
-expanded call.
+selection while preserving the current Artifacts tab and panel state. The chat
+header toggles the general Artifacts surface, and the tool-call inspect action
+opens the Tools tab with the selected call.
 
 The Tools inspector remains the stable reading surface for long output and for
 tool calls whose virtualized transcript row has unmounted.

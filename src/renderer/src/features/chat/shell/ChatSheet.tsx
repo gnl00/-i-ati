@@ -84,7 +84,6 @@ const ChatSheet: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
     const {
         upsertMessage,
         patchMessageUiState,
-        toggleArtifacts,
         toggleWebSearch,
         setScrollHint,
         currentChatId: chatId,
@@ -288,7 +287,6 @@ const ChatSheet: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
             logger.warn('workspace.switch_default_failed', { error: workspaceResult.error })
         }
 
-        toggleArtifacts(false)
         toggleWebSearch(false)
     }
 
@@ -316,7 +314,6 @@ const ChatSheet: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
                 return
             }
 
-            toggleArtifacts(false)
             toggleWebSearch(false)
 
             // 切换 workspace

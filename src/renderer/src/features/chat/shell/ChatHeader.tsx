@@ -1,4 +1,4 @@
-import { ActivityLogIcon, DrawingPinFilledIcon, DrawingPinIcon, GearIcon } from '@radix-ui/react-icons'
+import { ActivityLogIcon, GearIcon } from '@radix-ui/react-icons'
 import { ModeToggleSlide } from '@renderer/shared/components/ModeToggleSlide'
 import { SettingsPanel } from '@renderer/features/settings'
 import { Button } from '@renderer/shared/components/ui/button'
@@ -7,15 +7,13 @@ import TrafficLights from '@renderer/shared/components/ui/traffic-lights'
 import { cn } from '@renderer/shared/lib/utils'
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
 import {
-  invokePinWindow,
   invokeWindowClose,
   invokeWindowMaximize,
   invokeWindowMinimize
 } from '@renderer/infrastructure/ipc'
 import { useSheetStore } from '@renderer/features/chat/state/sheetStore'
-import React, { useState } from 'react'
-
-interface ChatHeaderProps { }
+import { PanelRight } from 'lucide-react'
+import React from 'react'
 
 const headerActionButtonClassName = [
   'app-undragable pointer-events-auto h-8 w-8 rounded-lg border border-transparent bg-transparent p-0',
@@ -24,15 +22,14 @@ const headerActionButtonClassName = [
   'dark:text-zinc-400 dark:hover:border-white/10 dark:hover:bg-white/[0.07] dark:hover:text-zinc-100'
 ].join(' ')
 
-const ChatHeader: React.FC<ChatHeaderProps> = (_props: ChatHeaderProps) => {
-  const [pinState, setPinState] = useState<boolean>(false)
+const ChatHeader: React.FC = () => {
   const chatTitle = useChatStore(state => state.chatTitle)
+  const artifactsPanelOpen = useChatStore(state => state.artifactsPanelOpen)
+  const toggleArtifactsPanel = useChatStore(state => state.toggleArtifactsPanel)
   const { setSheetOpenState } = useSheetStore()
-
-  const onPinToggleClick = (): void => {
-    setPinState(!pinState)
-    invokePinWindow(!pinState) // pin window
-  }
+  const artifactsToggleLabel = artifactsPanelOpen
+    ? 'Close artifacts panel'
+    : 'Open artifacts panel'
 
   return (
     <header
@@ -100,17 +97,16 @@ const ChatHeader: React.FC<ChatHeaderProps> = (_props: ChatHeaderProps) => {
           <Button
             className={cn(
               headerActionButtonClassName,
-              pinState && 'text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300'
+              artifactsPanelOpen
+                && 'border-black/[0.08] bg-black/[0.06] shadow-xs hover:bg-black/[0.08] dark:border-white/10 dark:bg-white/[0.09] dark:hover:bg-white/[0.11]'
             )}
             variant="ghost"
-            onClick={onPinToggleClick}
+            onClick={toggleArtifactsPanel}
+            aria-label={artifactsToggleLabel}
+            aria-pressed={artifactsPanelOpen}
+            title={artifactsToggleLabel}
           >
-            {pinState ? (
-              <DrawingPinFilledIcon className="h-4 w-4" />
-            ) : (
-              <DrawingPinIcon className="h-4 w-4" />
-            )}
-            <span className="sr-only">Toggle always on top</span>
+            <PanelRight className="h-4 w-4" aria-hidden="true" />
           </Button>
         </div>
       </div>

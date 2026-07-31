@@ -16,17 +16,13 @@ import { v4 as uuidv4 } from 'uuid'
 import {
   BadgePlus,
   CornerDownLeft,
-  Package,
   FolderOpen
 } from 'lucide-react'
 import React, { useMemo, useEffect } from 'react'
 import { toast } from 'sonner'
 
 interface ChatInputActionsProps {
-  artifacts: boolean
   runPhase: RunPhase
-  toggleArtifacts: (state: boolean) => void
-  setArtifactsPanel: (open: boolean) => void
   onNewChat: () => void
   onSubmit: () => void
   onCancel?: () => void
@@ -36,10 +32,7 @@ interface ChatInputActionsProps {
 }
 
 const ChatInputActions: React.FC<ChatInputActionsProps> = ({
-  artifacts,
   runPhase,
-  toggleArtifacts,
-  setArtifactsPanel,
   onNewChat,
   onSubmit,
   onCancel,
@@ -74,12 +67,6 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
     if (!path) return 'Workspace'
     const parts = path.split(/[/\\]/).filter(p => p) // 过滤空字符串
     return parts[parts.length - 1] || 'Workspace'
-  }
-
-  const handleArtifactsToggle = () => {
-    const newState = !artifacts
-    toggleArtifacts(newState)
-    setArtifactsPanel(newState)
   }
 
   // 优化的 New Chat 处理逻辑
@@ -165,56 +152,6 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
   if (variant === 'baseline' || variant === 'surface') {
     return (
       <div className="shared-prompt-action-strip flex min-w-0 items-center justify-end gap-1">
-        <TooltipProvider delayDuration={400}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                className={cn(
-                  'shared-prompt-action-button group relative h-8 w-8 overflow-hidden rounded-xl',
-                  'transition-all duration-300 ease-out',
-                  artifacts
-                    ? [
-                        'bg-linear-to-br from-purple-50 to-violet-50 dark:from-purple-950/40 dark:to-violet-950/40',
-                        'text-purple-700 dark:text-purple-400',
-                        'border border-purple-300/60 dark:border-purple-700/60',
-                        'shadow-xs shadow-purple-500/10 dark:shadow-purple-500/20',
-                        'hover:shadow-sm hover:shadow-purple-500/25 dark:hover:shadow-purple-500/35',
-                        'hover:text-purple-500',
-                        'active:scale-95'
-                      ]
-                    : [
-                        'bg-slate-50/50 dark:bg-slate-800/50',
-                        'text-slate-500 dark:text-slate-400',
-                        'border border-slate-200/50 dark:border-slate-700/50',
-                        'hover:bg-slate-100 dark:hover:bg-slate-700',
-                        'hover:text-slate-700 dark:hover:text-slate-300',
-                        'hover:border-slate-300 dark:hover:border-slate-600',
-                        'hover:shadow-xs',
-                        'active:scale-95'
-                      ]
-                )}
-                onClick={handleArtifactsToggle}
-              >
-                {artifacts && (
-                  <div className="absolute inset-0 bg-linear-to-r from-purple-100/0 via-purple-100/50 to-violet-100/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 dark:from-purple-900/0 dark:via-purple-900/30 dark:to-violet-900/0" />
-                )}
-                <Package
-                  className={cn(
-                    'relative z-10 h-5 w-5 transition-transform duration-300 ease-out',
-                    artifacts ? 'group-hover:rotate-12 group-hover:scale-110' : 'group-hover:scale-110'
-                  )}
-                  strokeWidth={2}
-                />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent className="rounded-lg border border-slate-700/50 bg-slate-900/95 px-3 py-1.5 text-xs text-slate-100 shadow-xl shadow-black/20 backdrop-blur-xl dark:border-slate-600/50 dark:bg-slate-800/95">
-              <p className="font-medium">Artifacts {artifacts ? 'On' : 'Off'}</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-
         <TooltipProvider delayDuration={400}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -347,63 +284,6 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
             </TooltipTrigger>
             <TooltipContent className="bg-slate-900/95 dark:bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 dark:border-slate-600/50 text-slate-100 text-xs px-3 py-1.5 rounded-lg shadow-xl shadow-black/20">
               <p className="font-medium">New Chat</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-
-        {/* Artifacts Toggle Button */}
-        <TooltipProvider delayDuration={400}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                className={cn(
-                  "group relative h-8 w-8 rounded-xl overflow-hidden",
-                  "transition-all duration-300 ease-out",
-                  artifacts
-                    ? [
-                        // Active state - purple/violet gradient
-                        "bg-linear-to-br from-purple-50 to-violet-50 dark:from-purple-950/40 dark:to-violet-950/40",
-                        "text-purple-700 dark:text-purple-400",
-                        "border border-purple-300/60 dark:border-purple-700/60",
-                        "shadow-xs shadow-purple-500/10 dark:shadow-purple-500/20",
-                        "hover:shadow-sm hover:shadow-purple-500/25 dark:hover:shadow-purple-500/35",
-                        "hover:text-purple-500",
-                        "active:scale-95"
-                      ]
-                    : [
-                        // Inactive state - subtle gray
-                        "bg-slate-50/50 dark:bg-slate-800/50",
-                        "text-slate-500 dark:text-slate-400",
-                        "border border-slate-200/50 dark:border-slate-700/50",
-                        "hover:bg-slate-100 dark:hover:bg-slate-700",
-                        "hover:text-slate-700 dark:hover:text-slate-300",
-                        "hover:border-slate-300 dark:hover:border-slate-600",
-                        "hover:shadow-xs",
-                        "active:scale-95"
-                      ]
-                )}
-                onClick={handleArtifactsToggle}
-              >
-                {/* Animated background gradient on hover (active state only) */}
-                {artifacts && (
-                  <div className="absolute inset-0 bg-linear-to-r from-purple-100/0 via-purple-100/50 to-violet-100/0 dark:from-purple-900/0 dark:via-purple-900/30 dark:to-violet-900/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                )}
-
-                <Package
-                  className={cn(
-                    "w-5 h-5 relative z-10 transition-transform duration-300 ease-out",
-                    artifacts
-                      ? "group-hover:scale-110 group-hover:rotate-12"
-                      : "group-hover:scale-110"
-                  )}
-                  strokeWidth={2}
-                />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent className="bg-slate-900/95 dark:bg-slate-800/95 backdrop-blur-xl border border-slate-700/50 dark:border-slate-600/50 text-slate-100 text-xs px-3 py-1.5 rounded-lg shadow-xl shadow-black/20">
-              <p className="font-medium">Artifacts {artifacts ? 'On' : 'Off'}</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>

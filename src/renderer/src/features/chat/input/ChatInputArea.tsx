@@ -49,9 +49,6 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
   const messages = useChatStore(state => state.messages)
   const currentChatId = useChatStore(state => state.currentChatId)
   const currentChatUuid = useChatStore(state => state.currentChatUuid)
-  const artifacts = useChatStore(state => state.artifacts)
-  const toggleArtifacts = useChatStore(state => state.toggleArtifacts)
-  const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
   const selectedModelRef = useChatStore(state => state.selectedModelRef)
   const selectedThinkingLevel = useChatStore(state => state.selectedThinkingLevel)
   const permissionApprovalMode = useChatStore(state => state.permissionApprovalMode)
@@ -692,10 +689,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
           rightActions={(
             <ChatInputActions
               variant="baseline"
-              artifacts={artifacts}
               runPhase={runPhase}
-              toggleArtifacts={toggleArtifacts}
-              setArtifactsPanel={setArtifactsPanel}
               onNewChat={startNewChat}
               onSubmit={onSubmitClick}
               onCancel={cancelChatSubmit}
@@ -794,10 +788,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
               rightActions={(
                 <ChatInputActions
                   variant="surface"
-                  artifacts={artifacts}
                   runPhase={runPhase}
-                  toggleArtifacts={toggleArtifacts}
-                  setArtifactsPanel={setArtifactsPanel}
                   onNewChat={startNewChat}
                   onSubmit={onSubmitClick}
                   onCancel={cancelChatSubmit}

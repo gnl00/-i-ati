@@ -7,17 +7,15 @@ import {
   IPC_PING,
   OPEN_PATH,
   OPEN_EXTERNAL,
-  PIN_WINDOW,
   SELECT_DIRECTORY,
   SET_WIN_POSITION,
   WIN_CLOSE,
   WIN_MAXIMIZE,
   WIN_MINIMIZE
 } from '@shared/constants'
-import { getWinPosition, pinWindow, setWinPosition, windowsClose, windowsMaximize, windowsMinimize } from '@main/main-window'
+import { getWinPosition, setWinPosition, windowsClose, windowsMaximize, windowsMinimize } from '@main/main-window'
 
 export function registerSystemHandlers(): void {
-  ipcMain.handle(PIN_WINDOW, (_event, pinState) => pinWindow(pinState))
   ipcMain.handle(GET_WIN_POSITION, (): number[] => getWinPosition())
   ipcMain.handle(SET_WIN_POSITION, (_, options) => setWinPosition(options))
   ipcMain.handle(WIN_MINIMIZE, () => windowsMinimize())

@@ -119,10 +119,6 @@ function createWindow(onCreated?: (window: BrowserWindow) => void): void {
   }
 }
 
-const pinWindow = (pin: boolean): void => {
-  getMainWindow()?.setAlwaysOnTop(pin, 'floating')
-}
-
 const getWinPosition = (): number[] => {
   return getMainWindow()?.getPosition() ?? [0, 0]
 }
@@ -160,8 +156,7 @@ function showMainWindow(): void {
   // Force-activate the app even when the user is in another app (macOS).
   app.focus({ steal: true })
 
-  // Temporarily float the window above other apps' windows, then restore.
-  // Preserve the user's own always-on-top (pin) setting.
+  // Temporarily float the window above other apps' windows, then restore its prior level.
   const wasAlwaysOnTop = win.isAlwaysOnTop()
   win.setAlwaysOnTop(true, 'floating')
   win.show()
@@ -183,7 +178,6 @@ export {
   getMainWindow,
   createWindow,
   setMainWindowAppQuitting,
-  pinWindow,
   getWinPosition,
   setWinPosition,
   windowsMinimize,

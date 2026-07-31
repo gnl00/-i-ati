@@ -9,9 +9,10 @@ Tool call details have two coordinated reading surfaces:
 
 Clicking a tool row controls its inline disclosure. Expanding the row also
 stores that call as the current inspector selection while preserving the
-Artifacts panel and tab state. The Floating Artifacts **Tools** action opens
-the panel with the most recently expanded call. The panel preserves a stable
-reading surface while virtualized transcript rows mount and unmount.
+Artifacts panel and tab state. The chat header provides the general panel
+toggle, while the tool-call inspect action opens the Tools tab with the
+selected call. The panel preserves a stable reading surface while virtualized
+transcript rows mount and unmount.
 
 ## Selection contract
 
@@ -68,9 +69,9 @@ mounts the workspace surface on first access. That surface stays mounted across
 later tab changes to retain the selected file and preview server state. The
 workspace footer appears with Preview and Files.
 
-The floating Artifacts pill includes a Tools action and follows the existing
-Artifacts lifecycle. It appears while Artifacts is active and the panel is
-closed. Clicking the action opens the Tools tab.
+The chat header toggle opens and closes the Artifacts panel from both the
+welcome and conversation surfaces. It preserves the active tab and current
+tool selection across close and reopen.
 
 Pressing Escape once closes the Artifacts panel by changing only
 `artifactsPanelOpen`. The active tab and tool call selection remain available
@@ -83,5 +84,5 @@ when the panel opens again.
 - `src/renderer/src/features/chat/message/assistant-message/__tests__/ToolCallInspectorContent.test.ts`
 - `src/renderer/src/features/chat/message/assistant-message/__tests__/ToolCallGroup.test.tsx`
 - `src/renderer/src/features/artifacts/__tests__/ArtifactsPanel.test.tsx`
-- `src/renderer/src/features/artifacts/__tests__/FloatingArtifactsToggle.test.tsx`
+- `src/renderer/src/features/chat/shell/__tests__/ChatHeader.test.tsx`
 - `src/renderer/src/features/chat/state/__tests__/chatViewStore.test.ts`

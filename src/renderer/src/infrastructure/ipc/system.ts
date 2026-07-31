@@ -5,7 +5,6 @@ import {
   FILE_CREATE_DIR_ACTION,
   OPEN_EXTERNAL,
   OPEN_PATH,
-  PIN_WINDOW,
   SELECT_DIRECTORY,
   WIN_CLOSE,
   WIN_MAXIMIZE,
@@ -13,7 +12,6 @@ import {
 } from '@shared/constants/index'
 import { invokeIpc } from './client'
 
-export const invokePinWindow = (pinState: boolean): Promise<void> => invokeIpc(PIN_WINDOW, pinState)
 export const invokeWindowClose = (): Promise<void> => invokeIpc(WIN_CLOSE)
 export const invokeWindowMinimize = (): Promise<void> => invokeIpc(WIN_MINIMIZE)
 export const invokeWindowMaximize = (): Promise<void> => invokeIpc(WIN_MAXIMIZE)

@@ -22,10 +22,6 @@ export interface UseSlashCommandsOptions {
 export const useSlashCommands = (options: UseSlashCommandsOptions = {}) => {
   const { onCommandExecute } = options
   const resetChatContext = useChatStore(state => state.resetChatContext)
-  const artifacts = useChatStore(state => state.artifacts)
-  const toggleArtifacts = useChatStore(state => state.toggleArtifacts)
-  const setArtifactsPanel = useChatStore(state => state.setArtifactsPanel)
-  const webSearchEnable = useChatStore(state => state.webSearchEnable)
   const toggleWebSearch = useChatStore(state => state.toggleWebSearch)
   const currentChatUuid = useChatStore(state => state.currentChatUuid)
   const updateWorkspacePath = useChatStore(state => state.updateWorkspacePath)
@@ -41,9 +37,8 @@ export const useSlashCommands = (options: UseSlashCommandsOptions = {}) => {
    */
   const startNewChat = useCallback(() => {
     resetChatContext()
-    toggleArtifacts(false)
     toggleWebSearch(false)
-  }, [resetChatContext, toggleArtifacts, toggleWebSearch])
+  }, [resetChatContext, toggleWebSearch])
 
   const clearWorkspace = useCallback(async () => {
     if (!currentChatUuid) {
@@ -72,23 +67,7 @@ export const useSlashCommands = (options: UseSlashCommandsOptions = {}) => {
           action: clearWorkspace
         }]
       : []),
-    // {
-    //   cmd: '/artifacts',
-    //   label: 'Toggle Artifacts',
-    //   description: artifacts ? 'Expand Artifacts Panel' : 'Collapse Artifacts Panel',
-    //   action: () => {
-    //     const newState = !artifacts
-    //     toggleArtifacts(newState)
-    //     setArtifactsPanel(newState)
-    //   }
-    // },
-    // {
-    //   cmd: '/websearch',
-    //   label: 'Toggle Web Search',
-    //   description: webSearchEnable ? 'Disable Web Search' : 'Enable Web Search',
-    //   action: () => toggleWebSearch(!webSearchEnable)
-    // },
-  ], [artifacts, webSearchEnable, startNewChat, clearWorkspace, currentChatUuid, toggleArtifacts, setArtifactsPanel, toggleWebSearch])
+  ], [startNewChat, clearWorkspace, currentChatUuid])
 
   /**
    * Filter commands based on query
