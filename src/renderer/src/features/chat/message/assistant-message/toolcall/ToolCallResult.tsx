@@ -931,7 +931,7 @@ export const ToolCallInspectorDetails = React.memo(({
                     </span>
                     <span className={cn(
                       'wrap-break-word whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-zinc-700 dark:text-zinc-300',
-                      isComplex && 'rounded-md border border-black/6 bg-zinc-50/80 px-2 py-1.5 dark:border-white/8 dark:bg-black/20'
+                      isComplex && 'rounded-md border border-gray-200/45 bg-gray-200/20 px-2 py-1.5 dark:border-white/8 dark:bg-black/20'
                     )}>
                       {serializeInspectorValue(value)}
                     </span>
