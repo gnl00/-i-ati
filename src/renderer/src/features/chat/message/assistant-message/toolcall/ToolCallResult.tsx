@@ -911,7 +911,10 @@ export const ToolCallInspectorDetails = React.memo(({
         copyLabel="Parameters"
         isFirst
       >
-        <div className="px-3 pb-3">
+        <div
+          data-testid="tool-inspector-parameters-content"
+          className="max-h-[min(280px,35vh)] overflow-y-auto px-3 pb-3 custom-scrollbar"
+        >
           {!areArgsReady ? (
             <p className="text-[11px] italic text-zinc-400 dark:text-zinc-500">Preparing parameters...</p>
           ) : paramEntries.length > 0 ? (

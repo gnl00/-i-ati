@@ -49,10 +49,14 @@ A fine execution spine connects three flat, edge-to-edge sections:
 3. Result shows the terminal payload.
 
 Each section has an independent copy action. Complex parameter values use
-light inset surfaces. Live output and raw payloads use terminal surfaces while
-formatted results stay on the panel canvas. Long payloads use 1,500-character
-and 24-line preview budgets with Preview and Full views. Specialized web
-search, wiki, and subagent results use Formatted and Raw views.
+light inset surfaces. The Parameters content grows naturally up to the smaller
+of 280px and 35% of the viewport height, then scrolls within its content area.
+Its title and copy action stay above that viewport, and reaching a scroll
+boundary continues the surrounding scroll chain. Live output and raw payloads
+use terminal surfaces while formatted results stay on the panel canvas. Long
+payloads use 1,500-character and 24-line preview budgets with Preview and Full
+views. Specialized web search, wiki, and subagent results use Formatted and Raw
+views.
 
 See [Assistant Think and Tool Call Presentation](./assistant-think-tool-call-presentation.md)
 for transcript grouping, inline disclosure, accessibility, and motion rules.

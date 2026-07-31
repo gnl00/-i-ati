@@ -250,6 +250,29 @@ describe('ToolCallResult', () => {
     expect(text).toContain('42')
   })
 
+  it('caps the Parameters content viewport while keeping short content at natural height', async () => {
+    const toolCall = createToolCall()
+    await act(async () => {
+      root.render(
+        <ToolCallInspectorDetails
+          toolCall={toolCall}
+          toolResponse={toolCall.content}
+        />
+      )
+    })
+
+    const parametersContent = container.querySelector(
+      '[data-testid="tool-inspector-parameters-content"]'
+    )
+    expect(parametersContent?.classList.contains('max-h-[min(280px,35vh)]')).toBe(true)
+    expect(parametersContent?.classList.contains('overflow-y-auto')).toBe(true)
+    expect(parametersContent?.classList.contains('custom-scrollbar')).toBe(true)
+    expect(
+      Array.from(parametersContent?.classList ?? []).some(className => /^h-/.test(className))
+    ).toBe(false)
+    expect(parametersContent?.textContent).toContain('latest status')
+  })
+
   it('keeps terminal live output beside the terminal result', async () => {
     const toolCall = createToolCall('completed', { success: true, stdout: 'terminal payload' })
     await act(async () => {
@@ -276,7 +299,14 @@ describe('ToolCallResult', () => {
   })
 
   it('copies parameters, execution output, and result independently', async () => {
-    const toolCall = createToolCall('completed', { success: true })
+    const args = {
+      query: 'latest status',
+      filters: {
+        sources: ['docs', 'issues'],
+        limit: 50
+      }
+    }
+    const toolCall = createToolCall('completed', { success: true }, args)
     await act(async () => {
       root.render(
         <ToolCallInspectorDetails
@@ -311,7 +341,7 @@ describe('ToolCallResult', () => {
       })
     }
 
-    expect(clipboardWriteText).toHaveBeenNthCalledWith(1, '{\n  "query": "latest status"\n}')
+    expect(clipboardWriteText).toHaveBeenNthCalledWith(1, JSON.stringify(args, null, 2))
     expect(clipboardWriteText).toHaveBeenNthCalledWith(2, 'standard output\nstandard error')
     expect(clipboardWriteText).toHaveBeenNthCalledWith(3, '{\n  "success": true\n}')
   })
