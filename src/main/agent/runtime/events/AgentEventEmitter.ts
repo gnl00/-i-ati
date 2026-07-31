@@ -31,6 +31,7 @@ import type {
   LoopAbortedEvent
 } from './LoopEvent'
 import type { AgentEventBus } from './AgentEventBus'
+import type { SteeringConsumedEvent } from './SteeringEvent'
 
 export interface AgentEventEmitter {
   emitStepStarted(input: Omit<StepStartedEvent, 'type'>): Promise<void>
@@ -64,12 +65,13 @@ export interface AgentEventEmitter {
   emitLoopCompleted(input: Omit<LoopCompletedEvent, 'type'>): Promise<void>
   emitLoopFailed(input: Omit<LoopFailedEvent, 'type'>): Promise<void>
   emitLoopAborted(input: Omit<LoopAbortedEvent, 'type'>): Promise<void>
+  emitSteeringConsumed(input: Omit<SteeringConsumedEvent, 'type'>): Promise<void>
 }
 
 export class DefaultAgentEventEmitter implements AgentEventEmitter {
   constructor(private readonly agentEventBus: AgentEventBus) {}
 
-  private emit(event: StepStartedEvent | StepDeltaEvent | StepCompletedEvent | StepFailedEvent | StepAbortedEvent | ToolAwaitingConfirmationEvent | ToolConfirmationDeniedEvent | ToolExecutionStartedEvent | ToolExecutionOutputEvent | ToolExecutionCompletedEvent | ToolExecutionFailedEvent | ToolExecutionAbortedEvent | LoopCompletedEvent | LoopFailedEvent | LoopAbortedEvent): Promise<void> {
+  private emit(event: StepStartedEvent | StepDeltaEvent | StepCompletedEvent | StepFailedEvent | StepAbortedEvent | ToolAwaitingConfirmationEvent | ToolConfirmationDeniedEvent | ToolExecutionStartedEvent | ToolExecutionOutputEvent | ToolExecutionCompletedEvent | ToolExecutionFailedEvent | ToolExecutionAbortedEvent | LoopCompletedEvent | LoopFailedEvent | LoopAbortedEvent | SteeringConsumedEvent): Promise<void> {
     return Promise.resolve(this.agentEventBus.emit(event))
   }
 
@@ -145,5 +147,9 @@ export class DefaultAgentEventEmitter implements AgentEventEmitter {
 
   emitLoopAborted(input: Omit<LoopAbortedEvent, 'type'>): Promise<void> {
     return this.emit({ type: 'loop.aborted', ...input })
+  }
+
+  emitSteeringConsumed(input: Omit<SteeringConsumedEvent, 'type'>): Promise<void> {
+    return this.emit({ type: 'steering.consumed', ...input })
   }
 }

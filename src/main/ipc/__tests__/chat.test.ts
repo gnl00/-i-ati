@@ -5,6 +5,7 @@ import {
   RUN_COMPRESSION_EXECUTE,
   RUN_PERMISSION_APPROVAL_MODE_UPDATE,
   RUN_START,
+  RUN_STEER,
   RUN_TITLE_GENERATE,
   RUN_TOOL_CONFIRM
 } from '@shared/constants'
@@ -24,6 +25,7 @@ vi.mock('@main/orchestration/chat/run', () => ({
     start = vi.fn()
     cancel = vi.fn()
     resolveToolConfirmation = vi.fn()
+    steer = vi.fn()
     updatePermissionApprovalModeForChat = vi.fn()
     executeCompression = vi.fn()
     generateTitle = vi.fn()
@@ -72,6 +74,7 @@ describe('registerChatHandlers', () => {
     expect(registeredChannels).toContain(RUN_CANCEL)
     expect(registeredChannels).toContain('chat-run:cancel')
     expect(registeredChannels).toContain(RUN_TOOL_CONFIRM)
+    expect(registeredChannels).toContain(RUN_STEER)
     expect(registeredChannels).toContain('chat-run:tool-confirm')
     expect(registeredChannels).toContain(RUN_PERMISSION_APPROVAL_MODE_UPDATE)
     expect(registeredChannels).toContain(RUN_COMPRESSION_EXECUTE)

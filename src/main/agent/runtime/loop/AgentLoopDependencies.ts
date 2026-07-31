@@ -25,6 +25,7 @@ import type { LoadedSkillsTranscriptContextProvider } from '../skills/LoadedSkil
 import type { LoopIdentityProvider } from './LoopIdentityProvider'
 import type { RuntimeClock } from './RuntimeClock'
 import type { LoopBudgetPolicy } from './LoopBudgetPolicy'
+import type { SteeringMessageSource } from '../steering/SteeringMessageSource'
 
 export interface AgentLoopDependencies {
   loopIdentityProvider: LoopIdentityProvider
@@ -42,5 +43,6 @@ export interface AgentLoopDependencies {
   toolBatchAssembler: ToolBatchAssembler
   toolExecutorDispatcher: ToolExecutorDispatcher
   loadedSkillsTranscriptContextProvider?: LoadedSkillsTranscriptContextProvider
+  steeringMessageSource?: SteeringMessageSource
   agentEventEmitter: AgentEventEmitter
 }

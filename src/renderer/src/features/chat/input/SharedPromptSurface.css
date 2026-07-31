@@ -28,7 +28,7 @@
   --shared-prompt-surface-focus: color-mix(in srgb, hsl(var(--card)) 84%, transparent);
   --shared-prompt-border: color-mix(in srgb, hsl(var(--border)) 44%, transparent);
   display: grid;
-  grid-template-rows: 48px 0fr;
+  grid-template-rows: 0 48px 0fr;
   width: 100%;
   border: 1px solid var(--shared-prompt-border);
   border-radius: 999px;
@@ -77,7 +77,7 @@
 }
 
 .shared-prompt-surface[data-expanded='true'] {
-  grid-template-rows: 112px 42px;
+  grid-template-rows: 0 112px 42px;
   border-color: color-mix(in srgb, hsl(var(--border)) 58%, hsl(var(--foreground)) 8%);
   border-radius: 24px;
   background:
@@ -95,7 +95,7 @@
 .shared-prompt-surface[data-variant='chat'] {
   height: 100%;
   min-height: 0;
-  grid-template-rows: minmax(0, 1fr) 44px;
+  grid-template-rows: 0 minmax(0, 1fr) 44px;
   border-radius: 24px;
   background:
     radial-gradient(
@@ -110,8 +110,62 @@
 }
 
 .shared-prompt-surface[data-variant='chat'][data-expanded='true'] {
-  grid-template-rows: minmax(0, 1fr) 44px;
+  grid-template-rows: 0 minmax(0, 1fr) 44px;
   border-radius: 24px;
+}
+
+.shared-prompt-surface[data-has-top-accessory='true'] {
+  grid-template-rows: 32px 48px 0fr;
+}
+
+.shared-prompt-surface[data-expanded='true'][data-has-top-accessory='true'] {
+  grid-template-rows: 32px 112px 42px;
+}
+
+.shared-prompt-surface[data-variant='chat'][data-has-top-accessory='true'],
+.shared-prompt-surface[data-variant='chat'][data-expanded='true'][data-has-top-accessory='true'] {
+  grid-template-rows: 32px minmax(0, 1fr) 44px;
+}
+
+.shared-prompt-top-accessory {
+  position: relative;
+  border-bottom: 1px solid color-mix(in srgb, hsl(var(--border)) 36%, transparent);
+  background: color-mix(in srgb, hsl(var(--foreground)) 2.4%, transparent);
+}
+
+.shared-prompt-surface[data-has-top-accessory='true'] .shared-prompt-top-accessory {
+  overflow: visible;
+}
+
+.shared-prompt-surface[data-has-top-accessory='false'] .shared-prompt-top-accessory {
+  border-bottom-color: transparent;
+  background: transparent;
+}
+
+.shared-prompt-surface[data-has-top-accessory='true'] .queued-message-rail {
+  animation: queued-message-rail-enter 180ms var(--shared-prompt-ease) both;
+}
+
+.queued-message-preview {
+  overflow: hidden;
+  white-space: nowrap;
+  mask-image: linear-gradient(to right, black calc(100% - 12px), transparent);
+}
+
+.shared-prompt-surface[data-has-top-accessory='true'] .shared-prompt-progress {
+  transform: translateY(31px);
+}
+
+@keyframes queued-message-rail-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .shared-prompt-body {
@@ -224,14 +278,23 @@
   }
 
   .shared-prompt-surface[data-expanded='true'] {
-    grid-template-rows: 104px 42px;
+    grid-template-rows: 0 104px 42px;
     border-radius: 22px;
   }
 
   .shared-prompt-surface[data-variant='chat'],
   .shared-prompt-surface[data-variant='chat'][data-expanded='true'] {
-    grid-template-rows: minmax(0, 1fr) 44px;
+    grid-template-rows: 0 minmax(0, 1fr) 44px;
     border-radius: 22px;
+  }
+
+  .shared-prompt-surface[data-expanded='true'][data-has-top-accessory='true'] {
+    grid-template-rows: 32px 104px 42px;
+  }
+
+  .shared-prompt-surface[data-variant='chat'][data-has-top-accessory='true'],
+  .shared-prompt-surface[data-variant='chat'][data-expanded='true'][data-has-top-accessory='true'] {
+    grid-template-rows: 32px minmax(0, 1fr) 44px;
   }
 
   .shared-prompt-baseline {
@@ -250,6 +313,10 @@
   .shared-prompt-actions {
     animation: none;
     transition-duration: 0.01ms;
+  }
+
+  .queued-message-rail {
+    animation: none;
   }
 
   .shuttle-bar {

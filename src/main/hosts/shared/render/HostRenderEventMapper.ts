@@ -155,6 +155,14 @@ export class HostRenderEventMapper {
         })
         return hostEvents
 
+      case 'steering.consumed':
+        hostEvents.push({
+          type: 'host.steering.consumed',
+          timestamp: event.timestamp,
+          message: event.message
+        })
+        return hostEvents
+
       case 'loop.completed':
         hostEvents.push({
           type: 'host.preview.cleared',

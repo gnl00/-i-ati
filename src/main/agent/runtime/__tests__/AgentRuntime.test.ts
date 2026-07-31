@@ -133,7 +133,94 @@ describe('DefaultAgentRuntime', () => {
     expect(modelStreamExecutor.execute).toHaveBeenCalledTimes(1)
   })
 
-  it('continues after a tool round-trip and writes tool_result back to transcript', async () => {
+  it('consumes one steering message after a completed text step and continues the loop', async () => {
+    const take = vi.fn()
+      .mockReturnValueOnce({
+        queueItemId: 'queue-1',
+        text: 'focus on the second point',
+        imageUrls: [],
+        content: [{ type: 'input_text' as const, text: 'focus on the second point' }]
+      })
+      .mockReturnValue(undefined)
+    const emitSteeringConsumed = vi.fn(async () => undefined)
+    const acknowledge = vi.fn()
+    let callCount = 0
+    const modelStreamExecutor: ModelStreamExecutor = {
+      execute: vi.fn(async () => {
+        callCount += 1
+        return createAsyncStream([
+          {
+            kind: 'delta',
+            responseId: `resp-${callCount}`,
+            model: 'test-model',
+            content: callCount === 1 ? 'First answer' : 'Guided answer',
+            finishReason: 'stop'
+          },
+          {
+            kind: 'final',
+            responseId: `resp-${callCount}`,
+            model: 'test-model'
+          }
+        ])
+      })
+    }
+
+    const runtime = new DefaultAgentRuntime({
+      requestSpecSource,
+      runDescriptorSource,
+      loopInputBootstrapper: new DefaultLoopInputBootstrapper(),
+      userRecordMaterializer: new DefaultUserRecordMaterializer(),
+      initialTranscriptMaterializer: new DefaultInitialTranscriptMaterializer(),
+      runtimeInfrastructure: createDefaultRuntimeInfrastructure(),
+      agentLoop: new DefaultAgentLoop(),
+      agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
+        modelStreamExecutor,
+        steeringMessageSource: { take, acknowledge },
+        agentEventEmitter: {
+          emitStepStarted: vi.fn(async () => undefined),
+          emitStepDelta: vi.fn(async () => undefined),
+          emitStepCompleted: vi.fn(async () => undefined),
+          emitStepFailed: vi.fn(async () => undefined),
+          emitStepAborted: vi.fn(async () => undefined),
+          emitToolAwaitingConfirmation: vi.fn(async () => undefined),
+          emitToolConfirmationDenied: vi.fn(async () => undefined),
+          emitToolExecutionStarted: vi.fn(async () => undefined),
+          emitToolExecutionOutput: vi.fn(async () => undefined),
+          emitToolExecutionCompleted: vi.fn(async () => undefined),
+          emitToolExecutionFailed: vi.fn(async () => undefined),
+          emitToolExecutionAborted: vi.fn(async () => undefined),
+          emitLoopCompleted: vi.fn(async () => undefined),
+          emitLoopFailed: vi.fn(async () => undefined),
+          emitLoopAborted: vi.fn(async () => undefined),
+          emitSteeringConsumed
+        }
+      })
+    })
+
+    const result = await runtime.run({
+      hostRequest: {
+        hostType: 'test',
+        hostRequestId: 'req-steer',
+        submittedAt: Date.now(),
+        userContent: [{ type: 'input_text', text: 'hello' }]
+      }
+    })
+
+    expect(result.status).toBe('completed')
+    expect(modelStreamExecutor.execute).toHaveBeenCalledTimes(2)
+    expect(result.transcript.records.map(record => record.kind)).toEqual([
+      'user',
+      'assistant_step',
+      'user',
+      'assistant_step'
+    ])
+    expect(emitSteeringConsumed).toHaveBeenCalledWith(expect.objectContaining({
+      message: expect.objectContaining({ queueItemId: 'queue-1' })
+    }))
+    expect(acknowledge).toHaveBeenCalledWith('queue-1')
+  })
+
+  it('consumes steering after the complete tool result batch', async () => {
     const modelStreamExecutor: ModelStreamExecutor = {
       execute: vi.fn(async ({ request }) => {
         if (request.messages.some(message => message.role === 'tool')) {
@@ -214,7 +301,18 @@ describe('DefaultAgentRuntime', () => {
       agentLoop: new DefaultAgentLoop(),
       agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
         modelStreamExecutor,
-        toolExecutorDispatcher
+        toolExecutorDispatcher,
+        steeringMessageSource: {
+          take: vi.fn()
+            .mockReturnValueOnce({
+              queueItemId: 'queue-after-tool',
+              text: 'use the result as guidance',
+              imageUrls: [],
+              content: [{ type: 'input_text', text: 'use the result as guidance' }]
+            })
+            .mockReturnValue(undefined),
+          acknowledge: vi.fn()
+        }
       })
     })
 
@@ -241,6 +339,7 @@ describe('DefaultAgentRuntime', () => {
       'user',
       'assistant_step',
       'tool_result',
+      'user',
       'assistant_step'
     ])
     expect(modelStreamExecutor.execute).toHaveBeenCalledTimes(2)
@@ -672,7 +771,8 @@ describe('DefaultAgentRuntime', () => {
       emitToolExecutionAborted: vi.fn(async () => {}),
       emitLoopCompleted: vi.fn(async () => {}),
       emitLoopFailed: vi.fn(async () => {}),
-      emitLoopAborted: vi.fn(async () => {})
+      emitLoopAborted: vi.fn(async () => {}),
+      emitSteeringConsumed: vi.fn(async () => {})
     }
 
     const runtime = new DefaultAgentRuntime({

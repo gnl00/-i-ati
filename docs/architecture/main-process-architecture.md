@@ -66,6 +66,30 @@ The Electron/database implementation remains in
 This direction keeps host and service modules independent from orchestration
 infrastructure while preserving the concrete emitter and runtime factories.
 
+### Active-run steering
+
+Interactive steering uses the main-owned active run queue:
+
+```text
+run:steer (submissionId + chatUuid + queueItemId)
+  -> RunManager exact active-run lookup
+  -> AgentRun FIFO
+  -> AgentLoop stable checkpoint
+  -> user transcript record
+  -> steering.consumed runtime fact
+  -> ChatRenderResponder message boundary split
+```
+
+A stable checkpoint follows a complete assistant response. Tool-producing
+responses reach the checkpoint after the whole tool batch has emitted and
+persisted its results. Each checkpoint consumes one queue item. The chat host
+persists the inserted user message, resets the render fold, and starts a fresh
+assistant draft, preserving `assistant A -> tool results -> inserted user ->
+assistant B` ordering. `run.steering.consumed` confirms a specific queue item;
+the runtime acknowledges that item after host persistence and event delivery.
+`run.steering.returned` releases pending and unacknowledged in-flight ids when
+the run reaches a terminal state first.
+
 ## Service and tool direction
 
 Service modules provide reusable application behavior. Tool processors adapt

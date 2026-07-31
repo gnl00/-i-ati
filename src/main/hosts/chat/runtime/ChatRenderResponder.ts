@@ -16,6 +16,7 @@ import {
   noopToolResultCompactionTrigger,
   type ToolResultCompactionTrigger
 } from './ToolResultCompactionTrigger'
+import { RUN_STEERING_EVENTS } from '@shared/run/steering-events'
 
 export class ChatRenderResponder implements HostRenderEventSink {
   private readonly mapper = new ChatRenderMapper()
@@ -160,6 +161,16 @@ export class ChatRenderResponder implements HostRenderEventSink {
       }
 
       case 'host.usage.updated':
+        return
+
+      case 'host.steering.consumed':
+        this.output.consumeSteeringMessage({
+          text: event.message.text,
+          imageUrls: event.message.imageUrls
+        })
+        this.emitter.emit(RUN_STEERING_EVENTS.STEERING_CONSUMED, {
+          queueItemId: event.message.queueItemId
+        })
         return
     }
   }

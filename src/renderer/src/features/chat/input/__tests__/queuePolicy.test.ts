@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import type { PostRunJobsState, RunPhase } from '@renderer/features/chat/state/chatStore'
 import { isSubmissionBlocked, mergeQueuedMessages, shouldQueueSubmission } from '../queuePolicy'
+import type { QueuedChatMessage } from '../queuePolicy'
+
+const queuedMessage = (
+  id: string,
+  text: string,
+  images: ClipbordImg[] = []
+): QueuedChatMessage => ({
+  id,
+  status: 'queued' as const,
+  text,
+  images
+})
 
 const idlePostRunJobs: PostRunJobsState = {
   title: 'idle',
@@ -40,9 +52,9 @@ describe('chat input queue policy', () => {
 
   it('merges short queued messages into one multiline payload', () => {
     expect(mergeQueuedMessages([
-      { text: 'yo', images: [] },
-      { text: 'yo?', images: [] },
-      { text: 'sha?', images: [] }
+      queuedMessage('q1', 'yo'),
+      queuedMessage('q2', 'yo?'),
+      queuedMessage('q3', 'sha?')
     ])).toEqual({
       text: 'yo\nyo?\nsha?',
       images: []
@@ -51,9 +63,9 @@ describe('chat input queue policy', () => {
 
   it('merges follow-up task details in order', () => {
     expect(mergeQueuedMessages([
-      { text: '帮我完成xxx，需要xxx', images: [] },
-      { text: '这里需要补充一下xxx', images: [] },
-      { text: '还有这里xxx', images: [] }
+      queuedMessage('q1', '帮我完成xxx，需要xxx'),
+      queuedMessage('q2', '这里需要补充一下xxx'),
+      queuedMessage('q3', '还有这里xxx')
     ])?.text).toBe('帮我完成xxx，需要xxx\n这里需要补充一下xxx\n还有这里xxx')
   })
 
@@ -62,8 +74,8 @@ describe('chat input queue policy', () => {
     const secondImage = 'data:image/png;base64,second' as unknown as ClipbordImg
 
     expect(mergeQueuedMessages([
-      { text: 'first', images: [firstImage] },
-      { text: 'second', images: [secondImage] }
+      queuedMessage('q1', 'first', [firstImage]),
+      queuedMessage('q2', 'second', [secondImage])
     ])?.images).toEqual([firstImage, secondImage])
   })
 

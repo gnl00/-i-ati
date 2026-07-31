@@ -4,10 +4,13 @@ import type { HostRenderEventSink } from '@main/hosts/shared/render'
 import type { PermissionApprovalMode } from '@tools/approval'
 import type { RunEventEmitter } from '../infrastructure'
 import type { MainAgentRuntimeTerminalResult } from './MainAgentRuntimeResult'
+import type { RunSteerRequest } from '@shared/run/steering-events'
 
 export interface MainAgentRuntimeContext {
   getPermissionApprovalMode(): PermissionApprovalMode | undefined
   setPermissionApprovalMode(mode: PermissionApprovalMode | undefined): void
+  takeSteeringMessage?(): Omit<RunSteerRequest, 'submissionId' | 'chatUuid'> | undefined
+  acknowledgeSteeringMessage?(queueItemId: string): void
 }
 
 export interface MainAgentRuntimeRunnerInput {

@@ -28,12 +28,17 @@ import {
   type ChatRenderEventPayloads,
   type MessageSegmentPatch
 } from '../chat/render-events'
+import {
+  RUN_STEERING_EVENTS,
+  type RunSteeringEventPayloads
+} from './steering-events'
 
 export {
   RUN_STATES,
   RUN_LIFECYCLE_EVENTS,
   RUN_TOOL_EVENTS,
   RUN_MAINTENANCE_EVENTS,
+  RUN_STEERING_EVENTS,
   CHAT_RENDER_EVENTS,
   SUBAGENT_EVENTS
 }
@@ -46,7 +51,8 @@ export type {
   PostRunPlan,
   RunLifecycleEventPayloads,
   RunToolEventPayloads,
-  RunMaintenanceEventPayloads
+  RunMaintenanceEventPayloads,
+  RunSteeringEventPayloads
 }
 
 // Aggregate registry for transport compatibility only.
@@ -60,6 +66,7 @@ export const RUN_EVENTS = {
   ...RUN_LIFECYCLE_EVENTS,
   ...RUN_TOOL_EVENTS,
   ...RUN_MAINTENANCE_EVENTS,
+  ...RUN_STEERING_EVENTS,
   ...CHAT_RENDER_EVENTS,
   ...SUBAGENT_EVENTS
 } as const
@@ -68,6 +75,7 @@ export type RunCoreEventPayloads =
   & RunLifecycleEventPayloads
   & RunToolEventPayloads
   & RunMaintenanceEventPayloads
+  & RunSteeringEventPayloads
 
 export type RunEventPayloads =
   & RunCoreEventPayloads

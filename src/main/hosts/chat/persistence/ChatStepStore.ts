@@ -99,6 +99,25 @@ export class ChatStepStore implements ConversationStore {
     return entity
   }
 
+  persistSteeringUserMessage(
+    input: { text: string; imageUrls: string[] },
+    chatId?: number,
+    chatUuid?: string
+  ): MessageEntity {
+    const entity: MessageEntity = {
+      body: buildUserMessage(input.text, input.imageUrls),
+      chatId,
+      chatUuid
+    }
+
+    entity.id = chatDb.saveMessage(entity)
+    const chatEntity = this.resolveChatEntity(chatId, chatUuid)
+    if (chatEntity) {
+      this.attachMessageToChat(chatEntity, entity.id)
+    }
+    return entity
+  }
+
   buildAssistantDraft(
     chatEntity: ChatEntity,
     model: AccountModel,

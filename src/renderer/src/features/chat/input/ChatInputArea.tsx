@@ -17,12 +17,16 @@ import CommandPalette from './CommandPalette'
 import ChatInputToolbar from './ChatInputToolbar'
 import ChatInputActions from './ChatInputActions'
 import SharedPromptSurface from './SharedPromptSurface'
-import { invokeCheckIsDirectory } from '@renderer/infrastructure/ipc'
+import { QueuedMessageRail } from './QueuedMessageRail'
+import { invokeCheckIsDirectory, subscribeRunEvents } from '@renderer/infrastructure/ipc'
+import { RUN_STEERING_EVENTS } from '@shared/run/steering-events'
+import { v4 as uuidv4 } from 'uuid'
 import {
   isSubmissionBlocked,
   mergeQueuedMessages,
   shouldQueueSubmission as getShouldQueueSubmission,
-  type QueuedChatMessage
+  type QueuedChatMessage,
+  type QueuedChatMessagePayload
 } from './queuePolicy'
 
 interface ChatInputAreaProps {
@@ -272,11 +276,15 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     editingQueueRef.current = null
   }, [startNewChatBase, editUserInstructionDraft])
 
-  const { onSubmit: handleChatSubmit, cancel: cancelChatSubmit } = useChatRun()
+  const {
+    onSubmit: handleChatSubmit,
+    cancel: cancelChatSubmit,
+    steer: steerChatRun
+  } = useChatRun()
   const handleChatSubmitCallback = useCallback((text, img, options) => {
     handleChatSubmit(text, img, options)
   }, [handleChatSubmit])
-  const submitMessage = useCallback((payload: QueuedChatMessage) => {
+  const submitMessage = useCallback((payload: QueuedChatMessagePayload) => {
     onMessagesUpdate?.()
     const thinking = toUnifiedRequestThinkingOption(effectiveThinkingLevel)
     handleChatSubmitCallback(payload.text, payload.images, {
@@ -284,12 +292,16 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     })
   }, [effectiveThinkingLevel, handleChatSubmitCallback, onMessagesUpdate])
 
-  const enqueueMessage = useCallback((payload: QueuedChatMessage) => {
+  const enqueueMessage = useCallback((payload: QueuedChatMessagePayload) => {
     if (queuedMessages.length >= 5) {
       toast.warning('Queue is full (max 5)')
       return
     }
-    setQueuedMessages(prev => [...prev, payload])
+    setQueuedMessages(prev => [...prev, {
+      ...payload,
+      id: uuidv4(),
+      status: 'queued'
+    }])
     setInputContent('')
     setImageSrcBase64List([])
 
@@ -300,7 +312,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
         caretOverlayRef.current?.updateCaret()
       }
     })
-  }, [queuedMessages.length, queuePaused, setImageSrcBase64List])
+  }, [queuedMessages.length, setImageSrcBase64List])
 
   const isSubmitBlocked = isSubmissionBlocked(runPhase, postRunJobs)
   const shouldQueueSubmission = getShouldQueueSubmission({
@@ -329,12 +341,6 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
       return
     }
 
-    // 中断打字机效果（如果正在执行）
-    const forceComplete = useChatStore.getState().forceCompleteTypewriter
-    if (forceComplete) {
-      forceComplete()
-    }
-
     setQueuePaused(false)
 
     const payload = {
@@ -343,6 +349,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     }
 
     if (editingQueue) {
+      const editingItem = editingQueueRef.current
       const editedPayload = {
         text: trimmedInput,
         images: imageSrcBase64List
@@ -354,10 +361,15 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
       setImageSrcBase64List([])
 
       if (shouldQueueSubmission) {
-        setQueuedMessages(prev => [editedPayload, ...prev])
+        setQueuedMessages(prev => [{
+          ...editedPayload,
+          id: editingItem?.id ?? uuidv4(),
+          status: 'queued'
+        }, ...prev])
         return
       }
 
+      useChatStore.getState().forceCompleteTypewriter?.()
       submitMessage(editedPayload)
       return
     }
@@ -367,6 +379,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
       return
     }
 
+    useChatStore.getState().forceCompleteTypewriter?.()
     submitMessage(payload)
     setInputContent('')
     setImageSrcBase64List([])
@@ -393,7 +406,66 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
   ])
 
   useEffect(() => {
-    if (isSubmitBlocked || queuePaused || editingQueue || queuedMessages.length === 0) {
+    return subscribeRunEvents(event => {
+      if (event.type === RUN_STEERING_EVENTS.STEERING_CONSUMED) {
+        setQueuedMessages(prev => prev.filter(item => item.id !== event.payload.queueItemId))
+        return
+      }
+
+      if (event.type === RUN_STEERING_EVENTS.STEERING_RETURNED) {
+        const returnedIds = new Set(event.payload.queueItemIds)
+        setQueuedMessages(prev => prev.map(item => (
+          returnedIds.has(item.id)
+            ? { ...item, status: 'queued' }
+            : item
+        )))
+      }
+    })
+  }, [])
+
+  const insertQueuedMessage = useCallback(async () => {
+    const first = queuedMessages[0]
+    const canSteerCurrentRun = runPhase === 'submitting' || runPhase === 'streaming'
+    if (!first || first.status !== 'queued' || queuePaused || !canSteerCurrentRun) {
+      return
+    }
+
+    setQueuedMessages(prev => prev.map((item, index) => (
+      index === 0 && item.id === first.id
+        ? { ...item, status: 'inserting' }
+        : item
+    )))
+
+    try {
+      const result = await steerChatRun({
+        queueItemId: first.id,
+        text: first.text,
+        images: first.images
+      })
+      if (result.accepted) {
+        return
+      }
+
+      setQueuedMessages(prev => prev.map(item => (
+        item.id === first.id ? { ...item, status: 'queued' } : item
+      )))
+      toast.warning('The current run has already finished')
+    } catch {
+      setQueuedMessages(prev => prev.map(item => (
+        item.id === first.id ? { ...item, status: 'queued' } : item
+      )))
+      toast.error('Failed to insert queued message')
+    }
+  }, [queuePaused, queuedMessages, runPhase, steerChatRun])
+
+  useEffect(() => {
+    if (
+      isSubmitBlocked
+      || queuePaused
+      || editingQueue
+      || queuedMessages.length === 0
+      || queuedMessages[0].status === 'inserting'
+    ) {
       return
     }
     if (queueFlushingRef.current) {
@@ -411,7 +483,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
         if (prev.length === 0) {
           return prev
         }
-        const nextItem = mergeQueuedMessages(prev)
+        const nextItem = mergeQueuedMessages(prev.filter(item => item.status === 'queued'))
         if (!nextItem) {
           return prev
         }
@@ -426,7 +498,14 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
         queueTimerRef.current = null
       }
     }
-  }, [isSubmitBlocked, queuePaused, editingQueue, queuedMessages.length, submitMessage])
+  }, [
+    isSubmitBlocked,
+    queuePaused,
+    editingQueue,
+    queuedMessages.length,
+    queuedMessages[0]?.status,
+    submitMessage
+  ])
 
   useEffect(() => {
     if (!isSubmitBlocked) {
@@ -453,7 +532,11 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
   }, [currentChatId, currentChatUuid])
 
   const startEditQueuedMessage = useCallback(() => {
-    if (editingQueue || queuedMessages.length === 0) {
+    if (
+      editingQueue
+      || queuedMessages.length === 0
+      || queuedMessages[0].status === 'inserting'
+    ) {
       return
     }
     const [first, ...rest] = queuedMessages
@@ -468,6 +551,16 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     })
   }, [editingQueue, queuedMessages, setImageSrcBase64List])
 
+  const removeFirstQueuedMessage = useCallback(() => {
+    setQueuedMessages(prev => {
+      const first = prev[0]
+      if (!first || first.status === 'inserting') {
+        return prev
+      }
+      return prev.slice(1)
+    })
+  }, [])
+
   const onTextAreaChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value
     setInputContent(value)
@@ -481,7 +574,11 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
       return
     }
     if (e.shiftKey && e.key === 'ArrowUp') {
-      if (queuedMessages.length > 0 && !editingQueue) {
+      if (
+        queuedMessages.length > 0
+        && queuedMessages[0].status === 'queued'
+        && !editingQueue
+      ) {
         e.preventDefault()
         startEditQueuedMessage()
         return
@@ -608,6 +705,24 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     }
   }, [])
 
+  const firstQueuedMessage = queuedMessages[0]
+  const queuedMessageRail = firstQueuedMessage ? (
+    <QueuedMessageRail
+      message={firstQueuedMessage}
+      remainingCount={Math.max(0, queuedMessages.length - 1)}
+      paused={queuePaused}
+      canInsert={
+        !editingQueue
+        && (runPhase === 'submitting' || runPhase === 'streaming')
+      }
+      onInsert={() => {
+        void insertQueuedMessage()
+      }}
+      onEdit={startEditQueuedMessage}
+      onRemove={removeFirstQueuedMessage}
+    />
+  ) : null
+
   if (welcomeVisualMode) {
     return (
       <div
@@ -644,6 +759,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
           onDragLeave={onDragLeave}
           onDragOver={onDragOver}
           onDrop={onDrop}
+          topAccessory={queuedMessageRail}
           mediaGallery={imageSrcBase64List.length !== 0 ? <ChatImageGallery /> : null}
           bodyOverlay={(
             <CustomCaretOverlay
@@ -670,9 +786,6 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
               setSelectedModelRef={setSelectedModelRef}
               setSelectedThinkingLevel={setSelectedThinkingLevel}
               setPermissionApprovalMode={setPermissionApprovalMode}
-              queuedFirstText={queuedMessages[0]?.text}
-              queuedCount={queuedMessages.length > 0 ? queuedMessages.length : undefined}
-              queuePaused={queuePaused}
               onNewChat={startNewChat}
               onBaselineInteractionStart={holdWelcomeInteraction}
               onBaselinePopoverOpenChange={open => {
@@ -753,6 +866,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
               onDragLeave={onDragLeave}
               onDragOver={onDragOver}
               onDrop={onDrop}
+              topAccessory={queuedMessageRail}
               mediaGallery={imageSrcBase64List.length !== 0 ? <ChatImageGallery /> : null}
               dropIndicator={isDragging ? (
                 <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center bg-background/18 backdrop-blur-[2px]">
@@ -779,9 +893,6 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
                   setSelectedModelRef={setSelectedModelRef}
                   setSelectedThinkingLevel={setSelectedThinkingLevel}
                   setPermissionApprovalMode={setPermissionApprovalMode}
-                  queuedFirstText={queuedMessages[0]?.text}
-                  queuedCount={queuedMessages.length > 0 ? queuedMessages.length : undefined}
-                  queuePaused={queuePaused}
                   onNewChat={startNewChat}
                 />
               )}

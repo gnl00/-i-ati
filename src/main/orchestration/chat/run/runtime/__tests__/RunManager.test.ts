@@ -5,12 +5,14 @@ const {
   emitAcceptedMock,
   runMock,
   cancelMock,
+  steerMock,
   setPermissionApprovalModeMock,
   constructorArgsMock
 } = vi.hoisted(() => ({
   emitAcceptedMock: vi.fn(),
   runMock: vi.fn(async () => ({ assistantMessageId: 1, state: 'completed' })),
   cancelMock: vi.fn(),
+  steerMock: vi.fn(() => ({ accepted: true })),
   setPermissionApprovalModeMock: vi.fn(),
   constructorArgsMock: vi.fn()
 }))
@@ -27,6 +29,7 @@ vi.mock('../AgentRun', () => ({
     emitAccepted = emitAcceptedMock
     run = runMock
     cancel = cancelMock
+    steer = steerMock
     setPermissionApprovalMode = setPermissionApprovalModeMock
   }
 }))
@@ -110,6 +113,8 @@ describe('RunManager', () => {
     runMock.mockReset()
     runMock.mockResolvedValue({ assistantMessageId: 1, state: 'completed' })
     cancelMock.mockReset()
+    steerMock.mockReset()
+    steerMock.mockReturnValue({ accepted: true })
     setPermissionApprovalModeMock.mockReset()
     constructorArgsMock.mockReset()
   })
@@ -141,6 +146,38 @@ describe('RunManager', () => {
     manager.cancel(input.submissionId)
 
     expect(cancelMock).toHaveBeenCalledTimes(1)
+
+    deferred.resolve({ assistantMessageId: 11, state: 'completed' })
+    await deferred.promise
+  })
+
+  it('routes steer only when submission and chat identities both match', async () => {
+    const deferred = createDeferred<{ assistantMessageId?: number; state: 'completed' }>()
+    runMock.mockReturnValueOnce(deferred.promise as any)
+    const manager = createManager()
+    await manager.start({ ...input, chatUuid: 'chat-1' })
+
+    expect(manager.steer({
+      submissionId: input.submissionId,
+      chatUuid: 'chat-2',
+      queueItemId: 'queue-1',
+      text: 'guide',
+      images: []
+    })).toEqual({ accepted: false, reason: 'chat_mismatch' })
+    expect(steerMock).not.toHaveBeenCalled()
+
+    expect(manager.steer({
+      submissionId: input.submissionId,
+      chatUuid: 'chat-1',
+      queueItemId: 'queue-1',
+      text: 'guide',
+      images: []
+    })).toEqual({ accepted: true })
+    expect(steerMock).toHaveBeenCalledWith({
+      queueItemId: 'queue-1',
+      text: 'guide',
+      images: []
+    })
 
     deferred.resolve({ assistantMessageId: 11, state: 'completed' })
     await deferred.promise

@@ -41,7 +41,7 @@ export class ChatRenderOutput {
   constructor(
     emitter: import('@main/agent/contracts').RunEventEmitter,
     private readonly messageEntities: MessageEntity[],
-    private readonly assistantDraft: MessageEntity,
+    private assistantDraft: MessageEntity,
     private readonly stepStore = new ChatStepStore(),
     mapper = new ChatRenderMapper(),
     private readonly toolResultCompactionTrigger: ToolResultCompactionTrigger,
@@ -208,5 +208,42 @@ export class ChatRenderOutput {
     }
 
     return rawContent
+  }
+
+  consumeSteeringMessage(input: { text: string; imageUrls: string[] }): MessageEntity {
+    if (this.assistantDraft.id != null) {
+      this.assistantDraft.body = {
+        ...this.assistantDraft.body,
+        typewriterCompleted: true
+      }
+      const settledAssistant = this.stepStore.persistAssistantMessage(this.assistantDraft)
+      this.messageEvents.emitMessageUpdated(settledAssistant)
+    }
+
+    const userMessage = this.stepStore.persistSteeringUserMessage(
+      input,
+      this.assistantDraft.chatId,
+      this.assistantDraft.chatUuid
+    )
+    this.messageEntities.push(userMessage)
+    this.messageEvents.emitMessageCreated(userMessage)
+
+    const previousBody = this.assistantDraft.body
+    this.assistantDraft = {
+      chatId: this.assistantDraft.chatId,
+      chatUuid: this.assistantDraft.chatUuid,
+      body: {
+        role: 'assistant',
+        content: '',
+        segments: [],
+        createdAt: Date.now(),
+        typewriterCompleted: false,
+        ...(previousBody.model ? { model: previousBody.model } : {}),
+        ...(previousBody.modelRef ? { modelRef: previousBody.modelRef } : {}),
+        ...(previousBody.source ? { source: previousBody.source } : {}),
+        ...(previousBody.host ? { host: previousBody.host } : {})
+      }
+    }
+    return userMessage
   }
 }

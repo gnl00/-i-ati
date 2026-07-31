@@ -9,6 +9,7 @@ const {
   chatStore,
   invokeRunStart,
   invokeRunCancel,
+  invokeRunSteer,
   unsubscribeRunEvents
 } = vi.hoisted(() => {
   const modelRef = {
@@ -43,6 +44,7 @@ const {
     },
     invokeRunStart: vi.fn(async () => undefined),
     invokeRunCancel: vi.fn(async () => undefined),
+    invokeRunSteer: vi.fn(async () => ({ accepted: true })),
     unsubscribeRunEvents: vi.fn()
   }
 })
@@ -59,6 +61,7 @@ vi.mock('@renderer/features/chat/state/chatStore', () => {
 vi.mock('@renderer/infrastructure/ipc', () => ({
   invokeRunStart,
   invokeRunCancel,
+  invokeRunSteer,
   subscribeRunEvents: vi.fn(() => unsubscribeRunEvents)
 }))
 
@@ -76,7 +79,7 @@ vi.mock('sonner', () => ({
   }
 }))
 
-import useChatRun from '../useChatRun'
+import useChatRun, { resetChatRunRegistryForTests } from '../useChatRun'
 
 describe('useChatRun', () => {
   let container: HTMLDivElement
@@ -88,10 +91,19 @@ describe('useChatRun', () => {
     return null
   }
 
+  function getHookResult(): ReturnType<typeof useChatRun> {
+    if (!hookResult) {
+      throw new Error('Expected chat run hook to be mounted')
+    }
+    return hookResult
+  }
+
   beforeEach(() => {
+    resetChatRunRegistryForTests()
     ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
     invokeRunStart.mockClear()
     invokeRunCancel.mockClear()
+    invokeRunSteer.mockClear()
     unsubscribeRunEvents.mockClear()
     for (const mock of [
       chatStore.ensureSelectedModelRef,
@@ -122,6 +134,7 @@ describe('useChatRun', () => {
       root.unmount()
     })
     container.remove()
+    resetChatRunRegistryForTests()
   })
 
   it('keeps the chat-selected modelRef when submitting image media', async () => {
@@ -192,5 +205,58 @@ describe('useChatRun', () => {
     })).rejects.toThrow('start failed')
 
     expect(chatStore.clearToolLiveOutputs).toHaveBeenCalledWith('submission-1')
+  })
+
+  it('steers the active run with exact submission and chat identities', async () => {
+    await act(async () => {
+      root.render(<Probe />)
+    })
+    await act(async () => {
+      await hookResult?.onSubmit('hello', [], { stream: true })
+    })
+
+    await expect(getHookResult().steer({
+      queueItemId: 'queue-1',
+      text: 'focus here',
+      images: ['data:image/png;base64,abc']
+    })).resolves.toEqual({ accepted: true })
+    expect(invokeRunSteer).toHaveBeenCalledWith({
+      submissionId: 'submission-1',
+      chatUuid: 'chat-1',
+      queueItemId: 'queue-1',
+      text: 'focus here',
+      images: ['data:image/png;base64,abc']
+    })
+  })
+
+  it('keeps the active run available after the composer remounts', async () => {
+    await act(async () => {
+      root.render(<Probe />)
+    })
+    await act(async () => {
+      await hookResult?.onSubmit('hello', [], { stream: true })
+    })
+
+    await act(async () => {
+      root.unmount()
+    })
+    root = createRoot(container)
+    hookResult = undefined
+    await act(async () => {
+      root.render(<Probe />)
+    })
+
+    await expect(getHookResult().steer({
+      queueItemId: 'queue-after-remount',
+      text: 'keep this direction',
+      images: []
+    })).resolves.toEqual({ accepted: true })
+    expect(invokeRunSteer).toHaveBeenCalledWith({
+      submissionId: 'submission-1',
+      chatUuid: 'chat-1',
+      queueItemId: 'queue-after-remount',
+      text: 'keep this direction',
+      images: []
+    })
   })
 })

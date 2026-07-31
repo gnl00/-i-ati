@@ -14,6 +14,7 @@ interface SharedPromptSurfaceProps {
   disabled?: boolean
   isDragging?: boolean
   mediaGallery?: React.ReactNode
+  topAccessory?: React.ReactNode
   dropIndicator?: React.ReactNode
   bodyOverlay?: React.ReactNode
   leftActions?: React.ReactNode
@@ -43,6 +44,7 @@ const SharedPromptSurface = React.forwardRef<HTMLTextAreaElement, SharedPromptSu
   disabled = false,
   isDragging = false,
   mediaGallery,
+  topAccessory,
   dropIndicator,
   bodyOverlay,
   leftActions,
@@ -71,6 +73,7 @@ const SharedPromptSurface = React.forwardRef<HTMLTextAreaElement, SharedPromptSu
       data-variant={variant}
       data-expanded={expanded ? 'true' : 'false'}
       data-dragging={isDragging ? 'true' : 'false'}
+      data-has-top-accessory={topAccessory ? 'true' : 'false'}
       className={cn(
         'shared-prompt-surface relative overflow-hidden',
         disabled && 'opacity-[0.82]',
@@ -79,12 +82,16 @@ const SharedPromptSurface = React.forwardRef<HTMLTextAreaElement, SharedPromptSu
     >
       {isAIThinking && (
         <div
-          className="absolute left-0 right-0 top-0 h-[2px] overflow-hidden opacity-0 transition-opacity duration-150 data-[active=true]:opacity-100"
+          className="shared-prompt-progress absolute left-0 right-0 top-0 h-[2px] overflow-hidden opacity-0 transition-[opacity,transform] duration-150 data-[active=true]:opacity-100"
           data-active={isAIThinking}
         >
           <div className="shuttle-bar" />
         </div>
       )}
+
+      <div className="shared-prompt-top-accessory min-w-0 overflow-hidden">
+        {topAccessory}
+      </div>
 
       <div
         className={cn(

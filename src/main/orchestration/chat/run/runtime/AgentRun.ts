@@ -11,6 +11,8 @@ import { RunFinalizer } from './RunFinalizer'
 import { serializeError } from '@main/utils/serializeError'
 import { normalizePermissionApprovalMode, type PermissionApprovalMode } from '@tools/approval'
 import type { MainAgentRuntimeContext, MainAgentRuntimeRunner } from './MainAgentRuntimeRunner'
+import { RUN_STEERING_EVENTS } from '@shared/run/steering-events'
+import type { RunSteerRequest, RunSteerResult } from '@shared/run/steering-events'
 
 export type AgentRunServices = {
   mainAgentRuntimeRunner: MainAgentRuntimeRunner
@@ -32,6 +34,10 @@ export class AgentRun {
   private readonly lifecycle: RunLifecycleEventMapper
   private readonly outcomeHandler = new RunFinalizer()
   private readonly runtimeContext: MainAgentRuntimeContext
+  private readonly steeringQueue: Array<Omit<RunSteerRequest, 'submissionId' | 'chatUuid'>> = []
+  private readonly steeringInFlight = new Map<string, Omit<RunSteerRequest, 'submissionId' | 'chatUuid'>>()
+  private readonly steeringQueueItemIds = new Set<string>()
+  private acceptingSteering = true
 
   constructor(
     private readonly input: MainAgentRunInput,
@@ -49,6 +55,16 @@ export class AgentRun {
       getPermissionApprovalMode: () => permissionApprovalMode,
       setPermissionApprovalMode: (mode) => {
         permissionApprovalMode = mode ? normalizePermissionApprovalMode(mode) : undefined
+      },
+      takeSteeringMessage: () => {
+        const message = this.steeringQueue.shift()
+        if (message) {
+          this.steeringInFlight.set(message.queueItemId, message)
+        }
+        return message
+      },
+      acknowledgeSteeringMessage: (queueItemId) => {
+        this.steeringInFlight.delete(queueItemId)
       }
     }
   }
@@ -67,6 +83,19 @@ export class AgentRun {
     const nextMode = normalizePermissionApprovalMode(mode)
     this.runtimeContext.setPermissionApprovalMode(nextMode)
     this.lifecycle.emitPermissionApprovalModeChanged(nextMode)
+  }
+
+  steer(input: Omit<RunSteerRequest, 'submissionId' | 'chatUuid'>): RunSteerResult {
+    if (!this.acceptingSteering) {
+      return { accepted: false, reason: 'run_finished' }
+    }
+    if (this.steeringQueueItemIds.has(input.queueItemId)) {
+      return { accepted: true }
+    }
+
+    this.steeringQueueItemIds.add(input.queueItemId)
+    this.steeringQueue.push(input)
+    return { accepted: true }
   }
 
   async run(): Promise<RunResult> {
@@ -115,6 +144,17 @@ export class AgentRun {
       return {
         state: 'failed',
         error: serializedError
+      }
+    } finally {
+      this.acceptingSteering = false
+      const queueItemIds = [
+        ...this.steeringInFlight.keys(),
+        ...this.steeringQueue.map(item => item.queueItemId)
+      ]
+      this.steeringInFlight.clear()
+      this.steeringQueue.length = 0
+      if (queueItemIds.length > 0) {
+        this.emitter.emit(RUN_STEERING_EVENTS.STEERING_RETURNED, { queueItemIds })
       }
     }
   }

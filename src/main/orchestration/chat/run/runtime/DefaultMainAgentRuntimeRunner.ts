@@ -17,6 +17,8 @@ import {
   MainAgentLoopInputBootstrapper,
   type ToolResultCompactionTrigger
 } from '@main/hosts/chat/runtime'
+import { toAgentContentParts } from '@main/hosts/chat/runtime/MainAgentHostRequestBuilder'
+import { normalizeMediaUrls } from '@main/hosts/chat/persistence/ChatStepStore'
 import { ChatLoadedSkillsTranscriptContextProvider } from '@main/hosts/chat/runtime/LoadedSkillsTranscriptContextProvider'
 import { HostRenderEventForwarder, HostRenderEventMapper } from '@main/hosts/shared/render'
 import { normalizePermissionApprovalMode } from '@tools/approval'
@@ -125,6 +127,28 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
         loadedSkillsTranscriptContextProvider: new ChatLoadedSkillsTranscriptContextProvider(
           input.prepared.runSpec.runtimeContext.chatId
         ),
+        steeringMessageSource: input.runtimeContext ? {
+          take: () => {
+            const message = input.runtimeContext?.takeSteeringMessage?.()
+            if (!message) {
+              return undefined
+            }
+            const imageUrls = normalizeMediaUrls(message.images)
+            return {
+              queueItemId: message.queueItemId,
+              text: message.text,
+              imageUrls,
+              content: toAgentContentParts(
+                input.prepared.runSpec.modelContext.model.type,
+                message.text,
+                imageUrls
+              )
+            }
+          },
+          acknowledge: (queueItemId) => {
+            input.runtimeContext?.acknowledgeSteeringMessage?.(queueItemId)
+          }
+        } : undefined,
         abortedResultDisposition: 'non_terminal'
       })
     })

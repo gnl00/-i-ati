@@ -41,7 +41,8 @@ const createEventEmitter = (): AgentEventEmitter => ({
   emitToolExecutionAborted: vi.fn(async () => {}),
   emitLoopCompleted: vi.fn(async () => {}),
   emitLoopFailed: vi.fn(async () => {}),
-  emitLoopAborted: vi.fn(async () => {})
+  emitLoopAborted: vi.fn(async () => {}),
+  emitSteeringConsumed: vi.fn(async () => {})
 })
 
 describe('DefaultToolExecutorDispatcher', () => {

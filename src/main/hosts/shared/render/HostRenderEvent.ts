@@ -3,6 +3,7 @@ import type { ToolResultFact } from '@main/agent/runtime/tools/ToolResultFact'
 import type { AgentRenderMessageState } from './AgentRenderState'
 import type { ToolOutputBatch } from '@main/agent/tools'
 import type { PreviewEffect } from './AgentRenderStateReducer'
+import type { AgentSteeringMessage } from '@main/agent/runtime/steering/SteeringMessageSource'
 
 export interface HostRenderPreviewUpdatedEvent {
   type: 'host.preview.updated'
@@ -87,6 +88,12 @@ export interface HostRenderToolResultAvailableEvent {
   result: ToolResultFact
 }
 
+export interface HostRenderSteeringConsumedEvent {
+  type: 'host.steering.consumed'
+  timestamp: number
+  message: AgentSteeringMessage
+}
+
 export type HostRenderEvent =
   | HostRenderPreviewUpdatedEvent
   | HostRenderPreviewClearedEvent
@@ -98,3 +105,4 @@ export type HostRenderEvent =
   | HostRenderToolExecutionStartedEvent
   | HostRenderToolExecutionOutputEvent
   | HostRenderToolResultAvailableEvent
+  | HostRenderSteeringConsumedEvent

@@ -35,6 +35,7 @@ import type { ToolCallReadyFact } from '../tools/ToolCallReadyFact'
 import type { ToolResultFact } from '../tools/ToolResultFact'
 import type { LoopBudgetProgressSignal } from './LoopBudgetPolicy'
 import { mergeUsage } from './AgentLoopUsage'
+import type { AgentTranscriptUserRecord } from '../transcript/AgentTranscriptRecord'
 
 const logger = createLogger('AgentRuntimeLoop')
 
@@ -452,6 +453,12 @@ export class DefaultAgentLoop implements AgentLoop {
       })
 
       if (step.toolCalls.length === 0) {
+        const steered = await this.consumeSteeringMessage(transcript, dependencies)
+        if (steered) {
+          transcript = steered
+          stepIndex += 1
+          continue
+        }
         return this.finalizeCompleted({
           startedAt,
           completedAt,
@@ -513,6 +520,7 @@ export class DefaultAgentLoop implements AgentLoop {
             progressSources
           })
         }
+        transcript = await this.consumeSteeringMessage(transcript, dependencies) ?? transcript
         stepIndex += 1
         continue
       }
@@ -601,6 +609,36 @@ export class DefaultAgentLoop implements AgentLoop {
         result
       })
     ))
+  }
+
+  private async consumeSteeringMessage(
+    transcript: AgentTranscript,
+    dependencies: AgentLoopDependencies
+  ): Promise<AgentTranscript | undefined> {
+    const message = dependencies.steeringMessageSource?.take()
+    if (!message) {
+      return undefined
+    }
+
+    const timestamp = dependencies.runtimeClock.now()
+    const record: AgentTranscriptUserRecord = {
+      recordId: dependencies.loopIdentityProvider.nextTranscriptRecordId(),
+      kind: 'user',
+      timestamp,
+      content: [...message.content]
+    }
+    const nextTranscript = dependencies.transcriptAppender.append({
+      transcript,
+      records: [record],
+      updatedAt: timestamp
+    })
+
+    await dependencies.agentEventEmitter.emitSteeringConsumed({
+      timestamp,
+      message
+    })
+    dependencies.steeringMessageSource?.acknowledge(message.queueItemId)
+    return nextTranscript
   }
 
   private async materializeLoadedSkillsContextRecords(

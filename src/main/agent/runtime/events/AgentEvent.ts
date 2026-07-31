@@ -18,5 +18,6 @@
 import type { LoopEvent } from './LoopEvent'
 import type { StepEvent } from './StepEvent'
 import type { ToolEvent } from './ToolEvent'
+import type { SteeringEvent } from './SteeringEvent'
 
-export type AgentEvent = StepEvent | ToolEvent | LoopEvent
+export type AgentEvent = StepEvent | ToolEvent | LoopEvent | SteeringEvent

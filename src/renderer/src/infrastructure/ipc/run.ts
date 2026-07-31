@@ -3,9 +3,11 @@ import {
   RUN_COMPRESSION_EXECUTE,
   RUN_PERMISSION_APPROVAL_MODE_UPDATE,
   RUN_START,
+  RUN_STEER,
   RUN_TITLE_GENERATE,
   RUN_TOOL_CONFIRM
 } from '@shared/constants/index'
+import type { RunSteerRequest, RunSteerResult } from '@shared/run/steering-events'
 import { invokeIpc } from './client'
 
 export const invokeRunStart = (data: {
@@ -27,6 +29,8 @@ export const invokeRunStart = (data: {
 
 export const invokeRunCancel = (data: { submissionId: string; reason?: string }): Promise<{ cancelled: boolean }> =>
   invokeIpc(RUN_CANCEL, data)
+export const invokeRunSteer = (data: RunSteerRequest): Promise<RunSteerResult> =>
+  invokeIpc(RUN_STEER, data)
 export const invokeRunToolConfirm = (data: { toolCallId: string; approved: boolean; reason?: string; args?: unknown }): Promise<{ ok: boolean }> =>
   invokeIpc(RUN_TOOL_CONFIRM, data)
 export const invokeRunPermissionApprovalModeUpdate = (data: { chatUuid: string; permissionApprovalMode: PermissionApprovalMode }): Promise<{ updated: boolean }> =>

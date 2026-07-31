@@ -380,6 +380,93 @@ describe('AgentRun', () => {
     })
   })
 
+  it('returns unconsumed steering queue items when the run terminates', async () => {
+    const emitter = {
+      emit: vi.fn(),
+      setChatMeta: vi.fn()
+    }
+    const services = {
+      mainAgentRuntimeRunner: {
+        run: vi.fn(async () => ({
+          runtimeResult: {
+            state: 'failed',
+            error: { message: 'model failed' }
+          },
+          stepCommitter
+        }))
+      },
+      chatAgentAdapter: {
+        prepareRun: vi.fn(async () => prepared),
+        finalizeRun: vi.fn()
+      },
+      postRunJobService: {
+        run: vi.fn()
+      }
+    } as any
+    const run = new AgentRun(input as any, services, {
+      emitter,
+      toolConfirmationRequester: {
+        request: vi.fn(async () => ({ approved: true }))
+      }
+    } as any)
+
+    expect(run.steer({
+      queueItemId: 'queue-1',
+      text: 'guide',
+      images: []
+    })).toEqual({ accepted: true })
+    await run.run()
+
+    expect(emitter.emit).toHaveBeenCalledWith(
+      RUN_EVENTS.STEERING_RETURNED,
+      { queueItemIds: ['queue-1'] }
+    )
+  })
+
+  it('returns an in-flight steering item when consumption fails before acknowledgement', async () => {
+    const emitter = {
+      emit: vi.fn(),
+      setChatMeta: vi.fn()
+    }
+    const services = {
+      mainAgentRuntimeRunner: {
+        run: vi.fn(async (runnerInput: any) => {
+          expect(runnerInput.runtimeContext.takeSteeringMessage?.()).toEqual({
+            queueItemId: 'queue-in-flight',
+            text: 'guide',
+            images: []
+          })
+          throw new Error('steering persistence failed')
+        })
+      },
+      chatAgentAdapter: {
+        prepareRun: vi.fn(async () => prepared),
+        finalizeRun: vi.fn()
+      },
+      postRunJobService: {
+        run: vi.fn()
+      }
+    } as any
+    const run = new AgentRun(input as any, services, {
+      emitter,
+      toolConfirmationRequester: {
+        request: vi.fn(async () => ({ approved: true }))
+      }
+    } as any)
+
+    expect(run.steer({
+      queueItemId: 'queue-in-flight',
+      text: 'guide',
+      images: []
+    })).toEqual({ accepted: true })
+    await run.run()
+
+    expect(emitter.emit).toHaveBeenCalledWith(
+      RUN_EVENTS.STEERING_RETURNED,
+      { queueItemIds: ['queue-in-flight'] }
+    )
+  })
+
   it('emits aborted events when runner returns aborted', async () => {
     const emitter = {
       emit: vi.fn(),

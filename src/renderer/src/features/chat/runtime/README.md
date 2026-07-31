@@ -4,13 +4,24 @@
 
 Renderer responsibilities stay narrow:
 
-- start or cancel a run through IPC
+- start, steer, or cancel a run through IPC
 - subscribe to shared run events
 - act as the run-output ingress for chat UI state
 - project shared run events into committed transcript state and ephemeral preview state in `chatStore`
 - track post-run UI state such as title/compression jobs
 
 Main remains responsible for execution, persistence, and ordering.
+
+`useChatRun().steer(...)` binds a queued message to the active `submissionId`
+and `chatUuid`. The renderer runtime registry owns active handles across
+composer remounts, including the Welcome-to-transcript transition. Main accepts
+the item into the active run's FIFO and consumes one item at the next stable
+checkpoint. Renderer queue state follows two shared events:
+
+- `run.steering.consumed` removes the matching `queueItemId` after the inserted
+  user message has been persisted.
+- `run.steering.returned` restores pending or in-flight item ids when a run
+  terminates before consumption is acknowledged.
 
 `invokeRunStart` uses `modelRef` for the MainAgent chat-selected execution model. `chatModelRef` carries the same persisted chat model for desktop chat runs, while image understanding is handled by the VisionObservation sidecar during main-process preparation.
 
@@ -22,7 +33,7 @@ Image sends use two display paths for fast feedback:
 ## Files
 
 - `useChatRun.ts`
-  renderer entrypoint that starts and cancels the active run
+  renderer entrypoint that starts, steers, and cancels the active run
 - `chatRunEvent.ts`
   run event ingress that binds shared run events and applies them to `chatStore`
 - `collectRunTools.ts`

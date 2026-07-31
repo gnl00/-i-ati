@@ -14,6 +14,7 @@ import type {
 } from '../infrastructure'
 import { RunRegistry } from './RunRegistry'
 import type { MainAgentRuntimeRunner } from './MainAgentRuntimeRunner'
+import type { RunSteerRequest, RunSteerResult } from '@shared/run/steering-events'
 
 type StartRunResult = {
   accepted: true
@@ -88,6 +89,21 @@ export class RunManager {
     }
     run.cancel()
     this.deps.toolConfirmationManager.cancelForSubmission(submissionId)
+  }
+
+  steer(input: RunSteerRequest): RunSteerResult {
+    const run = this.registry.get(input.submissionId)
+    if (!run) {
+      return { accepted: false, reason: 'run_not_found' }
+    }
+    if (run.chatUuid !== input.chatUuid) {
+      return { accepted: false, reason: 'chat_mismatch' }
+    }
+    return run.steer({
+      queueItemId: input.queueItemId,
+      text: input.text,
+      images: input.images
+    })
   }
 
   hasActiveRunForChat(chatUuid: string): boolean {

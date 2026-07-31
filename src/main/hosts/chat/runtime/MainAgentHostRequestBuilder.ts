@@ -7,7 +7,7 @@ type HostRunRequestMetadata = {
   initialTranscriptSeed: ChatInitialTranscriptSeed[]
 }
 
-const toAgentContentParts = (
+export const toAgentContentParts = (
   modelType: string | undefined,
   textCtx: string,
   mediaCtx: ClipbordImg[] | string[]

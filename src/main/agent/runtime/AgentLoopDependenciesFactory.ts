@@ -27,6 +27,7 @@ import type { ModelResponseParser } from './model/ModelResponseParser'
 import type { ModelStreamExecutor } from './model/ModelStreamExecutor'
 import type { LoopBudgetPolicy } from './loop/LoopBudgetPolicy'
 import type { LoadedSkillsTranscriptContextProvider } from './skills/LoadedSkillsTranscriptContextProvider'
+import type { SteeringMessageSource } from './steering/SteeringMessageSource'
 import { DefaultAgentEventBus } from './events/AgentEventBus'
 import { DefaultAgentEventEmitter } from './events/AgentEventEmitter'
 import { DefaultLoopBudgetPolicy } from './loop/LoopBudgetPolicy'
@@ -65,6 +66,7 @@ export interface DefaultAgentLoopDependenciesFactoryOptions {
   toolResultNormalizer?: ToolResultNormalizer
   toolResultNormalizationScopeId?: string
   loadedSkillsTranscriptContextProvider?: LoadedSkillsTranscriptContextProvider
+  steeringMessageSource?: SteeringMessageSource
   executeToolCalls?: DefaultToolExecutorDispatcherOptions['executeToolCalls']
   abortedResultDisposition?: DefaultToolExecutorDispatcherOptions['abortedResultDisposition']
   requestConfirmation?: DefaultToolExecutorDispatcherOptions['requestConfirmation']
@@ -117,6 +119,7 @@ implements AgentLoopDependenciesFactory {
           requestConfirmation: this.options.requestConfirmation
         }),
       loadedSkillsTranscriptContextProvider: this.options.loadedSkillsTranscriptContextProvider,
+      steeringMessageSource: this.options.steeringMessageSource,
       agentEventEmitter
     }
   }

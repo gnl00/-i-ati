@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { AgentEvent } from '@main/agent/runtime/events/AgentEvent'
 import { HostRenderEventMapper } from '@main/hosts/shared/render'
 import { RUN_TOOL_EVENTS } from '@shared/run/tool-events'
+import { RUN_STEERING_EVENTS } from '@shared/run/steering-events'
 
 const { emitChatUpdatedMock, loggerWarnMock } = vi.hoisted(() => ({
   emitChatUpdatedMock: vi.fn(),
@@ -28,6 +29,7 @@ vi.mock('../../mapping/ChatEventMapper', () => ({
     emitStreamPreviewCleared = vi.fn()
     emitToolResultAttached = vi.fn()
     emitMessageUpdated = vi.fn()
+    emitMessageCreated = vi.fn()
     emitMessageSegmentUpdated = vi.fn()
     emitChatUpdated = emitChatUpdatedMock
   }
@@ -41,6 +43,16 @@ vi.mock('../../persistence/ChatStepStore', () => ({
       chatId,
       chatUuid,
       body
+    }))
+    persistSteeringUserMessage = vi.fn((input: { text: string; imageUrls: string[] }, chatId?: number, chatUuid?: string) => ({
+      id: 901,
+      chatId,
+      chatUuid,
+      body: {
+        role: 'user',
+        content: input.text,
+        segments: []
+      }
     }))
   }
 }))
@@ -63,6 +75,76 @@ const dispatchAgentEvent = async (
 }
 
 describe('ChatRenderResponder', () => {
+  it('splits the assistant message boundary when steering is consumed', async () => {
+    const emitter = { emit: vi.fn() } as any
+    const firstAssistant: MessageEntity = {
+      id: 101,
+      chatId: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        model: 'model-1',
+        content: '',
+        segments: []
+      }
+    }
+    const responder = new ChatRenderResponder(emitter, [firstAssistant], firstAssistant)
+
+    await dispatchAgentEvent(responder, {
+      type: 'step.completed',
+      timestamp: 100,
+      step: {
+        status: 'completed',
+        stepId: 'step-1',
+        stepIndex: 0,
+        startedAt: 90,
+        completedAt: 100,
+        content: 'First answer',
+        toolCalls: [],
+        finishReason: 'stop'
+      }
+    })
+    await dispatchAgentEvent(responder, {
+      type: 'steering.consumed',
+      timestamp: 101,
+      message: {
+        queueItemId: 'queue-1',
+        text: 'focus here',
+        imageUrls: [],
+        content: [{ type: 'input_text', text: 'focus here' }]
+      }
+    })
+    await dispatchAgentEvent(responder, {
+      type: 'step.completed',
+      timestamp: 110,
+      step: {
+        status: 'completed',
+        stepId: 'step-2',
+        stepIndex: 1,
+        startedAt: 102,
+        completedAt: 110,
+        content: 'Guided answer',
+        toolCalls: [],
+        finishReason: 'stop'
+      }
+    })
+
+    expect(firstAssistant.body).toEqual(expect.objectContaining({
+      content: 'First answer',
+      typewriterCompleted: true
+    }))
+    expect(responder.getFinalAssistantMessage()).toEqual(expect.objectContaining({
+      body: expect.objectContaining({
+        content: 'Guided answer',
+        model: 'model-1'
+      })
+    }))
+    expect(emitter.emit).toHaveBeenCalledWith(
+      RUN_STEERING_EVENTS.STEERING_CONSUMED,
+      { queueItemId: 'queue-1' }
+    )
+  })
+
   it('projects tool output batches into ephemeral run events', async () => {
     const emitter = { emit: vi.fn() } as any
     const placeholder: MessageEntity = {

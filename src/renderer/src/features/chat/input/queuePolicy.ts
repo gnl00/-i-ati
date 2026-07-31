@@ -8,9 +8,13 @@ export type ChatQueuePolicyInput = {
 }
 
 export type QueuedChatMessage = {
+  id: string
+  status: 'queued' | 'inserting'
   text: string
   images: ClipbordImg[]
 }
+
+export type QueuedChatMessagePayload = Pick<QueuedChatMessage, 'text' | 'images'>
 
 export function isSubmissionBlocked(
   runPhase: RunPhase,
@@ -28,7 +32,7 @@ export function shouldQueueSubmission(input: ChatQueuePolicyInput): boolean {
     || input.queuedMessageCount > 0
 }
 
-export function mergeQueuedMessages(items: QueuedChatMessage[]): QueuedChatMessage | null {
+export function mergeQueuedMessages(items: QueuedChatMessage[]): QueuedChatMessagePayload | null {
   if (items.length === 0) {
     return null
   }

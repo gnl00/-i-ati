@@ -38,6 +38,9 @@ runtime 里的事件至少要分成三类：
 - loop terminal events
   - 例如 `loop.completed`、`loop.failed`、`loop.aborted`
   - 依赖整个 run 的终态，而不是某个 step 的局部状态
+- steering checkpoint events
+  - `steering.consumed` 携带本次写入 transcript 的 runtime-native user input
+  - host 在这个边界持久化 user message，并为下一次模型响应建立新的 assistant message
 
 关键约束：
 
@@ -84,6 +87,8 @@ runtime 里的事件至少要分成三类：
   - tool 执行阶段事件定义
 - `LoopEvent.ts`
   - 整轮 loop 终态事件定义
+- `SteeringEvent.ts`
+  - stable checkpoint 消费的引导消息事实
 - `AgentEventSink.ts`
   - 事件消费接口
 - `AgentEventBus.ts`

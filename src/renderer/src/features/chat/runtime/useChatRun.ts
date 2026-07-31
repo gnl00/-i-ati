@@ -1,7 +1,7 @@
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
-import { invokeRunCancel, invokeRunStart, subscribeRunEvents } from '@renderer/infrastructure/ipc'
+import { invokeRunCancel, invokeRunStart, invokeRunSteer, subscribeRunEvents } from '@renderer/infrastructure/ipc'
+import type { RunSteerResult } from '@shared/run/steering-events'
 import { v4 as uuidv4 } from 'uuid'
-import { useRef } from 'react'
 import { toast } from 'sonner'
 import { bindChatRunEvents } from './chatRunEvent'
 import { collectRunTools } from './collectRunTools'
@@ -33,17 +33,32 @@ type ActiveRunHandle = {
   abortFallbackTimer: ReturnType<typeof setTimeout> | null
 }
 
+const activeRuns = new Map<string, ActiveRunHandle>()
+const backgroundTitleUnsubscribers = new Map<string, () => void>()
+
+export const resetChatRunRegistryForTests = (): void => {
+  for (const handle of activeRuns.values()) {
+    if (handle.abortFallbackTimer) {
+      clearTimeout(handle.abortFallbackTimer)
+    }
+    handle.unsubscribe?.()
+  }
+  activeRuns.clear()
+
+  for (const unsubscribe of backgroundTitleUnsubscribers.values()) {
+    unsubscribe()
+  }
+  backgroundTitleUnsubscribers.clear()
+}
+
 export default function useChatRun() {
   const chatStore = useChatStore()
-
-  const activeRunsRef = useRef<Map<string, ActiveRunHandle>>(new Map())
-  const backgroundTitleUnsubscribersRef = useRef<Map<string, () => void>>(new Map())
 
   const getRunKey = (chatUuid: string | null | undefined): string => chatUuid ?? PENDING_CHAT_RUN_KEY
 
   const findActiveRunForChat = (chatUuid: string | null | undefined): ActiveRunHandle | null => {
     const key = getRunKey(chatUuid)
-    for (const handle of activeRunsRef.current.values()) {
+    for (const handle of activeRuns.values()) {
       if (getRunKey(handle.runChatUuidRef.current) === key) {
         return handle
       }
@@ -70,7 +85,7 @@ export default function useChatRun() {
   }
 
   const bindBackgroundTitleEvents = (submissionId: string) => {
-    if (backgroundTitleUnsubscribersRef.current.has(submissionId)) {
+    if (backgroundTitleUnsubscribers.has(submissionId)) {
       return
     }
 
@@ -88,13 +103,13 @@ export default function useChatRun() {
         event.type === RUN_MAINTENANCE_EVENTS.TITLE_GENERATION_COMPLETED
         || event.type === RUN_MAINTENANCE_EVENTS.TITLE_GENERATION_FAILED
       ) {
-        const cleanup = backgroundTitleUnsubscribersRef.current.get(submissionId)
+        const cleanup = backgroundTitleUnsubscribers.get(submissionId)
         cleanup?.()
-        backgroundTitleUnsubscribersRef.current.delete(submissionId)
+        backgroundTitleUnsubscribers.delete(submissionId)
       }
     })
 
-    backgroundTitleUnsubscribersRef.current.set(submissionId, unsubscribe)
+    backgroundTitleUnsubscribers.set(submissionId, unsubscribe)
   }
 
   const cleanupRunHandle = (
@@ -116,7 +131,7 @@ export default function useChatRun() {
     useChatStore.getState().clearToolLiveOutputs(handle.submissionId)
     handle.runCompletedRef.current = false
     handle.preCancelRunPhase = null
-    activeRunsRef.current.delete(handle.submissionId)
+    activeRuns.delete(handle.submissionId)
   }
 
   const hasPendingBlockingPostRunJobs = (chatUuid?: string | null) => {
@@ -183,7 +198,7 @@ export default function useChatRun() {
       cleanupRunHandle(handle)
     }
 
-    activeRunsRef.current.set(submissionId, handle)
+    activeRuns.set(submissionId, handle)
     handle.unsubscribe = bindChatRunEvents({
       submissionId,
       runChatUuidRef,
@@ -293,5 +308,24 @@ export default function useChatRun() {
     }, ABORT_FALLBACK_TIMEOUT_MS)
   }
 
-  return { onSubmit, cancel }
+  const steer = async (payload: {
+    queueItemId: string
+    text: string
+    images: ClipbordImg[]
+  }): Promise<RunSteerResult> => {
+    const currentChatUuid = useChatStore.getState().currentChatUuid
+    const handle = findActiveRunForChat(currentChatUuid)
+    const chatUuid = handle?.runChatUuidRef.current
+    if (!handle || !chatUuid) {
+      return { accepted: false, reason: 'run_not_found' }
+    }
+
+    return await invokeRunSteer({
+      submissionId: handle.submissionId,
+      chatUuid,
+      ...payload
+    })
+  }
+
+  return { onSubmit, cancel, steer }
 }

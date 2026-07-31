@@ -24,10 +24,6 @@ interface ChatInputToolbarProps {
   setSelectedThinkingLevel: (level: ThinkingLevel | undefined) => void
   setPermissionApprovalMode: (mode: PermissionApprovalMode) => void
 
-  // Queue preview
-  queuedFirstText?: string
-  queuedCount?: number
-  queuePaused?: boolean
   onNewChat?: () => void
   onBaselineInteractionStart?: () => void
   onBaselinePopoverOpenChange?: (open: boolean) => void
@@ -44,17 +40,12 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
   setSelectedModelRef,
   setSelectedThinkingLevel,
   setPermissionApprovalMode,
-  queuedFirstText,
-  queuedCount,
-  queuePaused,
   onNewChat,
   onBaselineInteractionStart,
   onBaselinePopoverOpenChange,
   variant = 'default'
 }) => {
   const [selectModelPopoutState, setSelectModelPopoutState] = React.useState(false)
-  const [queueVisible, setQueueVisible] = React.useState(false)
-  const [queueExiting, setQueueExiting] = React.useState(false)
 
   const handleModelSelect = (ref: ModelRef, thinkingLevel?: ThinkingLevel) => {
     setSelectedModelRef(ref)
@@ -71,32 +62,6 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
       onBaselinePopoverOpenChange?.(open)
     }
   }
-
-  const queuePreview = React.useMemo(() => {
-    if (!queuedFirstText || !queuedFirstText.trim()) {
-      return 'Queued media'
-    }
-    const text = queuedFirstText.trim().replace(/\s+/g, ' ')
-    const maxLen = 24
-    return text.length > maxLen ? `${text.slice(0, maxLen)}…` : text
-  }, [queuedFirstText])
-
-  React.useEffect(() => {
-    if (typeof queuedCount === 'number' && queuedCount > 0) {
-      setQueueVisible(true)
-      setQueueExiting(false)
-      return
-    }
-    if (!queueVisible) {
-      return
-    }
-    setQueueExiting(true)
-    const timer = window.setTimeout(() => {
-      setQueueVisible(false)
-      setQueueExiting(false)
-    }, 200)
-    return () => window.clearTimeout(timer)
-  }, [queuedCount, queueVisible])
 
   if (variant === 'baseline') {
     return (
@@ -161,24 +126,6 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
           </div>
         </div>
 
-        {queueVisible && queuePreview && (
-          <div className={cn(
-            'hidden min-w-0 items-center gap-1.5 rounded-full border border-border/25 bg-foreground/[0.025] px-2 py-1 text-[10px] font-medium text-muted-foreground sm:flex',
-            queueExiting
-              ? 'animate-out fade-out-0 slide-out-to-right-2 duration-200'
-              : 'animate-in fade-in-0 slide-in-from-right-2 duration-200'
-          )}>
-            <span className="h-3 w-px bg-amber-500/45 dark:bg-amber-300/45" />
-            <span className="text-[9px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/80">Queued</span>
-            {queuePaused && (
-              <span className="text-[9px] font-semibold text-rose-500 dark:text-rose-300">Paused</span>
-            )}
-            <span className="max-w-[120px] truncate">{queuePreview}</span>
-            {queuedCount && queuedCount > 1 && (
-              <span className="text-[9px] font-semibold text-muted-foreground/80">+{queuedCount - 1}</span>
-            )}
-          </div>
-        )}
       </div>
     )
   }
@@ -240,25 +187,6 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
           variant="surface"
         />
 
-        {queueVisible && queuePreview && (
-          <div className={cn(
-            'hidden min-w-0 items-center gap-1.5 rounded-xl border border-border/25 bg-foreground/[0.025] px-2 py-1 text-[10px] font-medium text-muted-foreground md:flex',
-            queueExiting
-              ? 'animate-out fade-out-0 slide-out-to-right-2 duration-200'
-              : 'animate-in fade-in-0 slide-in-from-right-2 duration-200'
-          )}>
-            <span className="h-3 w-px bg-amber-500/45 dark:bg-amber-300/45" />
-            <span className="text-[9px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/80">Queued</span>
-            {queuePaused && (
-              <span className="text-[9px] font-semibold text-rose-500 dark:text-rose-300">Paused</span>
-            )}
-            <span className="max-w-[140px] truncate">{queuePreview}</span>
-            {queuedCount && queuedCount > 1 && (
-              <span className="text-[9px] font-semibold text-muted-foreground/80">+{queuedCount - 1}</span>
-            )}
-          </div>
-        )}
-
       </div>
     )
   }
@@ -291,26 +219,7 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
 
       {/* Config Panel */}
       <div id="customPanel" className='grow w-full bg-transparent'>
-        <div className='flex items-center justify-end gap-2 w-auto'>
-          {queueVisible && queuePreview && (
-            <div className={cn(
-              "flex items-center gap-1.5 px-1 py-0.5 text-[10px] font-semibold text-slate-600 dark:text-slate-300 max-w-[240px]",
-              queueExiting
-                ? "animate-out fade-out-0 slide-out-to-right-2 duration-200"
-                : "animate-in fade-in-0 slide-in-from-right-2 duration-200"
-            )}>
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500/70 dark:bg-amber-400/70" />
-              <span className="uppercase tracking-wider text-[9px] text-slate-500 dark:text-slate-400">Queued</span>
-              {queuePaused && (
-                <span className="text-[9px] font-bold text-rose-500 dark:text-rose-400">Paused</span>
-              )}
-              <span className="truncate">{queuePreview}</span>
-              {queuedCount && queuedCount > 1 && (
-                <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400">+{queuedCount - 1}</span>
-              )}
-            </div>
-          )}
-        </div>
+        <div className='flex items-center justify-end gap-2 w-auto' />
       </div>
     </div>
   )

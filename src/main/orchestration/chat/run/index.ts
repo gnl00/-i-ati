@@ -7,6 +7,7 @@ import type { MainAgentRunInput } from '@main/hosts/chat/preparation/types'
 import type { HostRenderEventSink } from '@main/hosts/shared/render'
 import type { PermissionApprovalMode } from '@tools/approval'
 import type { ToolConfirmationDecision } from './infrastructure'
+import type { RunSteerRequest, RunSteerResult } from '@shared/run/steering-events'
 import { RunRuntimeFactory, type RunRuntimeDeps } from './runtime/RunRuntimeFactory'
 
 type RunExecutionOptions = {
@@ -49,6 +50,10 @@ export class RunService {
 
   cancel(submissionId: string): void {
     this.runtime.runManager.cancel(submissionId)
+  }
+
+  steer(input: RunSteerRequest): RunSteerResult {
+    return this.runtime.runManager.steer(input)
   }
 
   hasActiveRunForChat(chatUuid: string): boolean {

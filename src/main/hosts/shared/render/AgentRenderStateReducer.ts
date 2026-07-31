@@ -427,6 +427,14 @@ export class AgentRenderStateReducer {
         }
         this.applyToolResult(event.result)
         return this.snapshot()
+      case 'steering.consumed':
+        this.nextToolCallAppearanceOrder = 0
+        this.state = {
+          committed: emptyMessageState(),
+          preview: null,
+          lastUsage: this.state.lastUsage
+        }
+        return this.snapshot()
       case 'loop.completed':
       case 'loop.failed':
       case 'loop.aborted':
