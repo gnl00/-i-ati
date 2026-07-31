@@ -1,6 +1,10 @@
 import { memo } from 'react'
+import type {
+  SupportLeafRenderUnit
+} from '../model/assistantSupportGrouping'
 import type { SupportRenderUnit, SupportSegmentRenderItem } from '../model/assistantMessageMapper'
 import { AssistantSupportSegmentContent } from './AssistantSupportSegmentContent'
+import { AssistantCompletedWorkGroup } from './AssistantCompletedWorkGroup'
 import {
   areSupportSegmentRenderItemListsEqual,
   areSupportSegmentRenderItemsEqual
@@ -8,12 +12,25 @@ import {
 import { ToolCallGroup } from '../toolcall/ToolCallGroup'
 
 const AssistantSupportSegmentItem = memo(({
-  item
+  item,
+  fullWidth = false,
+  nestedDisclosure = false
 }: {
   item: SupportSegmentRenderItem
+  fullWidth?: boolean
+  nestedDisclosure?: boolean
 }) => (
-  <AssistantSupportSegmentContent item={item} />
-), (prevProps, nextProps) => areSupportSegmentRenderItemsEqual(prevProps.item, nextProps.item))
+  <AssistantSupportSegmentContent
+    item={item}
+    fullWidth={fullWidth}
+    nestedDisclosure={nestedDisclosure}
+  />
+), (prevProps, nextProps) => (
+  prevProps.fullWidth === nextProps.fullWidth
+  && prevProps.nestedDisclosure === nextProps.nestedDisclosure
+  && areSupportSegmentRenderItemsEqual(prevProps.item, nextProps.item)
+))
+AssistantSupportSegmentItem.displayName = 'AssistantSupportSegmentItem'
 
 const areSupportRenderUnitsEqual = (
   previous: SupportRenderUnit[],
@@ -35,21 +52,70 @@ const areSupportRenderUnitsEqual = (
       return areSupportSegmentRenderItemListsEqual(unit.items, nextUnit.items)
     }
 
+    if (unit.type === 'completedWork' && nextUnit.type === 'completedWork') {
+      return areSupportRenderUnitsEqual(unit.units, nextUnit.units)
+    }
+
     return false
   })
 }
+
+const AssistantSupportLeafUnit = memo(({
+  unit,
+  fullWidth = false,
+  nestedDisclosure = false
+}: {
+  unit: SupportLeafRenderUnit
+  fullWidth?: boolean
+  nestedDisclosure?: boolean
+}) => {
+  if (unit.type === 'toolGroup') {
+    return (
+      <ToolCallGroup
+        items={unit.items}
+        fullWidth={fullWidth}
+        nestedDisclosure={nestedDisclosure}
+      />
+    )
+  }
+
+  return (
+    <AssistantSupportSegmentItem
+      item={unit.item}
+      fullWidth={fullWidth}
+      nestedDisclosure={nestedDisclosure}
+    />
+  )
+}, (prevProps, nextProps) => (
+  prevProps.fullWidth === nextProps.fullWidth
+  && prevProps.nestedDisclosure === nextProps.nestedDisclosure
+  && areSupportRenderUnitsEqual([prevProps.unit], [nextProps.unit])
+))
+AssistantSupportLeafUnit.displayName = 'AssistantSupportLeafUnit'
 
 const AssistantSupportRenderUnit = memo(({
   unit
 }: {
   unit: SupportRenderUnit
 }) => {
-  if (unit.type === 'toolGroup') {
-    return <ToolCallGroup items={unit.items} />
+  if (unit.type === 'completedWork') {
+    return (
+      <AssistantCompletedWorkGroup>
+        {unit.units.map(childUnit => (
+          <AssistantSupportLeafUnit
+            key={childUnit.key}
+            unit={childUnit}
+            fullWidth
+            nestedDisclosure
+          />
+        ))}
+      </AssistantCompletedWorkGroup>
+    )
   }
 
-  return <AssistantSupportSegmentItem item={unit.item} />
+  return <AssistantSupportLeafUnit unit={unit} />
 }, (prevProps, nextProps) => areSupportRenderUnitsEqual([prevProps.unit], [nextProps.unit]))
+AssistantSupportRenderUnit.displayName = 'AssistantSupportRenderUnit'
 
 export const AssistantSupportSegmentList = memo(({
   units
@@ -62,3 +128,4 @@ export const AssistantSupportSegmentList = memo(({
     </div>
   ))
 }, (prevProps, nextProps) => areSupportRenderUnitsEqual(prevProps.units, nextProps.units))
+AssistantSupportSegmentList.displayName = 'AssistantSupportSegmentList'

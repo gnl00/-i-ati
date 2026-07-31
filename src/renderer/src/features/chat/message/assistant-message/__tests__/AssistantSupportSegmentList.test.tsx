@@ -1,22 +1,37 @@
 // @vitest-environment happy-dom
 
-import { act } from 'react'
+import { act, type ReactElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 import { AssistantSupportSegmentList } from '../renderers/AssistantSupportSegmentList'
-import type { SupportSegmentRenderItem } from '../model/assistantMessageMapper'
+import type {
+  SupportSegmentRenderItem,
+  TextSegmentRenderItem
+} from '../model/assistantMessageMapper'
 import { buildSupportRenderUnits } from '../model/assistantSupportGrouping'
 
 vi.mock('../renderers/AssistantSupportSegmentContent', () => ({
-  AssistantSupportSegmentContent: ({ item }: { item: SupportSegmentRenderItem }) => {
+  AssistantSupportSegmentContent: ({
+    item,
+    fullWidth = false,
+    nestedDisclosure = false
+  }: {
+    item: SupportSegmentRenderItem
+    fullWidth?: boolean
+    nestedDisclosure?: boolean
+  }): ReactElement => {
     const args = item.segment.type === 'toolCall' && item.segment.content?.args
     const reason = args && typeof args === 'object' && !Array.isArray(args)
       ? (args as Record<string, unknown>)[TOOL_CALL_REASON_PARAMETER_NAME]
       : undefined
 
     return (
-      <div data-testid={`support-content-${item.segment.segmentId}`}>
+      <div
+        data-testid={`support-content-${item.segment.segmentId}`}
+        data-full-width={fullWidth}
+        data-nested-disclosure={nestedDisclosure}
+      >
         {item.segment.type === 'toolCall' ? item.segment.name : item.segment.type}
         {typeof reason === 'string' ? reason : null}
       </div>
@@ -25,8 +40,20 @@ vi.mock('../renderers/AssistantSupportSegmentContent', () => ({
 }))
 
 vi.mock('../toolcall/ToolCallGroup', () => ({
-  ToolCallGroup: ({ items }: { items: SupportSegmentRenderItem[] }) => (
-    <div data-testid="tool-call-group">
+  ToolCallGroup: ({
+    items,
+    fullWidth = false,
+    nestedDisclosure = false
+  }: {
+    items: SupportSegmentRenderItem[]
+    fullWidth?: boolean
+    nestedDisclosure?: boolean
+  }): ReactElement => (
+    <div
+      data-testid="tool-call-group"
+      data-full-width={fullWidth}
+      data-nested-disclosure={nestedDisclosure}
+    >
       {items.map((item) => {
         const args = item.segment.type === 'toolCall' && item.segment.content?.args
         const reason = args && typeof args === 'object' && !Array.isArray(args)
@@ -48,11 +75,11 @@ vi.mock('../model/supportSegmentEquality', () => ({
   areSupportSegmentRenderItemsEqual: (
     previous: SupportSegmentRenderItem,
     next: SupportSegmentRenderItem
-  ) => previous.key === next.key && previous.segment === next.segment,
+  ): boolean => previous.key === next.key && previous.segment === next.segment,
   areSupportSegmentRenderItemListsEqual: (
     previous: SupportSegmentRenderItem[],
     next: SupportSegmentRenderItem[]
-  ) => previous.length === next.length && previous.every((item, index) => item.key === next[index].key)
+  ): boolean => previous.length === next.length && previous.every((item, index) => item.key === next[index].key)
 }))
 
 const toolCallItem = (args: {
@@ -96,6 +123,23 @@ const reasoningItem = (args: {
   isStreamingTail: false,
   segment: {
     type: 'reasoning',
+    segmentId: `segment-${args.id}`,
+    content: args.content,
+    timestamp: 1
+  }
+})
+
+const textItem = (args: {
+  id: string
+  order: number
+  content: string
+}): TextSegmentRenderItem => ({
+  key: args.id,
+  layer: 'committed',
+  sourceIndex: args.order,
+  order: args.order,
+  segment: {
+    type: 'text',
     segmentId: `segment-${args.id}`,
     content: args.content,
     timestamp: 1
@@ -182,5 +226,67 @@ describe('AssistantSupportSegmentList', () => {
     expect(container.textContent).toContain('read')
     expect(container.textContent).toContain('reasoning')
     expect(container.textContent).toContain('shell')
+  })
+
+  it('renders projected support leaves inside the completed-work disclosure', async () => {
+    const supportItems = [
+      reasoningItem({
+        id: 'thought-1',
+        order: 0,
+        content: 'Inspect the renderer.'
+      }),
+      toolCallItem({
+        id: 'tool-1',
+        name: 'read',
+        order: 1,
+        reason: 'Read the implementation.'
+      }),
+      reasoningItem({
+        id: 'thought-2',
+        order: 2,
+        content: 'Check the boundary.'
+      }),
+      reasoningItem({
+        id: 'thought-3',
+        order: 3,
+        content: 'Verify the output.'
+      })
+    ]
+
+    await act(async () => {
+      root.render(
+        <AssistantSupportSegmentList
+          units={buildSupportRenderUnits(
+            supportItems,
+            [textItem({
+              id: 'answer-1',
+              order: 4,
+              content: 'Answer'
+            })]
+          )}
+        />
+      )
+    })
+
+    const trigger = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Expand completed work"]'
+    )
+    expect(trigger?.getAttribute('aria-expanded')).toBe('false')
+    expect(container.querySelectorAll('[data-testid="tool-call-group"]')).toHaveLength(1)
+    expect(container.textContent).toContain('reasoning')
+    expect(container.textContent).toContain('read')
+    expect(container.querySelector('[data-testid="support-content-segment-thought-1"]')
+      ?.getAttribute('data-full-width')).toBe('true')
+    expect(container.querySelector('[data-testid="support-content-segment-thought-1"]')
+      ?.getAttribute('data-nested-disclosure')).toBe('true')
+    expect(container.querySelector('[data-testid="tool-call-group"]')
+      ?.getAttribute('data-full-width')).toBe('true')
+    expect(container.querySelector('[data-testid="tool-call-group"]')
+      ?.getAttribute('data-nested-disclosure')).toBe('true')
+
+    await act(async () => trigger?.click())
+    expect(trigger?.getAttribute('aria-expanded')).toBe('true')
+    expect(container.querySelector('[data-testid="completed-work-panel"]')?.getAttribute('data-state'))
+      .toBe('expanded')
   })
 })

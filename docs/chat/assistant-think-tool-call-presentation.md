@@ -8,6 +8,11 @@ This document defines the renderer presentation contract for assistant
 reasoning and visible tool calls. Provider and transcript contracts continue
 to use the `reasoning` segment type; the user-facing label is `Think`.
 
+Related contract:
+[Assistant Completed Work Group](./assistant-completed-work-group.md) defines a
+message-level disclosure that groups substantial supporting work when visible
+answer text begins.
+
 ## Goals
 
 The transcript presents two distinct kinds of supporting work:
@@ -15,6 +20,11 @@ The transcript presents two distinct kinds of supporting work:
 - Think is a lightweight inline disclosure for model reasoning.
 - Consecutive tool calls form a compact execution list with one inline detail
   region.
+
+Each visible answer text segment closes the preceding support window. A window
+with at least four reasoning/tool-call segments becomes a full-width `Work
+completed` disclosure. Windows with one through three segments keep their
+existing Think and Tool Call presentation.
 
 Text, errors, reasoning segments, committed/preview layer changes, and order
 gaps establish tool-list boundaries. This keeps transcript structure aligned
@@ -56,6 +66,14 @@ Think uses the quietest transcript treatment:
 
 Reduced-motion mode removes the panel, chevron, and icon scale transitions.
 
+Inside a `Work completed` disclosure, the Think chevron becomes a secondary
+indicator. It uses a 12px size and 45% resting opacity, rises to 80% on row
+hover or keyboard focus, and stays at 80% while expanded. The standalone Think
+chevron retains its standard 14px size and contrast. Both presentations retain
+the 180-degree open-state rotation and reduced-motion behavior. The nested
+duration immediately before the chevron follows the same 45% resting and 80%
+interactive opacity while keeping its existing typography and grid position.
+
 ## Tool call list
 
 Adjacent tool calls in the same render layer and consecutive transcript order
@@ -87,6 +105,13 @@ primary hierarchy cue.
 One row per list can be expanded. Its persistent `SizeAnimatedPanel` renders a
 slightly tinted inset detail region directly below the row. The row control
 owns inline expansion through `aria-expanded` and `aria-controls`.
+
+Inside a `Work completed` disclosure, each Tool Call chevron uses the same
+secondary-indicator treatment as Think: 12px, 45% resting opacity, 80% on row
+hover or keyboard focus, and 80% while expanded. Standalone Tool Call
+chevrons retain their standard 14px size and contrast. The adjacent nested
+time-cost value follows the same opacity states while retaining its tabular
+number styling and duration column.
 
 Lists up to eight calls show every row. Longer lists keep active and failed
 calls visible and expose a count-based control for the remaining completed
@@ -128,8 +153,15 @@ is following the tail.
 
 ## Implementation map
 
+- `model/assistantMessageMapper.ts` provides all ordered answer text segments
+  across committed and preview layers.
 - `model/assistantSupportGrouping.ts` builds standalone reasoning units and
-  tool-only groups.
+  tool-only groups, then derives a completed-work group for each qualifying
+  support window closed by visible answer text.
+- `renderers/AssistantCompletedWorkGroup.tsx` owns the full-width
+  message-level disclosure. Nested Think and Tool Call containers expand from
+  their standalone 90% width to the full disclosure width. The renderer passes
+  an explicit nested-disclosure presentation context to each child unit.
 - `segments/ReasoningSegment.tsx` owns the Think disclosure.
 - `renderers/SupportSegmentHeader.tsx` owns the shared four-area display
   skeleton and visual tokens.
@@ -146,9 +178,16 @@ is following the tail.
 Focused verification covers:
 
 - grouping boundaries and streaming singleton shell stability;
+- multiple content-window disclosures, the four-segment threshold, trailing
+  live support, per-window errors, and preview-to-committed key stability;
 - Think default state, semantic icon and status copy, duration order, 90%
   content width, horizontal inset, accessibility, and reduced motion;
 - 90% width for grouped and standalone tool-call results;
+- 12px secondary chevrons with 45% resting opacity and 80% hover, focus, and
+  expanded opacity inside completed-work disclosures;
+- nested duration and time-cost values with the same 45% resting and 80%
+  interactive opacity states;
+- standard 14px chevrons and contrast for standalone Think and Tool Call rows;
 - shared four-area row order, icon sizing, hover/open feedback, and trailing
   action semantics;
 - single-row expansion within a tool list;

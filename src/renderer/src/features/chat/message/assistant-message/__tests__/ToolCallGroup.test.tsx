@@ -110,6 +110,7 @@ describe('ToolCallGroup', () => {
     const firstName = first?.querySelector('[data-testid="tool-call-trigger-name-segment-1"]')
     const firstReason = first?.querySelector('[data-testid="tool-call-trigger-reason-segment-1"]')
     const firstDuration = first?.querySelector('[data-testid="tool-call-trigger-duration-segment-1"]')
+    const firstDurationSlot = firstDuration?.parentElement
     const firstChevron = first?.querySelector('[data-testid="tool-call-chevron-segment-1"]')
     expect(first?.classList.contains('hover:bg-slate-50/55')).toBe(true)
     expect(first?.classList.contains('duration-150')).toBe(true)
@@ -125,6 +126,11 @@ describe('ToolCallGroup', () => {
     expect(firstReason?.textContent).toBe('Reason 1')
     expect(firstReason?.classList.contains('truncate')).toBe(true)
     expect(firstDuration?.textContent).toBe('0.02s')
+    expect(firstDurationSlot?.classList.contains('opacity-[0.45]')).toBe(false)
+    expect(firstChevron?.classList.contains('h-3.5')).toBe(true)
+    expect(firstChevron?.classList.contains('w-3.5')).toBe(true)
+    expect(firstChevron?.classList.contains('transition-transform')).toBe(true)
+    expect(firstChevron?.classList.contains('opacity-[0.45]')).toBe(false)
     expect(firstChevron?.classList.contains('motion-reduce:transition-none')).toBe(true)
     await act(async () => first?.click())
 
@@ -160,6 +166,45 @@ describe('ToolCallGroup', () => {
 
     expect(row?.getAttribute('aria-expanded')).toBe('true')
     expect(container.querySelector('[data-testid="tool-call-inline-panel-segment-1"]')?.getAttribute('data-state')).toBe('expanded')
+  })
+
+  it('uses the full available width inside a completed-work disclosure', async () => {
+    await act(async () => root.render(
+      <ToolCallGroup items={[toolCallItem('1', 0)]} fullWidth nestedDisclosure />
+    ))
+
+    const group = container.querySelector('[data-testid="tool-call-group"]')
+    const row = container.querySelector<HTMLButtonElement>(
+      '[data-testid="support-segment-row-segment-1"]'
+    )
+    const duration = container.querySelector(
+      '[data-testid="tool-call-trigger-duration-segment-1"]'
+    )
+    const durationSlot = duration?.parentElement
+    const chevron = container.querySelector('[data-testid="tool-call-chevron-segment-1"]')
+    expect(group?.classList.contains('w-full')).toBe(true)
+    expect(group?.classList.contains('w-[90%]')).toBe(false)
+    expect(chevron?.classList.contains('h-3')).toBe(true)
+    expect(chevron?.classList.contains('w-3')).toBe(true)
+    expect(chevron?.classList.contains('h-3.5')).toBe(false)
+    expect(chevron?.classList.contains('transition-[transform,opacity]')).toBe(true)
+    expect(chevron?.classList.contains('opacity-[0.45]')).toBe(true)
+    expect(chevron?.classList.contains('group-hover/support:opacity-80')).toBe(true)
+    expect(chevron?.classList.contains('group-focus-visible/support:opacity-80')).toBe(true)
+    expect(chevron?.classList.contains('motion-reduce:transition-none')).toBe(true)
+    expect(durationSlot?.classList.contains('transition-opacity')).toBe(true)
+    expect(durationSlot?.classList.contains('opacity-[0.45]')).toBe(true)
+    expect(durationSlot?.classList.contains('group-hover/support:opacity-80')).toBe(true)
+    expect(durationSlot?.classList.contains('group-focus-visible/support:opacity-80')).toBe(true)
+    expect(durationSlot?.classList.contains('motion-reduce:transition-none')).toBe(true)
+
+    await act(async () => row?.click())
+    expect(row?.getAttribute('aria-expanded')).toBe('true')
+    expect(chevron?.classList.contains('rotate-180')).toBe(true)
+    expect(chevron?.classList.contains('opacity-80')).toBe(true)
+    expect(chevron?.classList.contains('opacity-[0.45]')).toBe(false)
+    expect(durationSlot?.classList.contains('opacity-80')).toBe(true)
+    expect(durationSlot?.classList.contains('opacity-[0.45]')).toBe(false)
   })
 
   it('uses restrained append motion and disables it for reduced motion', async () => {

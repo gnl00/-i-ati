@@ -6,6 +6,7 @@ import type {
   SupportSegmentRenderItem
 } from '@renderer/features/chat/message/assistant-message/model/assistantMessageMapper'
 import { buildSupportRenderUnits } from '@renderer/features/chat/message/assistant-message/model/assistantSupportGrouping'
+import { AssistantCompletedWorkGroup } from '@renderer/features/chat/message/assistant-message/renderers/AssistantCompletedWorkGroup'
 import { AssistantSupportSegmentContent } from '@renderer/features/chat/message/assistant-message/renderers/AssistantSupportSegmentContent'
 import { ToolCallGroup } from '@renderer/features/chat/message/assistant-message/toolcall/ToolCallGroup'
 import { cn } from '@renderer/shared/lib/utils'
@@ -272,7 +273,28 @@ function SupportUnitPreview({
     <div className="flex flex-col items-start gap-1.5">
       {units.map(unit => (
         <div key={unit.key} style={{ order: unit.order }} className="w-full">
-          {unit.type === 'toolGroup' ? (
+          {unit.type === 'completedWork' ? (
+            <AssistantCompletedWorkGroup forceReducedMotion={forceReducedMotion}>
+              {unit.units.map(childUnit => (
+                childUnit.type === 'toolGroup' ? (
+                  <ToolCallGroup
+                    key={childUnit.key}
+                    items={childUnit.items}
+                    forceReducedMotion={forceReducedMotion}
+                    fullWidth
+                    nestedDisclosure
+                  />
+                ) : (
+                  <AssistantSupportSegmentContent
+                    key={childUnit.key}
+                    item={childUnit.item}
+                    fullWidth
+                    nestedDisclosure
+                  />
+                )
+              ))}
+            </AssistantCompletedWorkGroup>
+          ) : unit.type === 'toolGroup' ? (
             <ToolCallGroup
               items={unit.items}
               forceReducedMotion={forceReducedMotion}

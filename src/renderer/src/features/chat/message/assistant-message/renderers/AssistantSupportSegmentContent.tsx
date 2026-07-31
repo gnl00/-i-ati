@@ -6,10 +6,14 @@ import type { SupportSegmentRenderItem } from '../model/assistantMessageMapper'
 
 export interface AssistantSupportSegmentContentProps {
   item: SupportSegmentRenderItem
+  fullWidth?: boolean
+  nestedDisclosure?: boolean
 }
 
 export const AssistantSupportSegmentContent = memo(({
-  item
+  item,
+  fullWidth = false,
+  nestedDisclosure = false
 }: AssistantSupportSegmentContentProps) => {
   const { segment, key, isStreamingTail } = item
 
@@ -19,6 +23,8 @@ export const AssistantSupportSegmentContent = memo(({
         key={key}
         segment={segment}
         isStreaming={isStreamingTail}
+        fullWidth={fullWidth}
+        nestedDisclosure={nestedDisclosure}
       />
     )
   }

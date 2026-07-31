@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
-import { mapAssistantMessage } from '../model/assistantMessageMapper'
+import {
+  mapAssistantMessage,
+  type SupportRenderUnit
+} from '../model/assistantMessageMapper'
 
 const textSegment = (id: string, content: string, timestamp = 1): TextSegment => ({
   type: 'text',
@@ -432,7 +435,9 @@ describe('mapAssistantMessage', () => {
     expect(renderState.transcript.supportUnits.map(unit => (
       unit.type === 'single'
         ? unit.item.segment.segmentId
-        : unit.items[0]?.segment.segmentId
+        : unit.type === 'toolGroup'
+          ? unit.items[0]?.segment.segmentId
+          : unit.key
     ))).toEqual(['tool-1', 'reasoning-1', 'tool-2'])
   })
 
@@ -464,7 +469,7 @@ describe('mapAssistantMessage', () => {
     ))).toEqual(['reasoning-1', 'reasoning-2', 'reasoning-3'])
   })
 
-  it('keeps text order gaps as tool list boundaries', () => {
+  it('keeps the answer boundary as a tool-list boundary below the disclosure threshold', () => {
     const renderState = mapAssistantMessage({
       committedMessage: {
         role: 'assistant',
@@ -491,7 +496,10 @@ describe('mapAssistantMessage', () => {
     })
 
     expect(renderState.transcript.supportItems.map(item => item.order)).toEqual([0, 2])
-    expect(renderState.transcript.supportUnits.map(unit => unit.type)).toEqual(['toolGroup', 'toolGroup'])
+    expect(renderState.transcript.supportUnits.map(unit => unit.type)).toEqual([
+      'toolGroup',
+      'toolGroup'
+    ])
   })
 
   it('keeps layer changes as tool list boundaries during streaming', () => {
@@ -576,8 +584,475 @@ describe('mapAssistantMessage', () => {
     expect(renderState.transcript.supportUnits.map(unit => (
       unit.type === 'single'
         ? unit.item.segment.segmentId
-        : unit.items[0]?.segment.segmentId
+        : unit.type === 'toolGroup'
+          ? unit.items[0]?.segment.segmentId
+          : unit.key
     ))).toEqual(['tool-1', 'error-1', 'tool-2'])
+  })
+
+  it('groups preceding support when visible answer text begins', () => {
+    const renderState = mapAssistantMessage({
+      committedMessage: {
+        role: 'assistant',
+        content: 'answer',
+        segments: [
+          reasoningSegment('reasoning-1', 'inspect'),
+          toolCallSegment({ id: 'tool-1', name: 'read', toolCallId: 'tool-1' }),
+          reasoningSegment('reasoning-2', 'compose'),
+          reasoningSegment('reasoning-3', 'verify'),
+          textSegment('answer-1', 'answer'),
+          toolCallSegment({ id: 'tool-2', name: 'followup', toolCallId: 'tool-2' })
+        ]
+      }
+    }, {
+      isLatest: true,
+      isStreaming: false,
+      providerDefinitions: [],
+      accounts: []
+    })
+
+    expect(renderState.transcript.supportUnits.map(unit => unit.type)).toEqual([
+      'completedWork',
+      'toolGroup'
+    ])
+    const completedWork = renderState.transcript.supportUnits[0]
+    expect(completedWork).toMatchObject({
+      type: 'completedWork',
+      key: 'completed-work:answer-1',
+      order: 0
+    })
+    expect(completedWork.type === 'completedWork'
+      ? completedWork.units.map(unit => unit.type)
+      : []
+    ).toEqual(['single', 'toolGroup', 'single', 'single'])
+    expect(renderState.transcript.supportUnits[1]).toMatchObject({
+      type: 'toolGroup',
+      order: 5
+    })
+  })
+
+  it('groups a substantial support window between two content segments', () => {
+    const renderState = mapAssistantMessage({
+      committedMessage: {
+        role: 'assistant',
+        content: 'context answer',
+        segments: [
+          reasoningSegment('reasoning-before-context', 'introduce'),
+          textSegment('context-1', 'context'),
+          reasoningSegment('reasoning-1', 'inspect'),
+          toolCallSegment({ id: 'tool-1', name: 'read', toolCallId: 'tool-1' }),
+          reasoningSegment('reasoning-2', 'compose'),
+          toolCallSegment({ id: 'tool-2', name: 'search', toolCallId: 'tool-2' }),
+          textSegment('answer-1', ' answer')
+        ]
+      }
+    }, {
+      isLatest: true,
+      isStreaming: false,
+      providerDefinitions: [],
+      accounts: []
+    })
+
+    expect(renderState.transcript.supportUnits.map(unit => unit.type)).toEqual([
+      'single',
+      'completedWork'
+    ])
+    expect(renderState.transcript.supportUnits[1]).toMatchObject({
+      type: 'completedWork',
+      key: 'completed-work:answer-1',
+      order: 2
+    })
+  })
+
+  it('creates one completed-work disclosure for each eligible content window', () => {
+    const renderState = mapAssistantMessage({
+      committedMessage: {
+        role: 'assistant',
+        content: 'context answer',
+        segments: [
+          reasoningSegment('reasoning-1', 'one'),
+          reasoningSegment('reasoning-2', 'two'),
+          reasoningSegment('reasoning-3', 'three'),
+          reasoningSegment('reasoning-4', 'four'),
+          textSegment('context-1', 'context'),
+          toolCallSegment({ id: 'tool-1', name: 'read', toolCallId: 'tool-1' }),
+          reasoningSegment('reasoning-5', 'five'),
+          toolCallSegment({ id: 'tool-2', name: 'search', toolCallId: 'tool-2' }),
+          reasoningSegment('reasoning-6', 'six'),
+          textSegment('answer-1', ' answer')
+        ]
+      }
+    }, {
+      isLatest: true,
+      isStreaming: false,
+      providerDefinitions: [],
+      accounts: []
+    })
+
+    expect(renderState.transcript.supportUnits.map(unit => unit.type)).toEqual([
+      'completedWork',
+      'completedWork'
+    ])
+    expect(renderState.transcript.supportUnits.map(unit => unit.key)).toEqual([
+      'completed-work:context-1',
+      'completed-work:answer-1'
+    ])
+  })
+
+  it('keeps windows with one to three support segments in their existing presentation', () => {
+    const project = (segments: MessageSegment[]): SupportRenderUnit[] => (
+      mapAssistantMessage({
+        committedMessage: {
+          role: 'assistant',
+          content: 'answer',
+          segments: [...segments, textSegment('answer-1', 'answer')]
+        }
+      }, {
+        isLatest: true,
+        isStreaming: false,
+        providerDefinitions: [],
+        accounts: []
+      }).transcript.supportUnits
+    )
+
+    expect(project([
+      reasoningSegment('reasoning-1', 'one')
+    ]).map(unit => unit.type)).toEqual(['single'])
+    expect(project([
+      toolCallSegment({ id: 'tool-1', name: 'read', toolCallId: 'tool-1' })
+    ]).map(unit => unit.type)).toEqual(['toolGroup'])
+    expect(project([
+      reasoningSegment('reasoning-1', 'one'),
+      toolCallSegment({ id: 'tool-1', name: 'read', toolCallId: 'tool-1' }),
+      reasoningSegment('reasoning-2', 'two')
+    ]).map(unit => unit.type)).toEqual(['single', 'toolGroup', 'single'])
+  })
+
+  it('keeps trailing support after the last visible text top-level and live', () => {
+    const renderState = mapAssistantMessage({
+      committedMessage: {
+        role: 'assistant',
+        content: 'answer',
+        segments: [
+          reasoningSegment('reasoning-1', 'one'),
+          reasoningSegment('reasoning-2', 'two'),
+          reasoningSegment('reasoning-3', 'three'),
+          reasoningSegment('reasoning-4', 'four'),
+          textSegment('answer-1', 'answer'),
+          reasoningSegment('reasoning-tail', 'follow up'),
+          toolCallSegment({
+            id: 'tool-tail',
+            name: 'search',
+            toolCallId: 'tool-tail',
+            status: 'running'
+          })
+        ]
+      }
+    }, {
+      isLatest: true,
+      isStreaming: true,
+      providerDefinitions: [],
+      accounts: []
+    })
+
+    expect(renderState.transcript.supportUnits.map(unit => unit.type)).toEqual([
+      'completedWork',
+      'single',
+      'toolGroup'
+    ])
+  })
+
+  it('lets empty text remain inside the current support window', () => {
+    const renderState = mapAssistantMessage({
+      committedMessage: {
+        role: 'assistant',
+        content: 'answer',
+        segments: [
+          reasoningSegment('reasoning-1', 'one'),
+          reasoningSegment('reasoning-2', 'two'),
+          textSegment('empty-text', ''),
+          toolCallSegment({ id: 'tool-1', name: 'read', toolCallId: 'tool-1' }),
+          reasoningSegment('reasoning-3', 'three'),
+          textSegment('answer-1', 'answer')
+        ]
+      }
+    }, {
+      isLatest: true,
+      isStreaming: false,
+      providerDefinitions: [],
+      accounts: []
+    })
+
+    const completedWork = renderState.transcript.supportUnits[0]
+    expect(completedWork.type).toBe('completedWork')
+    expect(completedWork.type === 'completedWork'
+      ? completedWork.units.map(unit => unit.type)
+      : []
+    ).toEqual(['single', 'single', 'toolGroup', 'single'])
+  })
+
+  it('applies error visibility per content window', () => {
+    const renderState = mapAssistantMessage({
+      committedMessage: {
+        role: 'assistant',
+        content: 'context answer',
+        segments: [
+          reasoningSegment('reasoning-1', 'one'),
+          reasoningSegment('reasoning-2', 'two'),
+          errorSegment('error-1'),
+          toolCallSegment({ id: 'tool-1', name: 'read', toolCallId: 'tool-1' }),
+          reasoningSegment('reasoning-3', 'three'),
+          textSegment('context-1', 'context'),
+          reasoningSegment('reasoning-4', 'four'),
+          reasoningSegment('reasoning-5', 'five'),
+          toolCallSegment({ id: 'tool-2', name: 'search', toolCallId: 'tool-2' }),
+          reasoningSegment('reasoning-6', 'six'),
+          textSegment('answer-1', ' answer')
+        ]
+      }
+    }, {
+      isLatest: true,
+      isStreaming: false,
+      providerDefinitions: [],
+      accounts: []
+    })
+
+    expect(renderState.transcript.supportUnits.map(unit => unit.type)).toEqual([
+      'single',
+      'single',
+      'single',
+      'toolGroup',
+      'single',
+      'completedWork'
+    ])
+    expect(renderState.transcript.supportUnits.at(-1)?.key).toBe('completed-work:answer-1')
+  })
+
+  it('keeps support top-level until a non-empty text segment arrives', () => {
+    const renderState = mapAssistantMessage({
+      committedMessage: {
+        role: 'assistant',
+        content: '',
+        segments: [
+          reasoningSegment('reasoning-1', 'inspect'),
+          toolCallSegment({ id: 'tool-1', name: 'read', toolCallId: 'tool-1' }),
+          textSegment('empty-answer', '')
+        ]
+      }
+    }, {
+      isLatest: true,
+      isStreaming: true,
+      providerDefinitions: [],
+      accounts: []
+    })
+
+    expect(renderState.transcript.supportUnits.map(unit => unit.type)).toEqual([
+      'single',
+      'toolGroup'
+    ])
+  })
+
+  it('treats a leading newline as the visible answer boundary', () => {
+    const renderState = mapAssistantMessage({
+      committedMessage: {
+        role: 'assistant',
+        content: '\n',
+        segments: [
+          toolCallSegment({ id: 'tool-1', name: 'read', toolCallId: 'tool-1' }),
+          toolCallSegment({ id: 'tool-2', name: 'search', toolCallId: 'tool-2' }),
+          reasoningSegment('reasoning-1', 'inspect'),
+          reasoningSegment('reasoning-2', 'compose'),
+          textSegment('answer-1', '\n')
+        ]
+      }
+    }, {
+      isLatest: true,
+      isStreaming: false,
+      providerDefinitions: [],
+      accounts: []
+    })
+
+    expect(renderState.transcript.supportUnits[0]?.type).toBe('completedWork')
+  })
+
+  it('keeps a single preceding reasoning segment as Think', () => {
+    const renderState = mapAssistantMessage({
+      committedMessage: {
+        role: 'assistant',
+        content: 'answer',
+        segments: [
+          reasoningSegment('reasoning-1', 'compose'),
+          textSegment('answer-1', 'answer')
+        ]
+      }
+    }, {
+      isLatest: true,
+      isStreaming: false,
+      providerDefinitions: [],
+      accounts: []
+    })
+
+    expect(renderState.transcript.supportUnits).toHaveLength(1)
+    expect(renderState.transcript.supportUnits[0]).toMatchObject({
+      type: 'single',
+      order: 0
+    })
+  })
+
+  it('groups four preceding reasoning segments', () => {
+    const renderState = mapAssistantMessage({
+      committedMessage: {
+        role: 'assistant',
+        content: 'answer',
+        segments: [
+          reasoningSegment('reasoning-1', 'inspect'),
+          reasoningSegment('reasoning-2', 'compose'),
+          reasoningSegment('reasoning-3', 'verify'),
+          reasoningSegment('reasoning-4', 'finish'),
+          textSegment('answer-1', 'answer')
+        ]
+      }
+    }, {
+      isLatest: true,
+      isStreaming: false,
+      providerDefinitions: [],
+      accounts: []
+    })
+
+    expect(renderState.transcript.supportUnits[0]?.type).toBe('completedWork')
+  })
+
+  it('keeps support top-level when a run error precedes answer text', () => {
+    const renderState = mapAssistantMessage({
+      committedMessage: {
+        role: 'assistant',
+        content: 'recovered',
+        segments: [
+          reasoningSegment('reasoning-1', 'inspect'),
+          errorSegment('error-1'),
+          toolCallSegment({ id: 'tool-1', name: 'read', toolCallId: 'tool-1' }),
+          textSegment('answer-1', 'recovered')
+        ]
+      }
+    }, {
+      isLatest: true,
+      isStreaming: false,
+      providerDefinitions: [],
+      accounts: []
+    })
+
+    expect(renderState.transcript.supportUnits.map(unit => unit.type)).toEqual([
+      'single',
+      'single',
+      'toolGroup'
+    ])
+  })
+
+  it('keeps a boundary-based completed-work key stable across real preview-to-committed ids', () => {
+    const previewSegments: MessageSegment[] = [
+      reasoningSegment('preview:step-1:reasoning:0', 'inspect'),
+      toolCallSegment({
+        id: 'preview:step-1:tool:0',
+        name: 'read',
+        toolCallId: 'tool-1'
+      }),
+      reasoningSegment('preview:step-1:reasoning:1', 'compose'),
+      reasoningSegment('preview:step-1:reasoning:2', 'verify'),
+      textSegment('preview:step-1:text:0', 'answer')
+    ]
+    const committedSegments: MessageSegment[] = [
+      reasoningSegment('committed:step-1:reasoning:0', 'inspect'),
+      toolCallSegment({
+        id: 'committed:step-1:tool:0',
+        name: 'read',
+        toolCallId: 'tool-1'
+      }),
+      reasoningSegment('committed:step-1:reasoning:1', 'compose'),
+      reasoningSegment('committed:step-1:reasoning:2', 'verify'),
+      textSegment('committed:step-1:text:0', 'answer')
+    ]
+    const context = {
+      isLatest: true,
+      isStreaming: true,
+      providerDefinitions: [],
+      accounts: []
+    }
+    const previewState = mapAssistantMessage({
+      committedMessage: {
+        role: 'assistant',
+        content: '',
+        segments: []
+      },
+      previewMessage: {
+        role: 'assistant',
+        content: 'answer',
+        segments: previewSegments
+      }
+    }, context)
+    const committedState = mapAssistantMessage({
+      committedMessage: {
+        role: 'assistant',
+        content: 'answer',
+        segments: committedSegments
+      }
+    }, {
+      ...context,
+      isStreaming: false
+    })
+
+    expect(previewState.transcript.supportUnits[0]?.key)
+      .toBe(committedState.transcript.supportUnits[0]?.key)
+    expect(previewState.transcript.supportUnits[0]?.key)
+      .toBe('completed-work:step-1:text:0')
+  })
+
+  it('groups committed support with a recovered failed preview tool call', () => {
+    const renderState = mapAssistantMessage({
+      committedMessage: {
+        role: 'assistant',
+        content: '',
+        segments: [
+          reasoningSegment('reasoning-1', 'inspect'),
+          reasoningSegment('reasoning-2', 'compose'),
+          reasoningSegment('reasoning-3', 'verify')
+        ]
+      },
+      previewMessage: {
+        role: 'assistant',
+        content: 'recovered',
+        segments: [
+          toolCallSegment({
+            id: 'failed-tool',
+            name: 'read',
+            toolCallId: 'failed-tool',
+            status: 'failed'
+          }),
+          textSegment('answer-1', 'recovered')
+        ]
+      }
+    }, {
+      isLatest: true,
+      isStreaming: true,
+      providerDefinitions: [],
+      accounts: []
+    })
+
+    const completedWork = renderState.transcript.supportUnits[0]
+    expect(completedWork.type).toBe('completedWork')
+    expect(completedWork.type === 'completedWork'
+      ? completedWork.units.map(unit => unit.type)
+      : []
+    ).toEqual(['single', 'single', 'single', 'toolGroup'])
+    expect(completedWork.type === 'completedWork'
+      && completedWork.units[3]?.type === 'toolGroup'
+      ? completedWork.units[3].items[0].segment
+      : undefined
+    ).toMatchObject({
+      type: 'toolCall',
+      content: {
+        status: 'failed'
+      }
+    })
   })
 
   it('keeps tool call reason data on support items while projecting a lean header', () => {

@@ -72,7 +72,12 @@ describe('ReasoningSegment', () => {
     expect(description).toBeNull()
     expect(chevron?.classList.contains('col-start-4')).toBe(true)
     expect(container.querySelector('[data-testid="reasoning-hairline"]')).toBeNull()
-    expect(chevron?.querySelector('svg')?.classList.contains('motion-reduce:transition-none')).toBe(true)
+    const chevronIcon = chevron?.querySelector('svg')
+    expect(chevronIcon?.classList.contains('h-3.5')).toBe(true)
+    expect(chevronIcon?.classList.contains('w-3.5')).toBe(true)
+    expect(chevronIcon?.classList.contains('transition-transform')).toBe(true)
+    expect(chevronIcon?.classList.contains('opacity-[0.45]')).toBe(false)
+    expect(chevronIcon?.classList.contains('motion-reduce:transition-none')).toBe(true)
     expect(container.querySelector('button[aria-label="Copy think"]')).toBeNull()
 
     await act(async () => trigger?.click())
@@ -124,7 +129,47 @@ describe('ReasoningSegment', () => {
     expect(header?.querySelector('[data-testid="reasoning-description"]')).toBeNull()
     expect(header?.querySelector('[data-testid="reasoning-duration"]')?.classList.contains('col-start-3'))
       .toBe(true)
+    expect(header?.querySelector('[data-testid="reasoning-duration"]')
+      ?.classList.contains('opacity-[0.45]')).toBe(false)
     expect(header?.querySelector('[data-testid="reasoning-chevron"]')?.classList.contains('col-start-4'))
       .toBe(true)
+  })
+
+  it('uses the full available width inside a completed-work disclosure', async () => {
+    await act(async () => root.render(
+      <ReasoningSegment
+        segment={createSegment({ endedAt: BASE_TIME.getTime() + 1250 })}
+        fullWidth
+        nestedDisclosure
+      />
+    ))
+
+    const segment = container.querySelector('[data-testid="reasoning-segment"]')
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Toggle think"]')
+    const duration = container.querySelector('[data-testid="reasoning-duration"]')
+    const chevron = container.querySelector('[data-testid="reasoning-chevron"] svg')
+    expect(segment?.classList.contains('w-full')).toBe(true)
+    expect(segment?.classList.contains('w-[90%]')).toBe(false)
+    expect(chevron?.classList.contains('h-3')).toBe(true)
+    expect(chevron?.classList.contains('w-3')).toBe(true)
+    expect(chevron?.classList.contains('h-3.5')).toBe(false)
+    expect(chevron?.classList.contains('transition-[transform,opacity]')).toBe(true)
+    expect(chevron?.classList.contains('opacity-[0.45]')).toBe(true)
+    expect(chevron?.classList.contains('group-hover/support:opacity-80')).toBe(true)
+    expect(chevron?.classList.contains('group-focus-visible/support:opacity-80')).toBe(true)
+    expect(chevron?.classList.contains('motion-reduce:transition-none')).toBe(true)
+    expect(duration?.classList.contains('transition-opacity')).toBe(true)
+    expect(duration?.classList.contains('opacity-[0.45]')).toBe(true)
+    expect(duration?.classList.contains('group-hover/support:opacity-80')).toBe(true)
+    expect(duration?.classList.contains('group-focus-visible/support:opacity-80')).toBe(true)
+    expect(duration?.classList.contains('motion-reduce:transition-none')).toBe(true)
+
+    await act(async () => trigger?.click())
+    expect(trigger?.getAttribute('aria-expanded')).toBe('true')
+    expect(chevron?.classList.contains('rotate-180')).toBe(true)
+    expect(chevron?.classList.contains('opacity-80')).toBe(true)
+    expect(chevron?.classList.contains('opacity-[0.45]')).toBe(false)
+    expect(duration?.classList.contains('opacity-80')).toBe(true)
+    expect(duration?.classList.contains('opacity-[0.45]')).toBe(false)
   })
 })

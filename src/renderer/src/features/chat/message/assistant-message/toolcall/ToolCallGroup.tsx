@@ -20,6 +20,8 @@ type ToolCallRenderItem = SupportSegmentRenderItem & { segment: ToolCallSegment 
 export interface ToolCallGroupProps {
   items: SupportSegmentRenderItem[]
   forceReducedMotion?: boolean
+  fullWidth?: boolean
+  nestedDisclosure?: boolean
 }
 
 const isToolCallItem = (item: SupportSegmentRenderItem): item is ToolCallRenderItem => (
@@ -63,12 +65,14 @@ const ToolCallGroupRow = memo(({
   item,
   expanded,
   onToggle,
-  forceReducedMotion = false
+  forceReducedMotion = false,
+  nestedDisclosure = false
 }: {
   item: ToolCallRenderItem
   expanded: boolean
   onToggle: () => void
   forceReducedMotion?: boolean
+  nestedDisclosure?: boolean
 }) => {
   const currentChatUuid = useChatStore(state => state.currentChatUuid)
   const selectToolCall = useChatStore(state => state.selectToolCall)
@@ -132,13 +136,22 @@ const ToolCallGroupRow = memo(({
           isSelected={expanded}
           density="compact"
           className="w-full"
+          durationClassName={nestedDisclosure
+            ? cn(
+                'transition-opacity duration-200 group-hover/support:opacity-80 group-focus-visible/support:opacity-80 motion-reduce:transition-none',
+                expanded ? 'opacity-80' : 'opacity-[0.45]'
+              )
+            : undefined}
           trailing={(
             <ChevronDown
               aria-hidden="true"
               data-testid={`tool-call-chevron-${item.segment.segmentId}`}
               className={cn(
-                'h-3.5 w-3.5 transition-transform duration-200 motion-reduce:transition-none',
-                expanded && 'rotate-180'
+                nestedDisclosure
+                  ? 'h-3 w-3 transition-[transform,opacity] duration-200 group-hover/support:opacity-80 group-focus-visible/support:opacity-80 motion-reduce:transition-none'
+                  : 'h-3.5 w-3.5 transition-transform duration-200 motion-reduce:transition-none',
+                expanded && 'rotate-180',
+                nestedDisclosure && (expanded ? 'opacity-80' : 'opacity-[0.45]')
               )}
             />
           )}
@@ -171,7 +184,9 @@ ToolCallGroupRow.displayName = 'ToolCallGroupRow'
 
 const ToolCallGroupComponent: React.FC<ToolCallGroupProps> = ({
   items,
-  forceReducedMotion = false
+  forceReducedMotion = false,
+  fullWidth = false,
+  nestedDisclosure = false
 }) => {
   const toolItems = useMemo(() => items.filter(isToolCallItem), [items])
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -184,7 +199,7 @@ const ToolCallGroupComponent: React.FC<ToolCallGroupProps> = ({
     <div
       data-testid="tool-call-group"
       className={cn(
-        TOOL_CALL_RESULT_WIDTH_CLASS_NAME,
+        fullWidth ? 'w-full max-w-full' : TOOL_CALL_RESULT_WIDTH_CLASS_NAME,
         'my-2 overflow-hidden rounded-lg border border-slate-200/28 bg-white/30 dark:border-white/4 dark:bg-white/1.5'
       )}
     >
@@ -197,6 +212,7 @@ const ToolCallGroupComponent: React.FC<ToolCallGroupProps> = ({
             setExpandedId(current => current === item.segment.segmentId ? null : item.segment.segmentId)
           }}
           forceReducedMotion={forceReducedMotion}
+          nestedDisclosure={nestedDisclosure}
         />
       ))}
       {hiddenCount > 0 ? (
@@ -216,6 +232,8 @@ export const ToolCallGroup = memo(
   ToolCallGroupComponent,
   (previous, next) => (
     previous.forceReducedMotion === next.forceReducedMotion
+    && previous.fullWidth === next.fullWidth
+    && previous.nestedDisclosure === next.nestedDisclosure
     && areToolCallItemsEqual(previous.items, next.items)
   )
 )

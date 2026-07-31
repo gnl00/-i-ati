@@ -461,6 +461,7 @@ export const ToolCallTriggerContent = React.memo(({
   isSelected,
   density = 'regular',
   className,
+  durationClassName,
   trailing
 }: {
   toolCall: ToolCallSegment
@@ -470,6 +471,7 @@ export const ToolCallTriggerContent = React.memo(({
   isSelected: boolean
   density?: 'regular' | 'compact'
   className?: string
+  durationClassName?: string
   trailing?: React.ReactNode
 }) => {
   const reason = getReasonFromToolCall(toolCall)
@@ -502,6 +504,7 @@ export const ToolCallTriggerContent = React.memo(({
       density={density}
       isOpen={isSelected}
       className={className}
+      durationClassName={durationClassName}
       iconClassName={iconClassName}
       testIds={{
         icon: `tool-call-trigger-status-${toolCall.segmentId}`,

@@ -12,6 +12,8 @@ import { SupportSegmentHeader } from '../renderers/SupportSegmentHeader'
 interface ReasoningSegmentProps {
   segment: ReasoningSegment
   isStreaming?: boolean
+  fullWidth?: boolean
+  nestedDisclosure?: boolean
 }
 
 interface ReasoningSegmentPanelProps {
@@ -91,7 +93,9 @@ export function useReasoningDurationText(
 
 const ReasoningSegmentComponent: React.FC<ReasoningSegmentProps> = ({
   segment,
-  isStreaming = false
+  isStreaming = false,
+  fullWidth = false,
+  nestedDisclosure = false
 }) => {
   const fixedContent = fixMalformedCodeBlocks(segment.content)
   const [isOpen, setIsOpen] = React.useState(isStreaming)
@@ -105,7 +109,13 @@ const ReasoningSegmentComponent: React.FC<ReasoningSegmentProps> = ({
   }, [isStreaming])
 
   return (
-    <div data-testid="reasoning-segment" className="my-1.5 w-[90%] max-w-full px-2">
+    <div
+      data-testid="reasoning-segment"
+      className={cn(
+        'my-1.5 max-w-full px-2',
+        fullWidth ? 'w-full' : 'w-[90%]'
+      )}
+    >
       <button
         type="button"
         aria-label="Toggle think"
@@ -130,13 +140,22 @@ const ReasoningSegmentComponent: React.FC<ReasoningSegmentProps> = ({
           name="Think"
           description={isStreaming ? 'Reasoning in progress' : undefined}
           duration={durationText}
+          durationClassName={nestedDisclosure
+            ? cn(
+                'transition-opacity duration-200 group-hover/support:opacity-80 group-focus-visible/support:opacity-80 motion-reduce:transition-none',
+                isOpen ? 'opacity-80' : 'opacity-[0.45]'
+              )
+            : undefined}
           isOpen={isOpen}
           trailing={(
             <ChevronDown
               aria-hidden="true"
               className={cn(
-                'h-3.5 w-3.5 transition-transform duration-200 motion-reduce:transition-none',
-                isOpen && 'rotate-180'
+                nestedDisclosure
+                  ? 'h-3 w-3 transition-[transform,opacity] duration-200 group-hover/support:opacity-80 group-focus-visible/support:opacity-80 motion-reduce:transition-none'
+                  : 'h-3.5 w-3.5 transition-transform duration-200 motion-reduce:transition-none',
+                isOpen && 'rotate-180',
+                nestedDisclosure && (isOpen ? 'opacity-80' : 'opacity-[0.45]')
               )}
             />
           )}
