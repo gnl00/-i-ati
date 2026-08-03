@@ -30,7 +30,7 @@ const REDUCED_MOTION_OPACITY_DURATION_SECONDS = 0.1
 const SIDE_PANEL_EASING = [0.32, 0.72, 0, 1] as const
 const SIDE_PANEL_SPRING = {
   type: 'spring',
-  duration: 0.5,
+  duration: 0.42,
   bounce: 0.1
 } as const
 
@@ -43,6 +43,7 @@ type PointerDragState = {
   pointerId: number
   startClientX: number
   startWidth: number
+  currentClientX: number
 }
 
 type DocumentInteractionStyles = {
@@ -138,26 +139,26 @@ const ChatSidePanelLayout: React.FC<ChatSidePanelLayoutProps> = ({
   const resizeFrameRef = useRef<number | null>(null)
   const resizeTransitionFrameRef = useRef<number | null>(null)
   const keyboardTransitionTimerRef = useRef<number | null>(null)
-  const keyboardWidthAnimationRef = useRef<ReturnType<typeof animate> | null>(null)
   const documentStylesRef = useRef<DocumentInteractionStyles | null>(null)
   const asideRef = useRef<HTMLElement | null>(null)
+  const returnFocusRef = useRef<HTMLElement | null>(null)
   const openRef = useRef(open)
   const [layoutMode, setLayoutMode] = useState<SidePanelLayoutMode>('push')
   const generatedSidePanelId = useId()
   const shouldReduceMotion = useReducedMotion()
   const sidePanelId = `chat-side-panel-${generatedSidePanelId.replace(/:/g, '')}`
   const progress = useMotionValue(open ? 1 : 0)
-  const panelWidth = useMotionValue(0)
-  const structuralWidth = useTransform(() => {
-    const normalizedProgress = Math.min(1, Math.max(0, progress.get()))
-    return normalizedProgress * (panelWidth.get() + SIDE_PANEL_GUTTER_PX)
-  })
-  const overlayRegionWidth = useTransform(
-    panelWidth,
+  const previewWidth = useMotionValue(0)
+  const structuralWidth = useTransform(
+    [progress, previewWidth],
+    ([p, w]: number[]) => Math.min(1, Math.max(0, p)) * (w + SIDE_PANEL_GUTTER_PX)
+  )
+  const previewRegionWidth = useTransform(
+    previewWidth,
     width => width + SIDE_PANEL_GUTTER_PX
   )
   const separatorOverlayRight = useTransform(
-    panelWidth,
+    previewWidth,
     width => width + SIDE_PANEL_GUTTER_PX - 6
   )
   const contentOpacity = useTransform(
@@ -165,7 +166,9 @@ const ChatSidePanelLayout: React.FC<ChatSidePanelLayoutProps> = ({
     value => Math.min(1, Math.max(0, value))
   )
   const contentTransform = useTransform(progress, value => {
-    if (shouldReduceMotion) return 'translate3d(0px, 0px, 0px)'
+    if (shouldReduceMotion || layoutMode === 'push') {
+      return 'translate3d(0px, 0px, 0px)'
+    }
     const normalizedProgress = Math.min(1, Math.max(0, value))
     return `translate3d(${(1 - normalizedProgress) * 8}px, 0px, 0px)`
   })
@@ -190,11 +193,6 @@ const ChatSidePanelLayout: React.FC<ChatSidePanelLayoutProps> = ({
     }
   }, [])
 
-  const clearKeyboardWidthAnimation = useCallback((): void => {
-    keyboardWidthAnimationRef.current?.stop()
-    keyboardWidthAnimationRef.current = null
-  }, [])
-
   const clearResizeTransitionFrame = useCallback((): void => {
     if (resizeTransitionFrameRef.current !== null) {
       cancelAnimationFrame(resizeTransitionFrameRef.current)
@@ -202,31 +200,9 @@ const ChatSidePanelLayout: React.FC<ChatSidePanelLayoutProps> = ({
     }
   }, [])
 
-  const applyWidth = useCallback((
-    requestedWidth: number,
-    animateKeyboardWidth = false
-  ): number => {
+  const applyPreviewWidth = useCallback((requestedWidth: number): number => {
     const width = clampSidePanelWidth(requestedWidth, boundsRef.current)
-    widthRef.current = width
-    rootRef.current?.style.setProperty('--chat-side-panel-width', `${width}px`)
-
-    clearKeyboardWidthAnimation()
-    if (animateKeyboardWidth && !shouldReduceMotion) {
-      keyboardWidthAnimationRef.current = animate(panelWidth, width, {
-        duration: KEYBOARD_RESIZE_FEEDBACK_MS / 1000,
-        ease: SIDE_PANEL_EASING,
-        onComplete: () => {
-          keyboardWidthAnimationRef.current = null
-        }
-      })
-    } else {
-      panelWidth.set(width)
-    }
-    if (shouldReduceMotion && layoutMode === 'push' && sideRegionRef.current) {
-      sideRegionRef.current.style.width = openRef.current
-        ? `${width + SIDE_PANEL_GUTTER_PX}px`
-        : '0px'
-    }
+    previewWidth.set(width)
 
     const separator = separatorRef.current
     if (separator) {
@@ -236,26 +212,26 @@ const ChatSidePanelLayout: React.FC<ChatSidePanelLayoutProps> = ({
     }
 
     return width
-  }, [
-    clearKeyboardWidthAnimation,
-    layoutMode,
-    panelWidth,
-    shouldReduceMotion
-  ])
+  }, [previewWidth])
+
+  const commitWidth = useCallback((
+    requestedWidth: number,
+    nextLayoutMode = layoutMode
+  ): number => {
+    const width = clampSidePanelWidth(requestedWidth, boundsRef.current)
+    widthRef.current = width
+    setLayoutMode(nextLayoutMode)
+    rootRef.current?.style.setProperty('--chat-side-panel-width', `${width}px`)
+    return applyPreviewWidth(width)
+  }, [applyPreviewWidth, layoutMode])
 
   const suspendTransitionForDirectWidth = useCallback((): void => {
     clearKeyboardTransitionTimer()
-    clearKeyboardWidthAnimation()
-    const currentWidth = panelWidth.get()
-    widthRef.current = currentWidth
-    rootRef.current?.style.setProperty('--chat-side-panel-width', `${currentWidth}px`)
     clearResizeTransitionFrame()
     setResizeMode('direct')
   }, [
     clearKeyboardTransitionTimer,
-    clearKeyboardWidthAnimation,
     clearResizeTransitionFrame,
-    panelWidth,
     setResizeMode
   ])
 
@@ -277,8 +253,8 @@ const ChatSidePanelLayout: React.FC<ChatSidePanelLayoutProps> = ({
 
     const pendingWidth = pendingWidthRef.current
     pendingWidthRef.current = null
-    return pendingWidth === null ? widthRef.current : applyWidth(pendingWidth)
-  }, [applyWidth])
+    return pendingWidth === null ? previewWidth.get() : applyPreviewWidth(pendingWidth)
+  }, [applyPreviewWidth, previewWidth])
 
   const restoreDocumentInteraction = useCallback((): void => {
     const styles = documentStylesRef.current
@@ -298,7 +274,7 @@ const ChatSidePanelLayout: React.FC<ChatSidePanelLayoutProps> = ({
     const drag = pointerDragRef.current
     if (!drag || drag.pointerId !== pointerId) return
 
-    const width = flushPendingWidth()
+    const width = commitWidth(flushPendingWidth())
     if (commitPreference) {
       sidePanelWidthPreferences.set(preferenceKey, width)
     }
@@ -308,6 +284,7 @@ const ChatSidePanelLayout: React.FC<ChatSidePanelLayoutProps> = ({
     restoreDocumentInteraction()
     restoreTransitionAfterResize()
   }, [
+    commitWidth,
     flushPendingWidth,
     preferenceKey,
     restoreDocumentInteraction,
@@ -326,15 +303,32 @@ const ChatSidePanelLayout: React.FC<ChatSidePanelLayoutProps> = ({
         suspendTransitionForDirectWidth()
       }
       const nextLayoutMode = getSidePanelLayoutMode(containerWidth)
-      setLayoutMode(nextLayoutMode)
       boundsRef.current = getSidePanelWidthBounds(containerWidth)
+      const drag = pointerDragRef.current
+      if (drag) {
+        if (resizeFrameRef.current !== null) {
+          cancelAnimationFrame(resizeFrameRef.current)
+          resizeFrameRef.current = null
+        }
+        const previewCandidate = pendingWidthRef.current ?? previewWidth.get()
+        pendingWidthRef.current = null
+        const nextWidth = clampSidePanelWidth(widthRef.current, boundsRef.current)
+        widthRef.current = nextWidth
+        setLayoutMode(nextLayoutMode)
+        root.style.setProperty('--chat-side-panel-width', `${nextWidth}px`)
+        const nextPreviewWidth = applyPreviewWidth(previewCandidate)
+        drag.startWidth = nextPreviewWidth
+        drag.startClientX = drag.currentClientX
+        if (suspendTransition) restoreTransitionAfterResize()
+        return
+      }
       const preferredWidth = sidePanelWidthPreferences.get(preferenceKey)
       const defaultWidth = containerWidth * (
         nextLayoutMode === 'overlay'
           ? DEFAULT_OVERLAY_PANEL_RATIO
           : DEFAULT_SIDE_PANEL_RATIO
       )
-      applyWidth(preferredWidth ?? defaultWidth)
+      commitWidth(preferredWidth ?? defaultWidth, nextLayoutMode)
       if (suspendTransition) {
         restoreTransitionAfterResize()
       }
@@ -352,8 +346,10 @@ const ChatSidePanelLayout: React.FC<ChatSidePanelLayoutProps> = ({
 
     return (): void => observer.disconnect()
   }, [
-    applyWidth,
+    applyPreviewWidth,
+    commitWidth,
     preferenceKey,
+    previewWidth,
     restoreTransitionAfterResize,
     suspendTransitionForDirectWidth
   ])
@@ -370,16 +366,18 @@ const ChatSidePanelLayout: React.FC<ChatSidePanelLayoutProps> = ({
         aside.style.visibility = 'visible'
       }
     }
+    if (open) {
+      const activeElement = document.activeElement
+      if (activeElement instanceof HTMLElement && !sideRegion?.contains(activeElement)) {
+        returnFocusRef.current = activeElement
+      }
+    }
 
     clearKeyboardTransitionTimer()
     if (!pointerDragRef.current) {
       setResizeMode(null)
     }
-    if (open) {
-      applyWidth(widthRef.current)
-    }
   }, [
-    applyWidth,
     clearKeyboardTransitionTimer,
     open,
     setResizeMode
@@ -398,28 +396,25 @@ const ChatSidePanelLayout: React.FC<ChatSidePanelLayoutProps> = ({
 
   useEffect(() => {
     const target = open ? 1 : 0
+    if (open && asideRef.current) {
+      asideRef.current.style.visibility = 'visible'
+    }
     const controls = animate(progress, target, shouldReduceMotion
       ? {
           duration: REDUCED_MOTION_OPACITY_DURATION_SECONDS,
           ease: SIDE_PANEL_EASING,
           onComplete: (): void => {
-            if (!openRef.current && target === 0) {
-              progress.set(0)
-              if (asideRef.current) {
-                asideRef.current.style.visibility = 'hidden'
-              }
-            }
+            if (openRef.current !== open) return
+            progress.set(target)
+            if (!open && asideRef.current) asideRef.current.style.visibility = 'hidden'
           }
         }
       : {
           ...SIDE_PANEL_SPRING,
           onComplete: (): void => {
-            if (!openRef.current && target === 0) {
-              progress.set(0)
-              if (asideRef.current) {
-                asideRef.current.style.visibility = 'hidden'
-              }
-            }
+            if (openRef.current !== open) return
+            progress.set(target)
+            if (!open && asideRef.current) asideRef.current.style.visibility = 'hidden'
           }
         })
 
@@ -435,6 +430,7 @@ const ChatSidePanelLayout: React.FC<ChatSidePanelLayoutProps> = ({
       event.preventDefault()
       event.stopPropagation()
       onClose()
+      returnFocusRef.current?.focus({ preventScroll: true })
     }
 
     document.addEventListener('keydown', handleKeyDown, true)
@@ -456,7 +452,6 @@ const ChatSidePanelLayout: React.FC<ChatSidePanelLayoutProps> = ({
       }
 
       clearKeyboardTransitionTimer()
-      clearKeyboardWidthAnimation()
       clearResizeTransitionFrame()
       pendingWidthRef.current = null
       restoreDocumentInteraction()
@@ -464,7 +459,6 @@ const ChatSidePanelLayout: React.FC<ChatSidePanelLayoutProps> = ({
     }
   }, [
     clearKeyboardTransitionTimer,
-    clearKeyboardWidthAnimation,
     clearResizeTransitionFrame,
     flushPendingWidth,
     preferenceKey,
@@ -487,7 +481,8 @@ const ChatSidePanelLayout: React.FC<ChatSidePanelLayoutProps> = ({
     pointerDragRef.current = {
       pointerId: event.pointerId,
       startClientX: event.clientX,
-      startWidth: widthRef.current
+      startWidth: previewWidth.get(),
+      currentClientX: event.clientX
     }
     documentStylesRef.current = {
       documentCursor: document.documentElement.style.cursor,
@@ -506,6 +501,7 @@ const ChatSidePanelLayout: React.FC<ChatSidePanelLayoutProps> = ({
     const drag = pointerDragRef.current
     if (!drag || drag.pointerId !== event.pointerId) return
 
+    drag.currentClientX = event.clientX
     pendingWidthRef.current = clampSidePanelWidth(
       drag.startWidth + drag.startClientX - event.clientX,
       boundsRef.current
@@ -516,7 +512,7 @@ const ChatSidePanelLayout: React.FC<ChatSidePanelLayoutProps> = ({
         const pendingWidth = pendingWidthRef.current
         pendingWidthRef.current = null
         if (pendingWidth !== null) {
-          applyWidth(pendingWidth)
+          applyPreviewWidth(pendingWidth)
         }
       })
     }
@@ -547,13 +543,15 @@ const ChatSidePanelLayout: React.FC<ChatSidePanelLayoutProps> = ({
     clearResizeTransitionFrame()
     clearKeyboardTransitionTimer()
     setResizeMode('keyboard')
-    const width = applyWidth(nextWidth, true)
+    const width = commitWidth(nextWidth)
     sidePanelWidthPreferences.set(preferenceKey, width)
     keyboardTransitionTimerRef.current = window.setTimeout(() => {
       keyboardTransitionTimerRef.current = null
       setResizeMode(null)
     }, KEYBOARD_RESIZE_FEEDBACK_MS)
   }
+
+  const separatorInteractive = open
 
   return (
     <div
@@ -575,9 +573,10 @@ const ChatSidePanelLayout: React.FC<ChatSidePanelLayoutProps> = ({
         aria-valuemin={0}
         aria-valuemax={0}
         aria-valuenow={0}
-        aria-hidden={!open}
-        tabIndex={open ? 0 : -1}
+        aria-hidden={!separatorInteractive}
+        tabIndex={separatorInteractive ? 0 : -1}
         data-state={open ? 'open' : 'closed'}
+        data-interactive={separatorInteractive ? 'true' : 'false'}
         data-layout-mode={layoutMode}
         className={cn(
           'z-30 w-3 shrink-0 touch-none cursor-col-resize rounded-sm',
@@ -585,8 +584,8 @@ const ChatSidePanelLayout: React.FC<ChatSidePanelLayoutProps> = ({
             ? 'absolute inset-y-0'
             : 'relative -mx-1.5',
           'transition-[background-color,opacity] duration-150 focus-visible:outline-hidden motion-reduce:duration-100',
-          'data-[state=open]:pointer-events-auto data-[state=open]:opacity-100',
-          'data-[state=closed]:pointer-events-none data-[state=closed]:opacity-0',
+          'data-[interactive=true]:pointer-events-auto data-[state=open]:opacity-100',
+          'data-[interactive=false]:pointer-events-none data-[state=closed]:opacity-0',
           'hover:bg-primary/[0.06] focus-visible:bg-primary/[0.10] active:bg-primary/[0.12]'
         )}
         style={layoutMode === 'overlay' ? { right: separatorOverlayRight } : undefined}
@@ -605,20 +604,14 @@ const ChatSidePanelLayout: React.FC<ChatSidePanelLayoutProps> = ({
         data-layout-mode={layoutMode}
         aria-hidden={!open}
         className={cn(
-          'h-full min-w-0 shrink-0 overflow-hidden',
+          'h-full shrink-0 overflow-hidden',
           'data-[state=closed]:pointer-events-none',
           layoutMode === 'overlay'
             ? 'absolute inset-y-0 right-0 z-20'
             : 'relative'
         )}
         style={{
-          width: layoutMode === 'overlay'
-            ? overlayRegionWidth
-            : shouldReduceMotion
-              ? open
-                ? widthRef.current + SIDE_PANEL_GUTTER_PX
-                : '0px'
-              : structuralWidth
+          width: layoutMode === 'overlay' ? previewRegionWidth : structuralWidth
         }}
       >
         <motion.aside
@@ -633,7 +626,7 @@ const ChatSidePanelLayout: React.FC<ChatSidePanelLayoutProps> = ({
             opacity: contentOpacity,
             transform: contentTransform,
             visibility: open || progress.get() > 0.001 ? 'visible' : 'hidden',
-            width: panelWidth
+            width: previewWidth
           }}
         >
           {sidePanel}

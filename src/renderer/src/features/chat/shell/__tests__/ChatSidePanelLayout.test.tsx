@@ -240,6 +240,7 @@ describe('ChatSidePanelLayout', () => {
     const panelChild = container.querySelector<HTMLElement>('[data-testid="side-panel"]')
     expect(layout?.getAttribute('data-layout-mode')).toBe('push')
     expect(layout?.style.getPropertyValue('--chat-side-panel-width')).toBe('400px')
+    expect(layout?.className).toContain('flex')
     expect(closedSeparator?.getAttribute('aria-hidden')).toBe('true')
     expect(closedSeparator?.tabIndex).toBe(-1)
     expect(sideRegion?.style.width).toBe('0px')
@@ -258,6 +259,8 @@ describe('ChatSidePanelLayout', () => {
     expect(panel?.getAttribute('aria-hidden')).toBe('false')
     expect(panel?.hasAttribute('inert')).toBe(false)
     expect(panel?.style.visibility).toBe('visible')
+    expect(closedSeparator?.getAttribute('data-interactive')).toBe('true')
+    expect(closedSeparator?.tabIndex).toBe(0)
 
     await advanceAnimationFrames(640)
     const separator = container.querySelector<HTMLElement>('[role="separator"]')
@@ -267,10 +270,26 @@ describe('ChatSidePanelLayout', () => {
     expect(separator?.getAttribute('aria-valuenow')).toBe('400')
     expect(separator?.getAttribute('aria-hidden')).toBe('false')
     expect(separator?.tabIndex).toBe(0)
+    expect(separator?.getAttribute('data-interactive')).toBe('true')
     expect(separator?.className).toContain('hover:bg-primary/[0.06]')
     expect(sideRegion?.style.width).toBe('408px')
     expect(panel?.style.opacity).toBe('1')
     expect(panel?.style.transform).toBe('translate3d(0px, 0px, 0px)')
+  })
+
+  it('clips push-mode content with structural width and no aside clip path', async () => {
+    await renderLayout(true, 'structural-width-clip')
+    await advanceAnimationFrames(640)
+
+    const sideRegion = container.querySelector<HTMLElement>('[data-side-panel-region]')
+    const panel = container.querySelector<HTMLElement>('[data-side-panel-content]')
+    expect(sideRegion?.className).toContain('overflow-hidden')
+    expect(panel?.style.clipPath).toBe('')
+    // The absolutely positioned aside keeps its own width, so the shrinking
+    // region clips it instead of reflowing its contents.
+    expect(panel?.style.width).toBe('400px')
+    expect(panel?.style.position).toBe('')
+    expect(panel?.className).toContain('absolute')
   })
 
   it('opens a closed welcome remount with its already-mounted panel content', async () => {
@@ -361,6 +380,33 @@ describe('ChatSidePanelLayout', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
+  it('returns focus to the opener when Escape closes persistent panel content', async () => {
+    const onClose = vi.fn()
+    const opener = document.createElement('button')
+    opener.textContent = 'Open artifacts'
+    document.body.appendChild(opener)
+    opener.focus()
+
+    await renderLayout(
+      true,
+      'escape-focus-return',
+      <button data-testid="panel-focus-target">Panel action</button>,
+      onClose
+    )
+    const panelTarget = container.querySelector<HTMLButtonElement>('[data-testid="panel-focus-target"]')
+    panelTarget?.focus()
+
+    await act(async () => panelTarget?.dispatchEvent(new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      key: 'Escape'
+    })))
+
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(document.activeElement).toBe(opener)
+    opener.remove()
+  })
+
   it('handles Escape at the capture boundary after default prevention and child propagation guards', async () => {
     const onClose = vi.fn()
     await renderLayout(true, 'escape-capture', undefined, onClose)
@@ -444,6 +490,7 @@ describe('ChatSidePanelLayout', () => {
 
     await dispatchKey(separator, 'ArrowLeft')
     expect(layout?.style.getPropertyValue('--chat-side-panel-width')).toBe('416px')
+    expect(sideRegion?.style.width).toBe('424px')
     expect(sideRegion?.getAttribute('data-resize-mode')).toBe('keyboard')
 
     await dispatchKey(separator, 'ArrowRight')
@@ -501,7 +548,35 @@ describe('ChatSidePanelLayout', () => {
     expect(sideRegion.hasAttribute('data-resize-mode')).toBe(false)
   })
 
-  it('switches structure immediately and keeps a short opacity response for reduced motion', async () => {
+  it('preserves drag preview and committed width when ResizeObserver fires mid-drag', async () => {
+    await renderLayout(true, 'resize-during-drag')
+    const layout = container.querySelector<HTMLElement>('[data-side-panel-layout]')
+    const separator = container.querySelector<HTMLElement>('[role="separator"]')
+    const sideRegion = container.querySelector<HTMLElement>('[data-side-panel-region]')
+    expect(separator).toBeTruthy()
+    if (!separator) return
+
+    await dispatchPointer(separator, 'pointerdown', { clientX: 600, pointerId: 17 })
+    await dispatchPointer(separator, 'pointermove', { clientX: 500, pointerId: 17 })
+    await flushAnimationFrames()
+    expect(layout?.style.getPropertyValue('--chat-side-panel-width')).toBe('400px')
+    expect(sideRegion?.style.width).toBe('508px')
+
+    containerWidth = 1200
+    await act(async () => resizeCallback?.([{
+      contentRect: { width: containerWidth } as DOMRectReadOnly
+    } as ResizeObserverEntry], {} as ResizeObserver))
+    expect(layout?.style.getPropertyValue('--chat-side-panel-width')).toBe('400px')
+    expect(sideRegion?.style.width).toBe('508px')
+
+    await dispatchPointer(separator, 'pointermove', { clientX: 480, pointerId: 17 })
+    await flushAnimationFrames()
+    expect(sideRegion?.style.width).toBe('528px')
+    await dispatchPointer(separator, 'pointerup', { clientX: 480, pointerId: 17 })
+    expect(layout?.style.getPropertyValue('--chat-side-panel-width')).toBe('520px')
+  })
+
+  it('keeps a short geometry and opacity response for reduced motion', async () => {
     reducedMotionState.value = true
     await renderLayout(false, 'reduced-motion')
     const panel = container.querySelector<HTMLElement>('[data-side-panel-content]')
@@ -510,7 +585,7 @@ describe('ChatSidePanelLayout', () => {
     const sideRegion = container.querySelector<HTMLElement>('[data-side-panel-region]')
     const content = container.querySelector<HTMLElement>('[data-side-panel-content]')
     expect(content).toBe(panel)
-    expect(sideRegion?.style.width).toBe('408px')
+    expect(sideRegion?.style.width).toBe('0px')
     expect(content?.style.transform).toBe('translate3d(0px, 0px, 0px)')
     expect(content?.style.opacity).toBe('0')
 
@@ -521,11 +596,12 @@ describe('ChatSidePanelLayout', () => {
     expect(enteredContent?.style.opacity).toBe('1')
 
     await renderLayout(false, 'reduced-motion')
-    expect(sideRegion?.style.width).toBe('0px')
+    expect(sideRegion?.style.width).toBe('408px')
     expect(container.querySelector('[data-side-panel-content]')).toBe(panel)
     expect(panel?.style.visibility).toBe('visible')
     await advanceAnimationFrames(120)
     expect(container.querySelector('[data-side-panel-content]')).toBe(panel)
+    expect(sideRegion?.style.width).toBe('0px')
     expect(panel?.style.visibility).toBe('hidden')
     expect(panel?.style.opacity).toBe('0')
   })
@@ -557,13 +633,15 @@ describe('ChatSidePanelLayout', () => {
       pointerId: 7
     })
     await flushAnimationFrames()
-    expect(layout?.style.getPropertyValue('--chat-side-panel-width')).toBe('500px')
+    expect(layout?.style.getPropertyValue('--chat-side-panel-width')).toBe('400px')
+    expect(sideRegion?.style.width).toBe('508px')
     expect(sidePanelRender).toHaveBeenCalledTimes(1)
 
     await dispatchPointer(separator, 'pointerup', {
       clientX: 500,
       pointerId: 7
     })
+    expect(layout?.style.getPropertyValue('--chat-side-panel-width')).toBe('500px')
     expect(document.documentElement.style.cursor).toBe('')
     expect(document.body.style.userSelect).toBe('')
     await flushAnimationFrames()

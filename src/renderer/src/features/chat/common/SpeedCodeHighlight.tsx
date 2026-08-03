@@ -61,10 +61,15 @@ export const SpeedCodeHighlight: React.FC<SpeedCodeHighlightProps> = React.memo(
         fontSize: '0.75rem',
         lineHeight: '1.5',
         background: backgroundColor ?? 'transparent',
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-word',
+        // Code must not re-wrap with container width: wrapping destroys
+        // indentation, and a width-dependent height makes the virtualized
+        // transcript re-measure every frame while the side panel animates.
+        whiteSpace: 'pre',
         fontFamily: 'monospace',
-        overflow: 'auto',
+        // overflowY stays hidden so a vertical scrollbar cannot appear,
+        // shrink the content box, and trigger another re-wrap.
+        overflowX: 'auto',
+        overflowY: 'hidden',
       }}
     >
       {code}

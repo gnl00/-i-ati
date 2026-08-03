@@ -42,6 +42,7 @@ const CHAT_ITEM_PENDING_ASSISTANT_ESTIMATE_PX = 96
 const CHAT_ITEM_USER_ESTIMATE_PX = 180
 const CHAT_ITEM_ASSISTANT_ESTIMATE_PX = 220
 const ARTIFACTS_SIDE_PANEL_PREFERENCE_KEY = 'chat-artifacts'
+const TRANSCRIPT_COLUMN_CLASS = 'mx-auto w-full max-w-4xl'
 
 type PendingAssistantModel = {
   model?: string
@@ -392,7 +393,6 @@ const ChatWindow: React.FC = () => {
     if (scrollModeRef.current === 'tail-follow' && instance.isAtEnd(CHAT_SCROLL_END_THRESHOLD_PX)) {
       return true
     }
-
     const viewportStart = (instance.scrollOffset ?? 0) + topOcclusionPx
     const itemEnd = item.start + item.size
     return itemEnd <= viewportStart
@@ -475,7 +475,14 @@ const ChatWindow: React.FC = () => {
     anchorTo: resolveVirtualizerAnchorTo(effectiveScrollMode),
     followOnAppend: effectiveScrollMode === 'tail-follow',
     scrollEndThreshold: CHAT_SCROLL_END_THRESHOLD_PX,
-    useAnimationFrameWithResizeObserver: true
+    useAnimationFrameWithResizeObserver: true,
+    directDomUpdates: true,
+    directDomUpdatesMode: 'transform',
+    onChange: (_instance, sync) => {
+      if (!sync && scrollModeRef.current === 'anchor-lock') {
+        reconcileAnchorLockLayout()
+      }
+    }
   })
   chatVirtualizer.shouldAdjustScrollPositionOnItemSizeChange = shouldAdjustScrollPositionOnItemSizeChange
   chatVirtualizerRef.current = chatVirtualizer
@@ -905,7 +912,10 @@ const ChatWindow: React.FC = () => {
                           exit={{ y: -12, opacity: 0 }}
                           transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
                         >
-                          <div className="pointer-events-auto space-y-2">
+                          <div className={cn(
+                            TRANSCRIPT_COLUMN_CLASS,
+                            'pointer-events-auto space-y-2'
+                          )}>
                             {displayPlans.map((plan, index) => {
                               const isPendingReview = pendingPlanReview?.plan.id === plan.id
                               return (
@@ -937,11 +947,11 @@ const ChatWindow: React.FC = () => {
                   <div
                     ref={scrollParentRef}
                     className="min-h-0 flex-1 overflow-auto px-2 contain-layout contain-paint overscroll-contain"
-                    style={{ overflowAnchor: 'none' }}
+                    style={{ overflowAnchor: 'none', scrollbarGutter: 'stable' }}
                   >
                     <div
+                      ref={chatVirtualizer.containerRef}
                       className="relative w-full"
-                      style={{ height: chatVirtualizer.getTotalSize() }}
                     >
                       {virtualRows.map((virtualRow) => {
                         const item = virtualListItems[virtualRow.index]
@@ -961,32 +971,33 @@ const ChatWindow: React.FC = () => {
                             position: 'absolute',
                             top: 0,
                             left: 0,
-                            width: '100%',
-                            transform: `translateY(${virtualRow.start}px)`
+                            width: '100%'
                           }}
                         >
-                          {item.type === 'message' ? (
-                            <ChatMessageRow
-                              messageIndex={item.messageIndex}
-                              message={item.message}
-                              previewMessage={
-                                previewMessage && previewRenderIndex === item.messageIndex
-                                  ? previewMessage.body
-                                  : undefined
-                              }
-                              lastAssistantIndex={lastAssistantIndex}
-                              lastMessageIndex={lastMessageIndex}
-                              isPending={item.message.id === PENDING_USER_MESSAGE_ID}
-                              onTypingChange={handleLatestAssistantTyping}
-                            />
-                          ) : (
-                            <ChatPendingAssistantRow
-                              messageIndex={item.messageIndex}
-                              pendingAssistantModel={pendingAssistantModel}
-                              previewMessage={!hasCurrentTurnAssistant ? previewMessage?.body : undefined}
-                              onTypingChange={handleLatestAssistantTyping}
-                            />
-                          )}
+                          <div className={TRANSCRIPT_COLUMN_CLASS}>
+                            {item.type === 'message' ? (
+                              <ChatMessageRow
+                                messageIndex={item.messageIndex}
+                                message={item.message}
+                                previewMessage={
+                                  previewMessage && previewRenderIndex === item.messageIndex
+                                    ? previewMessage.body
+                                    : undefined
+                                }
+                                lastAssistantIndex={lastAssistantIndex}
+                                lastMessageIndex={lastMessageIndex}
+                                isPending={item.message.id === PENDING_USER_MESSAGE_ID}
+                                onTypingChange={handleLatestAssistantTyping}
+                              />
+                            ) : (
+                              <ChatPendingAssistantRow
+                                messageIndex={item.messageIndex}
+                                pendingAssistantModel={pendingAssistantModel}
+                                previewMessage={!hasCurrentTurnAssistant ? previewMessage?.body : undefined}
+                                onTypingChange={handleLatestAssistantTyping}
+                              />
+                            )}
+                          </div>
                         </div>
                         )
                       })}

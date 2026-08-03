@@ -82,27 +82,56 @@ the window is too narrow for two 320px panes.
 
 ## Side-panel motion
 
-One Framer Motion progress value drives the wide-screen structural width,
-content opacity, and the complete `translate3d(...)` transform. It uses a
-`{ type: 'spring', duration: 0.5, bounce: 0.1 }` transition, so rapid reversals
-continue from the current visual progress. The structural width combines the
-fixed panel width and its 8px trailing gutter. Panel width remains a separate
-motion value: pointer movement updates it directly through one animation frame,
-keyboard steps use a 120ms response, and committed widths remain available
-across close, reopen, and layout remounts.
+The wide-screen shell is a flex row: the primary workspace is `flex-1` and the
+panel region is an in-flow `shrink-0` column. The panel's structural width is a
+derived motion value, `clamp(progress, 0, 1) * (panel width + gutter)`, so the
+primary workspace shrinks continuously as the remainder of the row. Layout is
+never deferred to the end of the animation, and the transcript never absorbs a
+single-frame jump.
+
+One Framer Motion progress value drives the structural width, panel opacity, and
+the complete `translate3d(...)` transform. It uses a `{ type: 'spring',
+duration: 0.42, bounce: 0.1 }` transition, so rapid reversals continue from the
+current visual progress rather than restarting.
+
+The panel content is an absolutely positioned fixed-width surface inside the
+`overflow-hidden` region. Its width tracks `previewWidth` alone, so the shrinking
+region clips it rather than reflowing it, and panel content never re-wraps during
+the animation. No `clipPath` is involved: the animated region width is the clip.
+
+Pointer movement updates `previewWidth` through one animation frame, and the
+structural width follows it, so the primary workspace resizes live during a drag.
+Pointer release commits the width and stores the preference. Keyboard steps commit
+directly; their resize-mode feedback remains visible for 120ms. Committed widths
+remain available across close, reopen, and layout remounts.
 
 At container widths from 648px upward, the panel pushes the primary workspace.
 Below 648px it becomes a right-aligned overlay, keeping the primary workspace
 width stable while opacity and an 8px horizontal offset communicate open and
-close. Overlay width is capped at 480px with a 24px viewport inset. The
-fixed-width inner surface uses layout and paint containment in both modes.
+close. The 8px offset applies only in overlay mode, where layout cannot express
+the motion; in push mode the width itself carries it. Overlay width is capped at
+480px with a 24px viewport inset. The fixed-width inner surface uses layout and
+paint containment in both modes.
+
+The transcript is constrained to a centered `max-w-4xl` column, and the scroll
+container reserves a stable scrollbar gutter. Most of the animation's travel
+therefore only changes the auto margins, so message text does not re-wrap and the
+virtualizer does not re-measure until the pane narrows below the cap.
+
+`ChatWindow` enables react-virtual direct DOM updates in `transform` mode. The
+virtualizer owns the inner list height through `containerRef` and each row
+transform through the measured item ref. A row resize writes geometry and scroll
+compensation in the same virtualizer call stack. This covers `start` anchoring
+through `shouldAdjustScrollPositionOnItemSizeChange` and `end` anchoring through
+the `wasAtEnd` branch.
 
 The Artifacts root DOM and its Preview/dev-server lifecycle stay mounted across
 visual close and reopen. Closing immediately applies `inert` and `aria-hidden`;
 the spring progress continues toward zero and then applies `visibility: hidden`.
-Opening restores visibility before the progress animation starts. Reduced-
-motion mode changes structural width immediately, keeps a 100ms opacity response,
-and holds the complete transform at `translate3d(0px, 0px, 0px)`.
+Opening restores visibility before the progress animation starts. Reduced-motion
+mode keeps a 100ms opacity response and holds the complete transform at
+`translate3d(0px, 0px, 0px)`. Escape restores focus to the element that opened
+the persistent panel.
 
 The header toggle is the visible close control. The generic side-panel layout
 owns the capture-phase Escape listener while open and delegates close through
@@ -118,6 +147,7 @@ selection remain available when the panel opens again.
 - `src/renderer/src/features/artifacts/__tests__/ArtifactsPanel.test.tsx`
 - `src/renderer/src/features/chat/shell/__tests__/ChatHeader.test.tsx`
 - `src/renderer/src/features/chat/shell/__tests__/ChatSidePanelLayout.test.tsx`
+- `src/renderer/src/features/chat/shell/__tests__/ChatWindow.virtual-list.test.tsx`
 - `src/renderer/src/features/chat/state/__tests__/chatViewStore.test.ts`
 
 Manual acceptance covers open, close, rapid open-close-open reversal, pointer
