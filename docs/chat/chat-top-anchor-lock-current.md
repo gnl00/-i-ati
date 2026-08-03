@@ -48,7 +48,9 @@ wheel 和 pointer-active scroll 代表明确用户意图，即使处于程序滚
 
 ## 流式追尾保险链
 
-`anchor-lock` 下的 `handleLatestAssistantTyping()` 只请求锚点布局收敛。`tail-follow` 下暂时保留 `scrollToEnd()` RAF 保险链，用于覆盖 segment 首帧与复杂 Markdown 测量时序。该链路等待真实流式验收后再决定去留。
+`anchor-lock` 下的 `handleLatestAssistantTyping()` 只请求锚点布局收敛。`tail-follow` 下保留 `scrollToEnd()` RAF 保险链，用于覆盖 segment 首帧与复杂 Markdown 测量时序。
+
+点击“跳回最新消息”时，ChatWindow 启动独占 scroll transaction。下一帧基于滚动容器的真实末端距离选择行为：`640px` 以内的静态距离使用固定 offset 的平滑滚动，长距离与流式输出使用 `auto`。事务期间关闭 virtualizer 追加追尾、末端 anchor 和 resize 补偿，typewriter 事件只标记内容变化。原始 offset 抵达后，内容变化或末端 offset 变化会执行一次 `auto` 校正，随后恢复尾部跟随保险链。wheel 与 pointer-active 输入会结束事务并进入既有手动浏览流程。
 
 ## 相关文件
 

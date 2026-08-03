@@ -25,6 +25,10 @@ interface UseScrollManagerTopReturn {
     smooth?: boolean,
     align?: 'start' | 'center' | 'end'
   ) => void
+  scrollToMessageOffset: (
+    offset: number,
+    behavior: 'auto' | 'smooth'
+  ) => void
 }
 
 export function useScrollManagerTop({
@@ -39,7 +43,6 @@ export function useScrollManagerTop({
   const programmaticScrollRef = useRef<boolean>(false)
   const showJumpToLatestRef = useRef<boolean>(false)
   const lastChatUuidRef = useRef<string | undefined>(chatUuid)
-  const smoothScrollTimeoutRef = useRef<number>(0)
   const buttonFadeTimeoutRef = useRef<number>(0)
   const prevScrollTopRef = useRef<number>(0)
   const pointerDownInContainerRef = useRef<boolean>(false)
@@ -93,28 +96,22 @@ export function useScrollManagerTop({
   ) => {
     const virtualizer = virtualizerRef.current
     if (!virtualizer || index < 0) return
-    if (smoothScrollTimeoutRef.current) {
-      clearTimeout(smoothScrollTimeoutRef.current)
-      smoothScrollTimeoutRef.current = 0
-    }
-
-    if (smooth) {
-      smoothScrollTimeoutRef.current = window.setTimeout(() => {
-        markProgrammaticScroll()
-        virtualizerRef.current?.scrollToIndex(index, {
-          align,
-          behavior: 'smooth'
-        })
-        smoothScrollTimeoutRef.current = 0
-      }, 120)
-      return
-    }
-
     markProgrammaticScroll()
     virtualizer.scrollToIndex(index, {
       align,
-      behavior: 'auto'
+      behavior: smooth ? 'smooth' : 'auto'
     })
+  }, [markProgrammaticScroll, virtualizerRef])
+
+  const scrollToOffset = useCallback((
+    offset: number,
+    behavior: 'auto' | 'smooth'
+  ) => {
+    const virtualizer = virtualizerRef.current
+    if (!virtualizer) return
+
+    markProgrammaticScroll()
+    virtualizer.scrollToOffset(offset, { behavior })
   }, [markProgrammaticScroll, virtualizerRef])
 
   useLayoutEffect(() => {
@@ -139,10 +136,6 @@ export function useScrollManagerTop({
 
   useEffect(() => {
     return () => {
-      if (smoothScrollTimeoutRef.current) {
-        clearTimeout(smoothScrollTimeoutRef.current)
-        smoothScrollTimeoutRef.current = 0
-      }
       if (buttonFadeTimeoutRef.current) {
         clearTimeout(buttonFadeTimeoutRef.current)
         buttonFadeTimeoutRef.current = 0
@@ -234,6 +227,7 @@ export function useScrollManagerTop({
     isButtonFadingOut,
     showJumpToLatestButton,
     hideJumpToLatestButton,
-    scrollToMessageIndex: scrollToIndex
+    scrollToMessageIndex: scrollToIndex,
+    scrollToMessageOffset: scrollToOffset
   }
 }

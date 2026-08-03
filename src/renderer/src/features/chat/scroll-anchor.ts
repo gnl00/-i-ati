@@ -35,6 +35,8 @@ export function resolveAnchorIndex(messages: MessageEntity[], mode: AnchorMode):
 }
 
 export const CHAT_BASE_PADDING_END_PX = 12
+export const CHAT_JUMP_TO_LATEST_SMOOTH_DISTANCE_PX = 640
+export const CHAT_JUMP_TO_LATEST_SETTLE_TOLERANCE_PX = 1
 
 export type ChatScrollMode = 'tail-follow' | 'anchor-lock' | 'manual'
 
@@ -96,6 +98,45 @@ export const shouldKeepTailFollowOnUserIntent = (
   mode: ChatScrollMode,
   isAtEnd: boolean
 ) => mode === 'tail-follow' && isAtEnd
+
+interface ScrollEndDistanceInput {
+  scrollTop: number
+  scrollHeight: number
+  clientHeight: number
+  virtualDistanceFromEnd?: number
+}
+
+export const measureScrollEndDistance = ({
+  scrollTop,
+  scrollHeight,
+  clientHeight,
+  virtualDistanceFromEnd
+}: ScrollEndDistanceInput) => {
+  const domMaxOffset = Math.max(0, scrollHeight - clientHeight)
+  const domDistance = Math.max(0, domMaxOffset - scrollTop)
+  const measuredVirtualDistance = Math.max(0, virtualDistanceFromEnd ?? 0)
+
+  return {
+    distanceFromEnd: Math.max(domDistance, measuredVirtualDistance),
+    maxOffset: domMaxOffset
+  }
+}
+
+interface ResolveJumpToLatestScrollBehaviorInput {
+  distanceFromEnd: number
+  isStreaming: boolean
+  smoothDistanceThresholdPx?: number
+}
+
+export const resolveJumpToLatestScrollBehavior = ({
+  distanceFromEnd,
+  isStreaming,
+  smoothDistanceThresholdPx = CHAT_JUMP_TO_LATEST_SMOOTH_DISTANCE_PX
+}: ResolveJumpToLatestScrollBehaviorInput): 'auto' | 'smooth' => {
+  if (isStreaming) return 'auto'
+
+  return distanceFromEnd <= smoothDistanceThresholdPx ? 'smooth' : 'auto'
+}
 
 type ScrollPolicyItem =
   | {

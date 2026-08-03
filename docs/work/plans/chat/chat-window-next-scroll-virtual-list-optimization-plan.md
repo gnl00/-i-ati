@@ -204,7 +204,7 @@ virtualizer 的 `anchorTo` 与模式保持一致：`tail-follow` 使用 `end`，
 4. 清除手动浏览标记；
 5. 设置 `tail-follow`；
 6. 隐藏按钮；
-7. 调用 `scrollToMessageIndex(latestVirtualIndex, true, 'end')`。
+7. 在下一帧读取真实末端距离，以固定 offset 执行独占跳回事务：短距离静态跳转使用 `smooth`，长距离与流式输出使用 `auto`；内容变化或末端目标变化后执行一次 `auto` 校正。
 
 ### 4.6 scroll hint 执行器收敛
 

@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   calculateAnchorLockBottomSpacer,
   CHAT_BASE_PADDING_END_PX,
+  CHAT_JUMP_TO_LATEST_SMOOTH_DISTANCE_PX,
   consumeAnchorLockCorrection,
+  measureScrollEndDistance,
+  resolveJumpToLatestScrollBehavior,
   resolveVirtualizerAnchorTo,
   resolveScrollModeForRender,
   shouldKeepTailFollowOnUserIntent,
@@ -54,6 +57,32 @@ describe('chatScrollPolicy', () => {
     expect(shouldKeepTailFollowOnUserIntent('tail-follow', false)).toBe(false)
     expect(shouldKeepTailFollowOnUserIntent('anchor-lock', true)).toBe(false)
     expect(shouldKeepTailFollowOnUserIntent('manual', true)).toBe(false)
+  })
+
+  it('uses the scroll container end distance to select jump-to-latest motion', () => {
+    const metrics = measureScrollEndDistance({
+      scrollTop: 300,
+      scrollHeight: 1400,
+      clientHeight: 400,
+      virtualDistanceFromEnd: 700
+    })
+
+    expect(metrics).toEqual({
+      distanceFromEnd: 700,
+      maxOffset: 1000
+    })
+    expect(resolveJumpToLatestScrollBehavior({
+      distanceFromEnd: CHAT_JUMP_TO_LATEST_SMOOTH_DISTANCE_PX,
+      isStreaming: false
+    })).toBe('smooth')
+    expect(resolveJumpToLatestScrollBehavior({
+      distanceFromEnd: CHAT_JUMP_TO_LATEST_SMOOTH_DISTANCE_PX + 1,
+      isStreaming: false
+    })).toBe('auto')
+    expect(resolveJumpToLatestScrollBehavior({
+      distanceFromEnd: 24,
+      isStreaming: true
+    })).toBe('auto')
   })
 
   it('uses end anchoring only while following the tail', () => {

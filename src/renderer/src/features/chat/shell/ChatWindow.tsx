@@ -22,7 +22,10 @@ import { useScheduleNotifications } from '@renderer/features/chat/schedule/useSc
 import {
   calculateAnchorLockBottomSpacer,
   CHAT_BASE_PADDING_END_PX,
+  CHAT_JUMP_TO_LATEST_SETTLE_TOLERANCE_PX,
   consumeAnchorLockCorrection,
+  measureScrollEndDistance,
+  resolveJumpToLatestScrollBehavior,
   resolveScrollModeForRender,
   resolveUserSentAnchorIndex,
   resolveVirtualizerAnchorTo,
@@ -50,6 +53,15 @@ type PendingAssistantModel = {
 }
 
 type ChatVirtualizer = Virtualizer<HTMLDivElement, HTMLDivElement>
+
+interface JumpToLatestScrollTransaction {
+  active: boolean
+  contentChanged: boolean
+  finalCorrectionIssued: boolean
+  targetOffset: number | null
+  startRaf: number
+  settleRaf: number
+}
 
 type ChatVirtualListItem =
   | {
@@ -274,6 +286,15 @@ const ChatWindow: React.FC = () => {
   const lockedAnchorCorrectionPendingRef = useRef<boolean>(false)
   const suppressScrollIntentRef = useRef<boolean>(false)
   const suppressScrollIntentReleaseRafRef = useRef<number>(0)
+  const jumpToLatestTransactionRef = useRef<JumpToLatestScrollTransaction>({
+    active: false,
+    contentChanged: false,
+    finalCorrectionIssued: false,
+    targetOffset: null,
+    startRaf: 0,
+    settleRaf: 0
+  })
+  const [isJumpToLatestTransactionActive, setIsJumpToLatestTransactionActive] = useState(false)
   const chatVirtualizerRef = useRef<ChatVirtualizer | null>(null)
   const initialScrollChatKeyRef = useRef<string | null>(null)
   const { activePlans, pendingPlanReview, approvePlanReview, abortPlanReview, refreshPlans } = useTaskPlan(chatUuid)
@@ -310,7 +331,8 @@ const ChatWindow: React.FC = () => {
     isButtonFadingOut,
     showJumpToLatestButton,
     hideJumpToLatestButton,
-    scrollToMessageIndex
+    scrollToMessageIndex,
+    scrollToMessageOffset
   } = useScrollManagerTop({
     messagesLength: virtualListItems.length,
     chatUuid,
@@ -370,6 +392,135 @@ const ChatWindow: React.FC = () => {
     setScrollModeState(currentMode => currentMode === mode ? currentMode : mode)
   }, [currentChatUuid])
 
+  const finishJumpToLatestScrollTransaction = useCallback(() => {
+    const transaction = jumpToLatestTransactionRef.current
+    transaction.active = false
+    transaction.contentChanged = false
+    transaction.targetOffset = null
+    transaction.startRaf = 0
+    transaction.settleRaf = 0
+    setIsJumpToLatestTransactionActive(false)
+  }, [])
+
+  const cancelJumpToLatestScrollTransaction = useCallback((
+    preserveCurrentOffset = false
+  ) => {
+    const transaction = jumpToLatestTransactionRef.current
+    if (preserveCurrentOffset && transaction.active) {
+      const container = scrollParentRef.current
+      if (container) {
+        scrollToMessageOffset(container.scrollTop, 'auto')
+      }
+    }
+    if (transaction.startRaf) {
+      cancelAnimationFrame(transaction.startRaf)
+    }
+    if (transaction.settleRaf) {
+      cancelAnimationFrame(transaction.settleRaf)
+    }
+    transaction.finalCorrectionIssued = false
+    finishJumpToLatestScrollTransaction()
+  }, [finishJumpToLatestScrollTransaction, scrollParentRef, scrollToMessageOffset])
+
+  const scheduleJumpToLatestSettlement = useCallback(() => {
+    const transaction = jumpToLatestTransactionRef.current
+    if (!transaction.active || transaction.settleRaf) return
+
+    const settle = () => {
+      transaction.settleRaf = 0
+      if (!transaction.active) return
+
+      const container = scrollParentRef.current
+      const virtualizer = chatVirtualizerRef.current
+      if (!container || !virtualizer || transaction.targetOffset === null) {
+        finishJumpToLatestScrollTransaction()
+        return
+      }
+
+      const { maxOffset } = measureScrollEndDistance({
+        scrollTop: container.scrollTop,
+        scrollHeight: container.scrollHeight,
+        clientHeight: container.clientHeight,
+        virtualDistanceFromEnd: virtualizer.getDistanceFromEnd()
+      })
+      const currentOffset = Math.max(0, Math.min(container.scrollTop, maxOffset))
+      const expectedOffset = Math.min(transaction.targetOffset, maxOffset)
+      const reachedTarget = Math.abs(currentOffset - expectedOffset)
+        <= CHAT_JUMP_TO_LATEST_SETTLE_TOLERANCE_PX
+
+      if (!reachedTarget) {
+        transaction.settleRaf = requestAnimationFrame(settle)
+        return
+      }
+
+      if (transaction.finalCorrectionIssued) {
+        finishJumpToLatestScrollTransaction()
+        return
+      }
+
+      const targetShifted = Math.abs(maxOffset - transaction.targetOffset)
+        > CHAT_JUMP_TO_LATEST_SETTLE_TOLERANCE_PX
+      if (transaction.contentChanged || targetShifted) {
+        transaction.contentChanged = false
+        transaction.finalCorrectionIssued = true
+        transaction.targetOffset = maxOffset
+        scrollToMessageOffset(maxOffset, 'auto')
+        transaction.settleRaf = requestAnimationFrame(settle)
+        return
+      }
+
+      finishJumpToLatestScrollTransaction()
+    }
+
+    transaction.settleRaf = requestAnimationFrame(settle)
+  }, [finishJumpToLatestScrollTransaction, scrollParentRef, scrollToMessageOffset])
+
+  const startJumpToLatestScrollTransaction = useCallback(() => {
+    cancelJumpToLatestScrollTransaction(jumpToLatestTransactionRef.current.active)
+
+    const transaction = jumpToLatestTransactionRef.current
+    transaction.active = true
+    transaction.contentChanged = false
+    transaction.finalCorrectionIssued = false
+    transaction.targetOffset = null
+    setIsJumpToLatestTransactionActive(true)
+    transaction.startRaf = requestAnimationFrame(() => {
+      transaction.startRaf = 0
+      if (!transaction.active) return
+
+      const container = scrollParentRef.current
+      const virtualizer = chatVirtualizerRef.current
+      if (!container || !virtualizer) {
+        finishJumpToLatestScrollTransaction()
+        return
+      }
+
+      const { distanceFromEnd, maxOffset } = measureScrollEndDistance({
+        scrollTop: container.scrollTop,
+        scrollHeight: container.scrollHeight,
+        clientHeight: container.clientHeight,
+        virtualDistanceFromEnd: virtualizer.getDistanceFromEnd()
+      })
+      const behavior = resolveJumpToLatestScrollBehavior({
+        distanceFromEnd,
+        isStreaming: isRunStreaming
+      })
+
+      transaction.targetOffset = maxOffset
+      suppressUserScrollIntent(3)
+      scrollToMessageOffset(maxOffset, behavior)
+      scheduleJumpToLatestSettlement()
+    })
+  }, [
+    cancelJumpToLatestScrollTransaction,
+    finishJumpToLatestScrollTransaction,
+    isRunStreaming,
+    scheduleJumpToLatestSettlement,
+    scrollParentRef,
+    scrollToMessageOffset,
+    suppressUserScrollIntent
+  ])
+
   const markManualBrowsing = useCallback(() => {
     setScrollMode('manual')
     lockedAnchorMessageIdRef.current = null
@@ -390,6 +541,9 @@ const ChatWindow: React.FC = () => {
     _delta: number,
     instance: ChatVirtualizer
   ) => {
+    if (jumpToLatestTransactionRef.current.active) {
+      return false
+    }
     if (scrollModeRef.current === 'tail-follow' && instance.isAtEnd(CHAT_SCROLL_END_THRESHOLD_PX)) {
       return true
     }
@@ -472,8 +626,10 @@ const ChatWindow: React.FC = () => {
     paddingStart: topOcclusionPx,
     paddingEnd: bottomSpacerHeight,
     scrollPaddingStart: topOcclusionPx,
-    anchorTo: resolveVirtualizerAnchorTo(effectiveScrollMode),
-    followOnAppend: effectiveScrollMode === 'tail-follow',
+    anchorTo: isJumpToLatestTransactionActive
+      ? 'start'
+      : resolveVirtualizerAnchorTo(effectiveScrollMode),
+    followOnAppend: effectiveScrollMode === 'tail-follow' && !isJumpToLatestTransactionActive,
     scrollEndThreshold: CHAT_SCROLL_END_THRESHOLD_PX,
     useAnimationFrameWithResizeObserver: true,
     directDomUpdates: true,
@@ -489,13 +645,14 @@ const ChatWindow: React.FC = () => {
   const virtualRows = chatVirtualizer.getVirtualItems()
 
   useLayoutEffect(() => {
+    cancelJumpToLatestScrollTransaction(jumpToLatestTransactionRef.current.active)
     initialScrollChatKeyRef.current = null
     setScrollMode('tail-follow')
     lockedAnchorMessageIdRef.current = null
     lockedAnchorKeyRef.current = null
     lockedAnchorCorrectionPendingRef.current = false
     setBottomSpacerHeight(CHAT_BASE_PADDING_END_PX)
-  }, [chatUuid, setScrollMode])
+  }, [cancelJumpToLatestScrollTransaction, chatUuid, setScrollMode])
 
   useLayoutEffect(() => {
     reconcileAnchorLockLayout()
@@ -676,6 +833,12 @@ const ChatWindow: React.FC = () => {
 
   useEffect(() => {
     onUserScrollIntentRef.current = () => {
+      const interruptedJump = jumpToLatestTransactionRef.current.active
+      if (interruptedJump) {
+        cancelJumpToLatestScrollTransaction(true)
+        markManualBrowsing()
+        return
+      }
       const virtualizer = chatVirtualizerRef.current
       if (shouldKeepTailFollowOnUserIntent(
         scrollModeRef.current,
@@ -687,17 +850,20 @@ const ChatWindow: React.FC = () => {
     return () => {
       onUserScrollIntentRef.current = null
     }
-  }, [markManualBrowsing])
+  }, [cancelJumpToLatestScrollTransaction, markManualBrowsing])
 
   useEffect(() => {
     onUserScrollUpIntentRef.current = () => {
+      if (jumpToLatestTransactionRef.current.active) {
+        cancelJumpToLatestScrollTransaction(true)
+      }
       markManualBrowsing()
     }
 
     return () => {
       onUserScrollUpIntentRef.current = null
     }
-  }, [markManualBrowsing])
+  }, [cancelJumpToLatestScrollTransaction, markManualBrowsing])
 
   const handleJumpToLatestClick = useCallback(() => {
     const lastAssistantMessage = renderedLatestAssistant
@@ -730,15 +896,14 @@ const ChatWindow: React.FC = () => {
     lockedAnchorCorrectionPendingRef.current = false
     setBottomSpacerHeight(CHAT_BASE_PADDING_END_PX)
     hideJumpToLatestButton(true)
-    scrollToMessageIndex(latestVirtualIndex, true, 'end')
+    startJumpToLatestScrollTransaction()
   }, [
     renderedLatestAssistant,
     displayMessages.length,
     hideJumpToLatestButton,
-    latestVirtualIndex,
     isRunStreaming,
-    scrollToMessageIndex,
     setScrollMode,
+    startJumpToLatestScrollTransaction,
     patchMessageUiState,
     upsertMessage,
     lastMessageIndex
@@ -807,15 +972,20 @@ const ChatWindow: React.FC = () => {
 
   useEffect(() => {
     return () => {
+      cancelJumpToLatestScrollTransaction()
       if (suppressScrollIntentReleaseRafRef.current) {
         cancelAnimationFrame(suppressScrollIntentReleaseRafRef.current)
         suppressScrollIntentReleaseRafRef.current = 0
       }
       suppressScrollIntentRef.current = false
     }
-  }, [])
+  }, [cancelJumpToLatestScrollTransaction])
 
   const handleLatestAssistantTyping = useCallback(() => {
+    if (jumpToLatestTransactionRef.current.active) {
+      jumpToLatestTransactionRef.current.contentChanged = true
+      return
+    }
     if (scrollModeRef.current === 'anchor-lock') {
       requestAnimationFrame(reconcileAnchorLockLayout)
       return
@@ -826,6 +996,7 @@ const ChatWindow: React.FC = () => {
     // Keep this insurance path until real streaming verifies that resize
     // compensation covers segment-first-frame and complex Markdown timing.
     requestAnimationFrame(() => {
+      if (jumpToLatestTransactionRef.current.active) return
       if (scrollModeRef.current !== 'tail-follow') return
       chatVirtualizerRef.current?.scrollToEnd({ behavior: 'auto' })
     })

@@ -12,7 +12,8 @@ type ChatVirtualizer = Virtualizer<HTMLDivElement, HTMLDivElement>
 type ScrollManager = ReturnType<typeof useScrollManagerTop>
 
 const createVirtualizer = () => ({
-  scrollToIndex: vi.fn()
+  scrollToIndex: vi.fn(),
+  scrollToOffset: vi.fn()
 }) as unknown as ChatVirtualizer
 
 describe('useScrollManagerTop', () => {
@@ -104,6 +105,23 @@ describe('useScrollManagerTop', () => {
     })
     await renderProbe({ chatUuid: 'chat-2', messagesLength: 0 })
     expect(latestManager.showJumpToLatest).toBe(false)
+  })
+
+  it('dispatches index and offset scroll requests in the current frame', async () => {
+    await renderProbe()
+
+    await act(async () => {
+      latestManager.scrollToMessageIndex(1, true, 'end')
+      latestManager.scrollToMessageOffset(320, 'auto')
+    })
+
+    expect(virtualizer.scrollToIndex).toHaveBeenCalledWith(1, {
+      align: 'end',
+      behavior: 'smooth'
+    })
+    expect(virtualizer.scrollToOffset).toHaveBeenCalledWith(320, {
+      behavior: 'auto'
+    })
   })
 
   it('latches the button when a pointer drag moves upward', async () => {

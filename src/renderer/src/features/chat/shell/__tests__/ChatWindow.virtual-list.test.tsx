@@ -30,7 +30,21 @@ const testState = vi.hoisted(() => ({
     patchMessageUiState: vi.fn(),
     upsertMessage: vi.fn()
   },
-  virtualizerOptions: undefined as Record<string, unknown> | undefined
+  virtualizerOptions: undefined as Record<string, unknown> | undefined,
+  scrollManager: {
+    scrollParentRef: { current: null as HTMLDivElement | null },
+    showJumpToLatest: false,
+    isButtonFadingOut: false,
+    showJumpToLatestButton: vi.fn(),
+    hideJumpToLatestButton: vi.fn(),
+    scrollToMessageIndex: vi.fn(),
+    scrollToMessageOffset: vi.fn()
+  },
+  virtualizer: {
+    getDistanceFromEnd: vi.fn(() => 0),
+    scrollToEnd: vi.fn()
+  },
+  userScrollIntentRef: { current: null as ((source: 'wheel' | 'pointer') => void) | null }
 }))
 
 vi.mock('@renderer/features/artifacts', () => ({
@@ -54,7 +68,9 @@ vi.mock('@renderer/features/chat/input/ChatInputToolConfirmation', () => ({
 }))
 
 vi.mock('@renderer/features/chat/message/ChatMessageComponent', () => ({
-  default: () => <div>Message</div>
+  default: ({ onTypingChange }: { onTypingChange?: () => void }) => (
+    <button data-testid="typing-change" onClick={onTypingChange}>Message</button>
+  )
 }))
 
 vi.mock('@renderer/features/chat/welcome/SmartWelcomeEntrance', () => ({
@@ -62,14 +78,12 @@ vi.mock('@renderer/features/chat/welcome/SmartWelcomeEntrance', () => ({
 }))
 
 vi.mock('@renderer/features/chat/useScrollManagerTop', () => ({
-  useScrollManagerTop: () => ({
-    scrollParentRef: { current: null },
-    showJumpToLatest: false,
-    isButtonFadingOut: false,
-    showJumpToLatestButton: vi.fn(),
-    hideJumpToLatestButton: vi.fn(),
-    scrollToMessageIndex: vi.fn()
-  })
+  useScrollManagerTop: ({ onUserScrollIntentRef }: {
+    onUserScrollIntentRef: typeof testState.userScrollIntentRef
+  }) => {
+    testState.userScrollIntentRef = onUserScrollIntentRef
+    return testState.scrollManager
+  }
 }))
 
 vi.mock('@renderer/shared/components/ui/resizable', () => ({
@@ -100,6 +114,7 @@ vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: (options: Record<string, unknown>) => {
     testState.virtualizerOptions = options
     return {
+      ...testState.virtualizer,
       containerRef: (node: HTMLElement | null) => {
         if (!node || options.directDomUpdates !== true) return
         node.dataset.directVirtualContainer = 'true'
@@ -119,8 +134,7 @@ vi.mock('@tanstack/react-virtual', () => ({
         end: 148,
         lane: 0
       }],
-      isAtEnd: () => true,
-      scrollToEnd: vi.fn()
+      isAtEnd: () => true
     }
   }
 }))
@@ -161,12 +175,49 @@ import ChatWindow from '../ChatWindow'
 describe('ChatWindow virtual list', () => {
   let container: HTMLDivElement
   let root: Root
+  let nextAnimationFrameId: number
+  let animationFrameCallbacks: Map<number, FrameRequestCallback>
+
+  const flushAnimationFrame = async () => {
+    const callbacks = [...animationFrameCallbacks.values()]
+    animationFrameCallbacks.clear()
+    await act(async () => {
+      callbacks.forEach(callback => callback(0))
+    })
+  }
+
+  const setScrollMetrics = (
+    element: HTMLDivElement,
+    { scrollTop, scrollHeight, clientHeight }: {
+      scrollTop: number
+      scrollHeight: number
+      clientHeight: number
+    }
+  ) => {
+    Object.defineProperties(element, {
+      scrollTop: { configurable: true, value: scrollTop, writable: true },
+      scrollHeight: { configurable: true, value: scrollHeight },
+      clientHeight: { configurable: true, value: clientHeight }
+    })
+  }
 
   beforeEach(() => {
     ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean })
       .IS_REACT_ACT_ENVIRONMENT = true
     vi.useFakeTimers()
     testState.virtualizerOptions = undefined
+    testState.chat.runPhase = 'idle'
+    testState.scrollManager.showJumpToLatest = false
+    testState.scrollManager.isButtonFadingOut = false
+    testState.scrollManager.showJumpToLatestButton.mockClear()
+    testState.scrollManager.hideJumpToLatestButton.mockClear()
+    testState.scrollManager.scrollToMessageIndex.mockClear()
+    testState.scrollManager.scrollToMessageOffset.mockClear()
+    testState.virtualizer.getDistanceFromEnd.mockClear()
+    testState.virtualizer.scrollToEnd.mockClear()
+    testState.userScrollIntentRef.current = null
+    nextAnimationFrameId = 0
+    animationFrameCallbacks = new Map()
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -174,8 +225,14 @@ describe('ChatWindow virtual list', () => {
       observe(): void { return }
       disconnect(): void { return }
     })
-    vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1))
-    vi.stubGlobal('cancelAnimationFrame', vi.fn())
+    vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => {
+      const id = ++nextAnimationFrameId
+      animationFrameCallbacks.set(id, callback)
+      return id
+    }))
+    vi.stubGlobal('cancelAnimationFrame', vi.fn((id: number) => {
+      animationFrameCallbacks.delete(id)
+    }))
   })
 
   afterEach(async () => {
@@ -205,5 +262,106 @@ describe('ChatWindow virtual list', () => {
 
     expect(inner?.style.height).toBe('777px')
     expect(row?.style.transform).toBe('translate3d(0, 48px, 0)')
+  })
+
+  it('uses smooth motion only for a short static jump-to-latest request', async () => {
+    await act(async () => root.render(<ChatWindow />))
+    await act(async () => vi.advanceTimersByTime(220))
+    animationFrameCallbacks.clear()
+    testState.scrollManager.showJumpToLatest = true
+    await act(async () => root.render(<ChatWindow />))
+
+    const scrollContainer = testState.scrollManager.scrollParentRef.current
+    expect(scrollContainer).toBeTruthy()
+    setScrollMetrics(scrollContainer!, {
+      scrollTop: 750,
+      scrollHeight: 1600,
+      clientHeight: 400
+    })
+
+    await act(async () => {
+      container.querySelector<HTMLElement>('#jumpToLatest')?.click()
+    })
+    await flushAnimationFrame()
+
+    expect(testState.scrollManager.scrollToMessageOffset).toHaveBeenCalledTimes(1)
+    expect(testState.scrollManager.scrollToMessageOffset).toHaveBeenCalledWith(1200, 'smooth')
+    expect(testState.virtualizerOptions).toMatchObject({
+      followOnAppend: false
+    })
+  })
+
+  it('hands the viewport back to wheel input during an active smooth jump', async () => {
+    testState.scrollManager.showJumpToLatest = true
+    await act(async () => root.render(<ChatWindow />))
+    await act(async () => vi.advanceTimersByTime(220))
+    animationFrameCallbacks.clear()
+    await act(async () => root.render(<ChatWindow />))
+
+    const scrollContainer = testState.scrollManager.scrollParentRef.current
+    expect(scrollContainer).toBeTruthy()
+    setScrollMetrics(scrollContainer!, {
+      scrollTop: 750,
+      scrollHeight: 1600,
+      clientHeight: 400
+    })
+
+    await act(async () => {
+      container.querySelector<HTMLElement>('#jumpToLatest')?.click()
+    })
+    await flushAnimationFrame()
+
+    scrollContainer!.scrollTop = 820
+    await act(async () => {
+      testState.userScrollIntentRef.current?.('wheel')
+    })
+
+    expect(testState.scrollManager.scrollToMessageOffset).toHaveBeenLastCalledWith(820, 'auto')
+    expect(testState.virtualizerOptions).toMatchObject({
+      anchorTo: 'start',
+      followOnAppend: false
+    })
+  })
+
+  it('keeps streaming typing inside the jump transaction and corrects the end once', async () => {
+    testState.chat.runPhase = 'streaming'
+    testState.scrollManager.showJumpToLatest = true
+    await act(async () => root.render(<ChatWindow />))
+    await act(async () => vi.advanceTimersByTime(220))
+    animationFrameCallbacks.clear()
+    await act(async () => root.render(<ChatWindow />))
+
+    const scrollContainer = testState.scrollManager.scrollParentRef.current
+    expect(scrollContainer).toBeTruthy()
+    setScrollMetrics(scrollContainer!, {
+      scrollTop: 750,
+      scrollHeight: 1600,
+      clientHeight: 400
+    })
+
+    await act(async () => {
+      container.querySelector<HTMLElement>('[data-testid="typing-change"]')?.click()
+    })
+    await act(async () => {
+      container.querySelector<HTMLElement>('#jumpToLatest')?.click()
+    })
+    await flushAnimationFrame()
+
+    expect(testState.scrollManager.scrollToMessageOffset).toHaveBeenCalledWith(1200, 'auto')
+    expect(testState.virtualizer.scrollToEnd).not.toHaveBeenCalled()
+
+    await act(async () => {
+      container.querySelector<HTMLElement>('[data-testid="typing-change"]')?.click()
+    })
+    setScrollMetrics(scrollContainer!, {
+      scrollTop: 1200,
+      scrollHeight: 1800,
+      clientHeight: 400
+    })
+    await flushAnimationFrame()
+
+    expect(testState.virtualizer.scrollToEnd).not.toHaveBeenCalled()
+    expect(testState.scrollManager.scrollToMessageOffset).toHaveBeenCalledTimes(2)
+    expect(testState.scrollManager.scrollToMessageOffset).toHaveBeenLastCalledWith(1400, 'auto')
   })
 })
