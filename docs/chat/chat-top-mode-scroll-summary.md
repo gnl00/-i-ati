@@ -7,7 +7,7 @@ ChatWindow 使用 `tail-follow`、`anchor-lock`、`manual` 三态滚动模型。
 ## 职责边界
 
 - `ChatWindow` 负责 scroll hint 策略、三态切换、动态 `paddingEnd`、一次性锚点校正、typewriter 完成和跳回最新事务。
-- `useScrollManagerTop` 负责 wheel/pointer 用户意图识别、程序滚动抑制、按钮事件锁存和当前帧的 index/offset 写入。
+- `useScrollManagerTop` 负责 wheel/pointer 用户意图识别、程序滚动抑制、确认后的按钮事件锁存和当前帧的 index/offset 写入。
 - `scroll-anchor` 负责 user-sent 锚点解析、spacer 计算、首帧模式推导、末尾距离测量与跳回最新行为选择，便于 focused tests 覆盖边界条件。
 - 定制 TanStack Virtual fork 继续承担动态测量、末尾判断和 item resize 补偿。
 
@@ -31,7 +31,8 @@ ChatWindow 使用 `tail-follow`、`anchor-lock`、`manual` 三态滚动模型。
 - `anchorTo` 在 `tail-follow` 使用 `end`，在 `anchor-lock` 与 `manual` 使用 `start`。
 - 有效模式在 render 阶段结合当前 scroll hint 同步推导，确保 virtualizer 当次 `setOptions()` 获得最新追加策略。
 - `anchor-lock` 的初始实测校正最多写入一次 `scrollTop`；后续 resize 只更新 spacer。
-- `tail-follow` 已处于末尾时，向下用户意图继续保持追尾；向上意图进入 `manual` 并锁存按钮。
+- wheel 先即时派发 generic 用户意图，供活跃跳回事务交还滚动控制；下一 RAF 确认 `scrollTop` 上移超过 `1px` 后，再派发向上浏览意图并锁存按钮。顶端和短列表保持隐藏。
+- pointer-active 向上滚动继续以实际 `scrollTop` 下降为准；`manual` 返回底部时按钮保持显示，作为显式恢复 `tail-follow` 的入口。
 - overscan 当前为 `4`，真实长会话出现空白帧时回调到 `5` 或 `6`。
 - virtual item 使用稳定 message key，并通过 `measureElement` 回填真实高度。
 
@@ -43,6 +44,6 @@ ChatWindow 使用 `tail-follow`、`anchor-lock`、`manual` 三态滚动模型。
 
 ## 验证
 
-自动化覆盖 user 锚点解析、pending assistant、spacer 收缩、三态 `anchorTo`、one-shot 校正与 viewport/overlay 变化，以及按钮显式锁存、切会话清理、跳回最新的距离选择、流式 typing 并发和 suppression 期间的真实 wheel/pointer 输入。
+自动化覆盖 user 锚点解析、pending assistant、spacer 收缩、三态 `anchorTo`、one-shot 校正与 viewport/overlay 变化，以及按钮确认式锁存、切会话和卸载清理、跳回最新的距离选择、流式 typing 并发和 suppression 期间的真实 wheel/pointer 输入。
 
 真实流式验收仍需覆盖纯文本、代码块、reasoning、tool result 与 segment 首帧。完成该验收后再评估 `tail-follow` typing RAF 保险链。

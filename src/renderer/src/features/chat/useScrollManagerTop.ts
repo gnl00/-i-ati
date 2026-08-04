@@ -4,6 +4,7 @@ import type { Virtualizer } from '@tanstack/react-virtual'
 
 export type UserScrollSource = 'wheel' | 'pointer'
 type ChatVirtualizer = Virtualizer<HTMLDivElement, HTMLDivElement>
+const USER_SCROLL_UP_CONFIRMATION_THRESHOLD_PX = 1
 
 interface UseScrollManagerTopProps {
   messagesLength: number
@@ -44,6 +45,7 @@ export function useScrollManagerTop({
   const showJumpToLatestRef = useRef<boolean>(false)
   const lastChatUuidRef = useRef<string | undefined>(chatUuid)
   const buttonFadeTimeoutRef = useRef<number>(0)
+  const wheelUpConfirmationRafRef = useRef<number>(0)
   const prevScrollTopRef = useRef<number>(0)
   const pointerDownInContainerRef = useRef<boolean>(false)
 
@@ -114,6 +116,12 @@ export function useScrollManagerTop({
     virtualizer.scrollToOffset(offset, { behavior })
   }, [markProgrammaticScroll, virtualizerRef])
 
+  const cancelWheelUpConfirmation = useCallback(() => {
+    if (!wheelUpConfirmationRafRef.current) return
+    cancelAnimationFrame(wheelUpConfirmationRafRef.current)
+    wheelUpConfirmationRafRef.current = 0
+  }, [])
+
   useLayoutEffect(() => {
     showJumpToLatestRef.current = showJumpToLatest
   }, [showJumpToLatest])
@@ -123,9 +131,10 @@ export function useScrollManagerTop({
       return
     }
 
+    cancelWheelUpConfirmation()
     lastChatUuidRef.current = chatUuid
     hideJumpToLatestButton()
-  }, [chatUuid, hideJumpToLatestButton])
+  }, [cancelWheelUpConfirmation, chatUuid, hideJumpToLatestButton])
 
   useEffect(() => {
     if (messagesLength > 0) {
@@ -136,12 +145,13 @@ export function useScrollManagerTop({
 
   useEffect(() => {
     return () => {
+      cancelWheelUpConfirmation()
       if (buttonFadeTimeoutRef.current) {
         clearTimeout(buttonFadeTimeoutRef.current)
         buttonFadeTimeoutRef.current = 0
       }
     }
-  }, [])
+  }, [cancelWheelUpConfirmation])
 
   useEffect(() => {
     const container = scrollParentRef.current
@@ -175,7 +185,17 @@ export function useScrollManagerTop({
         notifyUserScrollIntent('wheel')
       }
       if (event.deltaY < 0) {
-        showByUserUpScroll('wheel')
+        const scrollTopBeforeWheel = container.scrollTop
+        const wheelChatUuid = chatUuid
+        cancelWheelUpConfirmation()
+        wheelUpConfirmationRafRef.current = requestAnimationFrame(() => {
+          wheelUpConfirmationRafRef.current = 0
+          if (lastChatUuidRef.current !== wheelChatUuid) return
+          if (scrollTopBeforeWheel - container.scrollTop <= USER_SCROLL_UP_CONFIRMATION_THRESHOLD_PX) {
+            return
+          }
+          showByUserUpScroll('wheel')
+        })
       }
     }
 
@@ -207,6 +227,7 @@ export function useScrollManagerTop({
     container.addEventListener('wheel', onWheel, { passive: true })
     container.addEventListener('scroll', onScroll, { passive: true })
     return () => {
+      cancelWheelUpConfirmation()
       container.removeEventListener('pointerdown', onPointerDown)
       window.removeEventListener('pointerup', onPointerUp)
       window.removeEventListener('pointercancel', onPointerUp)
@@ -214,6 +235,8 @@ export function useScrollManagerTop({
       container.removeEventListener('scroll', onScroll)
     }
   }, [
+    cancelWheelUpConfirmation,
+    chatUuid,
     messagesLength,
     onUserScrollIntentRef,
     onUserScrollUpIntentRef,

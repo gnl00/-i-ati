@@ -24,7 +24,11 @@ const testState = vi.hoisted(() => ({
     currentChatUuid: 'chat-1',
     runPhase: 'idle',
     selectedModelRef: undefined,
-    scrollHint: { type: 'none' },
+    scrollHint: { type: 'none' } as {
+      type: string
+      chatUuid?: string
+      messageId?: number
+    },
     setArtifactsPanel: vi.fn(),
     clearScrollHint: vi.fn(),
     patchMessageUiState: vi.fn(),
@@ -207,6 +211,7 @@ describe('ChatWindow virtual list', () => {
     vi.useFakeTimers()
     testState.virtualizerOptions = undefined
     testState.chat.runPhase = 'idle'
+    testState.chat.scrollHint = { type: 'none' }
     testState.scrollManager.showJumpToLatest = false
     testState.scrollManager.isButtonFadingOut = false
     testState.scrollManager.showJumpToLatestButton.mockClear()
@@ -262,6 +267,23 @@ describe('ChatWindow virtual list', () => {
 
     expect(inner?.style.height).toBe('777px')
     expect(row?.style.transform).toBe('translate3d(0, 48px, 0)')
+  })
+
+  it('renders the tail-follow re-entry button after a search-result jump', async () => {
+    testState.chat.scrollHint = {
+      type: 'search-result',
+      chatUuid: 'chat-1',
+      messageId: 1
+    }
+    await act(async () => root.render(<ChatWindow />))
+    await act(async () => vi.advanceTimersByTime(220))
+
+    expect(testState.scrollManager.showJumpToLatestButton).toHaveBeenCalledTimes(1)
+
+    testState.scrollManager.showJumpToLatest = true
+    await act(async () => root.render(<ChatWindow />))
+
+    expect(container.querySelector('#jumpToLatest')).toBeTruthy()
   })
 
   it('uses smooth motion only for a short static jump-to-latest request', async () => {

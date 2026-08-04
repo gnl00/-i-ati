@@ -10,6 +10,13 @@ import type { UserScrollSource } from '../useScrollManagerTop'
 
 type ChatVirtualizer = Virtualizer<HTMLDivElement, HTMLDivElement>
 type ScrollManager = ReturnType<typeof useScrollManagerTop>
+type ProbeOptions = {
+  messagesLength?: number
+  chatUuid?: string
+  suppressScrollIntentRef?: RefObject<boolean>
+  onUserScrollIntentRef?: RefObject<((source: UserScrollSource) => void) | null>
+  onUserScrollUpIntentRef?: RefObject<((source: UserScrollSource) => void) | null>
+}
 
 const createVirtualizer = () => ({
   scrollToIndex: vi.fn(),
@@ -22,42 +29,72 @@ describe('useScrollManagerTop', () => {
   let latestManager: ScrollManager
   let virtualizer: ChatVirtualizer
   let virtualizerRef: RefObject<ChatVirtualizer | null>
+  let probeOptions: ProbeOptions
+  let nextAnimationFrameId: number
+  let animationFrameCallbacks: Map<number, FrameRequestCallback>
 
-  const renderProbe = async ({
-    messagesLength = 2,
-    chatUuid = 'chat-1',
-    suppressScrollIntentRef = { current: false },
-    onUserScrollIntentRef,
-    onUserScrollUpIntentRef
-  }: {
-    messagesLength?: number
-    chatUuid?: string
-    suppressScrollIntentRef?: RefObject<boolean>
-    onUserScrollIntentRef?: RefObject<((source: UserScrollSource) => void) | null>
-    onUserScrollUpIntentRef?: RefObject<((source: UserScrollSource) => void) | null>
-  } = {}) => {
-    function Probe() {
-      latestManager = useScrollManagerTop({
-        messagesLength,
-        chatUuid,
-        virtualizerRef,
-        suppressScrollIntentRef,
-        onUserScrollIntentRef,
-        onUserScrollUpIntentRef
-      })
-      return <div ref={latestManager.scrollParentRef} />
-    }
+  function Probe() {
+    const {
+      messagesLength = 2,
+      chatUuid = 'chat-1',
+      suppressScrollIntentRef = { current: false },
+      onUserScrollIntentRef,
+      onUserScrollUpIntentRef
+    } = probeOptions
 
+    latestManager = useScrollManagerTop({
+      messagesLength,
+      chatUuid,
+      virtualizerRef,
+      suppressScrollIntentRef,
+      onUserScrollIntentRef,
+      onUserScrollUpIntentRef
+    })
+    return <div ref={latestManager.scrollParentRef} />
+  }
+
+  const renderProbe = async (options: ProbeOptions = {}) => {
+    probeOptions = options
     await act(async () => {
       root.render(<Probe />)
     })
   }
 
+  const flushAnimationFrame = async () => {
+    const callbacks = [...animationFrameCallbacks.values()]
+    animationFrameCallbacks.clear()
+    await act(async () => {
+      callbacks.forEach(callback => callback(0))
+    })
+  }
+
+  const setScrollMetrics = (
+    element: HTMLDivElement,
+    { scrollTop, scrollHeight, clientHeight }: {
+      scrollTop: number
+      scrollHeight: number
+      clientHeight: number
+    }
+  ) => {
+    Object.defineProperties(element, {
+      scrollTop: { configurable: true, value: scrollTop, writable: true },
+      scrollHeight: { configurable: true, value: scrollHeight },
+      clientHeight: { configurable: true, value: clientHeight }
+    })
+  }
+
   beforeEach(() => {
     ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+    nextAnimationFrameId = 0
+    animationFrameCallbacks = new Map()
+    probeOptions = {}
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
-      callback(0)
-      return 1
+      const id = ++nextAnimationFrameId
+      animationFrameCallbacks.set(id, callback)
+      return id
+    })
+    vi.stubGlobal('cancelAnimationFrame', (id: number) => {
+      animationFrameCallbacks.delete(id)
     })
     container = document.createElement('div')
     document.body.appendChild(container)
@@ -74,13 +111,71 @@ describe('useScrollManagerTop', () => {
     vi.unstubAllGlobals()
   })
 
-  it('latches the button after wheel-up', async () => {
+  it('keeps the button hidden after wheel-up at the transcript top', async () => {
     await renderProbe()
     const scrollContainer = container.firstElementChild as HTMLDivElement
 
     await act(async () => {
       scrollContainer.dispatchEvent(new WheelEvent('wheel', { deltaY: -20 }))
     })
+    await flushAnimationFrame()
+
+    expect(latestManager.showJumpToLatest).toBe(false)
+  })
+
+  it('keeps the button hidden after wheel-up in a short transcript', async () => {
+    await renderProbe()
+    const scrollContainer = container.firstElementChild as HTMLDivElement
+    setScrollMetrics(scrollContainer, {
+      scrollTop: 0,
+      scrollHeight: 300,
+      clientHeight: 600
+    })
+
+    await act(async () => {
+      scrollContainer.dispatchEvent(new WheelEvent('wheel', { deltaY: -20 }))
+    })
+    await flushAnimationFrame()
+
+    expect(latestManager.showJumpToLatest).toBe(false)
+  })
+
+  it('keeps the button hidden when wheel-up moves by one pixel', async () => {
+    await renderProbe()
+    const scrollContainer = container.firstElementChild as HTMLDivElement
+    scrollContainer.scrollTop = 120
+
+    await act(async () => {
+      scrollContainer.dispatchEvent(new WheelEvent('wheel', { deltaY: -20 }))
+    })
+    scrollContainer.scrollTop = 119
+    await flushAnimationFrame()
+
+    expect(latestManager.showJumpToLatest).toBe(false)
+  })
+
+  it('latches after confirmed wheel-up while delivering generic intent immediately', async () => {
+    const onUserScrollIntent = vi.fn()
+    const onUserScrollUpIntent = vi.fn()
+    await renderProbe({
+      onUserScrollIntentRef: { current: onUserScrollIntent },
+      onUserScrollUpIntentRef: { current: onUserScrollUpIntent }
+    })
+    const scrollContainer = container.firstElementChild as HTMLDivElement
+    scrollContainer.scrollTop = 180
+
+    await act(async () => {
+      scrollContainer.dispatchEvent(new WheelEvent('wheel', { deltaY: -20 }))
+    })
+
+    expect(onUserScrollIntent).toHaveBeenCalledWith('wheel')
+    expect(onUserScrollUpIntent).not.toHaveBeenCalled()
+    expect(latestManager.showJumpToLatest).toBe(false)
+
+    scrollContainer.scrollTop = 120
+    await flushAnimationFrame()
+
+    expect(onUserScrollUpIntent).toHaveBeenCalledWith('wheel')
     expect(latestManager.showJumpToLatest).toBe(true)
   })
 
@@ -105,6 +200,42 @@ describe('useScrollManagerTop', () => {
     })
     await renderProbe({ chatUuid: 'chat-2', messagesLength: 0 })
     expect(latestManager.showJumpToLatest).toBe(false)
+  })
+
+  it('cancels a pending wheel confirmation when the chat changes', async () => {
+    const onUserScrollUpIntent = vi.fn()
+    await renderProbe({ onUserScrollUpIntentRef: { current: onUserScrollUpIntent } })
+    const scrollContainer = container.firstElementChild as HTMLDivElement
+    scrollContainer.scrollTop = 120
+
+    await act(async () => {
+      scrollContainer.dispatchEvent(new WheelEvent('wheel', { deltaY: -20 }))
+    })
+    await renderProbe({
+      chatUuid: 'chat-2',
+      onUserScrollUpIntentRef: { current: onUserScrollUpIntent }
+    })
+    scrollContainer.scrollTop = 60
+    await flushAnimationFrame()
+
+    expect(onUserScrollUpIntent).not.toHaveBeenCalled()
+    expect(latestManager.showJumpToLatest).toBe(false)
+  })
+
+  it('cancels a pending wheel confirmation when the hook unmounts', async () => {
+    const onUserScrollUpIntent = vi.fn()
+    await renderProbe({ onUserScrollUpIntentRef: { current: onUserScrollUpIntent } })
+    const scrollContainer = container.firstElementChild as HTMLDivElement
+    scrollContainer.scrollTop = 120
+
+    await act(async () => {
+      scrollContainer.dispatchEvent(new WheelEvent('wheel', { deltaY: -20 }))
+      root.render(<div />)
+    })
+    scrollContainer.scrollTop = 60
+    await flushAnimationFrame()
+
+    expect(onUserScrollUpIntent).not.toHaveBeenCalled()
   })
 
   it('dispatches index and offset scroll requests in the current frame', async () => {
@@ -139,17 +270,22 @@ describe('useScrollManagerTop', () => {
     expect(latestManager.showJumpToLatest).toBe(true)
   })
 
-  it('keeps the button latched while a pointer drag moves toward the bottom', async () => {
+  it('keeps the button rendered when manual browsing returns to the bottom', async () => {
     await renderProbe()
     const scrollContainer = container.firstElementChild as HTMLDivElement
 
+    scrollContainer.scrollTop = 100
     await act(async () => {
-      latestManager.showJumpToLatestButton()
-      scrollContainer.scrollTop = 50
-      scrollContainer.dispatchEvent(new Event('scroll'))
+      scrollContainer.dispatchEvent(new WheelEvent('wheel', { deltaY: -20 }))
+    })
+    scrollContainer.scrollTop = 50
+    await flushAnimationFrame()
+
+    await act(async () => {
       scrollContainer.dispatchEvent(new PointerEvent('pointerdown'))
       scrollContainer.scrollTop = 100
       scrollContainer.dispatchEvent(new Event('scroll'))
+      window.dispatchEvent(new PointerEvent('pointerup'))
     })
 
     expect(latestManager.showJumpToLatest).toBe(true)
@@ -165,10 +301,14 @@ describe('useScrollManagerTop', () => {
       onUserScrollUpIntentRef: { current: onUserScrollUpIntent }
     })
     const scrollContainer = container.firstElementChild as HTMLDivElement
+    scrollContainer.scrollTop = 100
 
     await act(async () => {
       scrollContainer.dispatchEvent(new WheelEvent('wheel', { deltaY: -20 }))
     })
+    scrollContainer.scrollTop = 40
+    await flushAnimationFrame()
+
     expect(onUserScrollIntent).toHaveBeenCalledWith('wheel')
     expect(onUserScrollUpIntent).toHaveBeenCalledWith('wheel')
     expect(latestManager.showJumpToLatest).toBe(true)

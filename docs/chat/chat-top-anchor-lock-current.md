@@ -40,11 +40,11 @@ assistant 增长时 `tailHeight` 增加，spacer 单调收缩到基础值 `12px`
 
 ## 退出与恢复
 
-wheel 和 pointer-active scroll 代表明确用户意图，即使处于程序滚动 suppression 窗口也会派发。`anchor-lock` 收到这些意图后进入 `manual`。`tail-follow` 已处于末尾时，向下 wheel 或 pointer 意图继续保持追尾；向上意图进入 `manual` 并锁存按钮。普通 scroll 事件可能来自虚拟列表测量、spacer 更新或程序滚动，suppression 只过滤这类缺少用户输入来源的事件。
+wheel 和 pointer-active scroll 代表明确用户意图，即使处于程序滚动 suppression 窗口也会派发。wheel 事件会立即派发 generic 意图，供活跃跳回事务释放滚动控制；下一 RAF 仅在 `scrollTop` 真实上移超过 `1px` 时追加派发向上浏览意图并锁存按钮。顶端与短列表保持隐藏。pointer-active scroll 继续以实际 `scrollTop` 下降判定向上浏览。`anchor-lock` 收到浏览意图后进入 `manual`；`tail-follow` 位于末尾时，向下 wheel 或 pointer 意图继续保持追尾。`manual` 回到底部时按钮保持显示，作为显式恢复入口。普通 scroll 事件可能来自虚拟列表测量、spacer 更新或程序滚动，suppression 只过滤这类缺少用户输入来源的事件。
 
 退出锚定时保留当下 spacer 高度，避免缩短滚动范围造成视口跳动；`manual` 期间停止 spacer 自动收敛。点击跳回最新、新 user-sent 或切换会话时再重置或重建 spacer。
 
-“跳回最新消息”按钮由事件锁存：用户向上滚动或搜索跳转时显示；点击按钮、切换会话、空列表和新的 user-sent 时隐藏。用户意图事件与显式按钮操作完整管理模式转换。
+“跳回最新消息”按钮由确认式事件锁存：wheel 向上需在 RAF 确认实际位移，pointer-active 向上直接依据实际位移，搜索跳转直接显示。点击按钮、切换会话、空列表和新的 user-sent 时隐藏。待确认 RAF 在卸载和会话切换时取消，用户意图事件与显式按钮操作完整管理模式转换。
 
 ## 流式追尾保险链
 
