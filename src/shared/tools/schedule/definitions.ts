@@ -4,57 +4,51 @@ export const scheduleTools = [
   {
     type: 'function',
     function: {
-      name: 'schedule_create',
-      description: 'Create a one-time or recurring scheduled task for a chat. Cron uses standard 5-field minute precision and an IANA timezone.',
+      name: 'schedule',
+      description: 'Manage one-time and recurring scheduled tasks. Set action to create, list, cancel, or update; the processor validates action-specific fields and schedule timing rules.',
       parameters: {
         type: 'object',
         properties: {
-          goal: { type: 'string', description: 'Goal of the scheduled task.' },
-          run_at: { type: 'string', description: 'One-time ISO-8601 datetime with offset.' },
-          cron_expression: { type: 'string', description: 'Recurring 5-field cron: minute hour day-of-month month day-of-week.' },
-          timezone: { type: 'string', description: 'IANA timezone required for recurring schedules.' },
-          plan_id: { type: 'string', description: 'Optional task plan id.' },
-          payload: { type: 'object', description: 'Optional scheduler payload.' },
-          max_attempts: { type: 'integer', minimum: 1, description: 'Maximum attempts for each occurrence; minimum 1.' }
+          action: {
+            type: 'string',
+            enum: ['create', 'list', 'cancel', 'update'],
+            description: 'Operation to perform: create adds a schedule, list retrieves schedules for this chat, cancel stops a schedule, and update changes a pending schedule.'
+          },
+          id: {
+            type: 'string',
+            description: 'Scheduled task id. Required for action=cancel and action=update.'
+          },
+          goal: {
+            type: 'string',
+            description: 'Goal of the scheduled task. Required for action=create; optional replacement for action=update.'
+          },
+          run_at: {
+            type: 'string',
+            description: 'One-time ISO-8601 datetime with offset for action=create or an update to a one-time schedule.'
+          },
+          cron_expression: {
+            type: 'string',
+            description: 'Recurring 5-field cron for action=create or an update to a recurring schedule: minute hour day-of-month month day-of-week.'
+          },
+          timezone: {
+            type: 'string',
+            description: 'IANA timezone required for recurring action=create schedules and accepted for recurring action=update schedules.'
+          },
+          plan_id: {
+            type: 'string',
+            description: 'Optional task plan id for action=create.'
+          },
+          payload: {
+            type: 'object',
+            description: 'Optional scheduler payload for action=create or action=update.'
+          },
+          max_attempts: {
+            type: 'integer',
+            minimum: 1,
+            description: 'Maximum attempts for each occurrence for action=create or action=update; minimum 1.'
+          }
         },
-        required: ['goal'],
-        $schema: 'http://json-schema.org/draft-07/schema#'
-      }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'schedule_list',
-      description: 'List scheduled tasks for a chat.',
-      parameters: { type: 'object', properties: {}, required: [], $schema: 'http://json-schema.org/draft-07/schema#' }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'schedule_cancel',
-      description: 'Cancel a pending or running scheduled task and its active occurrence.',
-      parameters: { type: 'object', properties: { id: { type: 'string', description: 'Scheduled task id.' } }, required: ['id'], $schema: 'http://json-schema.org/draft-07/schema#' }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'schedule_update',
-      description: 'Update a pending schedule within its existing once or cron type.',
-      parameters: {
-        type: 'object',
-        properties: {
-          id: { type: 'string', description: 'Scheduled task id.' },
-          goal: { type: 'string', description: 'New goal.' },
-          run_at: { type: 'string', description: 'New one-time ISO-8601 datetime.' },
-          cron_expression: { type: 'string', description: 'New recurring 5-field cron expression.' },
-          timezone: { type: 'string', description: 'New IANA timezone for a recurring schedule.' },
-          payload: { type: 'object', description: 'Optional payload update.' },
-          max_attempts: { type: 'integer', minimum: 1, description: 'Maximum attempts for each occurrence; minimum 1.' }
-        },
-        required: ['id'],
+        required: ['action'],
         $schema: 'http://json-schema.org/draft-07/schema#'
       }
     }

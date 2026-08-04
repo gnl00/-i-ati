@@ -30,7 +30,7 @@ Identifier preservation rules:
 - Preserve code symbols, commands, paths, and environment variables exactly as written.
 
 State fidelity rules:
-- Stateful tools include plan_*, todo, schedule_*, work_context_*, task/workflow tools, approval tools, notification tools, and automation run tools.
+- Stateful tools include plan, todo, schedule, work_context_*, task/workflow tools, approval tools, notification tools, and automation run tools.
 - Stateful tool results are source-of-truth records. Preserve entity ids, status, step status, currentStepId, activeStepId, failureReason, error, timestamps, owner, assignee, dependencies, and schedule times verbatim.
 - For plans and todos, preserve every visible step/item id, title, status, dependsOn, owner/assignee, currentStepId, and failureReason.
 - pending, todo, doing, in_progress, pending_review, and blocked indicate open follow-up work. Record them as plan created, waiting to run, in progress, or blocked, and place them in Pending Tasks.

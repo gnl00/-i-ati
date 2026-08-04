@@ -35,4 +35,13 @@ describe('main embedded tool handlers', () => {
 
     expect(missing).toEqual([])
   })
+
+  it('keeps Plan and Schedule handler registration canonical', async () => {
+    const { toolHandlers } = await import('../index')
+    const resourceHandlerNames = Object.keys(toolHandlers)
+      .filter(name => name.startsWith('plan') || name.startsWith('schedule'))
+      .sort()
+
+    expect(resourceHandlerNames).toEqual(['plan', 'schedule'])
+  })
 })

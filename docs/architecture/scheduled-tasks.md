@@ -8,7 +8,7 @@ Related decision: [ADR-0010](../decisions/0010-persisted-cron-schedule-occurrenc
 ## Data model
 
 ```text
-schedule_create / schedule_update
+schedule action=create / action=update
   -> CronScheduleCalculator
   -> planningDb facade
   -> scheduled_tasks 1 ---- N scheduled_task_runs

@@ -13,7 +13,8 @@ describe('resolveAllowedEmbeddedToolsForAgent', () => {
     expect(allowed).toContain('write')
     expect(allowed).toContain('edit')
     expect(allowed).toContain('exec')
-    expect(allowed).not.toContain('plan_create')
+    expect(allowed).not.toContain('plan')
+    expect(allowed).not.toContain('schedule')
   })
 
   it('keeps reviewer subagents read-only', () => {

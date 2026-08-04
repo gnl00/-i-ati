@@ -17,10 +17,30 @@ type UseTaskPlanResult = {
   abortPlanReview: (reason?: string) => Promise<void>
 }
 
+type DetectedToolCall = {
+  name: string
+  action?: string
+}
+
+function readToolAction(args: unknown): string | undefined {
+  let value = args
+  if (typeof value === 'string') {
+    try {
+      value = JSON.parse(value)
+    } catch {
+      return undefined
+    }
+  }
+
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+  const action = (value as { action?: unknown }).action
+  return typeof action === 'string' ? action.trim() : undefined
+}
+
 export function useTaskPlan(chatUuid: string | null | undefined): UseTaskPlanResult {
   const [activePlans, setActivePlans] = useState<Plan[]>([])
   const [pendingPlanReview, setPendingPlanReview] = useState<{ toolCallId: string; plan: Plan } | null>(null)
-  const toolCallNameMapRef = useRef<Map<string, string>>(new Map())
+  const toolCallMapRef = useRef<Map<string, DetectedToolCall>>(new Map())
 
   const refreshPlans = useCallback(() => {
     if (!chatUuid) {
@@ -74,8 +94,8 @@ export function useTaskPlan(chatUuid: string | null | undefined): UseTaskPlanRes
 
       if (event.type === RUN_TOOL_EVENTS.TOOL_CONFIRMATION_REQUIRED) {
         const payload = event.payload
-        if (payload?.name === 'plan_create' && payload.toolCallId) {
-          const args = payload.args as Partial<Plan> & { steps?: Plan['steps'] }
+        const args = payload?.args as Partial<Plan> & { action?: unknown; steps?: Plan['steps'] }
+        if (payload?.name === 'plan' && readToolAction(args) === 'create' && payload.toolCallId) {
           const steps = Array.isArray(args?.steps) ? args.steps : []
           const draftPlan: Plan = {
             id: payload.toolCallId,
@@ -95,7 +115,10 @@ export function useTaskPlan(chatUuid: string | null | undefined): UseTaskPlanRes
       if (event.type === RUN_TOOL_EVENTS.TOOL_CALL_DETECTED) {
         const toolCall = event.payload.toolCall
         if (toolCall?.id && toolCall?.name) {
-          toolCallNameMapRef.current.set(toolCall.id, toolCall.name)
+          toolCallMapRef.current.set(toolCall.id, {
+            name: toolCall.name,
+            action: readToolAction(toolCall.args)
+          })
         }
       }
 
@@ -108,12 +131,8 @@ export function useTaskPlan(chatUuid: string | null | undefined): UseTaskPlanRes
         if (pendingPlanReview?.toolCallId === toolCallId) {
           setPendingPlanReview(null)
         }
-        const toolName = toolCallNameMapRef.current.get(toolCallId)
-        const result = event.type === RUN_TOOL_EVENTS.TOOL_EXECUTION_COMPLETED
-          ? (event.payload.result as any)
-          : undefined
-        const hasPlanResult = Boolean(result && (result.plan || result.plans))
-        if (!hasPlanResult && (!toolName || !toolName.startsWith('plan_'))) {
+        const toolCall = toolCallMapRef.current.get(toolCallId)
+        if (toolCall?.name !== 'plan' || !toolCall.action) {
           return
         }
         refreshPlans()

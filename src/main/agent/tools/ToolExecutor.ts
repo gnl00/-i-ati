@@ -111,14 +111,15 @@ export class ToolExecutor implements IToolExecutor {
     const toolIndex = call.index ?? 0
     let executionStartTime: number | undefined
     let metadataConfirmationApproved = false
+    const isPlanCreate = toolName === 'plan' && this.getDeclaredAction(call) === 'create'
 
-    const requiresPlanReview = toolName === 'plan_create'
+    const requiresPlanReview = isPlanCreate
       && Boolean(this.requestConfirmation)
       && !this.shouldAutoApprovePlanCreate()
     const requiresCommandReview = toolName === 'exec' && Boolean(this.requestConfirmation)
     const metadataReview = this.resolveMetadataReview(toolName)
     const requiresMetadataReview = Boolean(this.requestConfirmation)
-      && toolName !== 'plan_create'
+      && !isPlanCreate
       && toolName !== 'exec'
       && !requiresPlanReview
       && !requiresCommandReview
@@ -435,6 +436,24 @@ export class ToolExecutor implements IToolExecutor {
       return {}
     }
     return JSON.parse(trimmed)
+  }
+
+  private getDeclaredAction(call: ToolCallProps): string | undefined {
+    let args: unknown = call.args
+    if (typeof args === 'string') {
+      try {
+        args = this.parseArgsString(args)
+      } catch {
+        return undefined
+      }
+    }
+
+    if (!args || typeof args !== 'object' || Array.isArray(args)) {
+      return undefined
+    }
+
+    const action = (args as { action?: unknown }).action
+    return typeof action === 'string' ? action.trim() : undefined
   }
 
   private applyRuntimeContext(args: any, toolName?: string): any {

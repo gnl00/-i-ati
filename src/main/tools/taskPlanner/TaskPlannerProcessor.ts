@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid'
 import { planningDb } from '@main/db/planning'
 import type { Plan, PlanStatus, PlanStep } from '@shared/task-planner/schemas'
+import type { PlanAction, PlanResponse } from '@shared/tools/plan'
 
 type PlanCreateArgs = {
   goal: string
@@ -40,6 +41,108 @@ type PlanStepUpsertArgs = {
   step: PlanStep
 }
 
+type PlanArgs = {
+  action?: PlanAction | string
+  chat_uuid?: string
+  goal?: string
+  context?: Record<string, any>
+  constraints?: Plan['constraints']
+  steps?: PlanStep[]
+  plan?: Partial<Plan> & Pick<Plan, 'id'>
+  id?: string
+  status?: PlanStatus
+  currentStepId?: string
+  failureReason?: string
+  stepId?: string
+  stepStatus?: PlanStep['status']
+  planId?: string
+  step?: PlanStep
+}
+
+const PLAN_ACTIONS: PlanAction[] = [
+  'create',
+  'update',
+  'update_status',
+  'get_by_id',
+  'get_current_chat',
+  'delete',
+  'step_upsert'
+]
+
+function hasRequiredString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0
+}
+
+export async function processPlan(args: PlanArgs = {}): Promise<PlanResponse> {
+  const action = typeof args?.action === 'string' ? args.action.trim() : ''
+
+  if (!action) {
+    return { success: false, message: 'Missing required parameter: action' }
+  }
+
+  switch (action) {
+    case 'create':
+      if (!hasRequiredString(args.goal)) {
+        return { success: false, message: 'goal is required' }
+      }
+      if (!Array.isArray(args.steps)) {
+        return { success: false, message: 'steps is required' }
+      }
+      return processPlanCreate({
+        chat_uuid: args.chat_uuid,
+        goal: args.goal,
+        context: args.context,
+        constraints: args.constraints,
+        steps: args.steps
+      })
+    case 'update':
+      if (!args.plan || !hasRequiredString(args.plan.id)) {
+        return { success: false, message: 'plan.id is required' }
+      }
+      return processPlanUpdate({ plan: args.plan })
+    case 'update_status':
+      if (!hasRequiredString(args.id)) {
+        return { success: false, message: 'id is required' }
+      }
+      if (!hasRequiredString(args.status)) {
+        return { success: false, message: 'status is required' }
+      }
+      return processPlanUpdateStatus({
+        id: args.id,
+        status: args.status as PlanStatus,
+        currentStepId: args.currentStepId,
+        failureReason: args.failureReason,
+        stepId: args.stepId,
+        stepStatus: args.stepStatus
+      })
+    case 'get_by_id':
+      if (!hasRequiredString(args.id)) {
+        return { success: false, message: 'id is required' }
+      }
+      return processPlanGetById({ id: args.id })
+    case 'get_current_chat':
+      return processPlanGetCurrentChat({ chat_uuid: args.chat_uuid })
+    case 'delete':
+      if (!hasRequiredString(args.id)) {
+        return { success: false, message: 'id is required' }
+      }
+      return processPlanDelete({ id: args.id })
+    case 'step_upsert':
+      if (!hasRequiredString(args.planId)) {
+        return { success: false, message: 'planId is required' }
+      }
+      if (!args.step || typeof args.step !== 'object' || Array.isArray(args.step)) {
+        return { success: false, message: 'step is required' }
+      }
+      return processPlanStepUpsert({ planId: args.planId, step: args.step })
+    default:
+      return {
+        success: false,
+        message: `Invalid action: ${action}. Expected one of: ${PLAN_ACTIONS.join(', ')}`
+      }
+  }
+}
+
 const mergePlanUpdate = (existing: Plan, update: PlanUpdateArgs['plan'], updatedAt: number): Plan => ({
   id: existing.id,
   chatUuid: update.chatUuid ?? existing.chatUuid,
@@ -54,10 +157,13 @@ const mergePlanUpdate = (existing: Plan, update: PlanUpdateArgs['plan'], updated
   updatedAt
 })
 
-export async function processPlanCreate(args: PlanCreateArgs) {
+async function processPlanCreate(args: PlanCreateArgs) {
   try {
+    if (!hasRequiredString(args.goal)) {
+      return { success: false, message: 'goal is required' }
+    }
     if (!Array.isArray(args.steps)) {
-      return { success: false, message: 'steps must be an array', reason: 'invalid_steps' }
+      return { success: false, message: 'steps is required', reason: 'invalid_steps' }
     }
     const now = Date.now()
     const planId = uuidv4()
@@ -94,7 +200,7 @@ export async function processPlanCreate(args: PlanCreateArgs) {
   }
 }
 
-export async function processPlanUpdate(args: PlanUpdateArgs) {
+async function processPlanUpdate(args: PlanUpdateArgs) {
   try {
     if (!args.plan?.id) {
       return { success: false, message: 'plan.id is required' }
@@ -115,8 +221,14 @@ export async function processPlanUpdate(args: PlanUpdateArgs) {
   }
 }
 
-export async function processPlanUpdateStatus(args: PlanUpdateStatusArgs) {
+async function processPlanUpdateStatus(args: PlanUpdateStatusArgs) {
   try {
+    if (!hasRequiredString(args.id)) {
+      return { success: false, message: 'id is required' }
+    }
+    if (!hasRequiredString(args.status)) {
+      return { success: false, message: 'status is required' }
+    }
     const allowedStatuses: PlanStatus[] = ['pending', 'pending_review', 'running', 'paused', 'completed', 'failed', 'cancelled']
     if (!allowedStatuses.includes(args.status)) {
       return { success: false, message: `Invalid plan status: ${args.status}` }
@@ -160,8 +272,11 @@ export async function processPlanUpdateStatus(args: PlanUpdateStatusArgs) {
   }
 }
 
-export async function processPlanGetById(args: PlanGetByIdArgs) {
+async function processPlanGetById(args: PlanGetByIdArgs) {
   try {
+    if (!hasRequiredString(args.id)) {
+      return { success: false, message: 'id is required' }
+    }
     const plan = planningDb.getTaskPlanById(args.id)
     return { success: true, plan }
   } catch (error) {
@@ -171,7 +286,7 @@ export async function processPlanGetById(args: PlanGetByIdArgs) {
   }
 }
 
-export async function processPlanGetCurrentChat(args: PlanGetCurrentChatArgs = {}) {
+async function processPlanGetCurrentChat(args: PlanGetCurrentChatArgs = {}) {
   try {
     const chatUuid = args.chat_uuid
     if (!chatUuid) {
@@ -186,8 +301,11 @@ export async function processPlanGetCurrentChat(args: PlanGetCurrentChatArgs = {
   }
 }
 
-export async function processPlanDelete(args: PlanDeleteArgs) {
+async function processPlanDelete(args: PlanDeleteArgs) {
   try {
+    if (!hasRequiredString(args.id)) {
+      return { success: false, message: 'id is required' }
+    }
     planningDb.deleteTaskPlan(args.id)
     return { success: true }
   } catch (error) {
@@ -197,8 +315,14 @@ export async function processPlanDelete(args: PlanDeleteArgs) {
   }
 }
 
-export async function processPlanStepUpsert(args: PlanStepUpsertArgs) {
+async function processPlanStepUpsert(args: PlanStepUpsertArgs) {
   try {
+    if (!hasRequiredString(args.planId)) {
+      return { success: false, message: 'planId is required' }
+    }
+    if (!args.step || typeof args.step !== 'object' || Array.isArray(args.step)) {
+      return { success: false, message: 'step is required' }
+    }
     planningDb.upsertTaskPlanStep(args.planId, args.step)
     const plan = planningDb.getTaskPlanById(args.planId)
     return { success: true, plan }

@@ -950,6 +950,9 @@ describe('ChatPreparationPipeline', () => {
       && message.content.includes('## Schedule Execution Context')
     ))
     expect(userInstructionMessageIndex).toBeGreaterThan(-1)
+    expect(prepared.runSpec.initialTranscriptSeed[userInstructionMessageIndex]?.content).toContain(
+      'Reuse the existing scheduled task. Call schedule with action=create only when the user explicitly asks to create a new or recurring schedule.'
+    )
     expect(prepared.runSpec.initialTranscriptSeed).toEqual(expect.arrayContaining([
       expect.objectContaining({
         kind: 'user',

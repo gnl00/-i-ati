@@ -155,8 +155,8 @@
 
 当前仍未开放：
 
-- `plan_create`
-- `schedule_*`
+- `plan`
+- `schedule`
 - 插件安装/卸载类工具
 
 ## 确认链
@@ -169,7 +169,7 @@
 
 已经实现的策略：
 
-- `plan_create`
+- `plan` with `action=create`
   - relaxed 下自动通过
 - `exec`
   - `safe` 自动通过

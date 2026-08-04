@@ -22,9 +22,8 @@ const {
 vi.mock('@tools/registry', () => ({
   embeddedToolsRegistry: {
     isRegistered: vi.fn((name: string) => (
-      name === 'schedule_create'
-      || name === 'plan_get_current_chat'
-      || name === 'plan_create'
+      name === 'schedule'
+      || name === 'plan'
       || name === 'activity_journal_append'
       || name === 'subagent_spawn'
       || name === 'exec'
@@ -131,8 +130,9 @@ describe('ToolExecutor runtime context', () => {
 
     await executor.execute([{
       id: 'call-1',
-      function: 'schedule_create',
+      function: 'schedule',
       args: JSON.stringify({
+        action: 'create',
         chat_uuid: 'chat-from-llm',
         goal: 'goal',
         run_at: '2026-02-06T18:00:00+08:00'
@@ -152,8 +152,9 @@ describe('ToolExecutor runtime context', () => {
 
     await executor.execute([{
       id: 'call-2',
-      function: 'plan_get_current_chat',
+      function: 'plan',
       args: JSON.stringify({
+        action: 'get_current_chat',
         chat_uuid: 'chat-from-llm'
       })
     } as any])
@@ -232,8 +233,8 @@ describe('ToolExecutor runtime context', () => {
 
     await executor.execute([{
       id: 'call-3',
-      function: 'plan_get_current_chat',
-      args: ''
+      function: 'plan',
+      args: JSON.stringify({ action: 'get_current_chat' })
     } as any])
 
     expect(handlerMock).toHaveBeenCalledTimes(1)
@@ -411,7 +412,7 @@ describe('ToolExecutor runtime context', () => {
   it('rejects tools that are not allowed in the current runtime', async () => {
     handlerMock.mockClear()
     const executor = new ToolExecutor({
-      allowedTools: ['plan_get_current_chat']
+      allowedTools: ['plan']
     })
 
     const [result] = await executor.execute([{
@@ -427,7 +428,7 @@ describe('ToolExecutor runtime context', () => {
     expect(handlerMock).not.toHaveBeenCalled()
   })
 
-  it('requires confirmation for plan_create under strict approval policy', async () => {
+  it('requires confirmation for plan action=create under strict approval policy', async () => {
     handlerMock.mockClear()
     const requestConfirmation = vi.fn(async () => ({ approved: true }))
     const executor = new ToolExecutor({
@@ -436,8 +437,9 @@ describe('ToolExecutor runtime context', () => {
 
     await executor.execute([{
       id: 'call-7',
-      function: 'plan_create',
+      function: 'plan',
       args: JSON.stringify({
+        action: 'create',
         goal: 'Ship feature',
         steps: []
       })
@@ -447,7 +449,24 @@ describe('ToolExecutor runtime context', () => {
     expect(handlerMock).toHaveBeenCalledTimes(1)
   })
 
-  it('auto-approves plan_create under relaxed approval policy', async () => {
+  it('keeps non-create plan actions on the ordinary execution path', async () => {
+    handlerMock.mockClear()
+    const requestConfirmation = vi.fn(async () => ({ approved: true }))
+    const executor = new ToolExecutor({
+      requestConfirmation
+    })
+
+    await executor.execute([{
+      id: 'call-7b',
+      function: 'plan',
+      args: JSON.stringify({ action: 'get_current_chat' })
+    } as any])
+
+    expect(requestConfirmation).not.toHaveBeenCalled()
+    expect(handlerMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('auto-approves plan action=create under relaxed approval policy', async () => {
     handlerMock.mockClear()
     const requestConfirmation = vi.fn(async () => ({ approved: true }))
     const executor = new ToolExecutor({
@@ -457,8 +476,9 @@ describe('ToolExecutor runtime context', () => {
 
     await executor.execute([{
       id: 'call-8',
-      function: 'plan_create',
+      function: 'plan',
       args: JSON.stringify({
+        action: 'create',
         goal: 'Ship feature',
         steps: []
       })
@@ -468,7 +488,7 @@ describe('ToolExecutor runtime context', () => {
     expect(handlerMock).toHaveBeenCalledTimes(1)
   })
 
-  it('auto-approves plan_create under session auto approval mode', async () => {
+  it('auto-approves plan action=create under session auto approval mode', async () => {
     handlerMock.mockClear()
     const requestConfirmation = vi.fn(async () => ({ approved: true }))
     const executor = new ToolExecutor({
@@ -478,8 +498,9 @@ describe('ToolExecutor runtime context', () => {
 
     await executor.execute([{
       id: 'call-8a',
-      function: 'plan_create',
+      function: 'plan',
       args: JSON.stringify({
+        action: 'create',
         goal: 'Ship feature',
         steps: []
       })
@@ -501,8 +522,9 @@ describe('ToolExecutor runtime context', () => {
 
     const [result] = await executor.execute([{
       id: 'call-8b',
-      function: 'plan_create',
+      function: 'plan',
       args: JSON.stringify({
+        action: 'create',
         goal: 'Ship feature',
         steps: []
       })

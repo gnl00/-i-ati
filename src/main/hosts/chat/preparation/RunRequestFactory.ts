@@ -31,7 +31,7 @@ const SCHEDULE_EXECUTION_INSTRUCTION = [
   '## Schedule Execution Context',
   'This input was triggered by an already-created scheduled task.',
   'Treat the incoming user message as the execution target of that task.',
-  'Do not call schedule_create again unless the user explicitly asks to create a new or recurring schedule.'
+  'Reuse the existing scheduled task. Call schedule with action=create only when the user explicitly asks to create a new or recurring schedule.'
 ].join('\n')
 
 export type RunRequestBuildResult = {

@@ -145,8 +145,8 @@ describe('MessageCompressionService', () => {
           id: 'call-1',
           type: 'function',
           function: {
-            name: 'plan_get_current_chat',
-            arguments: '{}'
+            name: 'plan',
+            arguments: '{"action":"get_current_chat"}'
           }
         }]
       }),
@@ -365,11 +365,12 @@ describe('MessageCompressionService', () => {
         message(1, 'user', '使用 plan 制定分步计划'),
         message(2, 'assistant', '计划已建好，7 步。要开始执行吗？', undefined, {
           toolCalls: [{
-            id: 'call-plan-create',
+            id: 'call-plan',
             type: 'function',
             function: {
-              name: 'plan_create',
+              name: 'plan',
               arguments: JSON.stringify({
+                action: 'create',
                 goal: '完成新品去重代码落地',
                 status: 'pending',
                 steps: [{
@@ -393,7 +394,7 @@ describe('MessageCompressionService', () => {
             }]
           }
         }), undefined, {
-          toolCallId: 'call-plan-create'
+          toolCallId: 'call-plan'
         })
       ],
       model,
@@ -439,7 +440,7 @@ describe('MessageCompressionService', () => {
 
     expect(prompt).toContain('<user id="1">')
     expect(prompt).toContain('<assistant id="2">')
-    expect(prompt).toContain('<tool name="plan_create" call_id="call-plan-create">')
+    expect(prompt).toContain('<tool name="plan" call_id="call-plan">')
     expect(prompt).toContain('<param>')
     expect(prompt).toContain('<result message_id="3">')
     expect(prompt).toContain('"status": "pending"')

@@ -35,21 +35,8 @@ import {
   processRunSkillScript,
   processUnloadSkill
 } from '@main/tools/skills/SkillToolsProcessor'
-import {
-  processPlanCreate,
-  processPlanDelete,
-  processPlanGetCurrentChat,
-  processPlanGetById,
-  processPlanStepUpsert,
-  processPlanUpdate,
-  processPlanUpdateStatus
-} from '@main/tools/taskPlanner/TaskPlannerProcessor'
-import {
-  processScheduleCancel,
-  processScheduleCreate,
-  processScheduleList,
-  processScheduleUpdate
-} from '@main/tools/schedule/ScheduleToolsProcessor'
+import { processPlan } from '@main/tools/taskPlanner/TaskPlannerProcessor'
+import { processSchedule } from '@main/tools/schedule/ScheduleToolsProcessor'
 import {
   processEditSoul,
   processGetSoul,
@@ -154,17 +141,8 @@ export const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   unload_skill: processUnloadSkill,
   read_skill_file: processReadSkillFile,
   run_skill_script: processRunSkillScript,
-  plan_create: processPlanCreate,
-  plan_update: processPlanUpdate,
-  plan_update_status: processPlanUpdateStatus,
-  plan_get_by_id: processPlanGetById,
-  plan_get_current_chat: processPlanGetCurrentChat,
-  plan_delete: processPlanDelete,
-  plan_step_upsert: processPlanStepUpsert,
-  schedule_create: processScheduleCreate,
-  schedule_list: processScheduleList,
-  schedule_cancel: processScheduleCancel,
-  schedule_update: processScheduleUpdate,
+  plan: processPlan,
+  schedule: processSchedule,
   get_soul: processGetSoul,
   edit_soul: processEditSoul,
   reset_soul: processResetSoul,

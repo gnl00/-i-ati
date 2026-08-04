@@ -1,238 +1,141 @@
 import type { ToolDefinition } from '@shared/tools/registry'
 
+const planStatusSchema = {
+  type: 'string',
+  enum: ['pending', 'pending_review', 'running', 'paused', 'completed', 'failed', 'cancelled']
+}
+
+const planStepStatusSchema = {
+  type: 'string',
+  enum: ['todo', 'doing', 'done', 'failed', 'skipped']
+}
+
+const constraintsSchema = {
+  type: 'object',
+  properties: {
+    maxSteps: {
+      type: 'number',
+      description: 'Maximum number of steps.'
+    },
+    timeout: {
+      type: 'string',
+      description: "Timeout duration, e.g. '1 hour'."
+    },
+    parallelize: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Step IDs that can run in parallel.'
+    }
+  }
+}
+
+const planStepSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    title: { type: 'string' },
+    status: planStepStatusSchema,
+    dependsOn: {
+      type: 'array',
+      items: { type: 'string' }
+    },
+    tool: { type: 'string' },
+    input: { type: 'object' },
+    output: {},
+    error: { type: 'string' },
+    notes: { type: 'string' }
+  },
+  required: ['id', 'title', 'status']
+}
+
+const planSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string' },
+    chatUuid: { type: 'string' },
+    goal: { type: 'string' },
+    context: { type: 'object' },
+    constraints: constraintsSchema,
+    status: planStatusSchema,
+    currentStepId: { type: 'string' },
+    failureReason: { type: 'string' },
+    steps: {
+      type: 'array',
+      items: planStepSchema
+    }
+  },
+  required: ['id']
+}
+
 export const planTools = [
   {
     type: 'function',
     function: {
-      name: 'plan_create',
-      description: 'Create a task plan with steps for a goal. Returns the created plan.',
+      name: 'plan',
+      description: 'Manage task plans. Set action to create, update, update_status, get_by_id, get_current_chat, delete, or step_upsert; the processor validates action-specific fields.',
       parameters: {
         type: 'object',
         properties: {
+          action: {
+            type: 'string',
+            enum: ['create', 'update', 'update_status', 'get_by_id', 'get_current_chat', 'delete', 'step_upsert'],
+            description: 'Operation to perform: create makes a plan, update changes a plan, update_status changes plan or step status, get_by_id retrieves one plan, get_current_chat retrieves plans for this chat, delete removes a plan, and step_upsert creates or updates one step.'
+          },
           goal: {
             type: 'string',
-            description: 'The goal to accomplish.'
+            description: 'Goal for action=create. Required when creating a plan.'
           },
           context: {
             type: 'object',
-            description: 'Relevant context information.'
+            description: 'Relevant context for action=create.'
           },
           constraints: {
-            type: 'object',
-            description: 'Plan constraints.',
-            properties: {
-              maxSteps: {
-                type: 'number',
-                description: 'Maximum number of steps.'
-              },
-              timeout: {
-                type: 'string',
-                description: "Timeout duration, e.g. '1 hour'."
-              },
-              parallelize: {
-                type: 'array',
-                items: { type: 'string' },
-                description: 'Step IDs that can run in parallel.'
-              }
-            }
+            ...constraintsSchema,
+            description: 'Plan constraints for action=create.'
           },
           steps: {
             type: 'array',
-            description: 'Steps for the plan.',
-            items: {
-              type: 'object',
-              properties: {
-                id: { type: 'string' },
-                title: { type: 'string' },
-                status: {
-                  type: 'string',
-                  enum: ['todo', 'doing', 'done', 'failed', 'skipped']
-                },
-                dependsOn: {
-                  type: 'array',
-                  items: { type: 'string' }
-                },
-                tool: { type: 'string' },
-                input: { type: 'object' },
-                output: {},
-                error: { type: 'string' },
-                notes: { type: 'string' }
-              },
-              required: ['id', 'title', 'status']
-            }
-          }
-        },
-        required: ['goal', 'steps'],
-        $schema: 'http://json-schema.org/draft-07/schema#'
-      }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'plan_update',
-      description: 'Update an existing task plan. Returns success.',
-      parameters: {
-        type: 'object',
-        properties: {
-          plan: {
-            type: 'object',
-            properties: {
-              id: { type: 'string' },
-              chatUuid: { type: 'string' },
-              goal: { type: 'string' },
-              context: { type: 'object' },
-              constraints: {
-                type: 'object',
-                properties: {
-                  maxSteps: { type: 'number' },
-                  timeout: { type: 'string' },
-                  parallelize: {
-                    type: 'array',
-                    items: { type: 'string' }
-                  }
-                }
-              },
-              status: {
-                type: 'string',
-                enum: ['pending', 'pending_review', 'running', 'paused', 'completed', 'failed', 'cancelled']
-              },
-              currentStepId: { type: 'string' },
-              failureReason: { type: 'string' },
-              steps: {
-                type: 'array',
-                items: {
-                  type: 'object',
-                  properties: {
-                    id: { type: 'string' },
-                    title: { type: 'string' },
-                    status: {
-                      type: 'string',
-                      enum: ['todo', 'doing', 'done', 'failed', 'skipped']
-                    },
-                    dependsOn: {
-                      type: 'array',
-                      items: { type: 'string' }
-                    },
-                    tool: { type: 'string' },
-                    input: { type: 'object' },
-                    output: {},
-                    error: { type: 'string' },
-                    notes: { type: 'string' }
-                  },
-                  required: ['id', 'title', 'status']
-                }
-              }
-            },
-            required: ['id']
-          }
-        },
-        required: ['plan'],
-        $schema: 'http://json-schema.org/draft-07/schema#'
-      }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'plan_update_status',
-      description: 'Update plan status and optionally update a step status in the same call.',
-      parameters: {
-        type: 'object',
-        properties: {
-          id: { type: 'string' },
-          status: {
-            type: 'string',
-            enum: ['pending', 'pending_review', 'running', 'paused', 'completed', 'failed', 'cancelled']
+            items: planStepSchema,
+            description: 'Plan steps for action=create. Required when creating a plan.'
           },
-          currentStepId: { type: 'string' },
-          failureReason: { type: 'string' },
-          stepId: { type: 'string' },
-          stepStatus: {
+          plan: {
+            ...planSchema,
+            description: 'Partial plan update for action=update. plan.id is required.'
+          },
+          id: {
             type: 'string',
-            enum: ['todo', 'doing', 'done', 'failed', 'skipped']
-          }
-        },
-        required: ['id', 'status'],
-        $schema: 'http://json-schema.org/draft-07/schema#'
-      }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'plan_get_by_id',
-      description: 'Get a plan by id.',
-      parameters: {
-        type: 'object',
-        properties: {
-          id: { type: 'string' }
-        },
-        required: ['id'],
-        $schema: 'http://json-schema.org/draft-07/schema#'
-      }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'plan_get_current_chat',
-      description: 'Get plans for the current chat context.',
-      parameters: {
-        type: 'object',
-        properties: {},
-        required: [],
-        $schema: 'http://json-schema.org/draft-07/schema#'
-      }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'plan_delete',
-      description: 'Delete a plan by id.',
-      parameters: {
-        type: 'object',
-        properties: {
-          id: { type: 'string' }
-        },
-        required: ['id'],
-        $schema: 'http://json-schema.org/draft-07/schema#'
-      }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'plan_step_upsert',
-      description: 'Create or update a step inside an existing plan.',
-      parameters: {
-        type: 'object',
-        properties: {
-          planId: { type: 'string' },
+            description: 'Plan id for action=update_status, action=get_by_id, and action=delete.'
+          },
+          status: {
+            ...planStatusSchema,
+            description: 'New plan status for action=update_status. Required with id.'
+          },
+          currentStepId: {
+            type: 'string',
+            description: 'Optional current step id for action=update_status.'
+          },
+          failureReason: {
+            type: 'string',
+            description: 'Optional failure reason for action=update_status.'
+          },
+          stepId: {
+            type: 'string',
+            description: 'Optional step id for action=update_status when changing a step.'
+          },
+          stepStatus: {
+            ...planStepStatusSchema,
+            description: 'Optional step status for action=update_status. stepId is required when stepStatus is provided.'
+          },
+          planId: {
+            type: 'string',
+            description: 'Plan id for action=step_upsert. Required when upserting a step.'
+          },
           step: {
-            type: 'object',
-            properties: {
-              id: { type: 'string' },
-              title: { type: 'string' },
-              status: {
-                type: 'string',
-                enum: ['todo', 'doing', 'done', 'failed', 'skipped']
-              },
-              dependsOn: {
-                type: 'array',
-                items: { type: 'string' }
-              },
-              tool: { type: 'string' },
-              input: { type: 'object' },
-              output: {},
-              error: { type: 'string' },
-              notes: { type: 'string' }
-            },
-            required: ['id', 'title', 'status']
+            ...planStepSchema,
+            description: 'Step payload for action=step_upsert. Required when upserting a step.'
           }
         },
-        required: ['planId', 'step'],
+        required: ['action'],
         $schema: 'http://json-schema.org/draft-07/schema#'
       }
     }

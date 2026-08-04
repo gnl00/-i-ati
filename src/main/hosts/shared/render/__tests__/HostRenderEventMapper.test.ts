@@ -54,8 +54,8 @@ describe('HostRenderEventMapper', () => {
           index: 0,
           type: 'function',
           function: {
-            name: 'plan_create',
-            arguments: '{"goal":"refactor host"}'
+            name: 'plan',
+            arguments: '{"action":"create","goal":"refactor host"}'
           }
         }
       },
@@ -74,8 +74,8 @@ describe('HostRenderEventMapper', () => {
         type: 'host.tool.detected',
         timestamp: 2,
         toolCallId: 'tool-1',
-        toolName: 'plan_create',
-        toolArgs: '{"goal":"refactor host"}'
+        toolName: 'plan',
+        toolArgs: '{"action":"create","goal":"refactor host"}'
       }),
       expect.objectContaining({
         type: 'host.preview.updated',

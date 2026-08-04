@@ -1,5 +1,7 @@
 export type ScheduleType = 'once' | 'cron'
 
+export type ScheduleAction = 'create' | 'list' | 'cancel' | 'update'
+
 export type ScheduleTaskStatus =
   | 'pending'
   | 'running'
@@ -80,3 +82,9 @@ export interface ScheduleStatusUpdateResponse {
   task?: ScheduleTask
   message?: string
 }
+
+export type ScheduleResponse =
+  | ScheduleCreateResponse
+  | ScheduleListResponse
+  | ScheduleCancelResponse
+  | ScheduleUpdateResponse

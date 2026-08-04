@@ -24,11 +24,12 @@ describe('CompressionTranscriptBuilder', () => {
       message(1, 'user', '使用 plan 制定分步计划'),
       message(2, 'assistant', '计划已建好，7 步。要开始执行吗？', {
         toolCalls: [{
-          id: 'call-plan-create',
+          id: 'call-plan',
           type: 'function',
           function: {
-            name: 'plan_create',
+            name: 'plan',
             arguments: JSON.stringify({
+              action: 'create',
               goal: '完成新品去重代码落地',
               status: 'pending',
               steps: [{ id: '1', title: '创建实体', status: 'todo' }]
@@ -44,14 +45,14 @@ describe('CompressionTranscriptBuilder', () => {
           steps: [{ id: '1', title: '创建实体', status: 'todo' }]
         }
       }), {
-        toolCallId: 'call-plan-create'
+        toolCallId: 'call-plan'
       })
     ])
 
     expect(transcript).toContain('<user id="1">')
     expect(transcript).toContain('使用 plan 制定分步计划')
     expect(transcript).toContain('<assistant id="2">')
-    expect(transcript).toContain('<tool name="plan_create" call_id="call-plan-create">')
+    expect(transcript).toContain('<tool name="plan" call_id="call-plan">')
     expect(transcript).toContain('<param>')
     expect(transcript).toContain('"status": "todo"')
     expect(transcript).toContain('<result message_id="3">')

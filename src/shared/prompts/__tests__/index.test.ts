@@ -154,10 +154,10 @@ describe('shared prompts systemPrompt', () => {
 
   it('adds strict stateful tool fact preservation rules to compression prompt', () => {
     const prompt = buildCompressionPrompt({
-      conversationText: '<tool name="plan_create"><result>{"status":"pending"}</result></tool>'
+      conversationText: '<tool name="plan"><result>{"status":"pending"}</result></tool>'
     })
 
-    expect(prompt).toContain('Stateful tools include plan_*, todo, schedule_*, work_context_*')
+    expect(prompt).toContain('Stateful tools include plan, todo, schedule, work_context_*')
     expect(prompt).toContain('Stateful tool results are source-of-truth records')
     expect(prompt).toContain('currentStepId')
     expect(prompt).toContain('failureReason')

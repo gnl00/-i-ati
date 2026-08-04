@@ -7,9 +7,11 @@ import { ScheduleEventEmitter } from '@main/services/scheduler/event-emitter'
 import { SCHEDULE_EVENTS } from '@shared/schedule/events'
 import type { ScheduledTaskRow, ScheduledTaskRunRow } from '@main/db/dao/ScheduledTaskDao'
 import type {
+  ScheduleAction,
   ScheduleCancelResponse,
   ScheduleCreateResponse,
   ScheduleListResponse,
+  ScheduleResponse,
   ScheduleUpdateResponse
 } from '@shared/tools/schedule'
 
@@ -30,6 +32,79 @@ type CreateArgs = {
 type UpdateArgs = {
   chat_uuid?: string; id: string; goal?: string; run_at?: string; cron_expression?: string
   timezone?: string; payload?: Record<string, unknown>; max_attempts?: number
+}
+
+type ScheduleArgs = {
+  action?: ScheduleAction | string
+  chat_uuid?: string
+  id?: string
+  goal?: string
+  run_at?: string
+  cron_expression?: string
+  timezone?: string
+  plan_id?: string
+  payload?: Record<string, unknown>
+  max_attempts?: number
+}
+
+const SCHEDULE_ACTIONS: ScheduleAction[] = ['create', 'list', 'cancel', 'update']
+
+function hasRequiredString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0
+}
+
+function validationFailure(message: string): ScheduleResponse {
+  return { success: false, message, currentDateTime: formatLocalISOString() }
+}
+
+export async function processSchedule(args: ScheduleArgs = {}): Promise<ScheduleResponse> {
+  const action = typeof args?.action === 'string' ? args.action.trim() : ''
+
+  if (!action) {
+    return validationFailure('Missing required parameter: action')
+  }
+
+  switch (action) {
+    case 'create':
+      if (!hasRequiredString(args.goal)) {
+        return validationFailure('goal is required')
+      }
+      return processScheduleCreate({
+        chat_uuid: args.chat_uuid,
+        goal: args.goal,
+        run_at: args.run_at,
+        cron_expression: args.cron_expression,
+        timezone: args.timezone,
+        plan_id: args.plan_id,
+        payload: args.payload,
+        max_attempts: args.max_attempts
+      })
+    case 'list':
+      return processScheduleList({ chat_uuid: args.chat_uuid })
+    case 'cancel':
+      if (!hasRequiredString(args.id)) {
+        return validationFailure('id is required')
+      }
+      return processScheduleCancel({ chat_uuid: args.chat_uuid, id: args.id })
+    case 'update':
+      if (!hasRequiredString(args.id)) {
+        return validationFailure('id is required')
+      }
+      return processScheduleUpdate({
+        chat_uuid: args.chat_uuid,
+        id: args.id,
+        goal: args.goal,
+        run_at: args.run_at,
+        cron_expression: args.cron_expression,
+        timezone: args.timezone,
+        payload: args.payload,
+        max_attempts: args.max_attempts
+      })
+    default:
+      return validationFailure(
+        `Invalid action: ${action}. Expected one of: ${SCHEDULE_ACTIONS.join(', ')}`
+      )
+  }
 }
 
 function parseRunAt(runAt: string): number {
@@ -64,10 +139,11 @@ function emitUpdated(taskId: string): void {
   new ScheduleEventEmitter({ chatId: chat?.id, chatUuid: task.chat_uuid }).emit(SCHEDULE_EVENTS.UPDATED, { task })
 }
 
-export async function processScheduleCreate(args: CreateArgs): Promise<ScheduleCreateResponse> {
+async function processScheduleCreate(args: CreateArgs): Promise<ScheduleCreateResponse> {
   const currentDateTime = formatLocalISOString()
   try {
     if (!args.chat_uuid) return { success: false, message: 'chat_uuid is required', currentDateTime }
+    if (!hasRequiredString(args.goal)) return { success: false, message: 'goal is required', currentDateTime }
     const hasRunAt = typeof args.run_at === 'string'
     const hasCron = typeof args.cron_expression === 'string'
     if (hasRunAt === hasCron) return { success: false, message: 'Provide exactly one of run_at or cron_expression', currentDateTime }
@@ -101,15 +177,16 @@ export async function processScheduleCreate(args: CreateArgs): Promise<ScheduleC
   }
 }
 
-export async function processScheduleList(args: { chat_uuid?: string }): Promise<ScheduleListResponse> {
+async function processScheduleList(args: { chat_uuid?: string }): Promise<ScheduleListResponse> {
   const currentDateTime = formatLocalISOString()
   if (!args.chat_uuid) return { success: false, message: 'chat_uuid is required', currentDateTime }
   return { success: true, tasks: planningDb.getScheduledTasksByChatUuid(args.chat_uuid), currentDateTime }
 }
 
-export async function processScheduleCancel(args: { chat_uuid?: string; id: string }): Promise<ScheduleCancelResponse> {
+async function processScheduleCancel(args: { chat_uuid?: string; id: string }): Promise<ScheduleCancelResponse> {
   const currentDateTime = formatLocalISOString()
   if (!args.chat_uuid) return { success: false, message: 'chat_uuid is required', currentDateTime }
+  if (!hasRequiredString(args.id)) return { success: false, message: 'id is required', currentDateTime }
   const task = planningDb.getScheduledTaskById(args.id)
   if (!task) return { success: false, message: `Scheduled task not found: ${args.id}`, currentDateTime }
   if (task.chat_uuid !== args.chat_uuid) return { success: false, message: 'Task does not belong to provided chat_uuid', currentDateTime }
@@ -118,10 +195,11 @@ export async function processScheduleCancel(args: { chat_uuid?: string; id: stri
   return { success: true, id: task.id, currentDateTime }
 }
 
-export async function processScheduleUpdate(args: UpdateArgs): Promise<ScheduleUpdateResponse> {
+async function processScheduleUpdate(args: UpdateArgs): Promise<ScheduleUpdateResponse> {
   const currentDateTime = formatLocalISOString()
   try {
     if (!args.chat_uuid) return { success: false, message: 'chat_uuid is required', currentDateTime }
+    if (!hasRequiredString(args.id)) return { success: false, message: 'id is required', currentDateTime }
     const existing = planningDb.getScheduledTaskById(args.id)
     if (!existing) return { success: false, message: `Scheduled task not found: ${args.id}`, currentDateTime }
     if (existing.chat_uuid !== args.chat_uuid) return { success: false, message: 'Task does not belong to provided chat_uuid', currentDateTime }
