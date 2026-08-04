@@ -8,12 +8,14 @@ export interface AssistantSupportSegmentContentProps {
   item: SupportSegmentRenderItem
   fullWidth?: boolean
   nestedDisclosure?: boolean
+  onTypingChange?: () => void
 }
 
 export const AssistantSupportSegmentContent = memo(({
   item,
   fullWidth = false,
-  nestedDisclosure = false
+  nestedDisclosure = false,
+  onTypingChange
 }: AssistantSupportSegmentContentProps) => {
   const { segment, key, isStreamingTail } = item
 
@@ -25,6 +27,7 @@ export const AssistantSupportSegmentContent = memo(({
         isStreaming={isStreamingTail}
         fullWidth={fullWidth}
         nestedDisclosure={nestedDisclosure}
+        onTypingChange={onTypingChange}
       />
     )
   }

@@ -5,6 +5,8 @@ import { useReducedMotion } from 'framer-motion'
 import { ChevronDown, Lightbulb } from 'lucide-react'
 import { SizeAnimatedPanel } from '@renderer/shared/components/ui/size-animated-panel'
 import { cn } from '@renderer/shared/lib/utils'
+import { StreamingMarkdownLite } from '@renderer/features/chat/message/typewriter/StreamingMarkdownLite'
+import { useReasoningTypewriter } from '@renderer/features/chat/message/typewriter/useReasoningTypewriter'
 import { fixMalformedCodeBlocks } from '../../markdown/markdown-components'
 import { remarkPreserveLineBreaks } from '../../markdown/markdown-plugins'
 import { SupportSegmentHeader } from '../renderers/SupportSegmentHeader'
@@ -14,15 +16,31 @@ interface ReasoningSegmentProps {
   isStreaming?: boolean
   fullWidth?: boolean
   nestedDisclosure?: boolean
+  onTypingChange?: () => void
 }
 
 interface ReasoningSegmentPanelProps {
-  fixedContent: string
+  content: string
+  streamingPresentation: boolean
 }
 
+const REASONING_PROSE_CLASS_NAME = cn(
+  'prose prose-sm max-w-none',
+  'prose-slate dark:prose-invert',
+  'text-[12.5px] leading-6 text-slate-500 dark:text-slate-300',
+  'prose-p:my-1.5 prose-p:leading-6',
+  'prose-code:rounded-sm prose-code:bg-slate-200/38 prose-code:px-1 prose-code:py-0.5 prose-code:text-[10px] prose-code:text-slate-700',
+  'dark:prose-code:bg-slate-800/52 dark:prose-code:text-slate-200',
+  'prose-hr:my-2 prose-hr:border-slate-200 dark:prose-hr:border-slate-700',
+  'prose-strong:font-semibold prose-strong:text-slate-700 dark:prose-strong:text-slate-100'
+)
+
 export const ReasoningSegmentPanel: React.FC<ReasoningSegmentPanelProps> = ({
-  fixedContent
+  content,
+  streamingPresentation
 }) => {
+  const fixedContent = React.useMemo(() => fixMalformedCodeBlocks(content), [content])
+
   return (
     <div
       data-testid="reasoning-think-content"
@@ -33,22 +51,21 @@ export const ReasoningSegmentPanel: React.FC<ReasoningSegmentPanelProps> = ({
         onWheel={(event) => event.stopPropagation()}
         onTouchMove={(event) => event.stopPropagation()}
       >
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm, remarkPreserveLineBreaks]}
-          skipHtml={false}
-          className={cn(
-            'prose prose-sm max-w-none',
-            'prose-slate dark:prose-invert',
-            'text-[12.5px] leading-6 text-slate-500 dark:text-slate-300',
-            'prose-p:my-1.5 prose-p:leading-6',
-            'prose-code:rounded-sm prose-code:bg-slate-200/38 prose-code:px-1 prose-code:py-0.5 prose-code:text-[10px] prose-code:text-slate-700',
-            'dark:prose-code:bg-slate-800/52 dark:prose-code:text-slate-200',
-            'prose-hr:my-2 prose-hr:border-slate-200 dark:prose-hr:border-slate-700',
-            'prose-strong:font-semibold prose-strong:text-slate-700 dark:prose-strong:text-slate-100'
-          )}
-        >
-          {fixedContent}
-        </ReactMarkdown>
+        {streamingPresentation ? (
+          <StreamingMarkdownLite
+            text={fixedContent}
+            className={REASONING_PROSE_CLASS_NAME}
+            animate={false}
+          />
+        ) : (
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm, remarkPreserveLineBreaks]}
+            skipHtml={false}
+            className={REASONING_PROSE_CLASS_NAME}
+          >
+            {fixedContent}
+          </ReactMarkdown>
+        )}
       </div>
     </div>
   )
@@ -95,14 +112,26 @@ const ReasoningSegmentComponent: React.FC<ReasoningSegmentProps> = ({
   segment,
   isStreaming = false,
   fullWidth = false,
-  nestedDisclosure = false
+  nestedDisclosure = false,
+  onTypingChange
 }) => {
-  const fixedContent = fixMalformedCodeBlocks(segment.content)
   const [isOpen, setIsOpen] = React.useState(isStreaming)
   const hasUserChoice = React.useRef(false)
   const shouldReduceMotion = useReducedMotion()
   const durationText = useReasoningDurationText(segment, isStreaming)
   const panelId = React.useId()
+  const shouldUseStreamingPresentation = isStreaming && !Boolean(shouldReduceMotion)
+  const { visibleContent } = useReasoningTypewriter({
+    segmentId: segment.segmentId,
+    content: segment.content,
+    enabled: isStreaming && isOpen && !Boolean(shouldReduceMotion),
+    isStreaming,
+    reducedMotion: Boolean(shouldReduceMotion),
+    onTypingChange
+  })
+  const panelContent = shouldUseStreamingPresentation && isOpen
+    ? visibleContent
+    : segment.content
 
   React.useEffect(() => {
     if (!hasUserChoice.current) setIsOpen(isStreaming)
@@ -176,7 +205,10 @@ const ReasoningSegmentComponent: React.FC<ReasoningSegmentProps> = ({
         data-testid="reasoning-inline-panel"
       >
         <div className="py-2">
-          <ReasoningSegmentPanel fixedContent={fixedContent} />
+          <ReasoningSegmentPanel
+            content={panelContent}
+            streamingPresentation={shouldUseStreamingPresentation}
+          />
         </div>
       </SizeAnimatedPanel>
     </div>

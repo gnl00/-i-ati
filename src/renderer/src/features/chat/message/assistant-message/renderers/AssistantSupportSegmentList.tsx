@@ -14,20 +14,24 @@ import { ToolCallGroup } from '../toolcall/ToolCallGroup'
 const AssistantSupportSegmentItem = memo(({
   item,
   fullWidth = false,
-  nestedDisclosure = false
+  nestedDisclosure = false,
+  onTypingChange
 }: {
   item: SupportSegmentRenderItem
   fullWidth?: boolean
   nestedDisclosure?: boolean
+  onTypingChange?: () => void
 }) => (
   <AssistantSupportSegmentContent
     item={item}
     fullWidth={fullWidth}
     nestedDisclosure={nestedDisclosure}
+    onTypingChange={onTypingChange}
   />
 ), (prevProps, nextProps) => (
   prevProps.fullWidth === nextProps.fullWidth
   && prevProps.nestedDisclosure === nextProps.nestedDisclosure
+  && prevProps.onTypingChange === nextProps.onTypingChange
   && areSupportSegmentRenderItemsEqual(prevProps.item, nextProps.item)
 ))
 AssistantSupportSegmentItem.displayName = 'AssistantSupportSegmentItem'
@@ -63,11 +67,13 @@ const areSupportRenderUnitsEqual = (
 const AssistantSupportLeafUnit = memo(({
   unit,
   fullWidth = false,
-  nestedDisclosure = false
+  nestedDisclosure = false,
+  onTypingChange
 }: {
   unit: SupportLeafRenderUnit
   fullWidth?: boolean
   nestedDisclosure?: boolean
+  onTypingChange?: () => void
 }) => {
   if (unit.type === 'toolGroup') {
     return (
@@ -84,19 +90,23 @@ const AssistantSupportLeafUnit = memo(({
       item={unit.item}
       fullWidth={fullWidth}
       nestedDisclosure={nestedDisclosure}
+      onTypingChange={onTypingChange}
     />
   )
 }, (prevProps, nextProps) => (
   prevProps.fullWidth === nextProps.fullWidth
   && prevProps.nestedDisclosure === nextProps.nestedDisclosure
+  && prevProps.onTypingChange === nextProps.onTypingChange
   && areSupportRenderUnitsEqual([prevProps.unit], [nextProps.unit])
 ))
 AssistantSupportLeafUnit.displayName = 'AssistantSupportLeafUnit'
 
 const AssistantSupportRenderUnit = memo(({
-  unit
+  unit,
+  onTypingChange
 }: {
   unit: SupportRenderUnit
+  onTypingChange?: () => void
 }) => {
   if (unit.type === 'completedWork') {
     return (
@@ -107,25 +117,34 @@ const AssistantSupportRenderUnit = memo(({
             unit={childUnit}
             fullWidth
             nestedDisclosure
+            onTypingChange={onTypingChange}
           />
         ))}
       </AssistantCompletedWorkGroup>
     )
   }
 
-  return <AssistantSupportLeafUnit unit={unit} />
-}, (prevProps, nextProps) => areSupportRenderUnitsEqual([prevProps.unit], [nextProps.unit]))
+  return <AssistantSupportLeafUnit unit={unit} onTypingChange={onTypingChange} />
+}, (prevProps, nextProps) => (
+  prevProps.onTypingChange === nextProps.onTypingChange
+  && areSupportRenderUnitsEqual([prevProps.unit], [nextProps.unit])
+))
 AssistantSupportRenderUnit.displayName = 'AssistantSupportRenderUnit'
 
 export const AssistantSupportSegmentList = memo(({
-  units
+  units,
+  onTypingChange
 }: {
   units: SupportRenderUnit[]
+  onTypingChange?: () => void
 }) => {
   return units.map((unit) => (
     <div key={unit.key} style={{ order: unit.order }}>
-      <AssistantSupportRenderUnit unit={unit} />
+      <AssistantSupportRenderUnit unit={unit} onTypingChange={onTypingChange} />
     </div>
   ))
-}, (prevProps, nextProps) => areSupportRenderUnitsEqual(prevProps.units, nextProps.units))
+}, (prevProps, nextProps) => (
+  prevProps.onTypingChange === nextProps.onTypingChange
+  && areSupportRenderUnitsEqual(prevProps.units, nextProps.units)
+))
 AssistantSupportSegmentList.displayName = 'AssistantSupportSegmentList'

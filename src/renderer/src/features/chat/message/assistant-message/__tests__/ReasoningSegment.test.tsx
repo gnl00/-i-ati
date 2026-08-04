@@ -5,6 +5,38 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ReasoningSegment } from '../segments/ReasoningSegment'
 
+const motionTestState = vi.hoisted(() => ({ reducedMotion: false }))
+
+vi.mock('framer-motion', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('framer-motion')>()
+  return {
+    ...actual,
+    useReducedMotion: () => motionTestState.reducedMotion
+  }
+})
+
+vi.mock('@renderer/features/chat/message/typewriter/StreamingMarkdownLite', () => ({
+  StreamingMarkdownLite: ({
+    text,
+    className,
+    animate
+  }: {
+    text: string
+    className?: string
+    animate?: boolean
+  }) => (
+    <div
+      data-testid="reasoning-streaming-markdown"
+      data-mode="lite"
+      data-animate={String(animate)}
+      className={className}
+    >
+      {animate ? <span data-testid="fluid-typewriter-tail" /> : null}
+      {text}
+    </div>
+  )
+}))
+
 const BASE_TIME = new Date('2026-06-26T00:00:00.000Z')
 const createSegment = (overrides: Partial<ReasoningSegment> = {}): ReasoningSegment => ({
   type: 'reasoning',
@@ -17,6 +49,18 @@ const createSegment = (overrides: Partial<ReasoningSegment> = {}): ReasoningSegm
 describe('ReasoningSegment', () => {
   let container: HTMLDivElement
   let root: Root
+  let animationFrames: Map<number, FrameRequestCallback>
+  let nextAnimationFrameId: number
+
+  const runNextFrame = async (timestamp: number): Promise<void> => {
+    const nextFrame = animationFrames.entries().next().value as [number, FrameRequestCallback] | undefined
+    expect(nextFrame).toBeDefined()
+    const [id, callback] = nextFrame as [number, FrameRequestCallback]
+    animationFrames.delete(id)
+    await act(async () => {
+      callback(timestamp)
+    })
+  }
 
   beforeEach(() => {
     vi.useFakeTimers()
@@ -25,11 +69,23 @@ describe('ReasoningSegment', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
+    animationFrames = new Map()
+    nextAnimationFrameId = 0
+    motionTestState.reducedMotion = false
+    vi.stubGlobal('requestAnimationFrame', vi.fn((callback: FrameRequestCallback) => {
+      const id = ++nextAnimationFrameId
+      animationFrames.set(id, callback)
+      return id
+    }))
+    vi.stubGlobal('cancelAnimationFrame', vi.fn((id: number) => {
+      animationFrames.delete(id)
+    }))
   })
 
   afterEach(async () => {
     await act(async () => root.unmount())
     container.remove()
+    vi.unstubAllGlobals()
     vi.useRealTimers()
   })
 
@@ -100,6 +156,52 @@ describe('ReasoningSegment', () => {
     await act(async () => trigger?.click())
     await act(async () => root.render(<ReasoningSegment segment={segment} isStreaming={false} />))
     expect(trigger?.getAttribute('aria-expanded')).toBe('false')
+  })
+
+  it('uses quiet lite Markdown for partial streaming content and full Markdown after completion', async () => {
+    const segment = createSegment({ content: '甲乙丙' })
+    await act(async () => root.render(<ReasoningSegment segment={segment} isStreaming />))
+
+    await runNextFrame(0)
+    const streamingRenderer = container.querySelector('[data-testid="reasoning-streaming-markdown"]')
+    expect(streamingRenderer?.getAttribute('data-mode')).toBe('lite')
+    expect(streamingRenderer?.getAttribute('data-animate')).toBe('false')
+    expect(streamingRenderer?.querySelector('[data-testid="fluid-typewriter-tail"]')).toBeNull()
+    expect(streamingRenderer?.textContent).toBe('甲')
+
+    await act(async () => root.render(<ReasoningSegment segment={segment} isStreaming={false} />))
+    expect(container.querySelector('[data-testid="reasoning-streaming-markdown"]')).toBeNull()
+    expect(container.querySelector('[data-testid="reasoning-think-content"]')?.textContent).toContain('甲乙丙')
+  })
+
+  it('synchronizes a collapsed Think and plays only later appended content after reopen', async () => {
+    const segment = createSegment({ content: '甲乙' })
+    await act(async () => root.render(<ReasoningSegment segment={segment} isStreaming />))
+    await runNextFrame(0)
+    expect(container.querySelector('[data-testid="reasoning-streaming-markdown"]')?.textContent).toBe('甲')
+
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Toggle think"]')
+    await act(async () => trigger?.click())
+    const synchronizedSegment = { ...segment, content: '甲乙丙' }
+    await act(async () => root.render(<ReasoningSegment segment={synchronizedSegment} isStreaming />))
+    expect(container.querySelector('[data-testid="reasoning-streaming-markdown"]')?.textContent).toBe('甲乙丙')
+
+    await act(async () => trigger?.click())
+    const appendedSegment = { ...synchronizedSegment, content: '甲乙丙丁戊己' }
+    await act(async () => root.render(<ReasoningSegment segment={appendedSegment} isStreaming />))
+    await runNextFrame(0)
+    await runNextFrame(32)
+    expect(container.querySelector('[data-testid="reasoning-streaming-markdown"]')?.textContent).toBe('甲乙丙丁戊')
+  })
+
+  it('uses full Markdown and immediate content for reduced motion', async () => {
+    motionTestState.reducedMotion = true
+    const segment = createSegment({ content: '甲乙丙' })
+
+    await act(async () => root.render(<ReasoningSegment segment={segment} isStreaming />))
+    expect(container.querySelector('[data-testid="reasoning-streaming-markdown"]')).toBeNull()
+    expect(container.querySelector('[data-testid="reasoning-think-content"]')?.textContent).toContain('甲乙丙')
+    expect(animationFrames).toHaveLength(0)
   })
 
   it('updates duration while streaming', async () => {

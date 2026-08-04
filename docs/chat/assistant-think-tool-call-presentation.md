@@ -147,6 +147,23 @@ existing restrained horizontal `x + scale` motion. These responsibilities stay
 separate so appended tool rows and expanded detail regions do not compete for
 layout animation.
 
+The active streaming Think body uses a renderer-owned token queue with a quiet
+28ms cadence. The queue publishes React-visible content at a minimum 32ms
+interval, consumes one token through a backlog of 16, two tokens from 17
+through 48, and four tokens above 48. Its visual output is cadence-only text
+availability, with zero tail, opacity, blur, translate, mask, cursor, and
+spring effects.
+`StreamingMarkdownLite` renders the active streaming interval with
+`animate={false}`, including short caught-up intervals between incoming chunks.
+Completed and historical Think content renders through the full `ReactMarkdown`
+path. Stream completion, reduced motion, and a user-collapsed Think synchronize
+the full current content immediately; reopening resumes playback from that
+synchronized point when later content appends.
+
+`useReasoningTypewriter` throttles its renderer-owned `onTypingChange` signal
+to one callback per 50ms during playback. The chat-window virtualizer continues
+to own tail-follow and viewport anchoring.
+
 The chat-window virtualizer owns viewport anchoring. Visual verification must
 cover expansion near the viewport bottom and streaming append while the user
 is following the tail.
@@ -163,6 +180,9 @@ is following the tail.
   their standalone 90% width to the full disclosure width. The renderer passes
   an explicit nested-disclosure presentation context to each child unit.
 - `segments/ReasoningSegment.tsx` owns the Think disclosure.
+- `typewriter/useReasoningTypewriter.ts` owns active Think token playback and
+  its virtualizer callback cadence. It remains presentation-only and reads the
+  authoritative `segment.content` target.
 - `renderers/SupportSegmentHeader.tsx` owns the shared four-area display
   skeleton and visual tokens.
 - `toolcall/ToolCallGroup.tsx` owns the tool-list shell, row expansion, and
@@ -182,6 +202,14 @@ Focused verification covers:
   live support, per-window errors, and preview-to-committed key stability;
 - Think default state, semantic icon and status copy, duration order, 90%
   content width, horizontal inset, accessibility, and reduced motion;
+- streaming Think partial-content cadence, 1/2/4-token backlog catch-up,
+  immediate stream-completion and reduced-motion synchronization, and
+  same-segment replacement or segment-id reset behavior;
+- lite Markdown with `animate={false}` throughout active Think streaming,
+  full Markdown after completion, and user-collapse synchronization before
+  later appended content resumes playback;
+- renderer callback propagation through standalone and completed-work Think
+  units, with a 50ms virtualizer notification cadence and lifecycle cleanup;
 - 90% width for grouped and standalone tool-call results;
 - 12px secondary chevrons with 45% resting opacity and 80% hover, focus, and
   expanded opacity inside completed-work disclosures;

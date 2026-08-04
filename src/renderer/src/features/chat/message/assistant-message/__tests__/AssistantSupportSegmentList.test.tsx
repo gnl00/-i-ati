@@ -15,11 +15,13 @@ vi.mock('../renderers/AssistantSupportSegmentContent', () => ({
   AssistantSupportSegmentContent: ({
     item,
     fullWidth = false,
-    nestedDisclosure = false
+    nestedDisclosure = false,
+    onTypingChange
   }: {
     item: SupportSegmentRenderItem
     fullWidth?: boolean
     nestedDisclosure?: boolean
+    onTypingChange?: () => void
   }): ReactElement => {
     const args = item.segment.type === 'toolCall' && item.segment.content?.args
     const reason = args && typeof args === 'object' && !Array.isArray(args)
@@ -31,6 +33,8 @@ vi.mock('../renderers/AssistantSupportSegmentContent', () => ({
         data-testid={`support-content-${item.segment.segmentId}`}
         data-full-width={fullWidth}
         data-nested-disclosure={nestedDisclosure}
+        data-has-typing-callback={Boolean(onTypingChange)}
+        onClick={onTypingChange}
       >
         {item.segment.type === 'toolCall' ? item.segment.name : item.segment.type}
         {typeof reason === 'string' ? reason : null}
@@ -226,6 +230,58 @@ describe('AssistantSupportSegmentList', () => {
     expect(container.textContent).toContain('read')
     expect(container.textContent).toContain('reasoning')
     expect(container.textContent).toContain('shell')
+  })
+
+  it('propagates typing callbacks through standalone and completed-work Think units', async () => {
+    const standaloneCallback = vi.fn()
+    const standaloneUnits = buildSupportRenderUnits([
+      reasoningItem({
+        id: 'standalone-thought',
+        order: 0,
+        content: 'Follow the active reasoning tail.'
+      })
+    ])
+
+    await act(async () => {
+      root.render(
+        <AssistantSupportSegmentList
+          units={standaloneUnits}
+          onTypingChange={standaloneCallback}
+        />
+      )
+    })
+
+    const standaloneThink = container.querySelector<HTMLDivElement>(
+      '[data-testid="support-content-segment-standalone-thought"]'
+    )
+    expect(standaloneThink?.getAttribute('data-has-typing-callback')).toBe('true')
+    await act(async () => standaloneThink?.click())
+    expect(standaloneCallback).toHaveBeenCalledTimes(1)
+
+    const completedCallback = vi.fn()
+    await act(async () => {
+      root.render(
+        <AssistantSupportSegmentList
+          units={buildSupportRenderUnits(
+            [
+              reasoningItem({ id: 'completed-thought-1', order: 0, content: 'One.' }),
+              reasoningItem({ id: 'completed-thought-2', order: 1, content: 'Two.' }),
+              reasoningItem({ id: 'completed-thought-3', order: 2, content: 'Three.' }),
+              reasoningItem({ id: 'completed-thought-4', order: 3, content: 'Four.' })
+            ],
+            [textItem({ id: 'completed-answer', order: 4, content: 'Answer' })]
+          )}
+          onTypingChange={completedCallback}
+        />
+      )
+    })
+
+    const completedThink = container.querySelector<HTMLDivElement>(
+      '[data-testid="support-content-segment-completed-thought-1"]'
+    )
+    expect(completedThink?.getAttribute('data-has-typing-callback')).toBe('true')
+    await act(async () => completedThink?.click())
+    expect(completedCallback).toHaveBeenCalledTimes(1)
   })
 
   it('renders projected support leaves inside the completed-work disclosure', async () => {
