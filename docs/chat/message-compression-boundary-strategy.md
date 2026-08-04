@@ -10,7 +10,7 @@
 4. 之后触发 message compression，压缩摘要把“计划已创建、等待执行”写成“计划已执行完成、编译通过”。
 5. 下一轮用户说“开始执行 plan”时，请求上下文中原始 plan 消息已被错误 summary 替代，模型回答“之前的计划已经全部完成了”。
 
-这次问题的根因是压缩边界和压缩提示词都缺少工具事实保护。`role=tool` 的结果是事实来源，特别是 `plan_*`、`todo_*`、`schedule_*` 这类状态工具；当这些 tool output 被摘要模型错误改写后，后续请求会继承错误状态。
+这次问题的根因是压缩边界和压缩提示词都缺少工具事实保护。`role=tool` 的结果是事实来源，特别是 `plan_*`、`todo`、`schedule_*` 这类状态工具；当这些 tool output 被摘要模型错误改写后，后续请求会继承错误状态。
 
 ## 当前已完成的修复
 
@@ -99,7 +99,7 @@ latest 3 pairs      -> messagesToKeep
 `src/shared/prompts/compression.ts` 已增加状态保真规则：
 
 ```text
-- Stateful tools include plan_*, todo_*, schedule_*, work_context_*, task/workflow tools, approval tools, notification tools, and automation run tools.
+- Stateful tools include plan_*, todo, schedule_*, work_context_*, task/workflow tools, approval tools, notification tools, and automation run tools.
 - Stateful tool results are source-of-truth records. Preserve entity ids, status, step status, currentStepId, activeStepId, failureReason, error, timestamps, owner, assignee, dependencies, and schedule times verbatim.
 - For plans and todos, preserve every visible step/item id, title, status, dependsOn, owner/assignee, currentStepId, and failureReason.
 - pending、todo、doing、in_progress、pending_review、blocked 表示仍有后续动作；摘要写成“计划已创建/等待执行/正在执行/阻塞中”，并放入 Pending Tasks。
@@ -309,7 +309,7 @@ nearby tool results:
 | Tool 类型 | 近距离 | 远距离 | 说明 |
 | --- | --- | --- | --- |
 | `plan_*` | 原文 | 原文或结构化事实 | `status`、`step.status`、`currentStepId`、`failureReason` 是事实来源 |
-| `todo_*` | 原文 | 原文或结构化事实 | action item 的状态和归属需要高保真 |
+| `todo` | 原文 | 原文或结构化事实 | action item 的状态和归属需要高保真 |
 | `schedule_*` | 原文 | 原文或结构化事实 | 时间、执行状态、失败原因需要高保真 |
 | `work_context_*` | 原文 | 原文或结构化事实 | 当前目标、决策、进行中事项需要高保真 |
 | `exec` | 原文或 compact | compact | 保留 command、cwd、exit_code、pass/fail、错误片段 |
@@ -410,7 +410,7 @@ toolCompactor exists?
 5. 强化 tool facts：
    Tool result status fields are source-of-truth facts.
    success=true means the tool call succeeded.
-   Stateful tools include plan_*, todo_*, schedule_*, work_context_*.
+   Stateful tools include plan_*, todo, schedule_*, work_context_*.
    State fields include ids, status, step/item status, currentStepId, activeStepId, failureReason, owner/assignee, dependencies, and schedule times.
    Open states must be recorded in Pending Tasks.
 
@@ -493,7 +493,7 @@ COMPRESSION_OBSERVATION_MODEL_ID=<provider_models.model_id>
 1. message pair 的精确定义：是否以 user message 作为 pair 起点。
 2. tool result 归属：多轮 toolCalls 和 assistant continuation 的 pair 归并规则。
 3. role=tool 的近距离阈值使用 5 条还是 7 条。
-4. `plan_*`、`todo_*`、`schedule_*` 的远距离保留策略。
+4. `plan_*`、`todo`、`schedule_*` 的远距离保留策略。
 5. `exec` compact 的关键行提取规则。
 6. `read` / `grep` / `log_search` compact 的截断和引用格式。
 7. summary 输出是否保留所有 user messages 的原文或精简原文。

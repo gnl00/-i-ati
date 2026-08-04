@@ -1,11 +1,13 @@
 import { v4 as uuidv4 } from 'uuid'
 import { planningDb } from '@main/db/planning'
 import type {
+  TodoAction,
   TodoAddResponse,
   TodoDeleteResponse,
   TodoItem,
   TodoListResponse,
   TodoPriority,
+  TodoResponse,
   TodoStatus,
   TodoUpdateResponse
 } from '@shared/tools/todo'
@@ -42,8 +44,23 @@ type TodoDeleteArgs = {
   id: string
 }
 
+type TodoArgs = {
+  action?: TodoAction | string
+  chat_uuid?: string
+  id?: string
+  title?: string
+  notes?: string | null
+  status?: TodoStatus | 'all'
+  priority?: TodoPriority | null
+  tags?: string[]
+  scope?: 'current_chat' | 'all'
+  tag?: string
+  limit?: number
+}
+
 const VALID_STATUSES: TodoStatus[] = ['open', 'done']
 const VALID_PRIORITIES: TodoPriority[] = ['low', 'medium', 'high']
+const TODO_ACTIONS: TodoAction[] = ['add', 'list', 'update', 'delete']
 
 function clampLimit(limit?: number): number {
   if (!Number.isFinite(limit)) return 50
@@ -63,6 +80,30 @@ function validatePriority(priority?: TodoPriority | null): string | undefined {
 function validateStatus(status?: TodoStatus): string | undefined {
   if (status === undefined) return undefined
   return VALID_STATUSES.includes(status) ? undefined : `Invalid status: ${status}`
+}
+
+export async function processTodo(args: TodoArgs = {}): Promise<TodoResponse> {
+  const action = typeof args?.action === 'string' ? args.action.trim() : ''
+
+  if (!action) {
+    return { success: false, message: 'Missing required parameter: action' }
+  }
+
+  switch (action) {
+    case 'add':
+      return processTodoAdd(args as TodoAddArgs)
+    case 'list':
+      return processTodoList(args as TodoListArgs)
+    case 'update':
+      return processTodoUpdate(args as TodoUpdateArgs)
+    case 'delete':
+      return processTodoDelete(args as TodoDeleteArgs)
+    default:
+      return {
+        success: false,
+        message: `Invalid action: ${action}. Expected one of: ${TODO_ACTIONS.join(', ')}`
+      }
+  }
 }
 
 export async function processTodoAdd(args: TodoAddArgs): Promise<TodoAddResponse> {

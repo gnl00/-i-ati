@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { TodoItem } from '@shared/tools/todo'
 import {
+  processTodo,
   processTodoAdd,
   processTodoDelete,
   processTodoList,
@@ -58,6 +59,47 @@ describe('TodoToolsProcessor', () => {
     vi.useFakeTimers()
     vi.setSystemTime(now)
     vi.clearAllMocks()
+  })
+
+  it('requires action for the unified todo tool', async () => {
+    const result = await processTodo({})
+
+    expect(result).toEqual({
+      success: false,
+      message: 'Missing required parameter: action'
+    })
+  })
+
+  it('returns a clear error for an unknown todo action', async () => {
+    const result = await processTodo({ action: 'archive' })
+
+    expect(result.success).toBe(false)
+    expect(result.message).toBe('Invalid action: archive. Expected one of: add, list, update, delete')
+  })
+
+  it('dispatches every action through the unified todo tool', async () => {
+    const added = await processTodo({
+      action: 'add',
+      chat_uuid: 'chat-1',
+      title: 'Ship unified todo tool'
+    })
+    expect(added).toMatchObject({
+      success: true,
+      todo: expect.objectContaining({ title: 'Ship unified todo tool' })
+    })
+
+    const todoId = (added as { todo: TodoItem }).todo.id
+    const listed = await processTodo({ action: 'list' })
+    expect(listed).toMatchObject({ success: true, count: 1 })
+
+    const updated = await processTodo({ action: 'update', id: todoId, status: 'done' })
+    expect(updated).toMatchObject({
+      success: true,
+      todo: expect.objectContaining({ id: todoId, status: 'done' })
+    })
+
+    const deleted = await processTodo({ action: 'delete', id: todoId })
+    expect(deleted).toEqual({ success: true, id: todoId })
   })
 
   it('requires chat_uuid when adding a todo', async () => {

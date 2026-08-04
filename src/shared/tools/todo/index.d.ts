@@ -2,6 +2,8 @@ export type TodoStatus = 'open' | 'done'
 
 export type TodoPriority = 'low' | 'medium' | 'high'
 
+export type TodoAction = 'add' | 'list' | 'update' | 'delete'
+
 export interface TodoItem {
   id: string
   chat_uuid: string | null
@@ -40,3 +42,5 @@ export interface TodoDeleteResponse {
   id?: string
   message?: string
 }
+
+export type TodoResponse = TodoAddResponse | TodoListResponse | TodoUpdateResponse | TodoDeleteResponse

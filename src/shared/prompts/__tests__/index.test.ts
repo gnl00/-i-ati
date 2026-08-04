@@ -157,7 +157,7 @@ describe('shared prompts systemPrompt', () => {
       conversationText: '<tool name="plan_create"><result>{"status":"pending"}</result></tool>'
     })
 
-    expect(prompt).toContain('Stateful tools include plan_*, todo_*, schedule_*, work_context_*')
+    expect(prompt).toContain('Stateful tools include plan_*, todo, schedule_*, work_context_*')
     expect(prompt).toContain('Stateful tool results are source-of-truth records')
     expect(prompt).toContain('currentStepId')
     expect(prompt).toContain('failureReason')
