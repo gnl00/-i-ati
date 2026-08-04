@@ -12,6 +12,23 @@ describe('tool definitions', () => {
     const toolNames = (tools as ToolDefinition[]).map(tool => tool.function.name)
 
     expect(new Set(toolNames).size).toBe(toolNames.length)
+    expect(toolNames).toHaveLength(68)
+  })
+
+  it('exposes one flat wiki definition with a required action enum', () => {
+    const wiki = (tools as ToolDefinition[]).find(tool => tool.function.name === 'wiki')
+    const wikiNames = (tools as ToolDefinition[])
+      .map(tool => tool.function.name)
+      .filter(name => name === 'wiki' || name.startsWith('wiki_'))
+      .sort()
+
+    expect(wikiNames).toEqual(['wiki'])
+    expect(wiki?.function.parameters.required).toContain('action')
+    expect(wiki?.function.parameters.properties.action).toEqual(expect.objectContaining({
+      type: 'string',
+      enum: ['list', 'read', 'write', 'delete', 'search']
+    }))
+    expect(wikiNames).toHaveLength(1)
   })
 
   it('requires tool_call_reason on all embedded tool definitions', () => {

@@ -42,7 +42,7 @@ export interface ToolCallHeaderState {
   statusLabel: 'completed' | 'failed' | 'pending' | 'running'
   tone: SupportSegmentHeaderTone
 }
-type WikiToolName = 'wiki_list' | 'wiki_read' | 'wiki_write' | 'wiki_delete' | 'wiki_search'
+type WikiAction = 'list' | 'read' | 'write' | 'delete' | 'search'
 type WikiResultRecord = Record<string, unknown>
 
 const TOOL_COST_TICK_MS = 1000
@@ -78,12 +78,26 @@ function isRecord(value: unknown): value is WikiResultRecord {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
 
-function isWikiToolName(toolName: string): toolName is WikiToolName {
-  return toolName === 'wiki_list'
-    || toolName === 'wiki_read'
-    || toolName === 'wiki_write'
-    || toolName === 'wiki_delete'
-    || toolName === 'wiki_search'
+function isWikiToolName(toolName: string): boolean {
+  return toolName === 'wiki'
+}
+
+function getWikiAction(args: ToolCallResponse['args']): WikiAction | undefined {
+  let value: unknown = args
+  if (typeof value === 'string') {
+    try {
+      value = JSON.parse(value)
+    } catch {
+      return undefined
+    }
+  }
+  if (!isRecord(value)) {
+    return undefined
+  }
+  const action = value.action
+  return action === 'list' || action === 'read' || action === 'write' || action === 'delete' || action === 'search'
+    ? action
+    : undefined
 }
 
 function getStringField(record: WikiResultRecord, key: string): string | undefined {
@@ -624,16 +638,16 @@ function WikiReadSummary({ payload }: { payload: WikiResultRecord }) {
 
 function WikiMutationSummary({
   payload,
-  toolName
+  action
 }: {
   payload: WikiResultRecord
-  toolName: 'wiki_write' | 'wiki_delete'
+  action: 'write' | 'delete'
 }) {
   const success = payload.success === true
   const name = getStringField(payload, 'name') ?? 'unknown'
   const title = getStringField(payload, 'title')
   const message = getStringField(payload, 'message')
-  const Icon = toolName === 'wiki_delete' ? Trash2 : PencilLine
+  const Icon = action === 'delete' ? Trash2 : PencilLine
 
   return (
     <div className="space-y-2" data-testid="wiki-tool-summary">
@@ -682,10 +696,10 @@ function WikiSearchSummary({ payload }: { payload: WikiResultRecord }) {
 }
 
 function WikiToolSummary({
-  toolName,
+  action,
   payload
 }: {
-  toolName: WikiToolName
+  action: WikiAction | undefined
   payload: unknown
 }) {
   if (!isRecord(payload)) {
@@ -696,17 +710,19 @@ function WikiToolSummary({
     )
   }
 
-  if (toolName === 'wiki_list') {
+  if (action === 'list') {
     return <WikiListSummary payload={payload} />
   }
-  if (toolName === 'wiki_read') {
+  if (action === 'read') {
     return <WikiReadSummary payload={payload} />
   }
-  if (toolName === 'wiki_write' || toolName === 'wiki_delete') {
-    return <WikiMutationSummary payload={payload} toolName={toolName} />
+  if (action === 'write' || action === 'delete') {
+    return <WikiMutationSummary payload={payload} action={action} />
   }
 
-  return <WikiSearchSummary payload={payload} />
+  return action === 'search'
+    ? <WikiSearchSummary payload={payload} />
+    : <div className="text-[11px] italic text-zinc-400 dark:text-zinc-500" data-testid="wiki-tool-summary">Waiting for wiki action</div>
 }
 
 export type ToolCallInspectorDetailsProps = {
@@ -879,6 +895,7 @@ export const ToolCallInspectorDetails = React.memo(({
     : undefined
   const isSubagentTool = toolName === 'subagent_spawn' || toolName === 'subagent_wait'
   const isWikiTool = isWikiToolName(toolName)
+  const wikiAction = getWikiAction(toolResponse?.args)
   const hasWebSearchResults = Boolean(
     webSearchPayload
     && isRecord(webSearchPayload)
@@ -1007,7 +1024,7 @@ export const ToolCallInspectorDetails = React.memo(({
           </div>
         ) : isWikiTool && resultPayload !== undefined ? (
           <div className="pr-3 pb-3">
-            <WikiToolSummary toolName={toolName} payload={resultPayload} />
+            <WikiToolSummary action={wikiAction} payload={resultPayload} />
           </div>
         ) : resultText ? (
           <div className="relative mb-3 mr-3 max-h-[min(520px,55vh)] overflow-auto overscroll-contain rounded-md border border-black/10 bg-[#09090b] custom-scrollbar dark:border-white/10">

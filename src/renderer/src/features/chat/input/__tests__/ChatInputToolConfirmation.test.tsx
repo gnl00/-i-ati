@@ -132,18 +132,19 @@ describe('ChatInputToolConfirmation', () => {
       pendingRequests: [
         {
           toolCallId: 'call-wiki',
-          name: 'wiki_write',
+          name: 'wiki',
           args: {
+            action: 'write',
             name: 'loop-engineering-paradigm-shift',
             content: 'x'.repeat(2000),
             mode: 'upsert',
             chat_uuid: 'chat-1'
           },
           ui: {
-            title: 'Confirm wiki_write',
+            title: 'Confirm wiki',
             riskLevel: 'risky',
-            reason: 'Tool "wiki_write" can mutate workspace state.',
-            possibleRisk: 'Tool "wiki_write" can mutate workspace state.',
+            reason: 'Tool "wiki" can mutate workspace state.',
+            possibleRisk: 'Tool "wiki" can mutate workspace state.',
             riskScore: 5
           }
         }
@@ -154,12 +155,12 @@ describe('ChatInputToolConfirmation', () => {
       root.render(<ChatInputToolConfirmation />)
     })
 
-    expect(container.textContent).toContain('wiki_write')
+    expect(container.textContent).toContain('wiki')
     expect(commandConfirmationProps[0].request).toMatchObject({
-      command: 'wiki_write {"name":"loop-engineering-paradigm-shift","content":"[content: 2000 chars]","mode":"upsert"}',
+      command: 'wiki {"action":"write","name":"loop-engineering-paradigm-shift","content":"[content: 2000 chars]","mode":"upsert"}',
       risk_level: 'risky',
-      execution_reason: 'Confirm wiki_write',
-      possible_risk: 'Tool "wiki_write" can mutate workspace state.'
+      execution_reason: 'Confirm wiki',
+      possible_risk: 'Tool "wiki" can mutate workspace state.'
     })
     expect(commandConfirmationProps[0].request.command).not.toContain('chat-1')
     expect(commandConfirmationProps[0].request.command).not.toContain('xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')
@@ -170,8 +171,9 @@ describe('ChatInputToolConfirmation', () => {
       pendingRequests: [
         {
           toolCallId: 'call-long',
-          name: 'wiki_write',
+          name: 'wiki',
           args: {
+            action: 'write',
             name: 'long-entry',
             content: 'x'.repeat(5000),
             description: 'y'.repeat(3000)

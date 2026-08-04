@@ -233,17 +233,17 @@ describe('ToolCallInspectorDetails result renderers', () => {
 
   it.each([
     {
-      name: 'wiki_list',
+      action: 'list',
       result: { entries: [{ name: 'release-plan', title: 'Release Plan', summary: 'Ship inspector.' }] },
       expected: ['1 entry', 'Release Plan']
     },
     {
-      name: 'wiki_read',
+      action: 'read',
       result: { name: 'release-plan', title: 'Release Plan', content: 'Ship the inspector.' },
       expected: ['Release Plan', 'Ship the inspector.']
     },
     {
-      name: 'wiki_search',
+      action: 'search',
       result: {
         query: 'inspector',
         total_hits: 1,
@@ -252,22 +252,38 @@ describe('ToolCallInspectorDetails result renderers', () => {
       expected: ['1 hit', 'Tool Inspector', 'hybrid']
     },
     {
-      name: 'wiki_write',
+      action: 'write',
       result: { success: true, name: 'release-plan', title: 'Release Plan', index_status: 'queued' },
       expected: ['Succeeded', 'Release Plan', 'queued']
     },
     {
-      name: 'wiki_delete',
+      action: 'delete',
       result: { success: false, name: 'release-plan', message: 'Entry missing.' },
       expected: ['Failed', 'release-plan', 'Entry missing.']
     }
-  ])('renders the $name specialized summary', async ({ name, result, expected }) => {
-    await renderTool(createToolCall(name, 'completed', {}, result))
+  ])('renders the $action specialized summary', async ({ action, result, expected }) => {
+    await renderTool(createToolCall('wiki', 'completed', { action }, result))
     for (const text of expected) expect(container.textContent).toContain(text)
 
     const raw = Array.from(container.querySelectorAll('button')).find(button => button.textContent === 'Raw')
     expect(raw).toBeTruthy()
     await act(async () => raw?.dispatchEvent(new MouseEvent('click', { bubbles: true })))
     expect(container.querySelector('[data-testid="wiki-tool-summary"]')).toBeNull()
+  })
+
+  it('parses the wiki action from JSON arguments', async () => {
+    const toolCall = createToolCall('wiki', 'completed', {}, {
+      name: 'release-plan',
+      title: 'Release Plan',
+      content: 'Ship the inspector.'
+    })
+    toolCall.content = {
+      ...toolCall.content,
+      args: JSON.stringify({ action: 'read', name: 'release-plan' })
+    }
+
+    await renderTool(toolCall)
+    expect(container.textContent).toContain('Release Plan')
+    expect(container.textContent).toContain('Ship the inspector.')
   })
 })

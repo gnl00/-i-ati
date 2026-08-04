@@ -6,13 +6,28 @@ LLM wiki tools 提供一组 agent 可调用的本地 wiki 工具，让模型能�
 
 外部 LLM-Wiki 方向的核心价值是 agent-native knowledge base：内容以可读页面保存，模型通过搜索定位条目，通过读取获得完整上下文，通过结构化元数据和链接继续探索。当前实现第一阶段聚焦本地 Markdown wiki 和现有 knowledgebase 检索能力的稳定结合。
 
+## Public Tool Contract
+
+The public embedded-tool surface exposes one `wiki` function. Its flat schema
+requires `action: 'list' | 'read' | 'write' | 'delete' | 'search'`; the action
+selects the existing operation fields in the same object. `read` and `delete`
+require `name`; `write` requires `name` and `content`; `search` requires
+`query` and `localized_query`. Missing action returns `Missing required
+parameter: action`; unsupported actions list the five allowed values.
+
+Action metadata preserves the established policy: `list` and `read` are
+filesystem reads with no confirmation, `write` is a warning-level filesystem
+mutation, `delete` is a dangerous filesystem mutation, and `search` is a
+warning-level knowledgebase read. Every action remains unavailable to
+subagents.
+
 ## Prompt Trigger Policy
 
 System prompt guidance stays concise and routes by knowledge boundary:
 
 - `memory_retrieval` / `memory_save`: long-term user preferences, stable facts, cross-chat decisions, and user-confirmed constraints.
-- `wiki_list` / `wiki_read` / `wiki_search`: local wiki pages, project knowledge entries, implementation notes, technical plans, and durable readable docs. Wiki-specific recall prefers `wiki_search`.
-- `wiki_write`: when the user asks to save into wiki, or when an output becomes stable project knowledge, technical direction, spec, runbook, or reusable decision record.
+- `wiki(action: 'list')` / `wiki(action: 'read')` / `wiki(action: 'search')`: local wiki pages, project knowledge entries, implementation notes, technical plans, and durable readable docs. Wiki-specific recall prefers `wiki(action: 'search')`.
+- `wiki(action: 'write')`: when the user asks to save into wiki, or when an output becomes stable project knowledge, technical direction, spec, runbook, or reusable decision record.
 - `knowledgebase_search`: configured local folders, docs, code, and notes when the target spans broader local context.
 - `history_search`: raw chat titles, message content, and cross-chat keyword lookup.
 - `activity_journal_search`: recent completed work, decisions, blockers, milestones, and completion summaries.
@@ -21,14 +36,14 @@ System prompt guidance stays concise and routes by knowledge boundary:
 
 第一版目标：
 
-1. 提供 `wiki_list`、`wiki_read`、`wiki_write`、`wiki_delete`、`wiki_search` 五个 embedded tools。
+1. 提供一个 `wiki` embedded tool，并通过 `action` 支持 list、read、write、delete 和 search。
 2. wiki 条目以 Markdown 文件保存，每个条目带 YAML frontmatter。
 3. 读写路径限定在 wiki root 内，工具参数无法逃逸到其他目录。
-4. `wiki_write` 支持 `mode` 控制写入语义，并在创建、更新、追加和覆盖时维护 `created`、`updated`、`title`、`type`、`tags`、`source` 等基础元数据。
-5. `wiki_list` 返回适合模型浏览的轻量目录信息和正文摘要。
+4. `wiki(action: 'write')` 支持 `mode` 控制写入语义，并在创建、更新、追加和覆盖时维护 `created`、`updated`、`title`、`type`、`tags`、`source` 等基础元数据。
+5. `wiki(action: 'list')` 返回适合模型浏览的轻量目录信息和正文摘要。
 6. wiki root 维护一个自动生成的 `README.md` 索引块，保存 entry path 到 summary 的映射。
-7. `wiki_list` 优先读取 `README.md` 索引块；索引缺失或损坏时扫描 wiki 文档并返回 `index_source: 'scan'`。
-8. `wiki_search` 返回 wiki root 内的相关条目片段，并保证写入后的检索结果具备可解释的新鲜度策略。
+7. `wiki(action: 'list')` 优先读取 `README.md` 索引块；索引缺失或损坏时扫描 wiki 文档并返回 `index_source: 'scan'`。
+8. `wiki(action: 'search')` 返回 wiki root 内的相关条目片段，并保证写入后的检索结果具备可解释的新鲜度策略。
 9. 写入和删除类工具走统一的工具确认策略，危险操作可以被用户审核。
 10. 每个关键行为有 processor 单元测试覆盖，工具定义、metadata 和 handler 注册继续沿用现有对齐测试。
 
@@ -51,11 +66,11 @@ wiki 文件落在固定 wiki root 下。处理器统一走 `resolveWikiEntryPath
 
 wiki 工具有三个明确层级：
 
-- Markdown entry 是内容源头。`wiki_write` 和 `wiki_delete` 成功返回前必须完成 entry 文件写入或删除。
+- Markdown entry 是内容源头。`wiki(action: 'write')` 和 `wiki(action: 'delete')` 成功返回前必须完成 entry 文件写入或删除。
 - root `README.md` managed index 是目录和摘要源头。写入、追加、覆盖、删除成功返回前必须同步更新对应 row 和 checksum。
 - knowledgebase/vector index 是派生搜索缓存。写入和删除只调度 wiki root refresh，工具响应通过 `index_status` 和 `index_message` 暴露当前缓存状态。
 
-`wiki_search` 保持只读语义。README managed block 损坏、缺失或 checksum 失配时，search 可以扫描 entry 文件构造内存候选，并保持现有 README 文件内容原样；修复 README 的入口是后续 mutation 的 README 维护路径。
+`wiki(action: 'search')` 保持只读语义。README managed block 损坏、缺失或 checksum 失配时，search 可以扫描 entry 文件构造内存候选，并保持现有 README 文件内容原样；修复 README 的入口是后续 mutation 的 README 维护路径。
 
 ### Frontmatter
 
@@ -76,9 +91,9 @@ wiki 工具有三个明确层级：
 4. 用户提供 frontmatter 时保留可识别字段，并补齐缺失字段。
 5. 正文保持 Markdown 原文，末尾保留单个换行。
 
-### `wiki_write.mode`
+### `wiki` action `write`: `mode`
 
-`wiki_write` 参数包含可选 `mode?: 'upsert' | 'create' | 'append' | 'replace'`，默认值是 `upsert`。
+`wiki(action: 'write')` 参数包含可选 `mode?: 'upsert' | 'create' | 'append' | 'replace'`，默认值是 `upsert`。
 
 四种模式：
 
@@ -136,23 +151,23 @@ checksum 输入是规范化后的 entry 投影：
 
 索引规则：
 
-1. `wiki_write` 成功写入 entry 后更新 `README.md` 中对应条目。
-2. `wiki_delete` 成功删除 entry 后移除 `README.md` 中对应条目。
+1. `wiki(action: 'write')` 成功写入 entry 后更新 `README.md` 中对应条目。
+2. `wiki(action: 'delete')` 成功删除 entry 后移除 `README.md` 中对应条目。
 3. summary 使用 entry 正文 body 的首个非空行，截断到 120 字符。
 4. `README.md` 的 managed block 由工具全权维护，文件中 block 外内容保留。
 5. entry 扫描排除 root `README.md`，root `README.md` entry name 按大小写不敏感规则保留。
-6. `README.md` 缺失、managed block 缺失、checksum 缺失、checksum 格式错误、checksum 和 table 内容不匹配、表格解析失败、索引项引用的文件缺失时，`wiki_list` 扫描 `.md` entry，返回 `index_source: 'scan'` 和 repair 提示，并保持 README 文件内容原样。
-7. `wiki_write`、`wiki_delete` 和显式 rebuild 路径写 README managed block 时按 wiki root 串行化 read-modify-write，避免同 root 并发 mutation 覆盖彼此的索引更新。
+6. `README.md` 缺失、managed block 缺失、checksum 缺失、checksum 格式错误、checksum 和 table 内容不匹配、表格解析失败、索引项引用的文件缺失时，`wiki(action: 'list')` 扫描 `.md` entry，返回 `index_source: 'scan'` 和 repair 提示，并保持 README 文件内容原样。
+7. `wiki(action: 'write')`、`wiki(action: 'delete')` 和显式 rebuild 路径写 README managed block 时按 wiki root 串行化 read-modify-write，避免同 root 并发 mutation 覆盖彼此的索引更新。
 
 README index 操作：
 
 - `parseReadmeIndex`: 定位 `<!-- ati-wiki-index:start -->` 和 `<!-- ati-wiki-index:end -->`，读取 checksum comment，解析中间 Markdown table，校验 8 个表头字段和分隔行，把每行转成 `WikiEntry`，再重新计算 checksum。
 - `renderReadmeIndexBlock`: 按 `Entry, Title, Type, Tags, Created, Updated, Source, Summary` 顺序渲染 Markdown table，对 table cell 内的换行和 `|` 做转义，并写入当前 checksum comment。
-- `upsertReadmeIndexEntry`: `wiki_write` 写入文件后从最终文件内容生成 `WikiEntry`，在 root 级索引锁内读取当前 README index，写入或替换同名 entry，再渲染带新 checksum 的 managed block。
-- `removeReadmeIndexEntry`: `wiki_delete` 删除文件后在 root 级索引锁内读取当前 README index，移除同名 entry，再渲染带新 checksum 的 managed block。
-- mutation fallback rebuild: `wiki_write` / `wiki_delete` 在当前 README index 无法解析时扫描 wiki root 下 `.md` 文件，跳过 root `README.md`，从 frontmatter 和 body 重建全部 `WikiEntry`，再替换或追加 managed block，并复用 root 级索引锁。
+- `upsertReadmeIndexEntry`: `wiki(action: 'write')` 写入文件后从最终文件内容生成 `WikiEntry`，在 root 级索引锁内读取当前 README index，写入或替换同名 entry，再渲染带新 checksum 的 managed block。
+- `removeReadmeIndexEntry`: `wiki(action: 'delete')` 删除文件后在 root 级索引锁内读取当前 README index，移除同名 entry，再渲染带新 checksum 的 managed block。
+- mutation fallback rebuild: `wiki(action: 'write')` / `wiki(action: 'delete')` 在当前 README index 无法解析时扫描 wiki root 下 `.md` 文件，跳过 root `README.md`，从 frontmatter 和 body 重建全部 `WikiEntry`，再替换或追加 managed block，并复用 root 级索引锁。
 
-`wiki_list` 流程：
+`wiki(action: 'list')` 流程：
 
 1. 读取 wiki root `README.md`。
 2. 解析 managed block 里的 Markdown table。
@@ -161,11 +176,11 @@ README index 操作：
 5. 返回 README index 中的 `WikiEntry[]`。
 6. README 缺失、managed block 缺失、checksum 缺失、checksum 格式错误、checksum 不匹配、表格解析失败、引用文件缺失时，扫描 wiki root 下 `.md` entries，返回 `index_source: 'scan'`、扫描得到的 `WikiEntry[]` 和 repair 提示。
 
-这样日常 `wiki_list` 的主要内容读取 I/O 是读取一个索引文件；异常回退也是只读扫描。写入、更新、删除承担索引维护成本。
+这样日常 `wiki(action: 'list')` 的主要内容读取 I/O 是读取一个索引文件；异常回退也是只读扫描。写入、更新、删除承担索引维护成本。
 
 ### Search
 
-`wiki_search` 复用 knowledgebaseService 的向量检索能力，并把查询范围固定到 wiki root 和 `.md` 扩展。schema 对齐 `knowledgebase_search` 的双 query 设计：
+`wiki(action: 'search')` 复用 knowledgebaseService 的向量检索能力，并把查询范围固定到 wiki root 和 `.md` 扩展。schema 对齐 `knowledgebase_search` 的双 query 设计：
 
 - `query`
 - `localized_query`
@@ -175,51 +190,51 @@ README index 操作：
 检索流程：
 
 1. 校验 `query` 和 `localized_query`。
-2. 读取 wiki root `README.md` managed index。索引损坏或缺失时扫描 wiki entries 构造内存候选，保持 `wiki_search` 只读语义。
+2. 读取 wiki root `README.md` managed index。索引损坏或缺失时扫描 wiki entries 构造内存候选，保持 `wiki(action: 'search')` 只读语义。
 3. 基于 README index 的 `name`、`title`、`type`、`tags`、`summary` 生成 entry 级 lexical candidates。
 4. 收集 `query` 和 `localized_query` 的非空去重候选。
 5. 每个候选调用 `knowledgebaseService.search`，查询范围固定为 wiki root 和 `.md`。
 6. 将 vector chunk result 映射回 wiki entry，并补充 README metadata；root `README.md` vector chunk 从 wiki entry 结果中过滤。
 7. 使用 deterministic ranking 合并 vector score 和 README lexical boost。
-8. vector 结果为空或缺少 README 命中的 entry 时，返回 README fallback result，提示后续可调用 `wiki_read` 获取完整页面。
+8. vector 结果为空或缺少 README 命中的 entry 时，返回 README fallback result，提示后续可调用 `wiki(action: 'read')` 获取完整页面。
 9. 返回统一的 search response。
 
-`wiki_search` response 返回 wiki-native results。每个 result 面向 wiki entry 摘要和后续读取动作，底层 knowledgebase chunk 字段已在 processor 内裁剪。
+`wiki(action: 'search')` response 返回 wiki-native results。每个 result 面向 wiki entry 摘要和后续读取动作，底层 knowledgebase chunk 字段已在 processor 内裁剪。
 
 - `entry_name`: wiki entry name。
 - `title`: README index title。
 - `summary`: README index summary。
-- `text`: 命中的正文片段，README fallback 使用轻量说明并提示 `wiki_read`。
+- `text`: 命中的正文片段，README fallback 使用轻量说明并提示 `wiki(action: 'read')`。
 - `score`: 合并后的排序分数。
 - `similarity`: 向量相似度；README fallback 为 `0`。
 - `match_source`: `vector`、`readme` 或 `hybrid`。
 - `match_reason`: 简短解释命中来源，例如 title、entry name、summary 或 vector chunk。
 
-result contract 不暴露 `chunk_id`、`document_id`、`file_path`、`folder_path`、`ext`、`chunk_index`、`char_start`、`char_end`、`token_estimate` 等 knowledgebase chunk 字段。完整页面上下文通过 `wiki_read` 获取。
+result contract 不暴露 `chunk_id`、`document_id`、`file_path`、`folder_path`、`ext`、`chunk_index`、`char_start`、`char_end`、`token_estimate` 等 knowledgebase chunk 字段。完整页面上下文通过 `wiki(action: 'read')` 获取。
 
 当前阶段使用业务逻辑层 ranking：README lexical candidate 负责把正确 entry 拉入候选集，knowledgebase vector result 负责正文 chunk grounding。reranker 模型作为后续可插拔排序层，适合在候选集稳定且 top results 排序质量成为主要问题时接入。
 
 索引新鲜度策略：
 
-1. `wiki_write` 和 `wiki_delete` 成功完成 entry/README 更新后，把 wiki root 标记为 dirty generation。
+1. `wiki(action: 'write')` 和 `wiki(action: 'delete')` 成功完成 entry/README 更新后，把 wiki root 标记为 dirty generation。
 2. 每个 wiki root 维护独立 refresh scheduler，跟踪 `writtenGeneration`、`runningGeneration`、`indexedGeneration`。
 3. scheduler 使用短 debounce 合并 burst mutations，并在 debounce 后调用 `knowledgebaseService.reindex`。
 4. routine refresh 使用 `force: false` 和 wiki root `configOverride`，依赖 knowledgebase indexing pipeline 跳过未变化文档。
 5. mutation 发生在 active refresh 期间时，scheduler 保持最新 generation dirty，并在 active job settled 后自动调度一次 follow-up refresh。
 6. reindex 抛错时 entry/README 成功状态保留，scheduler 状态变为 `stale`，`index_message` 保留失败原因。
-7. `wiki_write`、`wiki_delete` 和 `wiki_search` 都返回当前 `index_status`：`queued`、`running`、`fresh`、`stale` 或 `unknown`。
+7. `wiki(action: 'write')`、`wiki(action: 'delete')` 和 `wiki(action: 'search')` 都返回当前 `index_status`：`queued`、`running`、`fresh`、`stale` 或 `unknown`。
 8. response 避免把 queued/running mutation 报告为 fresh；最新 dirty generation indexed 后才返回 fresh。
 9. scheduler 在 knowledgebase service 已有 active job 时先 join 当前 job，再执行一次 wiki root refresh，覆盖 queued mutation 的最新 generation。
-10. `wiki_search` 在结果为空时给出可执行提示，指明当前 wiki 索引可能需要重建。
+10. `wiki(action: 'search')` 在结果为空时给出可执行提示，指明当前 wiki 索引可能需要重建。
 
 ### Renderer Summary
 
 `ToolCallResult` 为 wiki tools 提供专用 Summary 展示，Detail 继续显示完整 JSON payload：
 
-- `wiki_list`: 展示 entry count，以及最多前三个 entry 的 name/title/summary。
-- `wiki_read`: 展示 title/name 和 content preview。
-- `wiki_write` / `wiki_delete`: 展示 success/failure、entry name 或 title、`index_status` 和 `index_message`。
-- `wiki_search`: 展示 total hits、query、最多前三个 result 的 title/name/summary、`match_source`、`match_reason`，以及 index 状态。
+- `wiki(action: 'list')`: 展示 entry count，以及最多前三个 entry 的 name/title/summary。
+- `wiki(action: 'read')`: 展示 title/name 和 content preview。
+- `wiki(action: 'write')` / `wiki(action: 'delete')`: 展示 success/failure、entry name 或 title、`index_status` 和 `index_message`。
+- `wiki(action: 'search')`: 展示 total hits、query、最多前三个 result 的 title/name/summary、`match_source`、`match_reason`，以及 index 状态。
 
 Summary 内容来自工具结果本身，用于让 UI 摘要直接表达 wiki 工具输出。
 
@@ -234,7 +249,7 @@ Summary 内容来自工具结果本身，用于让 UI 摘要直接表达 wiki �
 - `plan` 的 `action=create` 保留既有自动审批开关。
 - `exec` 保留现有命令确认行为。
 
-这样 `wiki_write` 和 `wiki_delete` 可以进入通用写操作审核路径，后续新工具也能复用同一规则。
+这样 `wiki(action: 'write')` 和 `wiki(action: 'delete')` 可以进入通用写操作审核路径，后续新工具也能复用同一规则。
 
 ## 技术方案
 
@@ -245,21 +260,21 @@ Summary 内容来自工具结果本身，用于让 UI 摘要直接表达 wiki �
    - 改用 YAML frontmatter parser。
    - 修复 summary 生成。
    - 维护 wiki root `README.md` managed index table block。
-   - `wiki_list` 优先读取 `README.md` 索引表，索引异常时只读扫描并返回 repair 提示。
+   - `wiki(action: 'list')` 优先读取 `README.md` 索引表，索引异常时只读扫描并返回 repair 提示。
    - 修复 search 查询融合。
    - 写入和删除后调度 wiki root refresh。
 
 2. `src/shared/tools/wiki/definitions.ts`
-   - 给 `wiki_search` 增加 `localized_query` 和 `threshold`。
+   - 给 `wiki(action: 'search')` 增加 `localized_query` 和 `threshold`。
    - 收紧 `name` 字段描述。
 
 3. `src/shared/tools/wiki/index.d.ts`
    - 补齐 search 参数类型。
    - 补齐 `queued` 和 `running` index 状态。
-   - `wiki_search` result 改为 wiki-native shape，只暴露 entry 级字段、正文片段、分数和匹配解释。
+   - `wiki(action: 'search')` result 改为 wiki-native shape，只暴露 entry 级字段、正文片段、分数和匹配解释。
 
 4. `src/renderer/src/features/chat/message/assistant-message/toolcall/ToolCallResult.tsx`
-   - 为 `wiki_list`、`wiki_read`、`wiki_write`、`wiki_delete`、`wiki_search` 增加专用 Summary。
+   - 为 `wiki(action: 'list')`、`wiki(action: 'read')`、`wiki(action: 'write')`、`wiki(action: 'delete')`、`wiki(action: 'search')` 增加专用 Summary。
    - Detail 保留完整 JSON payload。
 
 5. `src/main/agent/tools/ToolExecutor.ts`
@@ -292,36 +307,37 @@ pnpm exec vitest run \
 
 ```bash
 pnpm run typecheck:node
+pnpm run typecheck:web
 ```
 
-当前仓库存在 `src/shared/task-planner/schemas.ts` 缺 `zod` 类型依赖的独立 typecheck 风险。wiki 改动验收需要至少清除 wiki 自身 TypeScript 错误，并把独立失败记录在最终结果中。
+当前验证已通过 `pnpm run typecheck:node` 和 `pnpm run typecheck:web`。
 
 README index 测试验收：
 
-- `wiki_write` 创建 entry 后生成 root `README.md`，managed block 内含完整表头和对应 entry row。
+- `wiki(action: 'write')` 创建 entry 后生成 root `README.md`，managed block 内含完整表头和对应 entry row。
 - README managed block 在 start marker 后、table 前包含 `<!-- ati-wiki-index:checksum=v1:sha256:<hex> -->`。
 - checksum 输入只覆盖 `name`、`title`、`type`、`updated`、`summary`；`tags`、`created`、`source` 变化仍可使用 README index。
-- checksum 缺失、格式错误或与 table 内容不匹配时，`wiki_list` 扫描 `.md` entries，返回 `index_source: 'scan'`，并保持 README 原样。
-- `wiki_write` 更新已有 entry 后同步 row 的 `Summary` 和 `Updated`。
-- `wiki_delete` 删除 entry 后同步移除 row。
-- `wiki_write` 和 `wiki_delete` 后写入新的 checksum。
-- `wiki_write` 默认 `upsert` 行为保持创建或整体更新。
-- `wiki_write` `create` 模式在目标存在时失败，并保持文件、README checksum 和 reindex 调用状态。
-- `wiki_write` `create` 模式可创建新条目，同步 README checksum，并返回 queued/running/fresh/stale/unknown index 状态。
-- `wiki_write` `append` 模式在目标缺失或 input body 为空时失败，并保持文件、README checksum 和 reindex 调用状态。
-- `wiki_write` `append` 模式只追加 input body，保留原 metadata，刷新 `updated`，README summary 使用追加后完整 body 的首个非空行。
-- `wiki_write` `replace` 模式覆盖正文和 metadata，目标缺失时创建，目标存在时保留原 `created` 并刷新 `updated`。
-- `wiki_list` 在 README index 有效时从 README 返回 `WikiEntry[]`，主路径避免读取 entry 文件内容。
+- checksum 缺失、格式错误或与 table 内容不匹配时，`wiki(action: 'list')` 扫描 `.md` entries，返回 `index_source: 'scan'`，并保持 README 原样。
+- `wiki(action: 'write')` 更新已有 entry 后同步 row 的 `Summary` 和 `Updated`。
+- `wiki(action: 'delete')` 删除 entry 后同步移除 row。
+- `wiki(action: 'write')` 和 `wiki(action: 'delete')` 后写入新的 checksum。
+- `wiki(action: 'write')` 默认 `upsert` 行为保持创建或整体更新。
+- `wiki(action: 'write')` `create` 模式在目标存在时失败，并保持文件、README checksum 和 reindex 调用状态。
+- `wiki(action: 'write')` `create` 模式可创建新条目，同步 README checksum，并返回 queued/running/fresh/stale/unknown index 状态。
+- `wiki(action: 'write')` `append` 模式在目标缺失或 input body 为空时失败，并保持文件、README checksum 和 reindex 调用状态。
+- `wiki(action: 'write')` `append` 模式只追加 input body，保留原 metadata，刷新 `updated`，README summary 使用追加后完整 body 的首个非空行。
+- `wiki(action: 'write')` `replace` 模式覆盖正文和 metadata，目标缺失时创建，目标存在时保留原 `created` 并刷新 `updated`。
+- `wiki(action: 'list')` 在 README index 有效时从 README 返回 `WikiEntry[]`，主路径避免读取 entry 文件内容。
 - README 缺失或表格损坏时，扫描 wiki root 下 `.md` entries，保持 README 和 root durable files 原样。
 - managed block 外的 README 手写内容在 upsert、remove、rebuild 后保留。
-- 同 root 并发 `wiki_write`、`wiki_delete` 后，README managed block 保留全部应保留 entries，checksum 有效，`wiki_list` 可从 README 返回可信目录。
-- root `README.md` 的 vector chunk 在 wiki_search 合并前过滤。
-- `wiki_search` result shape 为 wiki-native，包含 `entry_name`、`title`、`summary`、`text`、`score`、`similarity`、`match_source`、`match_reason`，并裁掉底层 knowledgebase chunk 字段。
-- `ToolCallResult` Summary 能展示 `wiki_list`、`wiki_read`、`wiki_write`、`wiki_delete`、`wiki_search` 的结果摘要，Detail 保留完整 JSON。
-- burst `wiki_write`/`wiki_delete` 在同一 wiki root 内合并为一次 scheduled incremental reindex。
+- 同 root 并发 `wiki(action: 'write')`、`wiki(action: 'delete')` 后，README managed block 保留全部应保留 entries，checksum 有效，`wiki(action: 'list')` 可从 README 返回可信目录。
+- root `README.md` 的 vector chunk 在 wiki(action: 'search') 合并前过滤。
+- `wiki(action: 'search')` result shape 为 wiki-native，包含 `entry_name`、`title`、`summary`、`text`、`score`、`similarity`、`match_source`、`match_reason`，并裁掉底层 knowledgebase chunk 字段。
+- `ToolCallResult` Summary 能展示 `wiki(action: 'list')`、`wiki(action: 'read')`、`wiki(action: 'write')`、`wiki(action: 'delete')`、`wiki(action: 'search')` 的结果摘要，Detail 保留完整 JSON。
+- burst `wiki(action: 'write')`/`wiki(action: 'delete')` 在同一 wiki root 内合并为一次 scheduled incremental reindex。
 - knowledgebase service 已有 active job 时，wiki scheduler join 当前 job 后再执行 wiki root refresh。
 - active refresh 期间发生 mutation 时，active job settled 后自动执行 follow-up refresh。
-- reindex 失败时，entry/README 成功状态保留，后续 `wiki_search` 报告 stale index 状态和失败原因。
+- reindex 失败时，entry/README 成功状态保留，后续 `wiki(action: 'search')` 报告 stale index 状态和失败原因。
 
 ## 实施顺序
 
@@ -330,4 +346,4 @@ README index 测试验收：
 3. 完成 metadata-driven confirmation。
    - 确认 `permissionApprovalMode` 走 active run mutable runtime context，`run:start` payload 和 `chat.ready` 只作为启动快照与日志投影。
 4. 运行目标测试。
-5. 运行 node typecheck，记录独立阻塞项。
+5. 运行 node 和 web typecheck，并记录通过证据。

@@ -21,12 +21,16 @@ vi.mock('@main/services/knowledgebase/KnowledgebaseService', () => ({
 
 import {
   __resetWikiIndexRefreshSchedulersForTests,
-  processWikiDelete,
-  processWikiList,
-  processWikiRead,
-  processWikiSearch,
-  processWikiWrite
+  processWiki
 } from '../WikiToolsProcessor'
+
+const wikiList = () => processWiki({ action: 'list' }) as Promise<any>
+const wikiRead = (args: { name: string }) => processWiki({ action: 'read', ...args }) as Promise<any>
+const wikiWrite = (args: { name: string; content: string; mode?: 'upsert' | 'create' | 'append' | 'replace' }) =>
+  processWiki({ action: 'write', ...args }) as Promise<any>
+const wikiDelete = (args: { name: string }) => processWiki({ action: 'delete', ...args }) as Promise<any>
+const wikiSearch = (args: { query: string; localized_query: string; top_k?: number; threshold?: number }) =>
+  processWiki({ action: 'search', ...args }) as Promise<any>
 
 type ReadmeIndexEntryFixture = {
   name: string
@@ -62,14 +66,37 @@ describe('WikiToolsProcessor', () => {
     await rm(wikiRoot, { recursive: true, force: true })
   })
 
+  it('dispatches canonical actions and validates action-specific required fields', async () => {
+    await expect(processWiki()).resolves.toEqual({ success: false, message: 'Missing required parameter: action' })
+    await expect(processWiki(null as any)).resolves.toEqual({ success: false, message: 'Missing required parameter: action' })
+    await expect(processWiki({ action: '   ' })).resolves.toEqual({ success: false, message: 'Missing required parameter: action' })
+    await expect(processWiki({ action: 12 })).resolves.toEqual({ success: false, message: 'Missing required parameter: action' })
+    await expect(processWiki({ action: 'archive' })).resolves.toEqual(expect.objectContaining({
+      success: false,
+      message: 'Unknown wiki action: archive. Allowed actions: list, read, write, delete, search.'
+    }))
+    await expect(processWiki({ action: 'read' })).resolves.toEqual({ success: false, message: 'name is required' })
+    await expect(processWiki({ action: 'write', name: 'entry' })).resolves.toEqual({ success: false, message: 'content is required' })
+    await expect(processWiki({ action: 'search', query: 'entry' })).resolves.toEqual({ success: false, message: 'localized_query is required' })
+
+    await expect(processWiki({ action: 'list' })).resolves.toEqual(expect.objectContaining({
+      success: true,
+      entries: []
+    }))
+    await expect(processWiki({ action: 'write', name: 'empty-content', content: '' })).resolves.toEqual(expect.objectContaining({
+      success: true,
+      name: 'empty-content'
+    }))
+  })
+
   it('rejects parent and absolute path escape attempts', async () => {
     const outsidePath = path.join(path.dirname(wikiRoot), 'escape.md')
 
-    const parentResult = await processWikiWrite({
+    const parentResult = await wikiWrite({
       name: '../escape',
       content: 'escaped'
     })
-    const absoluteResult = await processWikiRead({
+    const absoluteResult = await wikiRead({
       name: path.join(wikiRoot, 'absolute')
     })
 
@@ -93,12 +120,12 @@ describe('WikiToolsProcessor', () => {
         return
       }
 
-      const readResult = await processWikiRead({ name: 'linked' })
-      const writeResult = await processWikiWrite({
+      const readResult = await wikiRead({ name: 'linked' })
+      const writeResult = await wikiWrite({
         name: 'linked',
         content: 'replacement'
       })
-      const deleteResult = await processWikiDelete({ name: 'linked' })
+      const deleteResult = await wikiDelete({ name: 'linked' })
 
       expect(readResult.success).toBe(false)
       expect(readResult.message).toContain('symbolic link')
@@ -124,12 +151,12 @@ describe('WikiToolsProcessor', () => {
         return
       }
 
-      const readResult = await processWikiRead({ name: 'linked-dir/target' })
-      const writeResult = await processWikiWrite({
+      const readResult = await wikiRead({ name: 'linked-dir/target' })
+      const writeResult = await wikiWrite({
         name: 'linked-dir/target',
         content: 'replacement'
       })
-      const deleteResult = await processWikiDelete({ name: 'linked-dir/target' })
+      const deleteResult = await wikiDelete({ name: 'linked-dir/target' })
 
       expect(readResult.success).toBe(false)
       expect(readResult.message).toContain('symbolic link')
@@ -144,7 +171,7 @@ describe('WikiToolsProcessor', () => {
   })
 
   it('reserves root README names for the managed index', async () => {
-    const result = await processWikiWrite({
+    const result = await wikiWrite({
       name: 'readme',
       content: 'Manual readme overwrite'
     })
@@ -156,7 +183,7 @@ describe('WikiToolsProcessor', () => {
   })
 
   it('creates and updates YAML frontmatter while preserving created', async () => {
-    const createResult = await processWikiWrite({
+    const createResult = await wikiWrite({
       name: 'notes/my-entry',
       content: '# Initial body\n\nFirst paragraph.'
     })
@@ -178,7 +205,7 @@ describe('WikiToolsProcessor', () => {
     expect(createdParsed.body).toBe('# Initial body\n\nFirst paragraph.')
 
     vi.setSystemTime(new Date('2026-07-03T10:00:00.000Z'))
-    const updateResult = await processWikiWrite({
+    const updateResult = await wikiWrite({
       name: 'notes/my-entry.md',
       content: [
         '---',
@@ -220,7 +247,7 @@ describe('WikiToolsProcessor', () => {
   })
 
   it('fails create mode for existing entries without mutating files or indexes', async () => {
-    await processWikiWrite({
+    await wikiWrite({
       name: 'mode/create-guard',
       content: 'Original body.'
     })
@@ -230,7 +257,7 @@ describe('WikiToolsProcessor', () => {
     reindexMock.mockClear()
 
     vi.setSystemTime(new Date('2026-07-04T10:00:00.000Z'))
-    const result = await processWikiWrite({
+    const result = await wikiWrite({
       name: 'mode/create-guard',
       mode: 'create',
       content: [
@@ -252,7 +279,7 @@ describe('WikiToolsProcessor', () => {
   })
 
   it('creates a new entry in create mode', async () => {
-    const result = await processWikiWrite({
+    const result = await wikiWrite({
       name: 'mode/create-new',
       mode: 'create',
       content: 'Create mode summary.'
@@ -278,7 +305,7 @@ describe('WikiToolsProcessor', () => {
   })
 
   it('fails append mode when the entry is missing', async () => {
-    const result = await processWikiWrite({
+    const result = await wikiWrite({
       name: 'mode/missing-append',
       mode: 'append',
       content: 'Append body.'
@@ -294,7 +321,7 @@ describe('WikiToolsProcessor', () => {
   })
 
   it('appends body content while preserving original frontmatter metadata', async () => {
-    await processWikiWrite({
+    await wikiWrite({
       name: 'mode/append-target',
       content: [
         '---',
@@ -314,7 +341,7 @@ describe('WikiToolsProcessor', () => {
     reindexMock.mockClear()
 
     vi.setSystemTime(new Date('2026-07-04T10:00:00.000Z'))
-    const result = await processWikiWrite({
+    const result = await wikiWrite({
       name: 'mode/append-target',
       mode: 'append',
       content: [
@@ -364,7 +391,7 @@ describe('WikiToolsProcessor', () => {
   })
 
   it('fails append mode with empty body without mutating files or indexes', async () => {
-    await processWikiWrite({
+    await wikiWrite({
       name: 'mode/append-empty',
       content: 'Original summary.'
     })
@@ -373,7 +400,7 @@ describe('WikiToolsProcessor', () => {
     const readmeBefore = await readWikiReadme()
     reindexMock.mockClear()
 
-    const result = await processWikiWrite({
+    const result = await wikiWrite({
       name: 'mode/append-empty',
       mode: 'append',
       content: [
@@ -395,7 +422,7 @@ describe('WikiToolsProcessor', () => {
   })
 
   it('replaces an existing entry body and metadata while preserving created', async () => {
-    await processWikiWrite({
+    await wikiWrite({
       name: 'mode/replace-target',
       content: [
         '---',
@@ -411,7 +438,7 @@ describe('WikiToolsProcessor', () => {
     })
 
     vi.setSystemTime(new Date('2026-07-05T10:00:00.000Z'))
-    const result = await processWikiWrite({
+    const result = await wikiWrite({
       name: 'mode/replace-target',
       mode: 'replace',
       content: [
@@ -446,7 +473,7 @@ describe('WikiToolsProcessor', () => {
   })
 
   it('creates a missing entry in replace mode', async () => {
-    const result = await processWikiWrite({
+    const result = await wikiWrite({
       name: 'mode/replace-new',
       mode: 'replace',
       content: [
@@ -475,8 +502,8 @@ describe('WikiToolsProcessor', () => {
     expect(createdParsed.body).toBe('Replace-created summary.')
   })
 
-  it('creates the README managed index after wiki_write', async () => {
-    const result = await processWikiWrite({
+  it("creates the README managed index after wiki(action: 'write')", async () => {
+    const result = await wikiWrite({
       name: 'guides/alpha',
       content: [
         '---',
@@ -515,7 +542,7 @@ describe('WikiToolsProcessor', () => {
   })
 
   it('calculates the README checksum from name, title, type, updated, and summary', async () => {
-    await processWikiWrite({
+    await wikiWrite({
       name: 'checksum-fields',
       content: [
         '---',
@@ -559,7 +586,7 @@ describe('WikiToolsProcessor', () => {
   })
 
   it('keeps using README index when only tags, created, and source cells change', async () => {
-    await processWikiWrite({
+    await wikiWrite({
       name: 'ignored-fields',
       content: [
         '---',
@@ -577,7 +604,7 @@ describe('WikiToolsProcessor', () => {
     )
     await writeFile(path.join(wikiRoot, 'README.md'), editedReadme, 'utf-8')
 
-    const result = await processWikiList()
+    const result = await wikiList()
 
     expect(result.success).toBe(true)
     expect(result.message).toBe('Found 1 wiki entries.')
@@ -595,15 +622,15 @@ describe('WikiToolsProcessor', () => {
     expect(await readWikiReadme()).toBe(editedReadme)
   })
 
-  it('updates an existing README index entry summary and updated date after wiki_write', async () => {
-    await processWikiWrite({
+  it("updates an existing README index entry summary and updated date after wiki(action: 'write')", async () => {
+    await wikiWrite({
       name: 'notes/changing',
       content: 'Old summary line.'
     })
     const initialChecksum = extractReadmeIndexChecksum(await readWikiReadme())
 
     vi.setSystemTime(new Date('2026-07-03T10:00:00.000Z'))
-    const result = await processWikiWrite({
+    const result = await wikiWrite({
       name: 'notes/changing',
       content: [
         '---',
@@ -624,7 +651,7 @@ describe('WikiToolsProcessor', () => {
   })
 
   it('scans entries without rewriting README when checksum does not match covered table fields', async () => {
-    await processWikiWrite({
+    await wikiWrite({
       name: 'covered-mismatch',
       content: [
         '---',
@@ -637,7 +664,7 @@ describe('WikiToolsProcessor', () => {
     const staleReadme = (await readWikiReadme()).replace('File Title', 'Stale Title')
     await writeFile(path.join(wikiRoot, 'README.md'), staleReadme, 'utf-8')
 
-    const result = await processWikiList()
+    const result = await wikiList()
 
     expect(result.success).toBe(true)
     expect(result.message).toContain('README index needs repair')
@@ -653,7 +680,7 @@ describe('WikiToolsProcessor', () => {
   })
 
   it('scans entries without rewriting README when checksum is missing', async () => {
-    await processWikiWrite({
+    await wikiWrite({
       name: 'missing-checksum',
       content: 'Checksum missing summary.'
     })
@@ -663,7 +690,7 @@ describe('WikiToolsProcessor', () => {
     )
     await writeFile(path.join(wikiRoot, 'README.md'), readmeWithoutChecksum, 'utf-8')
 
-    const result = await processWikiList()
+    const result = await wikiList()
 
     expect(result.success).toBe(true)
     expect(result.index_source).toBe('scan')
@@ -672,7 +699,7 @@ describe('WikiToolsProcessor', () => {
   })
 
   it('scans entries without rewriting README when checksum format is invalid', async () => {
-    await processWikiWrite({
+    await wikiWrite({
       name: 'invalid-checksum',
       content: 'Checksum invalid summary.'
     })
@@ -682,7 +709,7 @@ describe('WikiToolsProcessor', () => {
     )
     await writeFile(path.join(wikiRoot, 'README.md'), readmeWithInvalidChecksum, 'utf-8')
 
-    const result = await processWikiList()
+    const result = await wikiList()
 
     expect(result.success).toBe(true)
     expect(result.index_source).toBe('scan')
@@ -691,14 +718,14 @@ describe('WikiToolsProcessor', () => {
   })
 
   it('deletes an entry and refreshes the wiki index', async () => {
-    await processWikiWrite({
+    await wikiWrite({
       name: 'delete-me',
       content: 'Temporary note'
     })
     await runScheduledWikiRefresh()
     reindexMock.mockClear()
 
-    const result = await processWikiDelete({ name: 'delete-me' })
+    const result = await wikiDelete({ name: 'delete-me' })
 
     expect(result.success).toBe(true)
     expect(result.index_status).toBe('queued')
@@ -713,18 +740,18 @@ describe('WikiToolsProcessor', () => {
     })
   })
 
-  it('removes the README index entry after wiki_delete', async () => {
-    await processWikiWrite({
+  it("removes the README index entry after wiki(action: 'delete')", async () => {
+    await wikiWrite({
       name: 'delete-me',
       content: 'Temporary note'
     })
-    await processWikiWrite({
+    await wikiWrite({
       name: 'keep-me',
       content: 'Keep note'
     })
     const checksumBeforeDelete = extractReadmeIndexChecksum(await readWikiReadme())
 
-    const result = await processWikiDelete({ name: 'delete-me' })
+    const result = await wikiDelete({ name: 'delete-me' })
 
     expect(result.success).toBe(true)
 
@@ -734,9 +761,9 @@ describe('WikiToolsProcessor', () => {
     expect(extractReadmeIndexChecksum(readme)).not.toBe(checksumBeforeDelete)
   })
 
-  it('serializes concurrent wiki_write README updates for the same root', async () => {
+  it("serializes concurrent wiki(action: 'write') README updates for the same root", async () => {
     const writes = Array.from({ length: 8 }, (_, index) =>
-      processWikiWrite({
+      wikiWrite({
         name: `concurrent/write-${index}`,
         content: `Concurrent write ${index} summary.`
       })
@@ -751,7 +778,7 @@ describe('WikiToolsProcessor', () => {
       expect(readme).toContain(`| concurrent/write-${index} | Write ${index} | note |`)
     }
 
-    const listResult = await processWikiList()
+    const listResult = await wikiList()
     expect(listResult.success).toBe(true)
     expect(listResult.index_source).toBe('readme')
     expect(listResult.entries.map(entry => entry.name).sort()).toEqual(
@@ -759,13 +786,13 @@ describe('WikiToolsProcessor', () => {
     )
   })
 
-  it('serializes concurrent wiki_write and wiki_delete README updates for the same root', async () => {
-    await processWikiWrite({
+  it("serializes concurrent wiki(action: 'write') and wiki(action: 'delete') README updates for the same root", async () => {
+    await wikiWrite({
       name: 'concurrent/keep',
       content: 'Keep summary.'
     })
     await Promise.all(Array.from({ length: 5 }, (_, index) =>
-      processWikiWrite({
+      wikiWrite({
         name: `concurrent/delete-${index}`,
         content: `Delete ${index} summary.`
       })
@@ -773,13 +800,13 @@ describe('WikiToolsProcessor', () => {
 
     const mutations = [
       ...Array.from({ length: 5 }, (_, index) =>
-        processWikiWrite({
+        wikiWrite({
           name: `concurrent/new-${index}`,
           content: `New ${index} summary.`
         })
       ),
       ...Array.from({ length: 5 }, (_, index) =>
-        processWikiDelete({ name: `concurrent/delete-${index}` })
+        wikiDelete({ name: `concurrent/delete-${index}` })
       )
     ]
 
@@ -789,7 +816,7 @@ describe('WikiToolsProcessor', () => {
     const readme = await readWikiReadme()
     expect(extractReadmeIndexChecksum(readme)).toMatch(/^[a-f0-9]{64}$/)
 
-    const listResult = await processWikiList()
+    const listResult = await wikiList()
     expect(listResult.success).toBe(true)
     expect(listResult.index_source).toBe('readme')
     expect(listResult.entries.map(entry => entry.name).sort()).toEqual([
@@ -803,7 +830,7 @@ describe('WikiToolsProcessor', () => {
   })
 
   it('reports unchanged index state when deleting a missing entry', async () => {
-    const result = await processWikiDelete({ name: 'missing-delete' })
+    const result = await wikiDelete({ name: 'missing-delete' })
 
     expect(result.success).toBe(false)
     expect(result.name).toBe('missing-delete')
@@ -813,11 +840,11 @@ describe('WikiToolsProcessor', () => {
   })
 
   it('coalesces burst writes into one scheduled incremental reindex', async () => {
-    const firstResult = await processWikiWrite({
+    const firstResult = await wikiWrite({
       name: 'burst/one',
       content: 'First burst note.'
     })
-    const secondResult = await processWikiWrite({
+    const secondResult = await wikiWrite({
       name: 'burst/two',
       content: 'Second burst note.'
     })
@@ -845,7 +872,7 @@ describe('WikiToolsProcessor', () => {
       .mockReturnValueOnce({ state: 'embedding' })
       .mockReturnValue({ state: 'completed' })
 
-    const result = await processWikiWrite({
+    const result = await wikiWrite({
       name: 'busy-service',
       content: 'Busy service note.'
     })
@@ -877,7 +904,7 @@ describe('WikiToolsProcessor', () => {
       .mockReturnValueOnce(firstRefresh.promise)
       .mockReturnValueOnce(secondRefresh.promise)
 
-    await processWikiWrite({
+    await wikiWrite({
       name: 'active/one',
       content: 'First active note.'
     })
@@ -885,7 +912,7 @@ describe('WikiToolsProcessor', () => {
 
     expect(reindexMock).toHaveBeenCalledTimes(1)
 
-    const secondResult = await processWikiWrite({
+    const secondResult = await wikiWrite({
       name: 'active/two',
       content: 'Second active note.'
     })
@@ -915,19 +942,19 @@ describe('WikiToolsProcessor', () => {
     await settlePromises()
   })
 
-  it('reports queued and running index state in wiki_search', async () => {
+  it("reports queued and running index state in wiki(action: 'search')", async () => {
     const refresh = createDeferred<{ success: boolean }>()
     reindexMock
       .mockReset()
       .mockReturnValueOnce(refresh.promise)
     searchMock.mockResolvedValue([])
 
-    await processWikiWrite({
+    await wikiWrite({
       name: 'state-target',
       content: 'Search state summary.'
     })
 
-    const queuedResult = await processWikiSearch({
+    const queuedResult = await wikiSearch({
       query: 'state target',
       localized_query: 'state target'
     })
@@ -937,7 +964,7 @@ describe('WikiToolsProcessor', () => {
 
     await vi.advanceTimersByTimeAsync(50)
 
-    const runningResult = await processWikiSearch({
+    const runningResult = await wikiSearch({
       query: 'state target',
       localized_query: 'state target'
     })
@@ -952,7 +979,7 @@ describe('WikiToolsProcessor', () => {
   it('keeps a successful write and reports stale after scheduled index refresh fails', async () => {
     reindexMock.mockRejectedValueOnce(new Error('embedding unavailable'))
 
-    const result = await processWikiWrite({
+    const result = await wikiWrite({
       name: 'index-failure',
       content: 'Saved content'
     })
@@ -966,7 +993,7 @@ describe('WikiToolsProcessor', () => {
     await runScheduledWikiRefresh()
     searchMock.mockResolvedValue([])
 
-    const searchResult = await processWikiSearch({
+    const searchResult = await wikiSearch({
       query: 'index failure',
       localized_query: 'index failure'
     })
@@ -996,7 +1023,7 @@ describe('WikiToolsProcessor', () => {
       'utf-8'
     )
 
-    const result = await processWikiList()
+    const result = await wikiList()
 
     expect(result.success).toBe(true)
     expect(result.index_source).toBe('scan')
@@ -1028,7 +1055,7 @@ describe('WikiToolsProcessor', () => {
       'utf-8'
     )
 
-    const result = await processWikiList()
+    const result = await wikiList()
 
     expect(result.success).toBe(true)
     expect(result.index_source).toBe('scan')
@@ -1069,7 +1096,7 @@ describe('WikiToolsProcessor', () => {
     ])
     await writeFile(path.join(wikiRoot, 'README.md'), staleReadme, 'utf-8')
 
-    const result = await processWikiList()
+    const result = await wikiList()
 
     expect(result.success).toBe(true)
     expect(result.index_source).toBe('scan')
@@ -1117,7 +1144,7 @@ describe('WikiToolsProcessor', () => {
     await chmod(entryPath, 0o000)
 
     try {
-      const result = await processWikiList()
+      const result = await wikiList()
 
       expect(result.success).toBe(true)
       expect(result.entries).toEqual([
@@ -1170,7 +1197,7 @@ describe('WikiToolsProcessor', () => {
     ].join('\n')
     await writeFile(path.join(wikiRoot, 'README.md'), damagedReadme, 'utf-8')
 
-    const result = await processWikiList()
+    const result = await wikiList()
 
     expect(result.success).toBe(true)
     expect(result.index_source).toBe('scan')
@@ -1205,7 +1232,7 @@ describe('WikiToolsProcessor', () => {
       'utf-8'
     )
 
-    await processWikiWrite({
+    await wikiWrite({
       name: 'new-entry',
       content: 'New entry summary.'
     })
@@ -1227,7 +1254,7 @@ describe('WikiToolsProcessor', () => {
         makeSearchItem({ chunkId: 'chunk-1', text: 'first chunk high score', score: 0.9, similarity: 0.8, chunkIndex: 2 })
       ])
 
-    const result = await processWikiSearch({
+    const result = await wikiSearch({
       query: 'distributed lock',
       localized_query: '分布式锁',
       top_k: 99,
@@ -1261,7 +1288,7 @@ describe('WikiToolsProcessor', () => {
   it('deduplicates identical query and localized_query candidates', async () => {
     searchMock.mockResolvedValueOnce([])
 
-    const result = await processWikiSearch({
+    const result = await wikiSearch({
       query: 'same query',
       localized_query: 'same query'
     })
@@ -1308,7 +1335,7 @@ describe('WikiToolsProcessor', () => {
     )
     searchMock.mockResolvedValue([])
 
-    const result = await processWikiSearch({
+    const result = await wikiSearch({
       query: 'lock guide',
       localized_query: '锁指南'
     })
@@ -1322,9 +1349,9 @@ describe('WikiToolsProcessor', () => {
       match_source: 'readme'
     }))
     expect(result.results[0].match_reason).toContain('README')
-    expect(result.results[0].text).toContain('Use wiki_read with name "distributed-lock"')
+    expect(result.results[0].text).toContain("Use wiki(action: 'read') with name \"distributed-lock\"")
     expectWikiSearchResultShape(result.results[0])
-    expect(result.message).toContain('README index matches may need wiki_read')
+    expect(result.message).toContain("Use wiki(action: 'read') for full page context")
   })
 
   it('boosts vector results with README title matches and enriches response metadata', async () => {
@@ -1361,7 +1388,7 @@ describe('WikiToolsProcessor', () => {
       })
     ])
 
-    const result = await processWikiSearch({
+    const result = await wikiSearch({
       query: 'distributed lock guide',
       localized_query: 'distributed lock guide'
     })
@@ -1410,7 +1437,7 @@ describe('WikiToolsProcessor', () => {
       })
     ])
 
-    const result = await processWikiSearch({
+    const result = await wikiSearch({
       query: 'opaque vector phrase',
       localized_query: 'opaque vector phrase'
     })
@@ -1455,7 +1482,7 @@ describe('WikiToolsProcessor', () => {
     await writeFile(path.join(wikiRoot, 'README.md'), damagedReadme, 'utf-8')
     searchMock.mockResolvedValue([])
 
-    const result = await processWikiSearch({
+    const result = await wikiSearch({
       query: 'recoverable search',
       localized_query: 'recoverable search'
     })

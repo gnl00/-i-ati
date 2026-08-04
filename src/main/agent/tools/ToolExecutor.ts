@@ -111,13 +111,14 @@ export class ToolExecutor implements IToolExecutor {
     const toolIndex = call.index ?? 0
     let executionStartTime: number | undefined
     let metadataConfirmationApproved = false
-    const isPlanCreate = toolName === 'plan' && this.getDeclaredAction(call) === 'create'
+    const declaredAction = this.getDeclaredAction(call)
+    const isPlanCreate = toolName === 'plan' && declaredAction === 'create'
 
     const requiresPlanReview = isPlanCreate
       && Boolean(this.requestConfirmation)
       && !this.shouldAutoApprovePlanCreate()
     const requiresCommandReview = toolName === 'exec' && Boolean(this.requestConfirmation)
-    const metadataReview = this.resolveMetadataReview(toolName)
+    const metadataReview = this.resolveMetadataReview(toolName, call)
     const requiresMetadataReview = Boolean(this.requestConfirmation)
       && !isPlanCreate
       && toolName !== 'exec'
@@ -162,7 +163,18 @@ export class ToolExecutor implements IToolExecutor {
           })
           return result
         }
-        if (decision.args) {
+        if (decision.args !== undefined) {
+          const replacementActionError = this.getApprovedActionReplacementError(declaredAction, decision.args)
+          if (replacementActionError) {
+            const result = this.createAbortedResultWithReason(call, replacementActionError)
+            this.reportProgress({
+              id: toolId,
+              name: toolName,
+              phase: 'completed',
+              result
+            })
+            return result
+          }
           runtimeArgs = this.applyRuntimeContext(decision.args, toolName)
         }
       }
@@ -251,7 +263,18 @@ export class ToolExecutor implements IToolExecutor {
           return result
         }
         metadataConfirmationApproved = true
-        if (decision.args) {
+        if (decision.args !== undefined) {
+          const replacementActionError = this.getApprovedActionReplacementError(declaredAction, decision.args)
+          if (replacementActionError) {
+            const result = this.createAbortedResultWithReason(call, replacementActionError)
+            this.reportProgress({
+              id: toolId,
+              name: toolName,
+              phase: 'completed',
+              result
+            })
+            return result
+          }
           runtimeArgs = this.applyRuntimeContext(decision.args, toolName)
         }
       }
@@ -448,12 +471,31 @@ export class ToolExecutor implements IToolExecutor {
       }
     }
 
+    return this.getAction(args)
+  }
+
+  private getAction(args: unknown): string | undefined {
     if (!args || typeof args !== 'object' || Array.isArray(args)) {
       return undefined
     }
 
     const action = (args as { action?: unknown }).action
-    return typeof action === 'string' ? action.trim() : undefined
+    if (typeof action !== 'string') {
+      return undefined
+    }
+    const normalizedAction = action.trim()
+    return normalizedAction || undefined
+  }
+
+  private getApprovedActionReplacementError(
+    declaredAction: string | undefined,
+    replacementArgs: unknown
+  ): string | undefined {
+    if (!declaredAction || this.getAction(replacementArgs) === declaredAction) {
+      return undefined
+    }
+
+    return `Confirmed action "${declaredAction}" changed. Submit a new tool call and confirmation for the replacement action.`
   }
 
   private applyRuntimeContext(args: any, toolName?: string): any {
@@ -507,11 +549,15 @@ export class ToolExecutor implements IToolExecutor {
     return normalizePermissionApprovalMode(this.approvalPolicy.permissionApprovalMode) === 'auto'
   }
 
-  private resolveMetadataReview(toolName: string): EmbeddedToolMetadata | undefined {
+  private resolveMetadataReview(toolName: string, call: ToolCallProps): EmbeddedToolMetadata | undefined {
     if (!embeddedToolsRegistry.isRegistered(toolName)) {
       return undefined
     }
-    const metadata = embeddedToolMetadata[toolName]
+    const baseMetadata = embeddedToolMetadata[toolName]
+    const action = this.getDeclaredAction(call)
+    const metadata = action && baseMetadata?.actionOverrides?.[action]
+      ? { ...baseMetadata, ...baseMetadata.actionOverrides[action] }
+      : baseMetadata
     if (!metadata) {
       return undefined
     }

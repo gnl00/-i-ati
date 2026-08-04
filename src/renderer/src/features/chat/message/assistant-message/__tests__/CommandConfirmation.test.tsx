@@ -38,7 +38,7 @@ describe('CommandConfirmation', () => {
       root.render(
         <CommandConfirmation
           request={{
-            command: `wiki_write --content ${'x'.repeat(1800)}`,
+            command: `wiki {"action":"write","content":"${'x'.repeat(1800)}"}`,
             risk_level: 'risky',
             execution_reason: 'Confirm a long mutation request '.repeat(20),
             possible_risk: longReason

@@ -42,6 +42,8 @@ export interface EmbeddedToolMetadata {
   mutatesWorkspace: boolean
   subagent: 'allow' | 'deny'
   roles?: SubagentRole[]
+  actionOverrides?: Record<string, Partial<Pick<EmbeddedToolMetadata,
+    'capability' | 'riskLevel' | 'mutatesWorkspace'>>>
   resultCompaction?: ToolResultCompactionMetadata
 }
 

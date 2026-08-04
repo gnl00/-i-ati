@@ -1,4 +1,5 @@
 export interface WikiListArgs {}
+export type WikiAction = 'list' | 'read' | 'write' | 'delete' | 'search'
 export interface WikiEntry {
   name: string
   title: string
@@ -82,4 +83,24 @@ export interface WikiSearchResponse {
   index_status?: WikiIndexStatus
   index_message?: string
   message?: string
+}
+
+export type WikiArgs =
+  | ({ action: 'list' } & WikiListArgs)
+  | ({ action: 'read' } & WikiReadArgs)
+  | ({ action: 'write' } & WikiWriteArgs)
+  | ({ action: 'delete' } & WikiDeleteArgs)
+  | ({ action: 'search' } & WikiSearchArgs)
+
+export type WikiResponse =
+  | WikiListResponse
+  | WikiReadResponse
+  | WikiWriteResponse
+  | WikiDeleteResponse
+  | WikiSearchResponse
+  | WikiErrorResponse
+
+export interface WikiErrorResponse {
+  success: false
+  message: string
 }

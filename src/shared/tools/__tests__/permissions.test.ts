@@ -24,5 +24,6 @@ describe('resolveAllowedEmbeddedToolsForAgent', () => {
     expect(allowed).toContain('grep')
     expect(allowed).not.toContain('write')
     expect(allowed).not.toContain('edit')
+    expect(allowed).not.toContain('wiki')
   })
 })

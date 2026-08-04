@@ -39,12 +39,19 @@ describe('embeddedToolMetadata', () => {
     ).toThrow('Duplicate embedded tool metadata: test_tool')
   })
 
-  it('keeps wiki_list read-only while wiki mutations require workspace approval', () => {
-    expect(embeddedToolMetadata.wiki_list.mutatesWorkspace).toBe(false)
-    expect(embeddedToolMetadata.wiki_read.mutatesWorkspace).toBe(false)
-    expect(embeddedToolMetadata.wiki_search.mutatesWorkspace).toBe(false)
-    expect(embeddedToolMetadata.wiki_write.mutatesWorkspace).toBe(true)
-    expect(embeddedToolMetadata.wiki_delete.mutatesWorkspace).toBe(true)
+  it('keeps wiki action metadata aligned with action-specific workspace policy', () => {
+    const overrides = embeddedToolMetadata.wiki.actionOverrides
+    const wikiMetadataNames = Object.keys(embeddedToolMetadata)
+      .filter(name => name === 'wiki' || name.startsWith('wiki_'))
+      .sort()
+
+    expect(wikiMetadataNames).toEqual(['wiki'])
+    expect(overrides?.list?.mutatesWorkspace).toBe(false)
+    expect(overrides?.read?.mutatesWorkspace).toBe(false)
+    expect(overrides?.search?.mutatesWorkspace).toBe(false)
+    expect(overrides?.write).toMatchObject({ capability: 'filesystem_write', riskLevel: 'warning', mutatesWorkspace: true })
+    expect(overrides?.delete).toMatchObject({ capability: 'filesystem_write', riskLevel: 'dangerous', mutatesWorkspace: true })
+    expect(embeddedToolMetadata.wiki.subagent).toBe('deny')
   })
 
   it('declares web_fetch result compaction through tool metadata', () => {

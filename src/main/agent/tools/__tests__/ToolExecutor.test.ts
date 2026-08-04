@@ -27,7 +27,7 @@ vi.mock('@tools/registry', () => ({
       || name === 'activity_journal_append'
       || name === 'subagent_spawn'
       || name === 'exec'
-      || name === 'wiki_delete'
+      || name === 'wiki'
       || name === 'write'
       || name === 'knowledgebase_search'
       || name === 'run_skill_script'
@@ -449,6 +449,26 @@ describe('ToolExecutor runtime context', () => {
     expect(handlerMock).toHaveBeenCalledTimes(1)
   })
 
+  it('binds a plan create confirmation to the declared action', async () => {
+    handlerMock.mockClear()
+    const requestConfirmation = vi.fn(async () => ({
+      approved: true,
+      args: { action: 'get_current_chat' }
+    }))
+    const executor = new ToolExecutor({ requestConfirmation })
+
+    const [result] = await executor.execute([{
+      id: 'call-plan-action-change',
+      function: 'plan',
+      args: JSON.stringify({ action: 'create', goal: 'Ship feature', steps: [] })
+    } as any])
+
+    expect(requestConfirmation).toHaveBeenCalledTimes(1)
+    expect(handlerMock).not.toHaveBeenCalled()
+    expect(result.status).toBe('aborted')
+    expect(result.error?.message).toContain('Submit a new tool call and confirmation')
+  })
+
   it('keeps non-create plan actions on the ordinary execution path', async () => {
     handlerMock.mockClear()
     const requestConfirmation = vi.fn(async () => ({ approved: true }))
@@ -833,8 +853,9 @@ describe('ToolExecutor runtime context', () => {
 
     const [result] = await executor.execute([{
       id: 'call-10',
-      function: 'wiki_delete',
+      function: 'wiki',
       args: JSON.stringify({
+        action: 'delete',
         name: 'release-notes'
       })
     } as any])
@@ -842,13 +863,81 @@ describe('ToolExecutor runtime context', () => {
     expect(requestConfirmation).toHaveBeenCalledTimes(1)
     const firstRequest = (requestConfirmation.mock.calls[0] as any[])[0]
     expect(firstRequest.ui).toEqual(expect.objectContaining({
-      title: 'Confirm wiki_delete',
+      title: 'Confirm wiki',
       riskLevel: 'dangerous',
       riskScore: 8
     }))
     expect(handlerMock).not.toHaveBeenCalled()
     expect(result.status).toBe('aborted')
     expect(result.error?.message).toContain('wiki deletion denied')
+  })
+
+  it('requires confirmation for wiki write actions from embedded metadata', async () => {
+    handlerMock.mockClear()
+    const requestConfirmation = vi.fn(async () => ({ approved: false, reason: 'wiki write denied' }))
+    const executor = new ToolExecutor({ requestConfirmation })
+
+    const [result] = await executor.execute([{
+      id: 'call-wiki-write',
+      function: 'wiki',
+      args: JSON.stringify({ action: 'write', name: 'release-notes', content: 'Draft notes.' })
+    } as any])
+
+    expect(requestConfirmation).toHaveBeenCalledTimes(1)
+    expect((requestConfirmation.mock.calls[0] as any[])[0].ui).toEqual(expect.objectContaining({
+      title: 'Confirm wiki',
+      riskLevel: 'risky',
+      riskScore: 5
+    }))
+    expect(handlerMock).not.toHaveBeenCalled()
+    expect(result.status).toBe('aborted')
+  })
+
+  it('binds a wiki write confirmation to the declared action', async () => {
+    handlerMock.mockClear()
+    const requestConfirmation = vi.fn(async () => ({
+      approved: true,
+      args: { action: 'delete', name: 'release-notes' }
+    }))
+    const executor = new ToolExecutor({ requestConfirmation })
+
+    const [result] = await executor.execute([{
+      id: 'call-wiki-action-change',
+      function: 'wiki',
+      args: JSON.stringify({ action: 'write', name: 'release-notes', content: 'Draft notes.' })
+    } as any])
+
+    expect(requestConfirmation).toHaveBeenCalledTimes(1)
+    expect(handlerMock).not.toHaveBeenCalled()
+    expect(result.status).toBe('aborted')
+    expect(result.error?.message).toContain('Submit a new tool call and confirmation')
+  })
+
+  it('runs same-action wiki confirmation replacements with runtime context', async () => {
+    handlerMock.mockClear()
+    const requestConfirmation = vi.fn(async () => ({
+      approved: true,
+      args: { action: 'write', name: 'release-notes', content: 'Approved replacement.' }
+    }))
+    const executor = new ToolExecutor({
+      chatUuid: 'chat-wiki-replacement',
+      requestConfirmation
+    })
+
+    const [result] = await executor.execute([{
+      id: 'call-wiki-same-action',
+      function: 'wiki',
+      args: JSON.stringify({ action: 'write', name: 'release-notes', content: 'Draft notes.' })
+    } as any])
+
+    expect(requestConfirmation).toHaveBeenCalledTimes(1)
+    expect(handlerMock).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'write',
+      name: 'release-notes',
+      content: 'Approved replacement.',
+      chat_uuid: 'chat-wiki-replacement'
+    }), expect.anything())
+    expect(result.status).toBe('success')
   })
 
   it('requires confirmation for workspace mutations from embedded metadata', async () => {
@@ -880,6 +969,27 @@ describe('ToolExecutor runtime context', () => {
     expect(handlerMock).not.toHaveBeenCalled()
     expect(result.status).toBe('aborted')
     expect(result.error?.message).toContain('write denied')
+  })
+
+  it.each(['list', 'read', 'search'])('executes wiki %s without confirmation', async (action) => {
+    handlerMock.mockClear()
+    const requestConfirmation = vi.fn(async () => ({ approved: false, reason: 'manual denial' }))
+    const executor = new ToolExecutor({ requestConfirmation })
+    const args = action === 'search'
+      ? { action, query: 'release notes', localized_query: 'release notes' }
+      : action === 'read'
+        ? { action, name: 'release-notes' }
+        : { action }
+
+    const [result] = await executor.execute([{
+      id: `call-wiki-${action}`,
+      function: 'wiki',
+      args: JSON.stringify(args)
+    } as any])
+
+    expect(requestConfirmation).not.toHaveBeenCalled()
+    expect(handlerMock).toHaveBeenCalledTimes(1)
+    expect(result.status).toBe('success')
   })
 
   it('does not require confirmation for non-mutating warning tools from embedded metadata', async () => {
@@ -965,8 +1075,9 @@ describe('ToolExecutor runtime context', () => {
 
     const [result] = await executor.execute([{
       id: 'call-12',
-      function: 'wiki_delete',
+      function: 'wiki',
       args: JSON.stringify({
+        action: 'delete',
         name: 'release-notes'
       })
     } as any])

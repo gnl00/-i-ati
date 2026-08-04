@@ -14,7 +14,9 @@ import type {
   WikiSearchArgs,
   WikiSearchResponse,
   WikiIndexStatus,
-  WikiSearchMatchSource
+  WikiSearchMatchSource,
+  WikiAction,
+  WikiResponse
 } from '@tools/wiki/index.d'
 
 type WikiMetadata = Record<string, unknown>
@@ -443,7 +445,7 @@ function normalizeWikiWriteMode(mode: unknown): WikiWriteMode {
   }
 
   if (typeof mode !== 'string' || !WIKI_WRITE_MODES.has(mode as WikiWriteMode)) {
-    throw new Error('Invalid wiki_write mode. Use upsert, create, append, or replace.')
+    throw new Error('Invalid wiki write action mode. Use upsert, create, append, or replace.')
   }
 
   return mode as WikiWriteMode
@@ -1151,7 +1153,73 @@ function withIndexMessage(message: string, indexState: WikiIndexState): string {
 
 const WIKI_INDEX_UNCHANGED_MESSAGE = 'Wiki index unchanged.'
 
-export async function processWikiList(): Promise<WikiListResponse> {
+const WIKI_ACTIONS: WikiAction[] = ['list', 'read', 'write', 'delete', 'search']
+
+function hasRequiredString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0
+}
+
+function hasRequiredContent(value: unknown): value is string {
+  return typeof value === 'string'
+}
+
+export async function processWiki(
+  args: unknown = {}
+): Promise<WikiResponse> {
+  const normalizedArgs = args && typeof args === 'object' && !Array.isArray(args)
+    ? args as Partial<Record<'action' | 'name' | 'content' | 'mode' | 'query' | 'localized_query' | 'top_k' | 'threshold', unknown>>
+    : {}
+  const action = typeof normalizedArgs.action === 'string' ? normalizedArgs.action.trim() : ''
+  if (!action) {
+    return { success: false, message: 'Missing required parameter: action' }
+  }
+  if (!WIKI_ACTIONS.includes(action as WikiAction)) {
+    return {
+      success: false,
+      message: `Unknown wiki action: ${action}. Allowed actions: ${WIKI_ACTIONS.join(', ')}.`
+    }
+  }
+
+  switch (action as WikiAction) {
+    case 'list':
+      return processWikiList()
+    case 'read':
+    case 'delete':
+      if (!hasRequiredString(normalizedArgs.name)) {
+        return { success: false, message: 'name is required' }
+      }
+      return action === 'read'
+        ? processWikiRead({ name: normalizedArgs.name })
+        : processWikiDelete({ name: normalizedArgs.name })
+    case 'write':
+      if (!hasRequiredString(normalizedArgs.name)) {
+        return { success: false, message: 'name is required' }
+      }
+      if (!hasRequiredContent(normalizedArgs.content)) {
+        return { success: false, message: 'content is required' }
+      }
+      return processWikiWrite({
+        name: normalizedArgs.name,
+        content: normalizedArgs.content,
+        mode: normalizedArgs.mode as WikiWriteArgs['mode']
+      })
+    case 'search':
+      if (!hasRequiredString(normalizedArgs.query)) {
+        return { success: false, message: 'query is required' }
+      }
+      if (!hasRequiredString(normalizedArgs.localized_query)) {
+        return { success: false, message: 'localized_query is required' }
+      }
+      return processWikiSearch({
+        query: normalizedArgs.query,
+        localized_query: normalizedArgs.localized_query,
+        top_k: normalizedArgs.top_k as number | undefined,
+        threshold: normalizedArgs.threshold as number | undefined
+      })
+  }
+}
+
+async function processWikiList(): Promise<WikiListResponse> {
   const root = getWikiRoot()
   try {
     const readme = await readReadme(root).catch(() => undefined)
@@ -1192,7 +1260,7 @@ export async function processWikiList(): Promise<WikiListResponse> {
   }
 }
 
-export async function processWikiRead(args: { name: string }): Promise<WikiReadResponse> {
+async function processWikiRead(args: { name: string }): Promise<WikiReadResponse> {
   try {
     const wikiPath = resolveWikiPath(args.name)
 
@@ -1225,7 +1293,7 @@ export async function processWikiRead(args: { name: string }): Promise<WikiReadR
   }
 }
 
-export async function processWikiWrite(args: WikiWriteArgs): Promise<WikiWriteResponse> {
+async function processWikiWrite(args: WikiWriteArgs): Promise<WikiWriteResponse> {
   try {
     const mode = normalizeWikiWriteMode(args.mode)
     const wikiPath = resolveWikiPath(args.name)
@@ -1290,7 +1358,7 @@ export async function processWikiWrite(args: WikiWriteArgs): Promise<WikiWriteRe
   }
 }
 
-export async function processWikiDelete(args: { name: string }): Promise<WikiDeleteResponse> {
+async function processWikiDelete(args: { name: string }): Promise<WikiDeleteResponse> {
   try {
     const wikiPath = resolveWikiPath(args.name)
 
@@ -1327,7 +1395,7 @@ export async function processWikiDelete(args: { name: string }): Promise<WikiDel
   }
 }
 
-export async function processWikiSearch(args: WikiSearchArgs): Promise<WikiSearchResponse> {
+async function processWikiSearch(args: WikiSearchArgs): Promise<WikiSearchResponse> {
   const root = getWikiRoot()
   try {
     const indexState = getWikiIndexSnapshot(root)
@@ -1394,7 +1462,7 @@ export async function processWikiSearch(args: WikiSearchArgs): Promise<WikiSearc
     const hasReadmeFallback = merged.some(item => item.matchSource === 'readme')
     const resultMessage = merged.length > 0
       ? hasReadmeFallback
-        ? `Found ${merged.length} wiki results. README index matches may need wiki_read for full page context.`
+        ? `Found ${merged.length} wiki results. Use wiki(action: 'read') for full page context.`
         : `Found ${merged.length} wiki results.`
       : 'No relevant wiki results found. The wiki index may need to be rebuilt.'
     const responseIndexState = getWikiIndexSnapshot(root)
@@ -1480,7 +1548,7 @@ function buildReadmeFallbackText(entry: WikiEntry, match: ReadmeMatch): string {
     `Title: ${entry.title}`,
     entry.summary ? `Summary: ${entry.summary}` : undefined,
     `Match: ${formatReadmeReasons(match.reasons)}`,
-    `Use wiki_read with name "${entry.name}" for full page context.`
+    `Use wiki(action: 'read') with name "${entry.name}" for full page context.`
   ]
     .filter((part): part is string => Boolean(part))
     .join('\n')
