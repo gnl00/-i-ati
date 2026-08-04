@@ -85,7 +85,7 @@ describe('ExecuteCommandResultCompactor', () => {
     }
     const output = await new ExecuteCommandResultCompactor(compactAgent).compact({
       messageId: 21,
-      toolName: 'execute_command',
+      toolName: 'exec',
       status: 'error',
       rawContent: {
         success: false,
@@ -130,7 +130,7 @@ describe('ExecuteCommandResultCompactor', () => {
     }
     const output = await new ExecuteCommandResultCompactor(compactAgent).compact({
       messageId: 22,
-      toolName: 'execute_command',
+      toolName: 'exec',
       status: 'success',
       rawContent: {
         command: 'pnpm test',

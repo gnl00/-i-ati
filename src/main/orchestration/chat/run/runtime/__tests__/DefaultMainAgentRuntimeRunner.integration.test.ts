@@ -794,7 +794,7 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
                 index: 0,
                 type: 'function',
                 function: {
-                  name: 'execute_command',
+                  name: 'exec',
                   arguments: '{"command":"echo approved"}'
                 }
               }
@@ -868,7 +868,7 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     expect(hostSink.handle).toHaveBeenCalledWith(expect.objectContaining({
       type: 'host.tool.execution.started',
       toolCallId: 'tool-1',
-      toolName: 'execute_command'
+      toolName: 'exec'
     }))
     expect(events).toEqual([
       'execute_tool_calls',

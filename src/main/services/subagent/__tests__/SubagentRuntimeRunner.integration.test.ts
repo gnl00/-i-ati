@@ -132,7 +132,7 @@ describe('DefaultSubagentRuntimeRunner integration', () => {
                   index: 0,
                   type: 'function',
                   function: {
-                    name: 'execute_command',
+                    name: 'exec',
                     arguments: '{"command":"echo original"}'
                   }
                 }
@@ -156,7 +156,7 @@ describe('DefaultSubagentRuntimeRunner integration', () => {
     const result = await runner.run(
       {
         subagentId: 'sub-1',
-        task: 'Try execute_command and continue on denial',
+        task: 'Try exec and continue on denial',
         role: 'coder',
         contextMode: 'minimal',
         files: [],
@@ -186,20 +186,20 @@ describe('DefaultSubagentRuntimeRunner integration', () => {
         } as any,
         systemPrompt: 'system prompt',
         userMessage: 'Please run the tool and continue',
-        allowedTools: ['execute_command'],
+        allowedTools: ['exec'],
         workspacePath: '/tmp'
       }
     )
 
     expect(result.summary).toBe('Final summary after denied tool')
-    expect(result.artifacts.tools_used).toContain('execute_command')
+    expect(result.artifacts.tools_used).toContain('exec')
     expect(executeMock).toHaveBeenCalledTimes(1)
     expect(modelStreamExecutor.execute).toHaveBeenCalledTimes(2)
     expect(requestSpy).toHaveBeenCalledTimes(1)
     expect(requestSpy.mock.calls[0]?.[0]).toBe('parent-1')
     expect(requestSpy.mock.calls[0]?.[1]).toEqual(expect.objectContaining({
       toolCallId: 'tool-1',
-      name: 'execute_command',
+      name: 'exec',
       ui: expect.objectContaining({
         command: 'echo legacy',
         riskLevel: 'dangerous'
@@ -218,7 +218,7 @@ describe('DefaultSubagentRuntimeRunner integration', () => {
         expect.objectContaining({
           role: 'tool',
           toolCallId: 'tool-1',
-          toolName: 'execute_command',
+          toolName: 'exec',
           content: 'parent denied'
         })
       ])

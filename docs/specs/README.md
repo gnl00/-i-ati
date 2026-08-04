@@ -10,7 +10,7 @@ required metadata, normative language, lifecycle, and test mapping.
 
 ## Tools
 
-- [Execute command filesystem scope](tools/execute-command-filesystem-scope.md)
+- [exec filesystem scope](tools/exec-filesystem-scope.md)
 - [Tool result normalization](tools/tool-result-normalization.md)
 - [KWWK computer-use bridge](tools/kwwk-computer-use-bridge.md)
 - [LLM wiki tools](tools/llm-wiki-tools.md)

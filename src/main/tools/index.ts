@@ -152,7 +152,7 @@ export const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   computer_use_finish: processComputerUseFinish,
   work_context_get: processWorkContextGet,
   work_context_set: processWorkContextSet,
-  execute_command: processExecuteCommand,
+  exec: processExecuteCommand,
   install_skill: processInstallSkill,
   load_skill: processLoadSkill,
   import_skills: processImportSkills,

@@ -1,6 +1,6 @@
-# execute_command Filesystem Scope
+# exec Filesystem Scope
 
-`execute_command` includes a model-declared filesystem scope so commands that may access files outside the active workspace require user confirmation.
+`exec` includes a model-declared filesystem scope so commands that may access files outside the active workspace require user confirmation.
 
 ## Tool Arguments
 
@@ -32,7 +32,7 @@ The shared helper is `assessCommandFilesystemScope()` in `src/main/tools/command
 
 ## Confirmation Policy
 
-`execute_command` requires confirmation when any condition applies:
+`exec` requires confirmation when any condition applies:
 
 - command risk is `warning`
 - command risk is `dangerous`

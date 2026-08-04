@@ -59,7 +59,7 @@ describe('DefaultSubagentRuntimeRunner', () => {
 
     const decision = await requestConfirmation({
       toolCallId: 'tool-1',
-      name: 'execute_command',
+      name: 'exec',
       args: '{"command":"echo original"}',
       ui: {
         command: 'echo original',
@@ -69,7 +69,7 @@ describe('DefaultSubagentRuntimeRunner', () => {
 
     expect(requestSpy).toHaveBeenCalledWith('parent-1', {
       toolCallId: 'tool-1',
-      name: 'execute_command',
+      name: 'exec',
       args: '{"command":"echo original"}',
       ui: {
         command: 'echo original',
@@ -105,7 +105,7 @@ describe('DefaultSubagentRuntimeRunner', () => {
 
     await expect(requestConfirmation({
       toolCallId: 'tool-2',
-      name: 'execute_command',
+      name: 'exec',
       args: '{"command":"echo hi"}'
     })).resolves.toEqual({
       approved: false,

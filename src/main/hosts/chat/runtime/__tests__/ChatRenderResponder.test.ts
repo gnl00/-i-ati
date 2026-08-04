@@ -312,7 +312,7 @@ describe('ChatRenderResponder', () => {
       stepId: 'step-1',
       toolCallId: 'tool-output',
       toolCallIndex: 0,
-      toolName: 'execute_command',
+      toolName: 'exec',
       output
     })
 
@@ -995,7 +995,7 @@ describe('ChatRenderResponder', () => {
       stepId: 'step-1',
       toolCallId: 'tool-1',
       toolCallIndex: 0,
-      toolName: 'execute_command'
+      toolName: 'exec'
     })
 
     expect(emitter.emit).not.toHaveBeenCalled()

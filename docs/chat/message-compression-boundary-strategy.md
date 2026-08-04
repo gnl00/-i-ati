@@ -312,7 +312,7 @@ nearby tool results:
 | `todo_*` | 原文 | 原文或结构化事实 | action item 的状态和归属需要高保真 |
 | `schedule_*` | 原文 | 原文或结构化事实 | 时间、执行状态、失败原因需要高保真 |
 | `work_context_*` | 原文 | 原文或结构化事实 | 当前目标、决策、进行中事项需要高保真 |
-| `execute_command` | 原文或 compact | compact | 保留 command、cwd、exit_code、pass/fail、错误片段 |
+| `exec` | 原文或 compact | compact | 保留 command、cwd、exit_code、pass/fail、错误片段 |
 | `read` | 原文或 compact | compact | 保留 path、range、truncated、关键内容片段 |
 | `grep` / `log_search` / `history_search` | 原文或 compact | compact | 保留 query、count、path、line、snippet |
 | `ls` / `tree` / `glob` | 原文或 compact | compact | 保留 path、count、entries 概览 |
@@ -494,7 +494,7 @@ COMPRESSION_OBSERVATION_MODEL_ID=<provider_models.model_id>
 2. tool result 归属：多轮 toolCalls 和 assistant continuation 的 pair 归并规则。
 3. role=tool 的近距离阈值使用 5 条还是 7 条。
 4. `plan_*`、`todo_*`、`schedule_*` 的远距离保留策略。
-5. `execute_command` compact 的关键行提取规则。
+5. `exec` compact 的关键行提取规则。
 6. `read` / `grep` / `log_search` compact 的截断和引用格式。
 7. summary 输出是否保留所有 user messages 的原文或精简原文。
 
@@ -534,7 +534,7 @@ COMPRESSION_OBSERVATION_MODEL_ID=<provider_models.model_id>
 
 ### 阶段 5: 高噪声 Tool Output Compact
 
-- 先覆盖 `execute_command`、`read`、`grep`、`log_search`。
+- 先覆盖 `exec`、`read`、`grep`、`log_search`。
 - 小型结构化结果保留原文。
 - compact 方法返回 `undefined` 时保留原文。
 

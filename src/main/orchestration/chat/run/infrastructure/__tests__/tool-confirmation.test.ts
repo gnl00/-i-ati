@@ -13,7 +13,7 @@ describe('ToolConfirmationManager', () => {
       } as any,
       {
         toolCallId: 'call-1',
-        name: 'execute_command',
+        name: 'exec',
         args: { command: 'rm -rf demo.txt' },
         agent: {
           kind: 'subagent',
@@ -32,7 +32,7 @@ describe('ToolConfirmationManager', () => {
       RUN_EVENTS.TOOL_CONFIRMATION_REQUIRED,
       expect.objectContaining({
         toolCallId: 'call-1',
-        name: 'execute_command',
+        name: 'exec',
         args: { command: 'rm -rf demo.txt' },
         agent: expect.objectContaining({
           kind: 'subagent',
@@ -59,7 +59,7 @@ describe('ToolConfirmationManager', () => {
       } as any,
       {
         toolCallId: 'call-1',
-        name: 'execute_command'
+        name: 'exec'
       }
     )
 
@@ -83,7 +83,7 @@ describe('ToolConfirmationManager', () => {
       } as any,
       {
         toolCallId: 'call-1',
-        name: 'execute_command'
+        name: 'exec'
       }
     ).then(() => {
       settled = true
@@ -108,7 +108,7 @@ describe('ToolConfirmationManager', () => {
       } as any,
       {
         toolCallId: 'call-1',
-        name: 'execute_command'
+        name: 'exec'
       }
     )
 

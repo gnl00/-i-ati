@@ -56,7 +56,7 @@ describe('DefaultToolExecutorDispatcher', () => {
       {
         id: 'tool-1',
         index: 0,
-        name: 'execute_command',
+        name: 'exec',
         content: { ok: true },
         cost: 1,
         status: 'success'
@@ -87,7 +87,7 @@ describe('DefaultToolExecutorDispatcher', () => {
           toolCallId: 'tool-1',
           stepId: 'step-1',
           index: 0,
-          name: 'execute_command',
+          name: 'exec',
           arguments: '{"command":"echo original"}',
           confirmationPolicy: {
             mode: 'required',
@@ -148,7 +148,7 @@ describe('DefaultToolExecutorDispatcher', () => {
         {
           id: 'tool-1',
           index: 0,
-          name: 'execute_command',
+          name: 'exec',
           content: { ok: true },
           cost: 1,
           status: 'success' as const
@@ -172,7 +172,7 @@ describe('DefaultToolExecutorDispatcher', () => {
           toolCallId: 'tool-1',
           stepId: 'step-1',
           index: 0,
-          name: 'execute_command',
+          name: 'exec',
           arguments: '{"command":"echo original"}',
           confirmationPolicy: {
             mode: 'required',
@@ -204,7 +204,7 @@ describe('DefaultToolExecutorDispatcher', () => {
       {
         id: 'tool-1',
         index: 0,
-        name: 'execute_command',
+        name: 'exec',
         content: null,
         cost: 1,
         status: 'aborted',
@@ -232,7 +232,7 @@ describe('DefaultToolExecutorDispatcher', () => {
           toolCallId: 'tool-1',
           stepId: 'step-1',
           index: 0,
-          name: 'execute_command',
+          name: 'exec',
           arguments: '{"command":"echo denied"}',
           confirmationPolicy: {
             mode: 'not_required'
@@ -249,7 +249,7 @@ describe('DefaultToolExecutorDispatcher', () => {
     expect(outcome.results).toEqual([
       expect.objectContaining({
         status: 'aborted',
-        toolName: 'execute_command'
+        toolName: 'exec'
       })
     ])
     expect(agentEventEmitter.emitToolExecutionAborted).toHaveBeenCalledTimes(1)
@@ -261,7 +261,7 @@ describe('DefaultToolExecutorDispatcher', () => {
       {
         id: 'tool-1',
         index: 0,
-        name: 'execute_command',
+        name: 'exec',
         content: { ok: true },
         cost: 300,
         status: 'success'
@@ -289,7 +289,7 @@ describe('DefaultToolExecutorDispatcher', () => {
           toolCallId: 'tool-1',
           stepId: 'step-1',
           index: 0,
-          name: 'execute_command',
+          name: 'exec',
           arguments: '{"command":"echo ok"}',
           startedAt: 1000,
           confirmationPolicy: {
@@ -378,7 +378,7 @@ describe('DefaultToolExecutorDispatcher', () => {
         toolCallId: 'tool-output',
         stepId: 'step-output',
         index: 0,
-        name: 'execute_command',
+        name: 'exec',
         arguments: '{"command":"printf 12"}',
         confirmationPolicy: { mode: 'not_required' },
         status: 'pending'

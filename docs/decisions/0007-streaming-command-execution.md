@@ -80,7 +80,7 @@ after metadata review or trusted auto approval; model arguments never populate
 the field.
 
 The embedded tool registry keeps this context optional, preserving direct
-single-argument handler calls. `execute_command` and `run_skill_script` forward
+single-argument handler calls. `exec` and `run_skill_script` forward
 the context to the shared runner.
 
 ### Live output transport
@@ -153,7 +153,7 @@ started and terminal status presentation.
 - Invalid and out-of-range timeout inputs resolve to documented safe bounds.
 - Windows taskkill startup failure reaches the direct-child fallback.
 - Missing shell candidates advance to the next configured shell.
-- Tool execution context reaches `execute_command` and `run_skill_script`.
+- Tool execution context reaches `exec` and `run_skill_script`.
 - Skill script arguments retain their executable/argv boundaries.
 - Skill script paths receive lexical and canonical skill-root containment.
 - Model arguments and direct processor calls cannot synthesize trusted skill

@@ -21,10 +21,10 @@ const toolCall = (
   type: 'toolCall',
   segmentId,
   toolCallId,
-  name: 'execute_command',
+  name: 'exec',
   timestamp: 1,
   content: {
-    toolName: 'execute_command',
+    toolName: 'exec',
     args: { command: 'pnpm test' },
     status
   }

@@ -578,7 +578,7 @@ describe('ChatStepStore.finalizeAssistantMessage', () => {
           id: 'call-1',
           type: 'function',
           function: {
-            name: 'execute_command',
+            name: 'exec',
             arguments: '{}'
           }
         }]
@@ -607,7 +607,7 @@ describe('ChatStepStore.finalizeAssistantMessage', () => {
       body: {
         role: 'tool',
         toolCallId: 'call-1',
-        name: 'execute_command',
+        name: 'exec',
         content: 'aborted',
         segments: []
       }
@@ -624,7 +624,7 @@ describe('ChatStepStore.finalizeAssistantMessage', () => {
           id: 'call-1',
           type: 'function',
           function: {
-            name: 'execute_command',
+            name: 'exec',
             arguments: '{}'
           }
         }]

@@ -41,7 +41,7 @@ filesystem scope 元数据、命令输出限额和进程树终止。文件操作
 ### Login shell PATH bootstrap
 
 Electron GUI 进程可能缺少用户 shell 初始化文件配置的 PATH，导致
-`execute_command` 和 `run_skill_script` 找不到 `brew`、`gh`、`node`、
+`exec` 和 `run_skill_script` 找不到 `brew`、`gh`、`node`、
 `npx`、`cargo`、`rustup` 等用户工具。
 
 `CommandProcessor` 在风险评估和确认完成后、构造命令环境前调用

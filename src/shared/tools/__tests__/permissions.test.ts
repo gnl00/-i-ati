@@ -12,7 +12,7 @@ describe('resolveAllowedEmbeddedToolsForAgent', () => {
     expect(allowed).toContain('read')
     expect(allowed).toContain('write')
     expect(allowed).toContain('edit')
-    expect(allowed).toContain('execute_command')
+    expect(allowed).toContain('exec')
     expect(allowed).not.toContain('plan_create')
   })
 

@@ -232,7 +232,7 @@ Summary 内容来自工具结果本身，用于让 UI 摘要直接表达 wiki �
 - `riskLevel: dangerous` 触发确认。
 - `mutatesWorkspace: true` 触发确认。
 - `plan_create` 保留既有自动审批开关。
-- `execute_command` 保留现有命令确认行为。
+- `exec` 保留现有命令确认行为。
 
 这样 `wiki_write` 和 `wiki_delete` 可以进入通用写操作审核路径，后续新工具也能复用同一规则。
 

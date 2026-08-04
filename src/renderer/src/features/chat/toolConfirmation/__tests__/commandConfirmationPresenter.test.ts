@@ -6,7 +6,7 @@ describe('buildCommandConfirmationRequest', () => {
     const request = buildCommandConfirmationRequest({
       pendingToolConfirm: {
         toolCallId: 'call-1',
-        name: 'execute_command',
+        name: 'exec',
         ui: {
           command: 'rm -rf /tmp/x',
           riskLevel: 'dangerous',
@@ -32,7 +32,7 @@ describe('buildCommandConfirmationRequest', () => {
     const request = buildCommandConfirmationRequest({
       pendingToolConfirm: {
         toolCallId: 'call-1',
-        name: 'execute_command',
+        name: 'exec',
         args: {
           command: 'pwd'
         }

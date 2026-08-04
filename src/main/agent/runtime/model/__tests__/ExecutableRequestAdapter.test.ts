@@ -42,7 +42,7 @@ describe('DefaultExecutableRequestAdapter', () => {
           role: 'tool',
           content: 'tool output',
           toolCallId: 'tool-1',
-          toolName: 'execute_command'
+          toolName: 'exec'
         }
       ]
     })
@@ -52,7 +52,7 @@ describe('DefaultExecutableRequestAdapter', () => {
         role: 'tool',
         content: 'tool output',
         toolCallId: 'tool-1',
-        toolName: 'execute_command'
+        toolName: 'exec'
       }
     ])
     expect(request.messages[0]).not.toHaveProperty('name')

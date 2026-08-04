@@ -413,7 +413,7 @@ describe('render pipeline golden baseline', () => {
         timestamp: 110,
         toolCallId: 'tool-1',
         toolCallIndex: 0,
-        toolName: 'execute_command'
+        toolName: 'exec'
       },
       snapshot: { content: '', reasoning: '', toolCalls: [] }
     } as AgentEvent)
@@ -547,7 +547,7 @@ describe('render pipeline golden baseline', () => {
       stepId: 'step-1',
       toolCallId: 'tool-1',
       toolCallIndex: 0,
-      toolName: 'execute_command'
+      toolName: 'exec'
     } as AgentEvent)
 
     // confirmation_denied：host.committed.updated + host.tool.result.available
@@ -559,7 +559,7 @@ describe('render pipeline golden baseline', () => {
         stepId: 'step-1',
         toolCallId: 'tool-1',
         toolCallIndex: 0,
-        toolName: 'execute_command',
+        toolName: 'exec',
         error: { message: 'denied by user' }
       }
     } as AgentEvent)

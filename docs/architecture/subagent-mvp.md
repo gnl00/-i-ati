@@ -151,7 +151,7 @@
 - `memory_retrieval`
 - `work_context_get`
 - `activity_journal_search`
-- `execute_command`
+- `exec`
 
 当前仍未开放：
 
@@ -171,7 +171,7 @@
 
 - `plan_create`
   - relaxed 下自动通过
-- `execute_command`
+- `exec`
   - `safe` 自动通过
   - `warning / dangerous` 进入确认链
 
@@ -193,7 +193,7 @@
 
 这意味着：
 
-- subagent 的 `execute_command` 危险命令会回到主 chat 的确认 UI
+- subagent 的 `exec` 危险命令会回到主 chat 的确认 UI
 - renderer 不需要单独再开一套确认协议
 
 ## UI 状态卡
@@ -250,7 +250,7 @@
 - 子代理运行记录是内存态，不持久化
 - 子代理不会再 spawn 子代理
 - `plan` 工具没有开放给 subagent
-- `execute_command` 仍然受主确认链控制
+- `exec` 仍然受主确认链控制
 - `subagent_wait` 主要用于让主代理拿最终结果，不负责 UI 状态可见性
 - 主 chat message 中的 tool call 投影仍然偏简化，完整中间过程更多依赖运行时事件和 subagent 状态卡
 

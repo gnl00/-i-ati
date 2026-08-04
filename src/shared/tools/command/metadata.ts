@@ -1,7 +1,7 @@
 import type { EmbeddedToolMetadataMap } from '../metadata-types'
 
 export const commandToolMetadata = {
-  execute_command: {
+  exec: {
     capability: 'command',
     riskLevel: 'dangerous',
     mutatesWorkspace: true,

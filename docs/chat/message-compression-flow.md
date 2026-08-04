@@ -332,7 +332,7 @@ interface IToolCall {
 {
   role: 'assistant',
   toolCalls: [
-    { id: 'call_123', type: 'function', function: { name: 'execute_command', ... } }
+    { id: 'call_123', type: 'function', function: { name: 'exec', ... } }
   ]
 }
 

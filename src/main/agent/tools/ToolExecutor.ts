@@ -115,11 +115,11 @@ export class ToolExecutor implements IToolExecutor {
     const requiresPlanReview = toolName === 'plan_create'
       && Boolean(this.requestConfirmation)
       && !this.shouldAutoApprovePlanCreate()
-    const requiresCommandReview = toolName === 'execute_command' && Boolean(this.requestConfirmation)
+    const requiresCommandReview = toolName === 'exec' && Boolean(this.requestConfirmation)
     const metadataReview = this.resolveMetadataReview(toolName)
     const requiresMetadataReview = Boolean(this.requestConfirmation)
       && toolName !== 'plan_create'
-      && toolName !== 'execute_command'
+      && toolName !== 'exec'
       && !requiresPlanReview
       && !requiresCommandReview
       && Boolean(metadataReview)

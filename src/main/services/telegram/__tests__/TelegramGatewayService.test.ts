@@ -397,7 +397,7 @@ describe('TelegramGatewayService', () => {
         type: 'tool.confirmation.required',
         payload: {
           toolCallId: 'call-1',
-          name: 'execute_command'
+          name: 'exec'
         },
         submissionId: 'submission-id',
         sequence: 1,
@@ -412,7 +412,7 @@ describe('TelegramGatewayService', () => {
 
     expect(sendMessage).toHaveBeenCalledWith(
       123,
-      '<blockquote>tool execute command needs approval</blockquote>',
+      '<blockquote>tool exec needs approval</blockquote>',
       expect.objectContaining({
         parse_mode: 'HTML',
         message_thread_id: 9,

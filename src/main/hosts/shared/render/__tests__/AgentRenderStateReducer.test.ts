@@ -21,7 +21,7 @@ describe('AgentRenderStateReducer', () => {
         type: 'tool_call_started',
         toolCallId: 'tool-1',
         toolCallIndex: 0,
-        toolName: 'execute_command'
+        toolName: 'exec'
       },
       snapshot: {
         status: 'streaming',
@@ -48,7 +48,7 @@ describe('AgentRenderStateReducer', () => {
           id: 'tool-1',
           type: 'function',
           function: {
-            name: 'execute_command',
+            name: 'exec',
             arguments: '{"command":"pwd"}'
           },
           index: 0
@@ -64,7 +64,7 @@ describe('AgentRenderStateReducer', () => {
       stepId: 'step-1',
       toolCallId: 'tool-1',
       toolCallIndex: 0,
-      toolName: 'execute_command'
+      toolName: 'exec'
     })
 
     const finalState = reducer.apply({
@@ -76,7 +76,7 @@ describe('AgentRenderStateReducer', () => {
         stepId: 'step-1',
         toolCallId: 'tool-1',
         toolCallIndex: 0,
-        toolName: 'execute_command',
+        toolName: 'exec',
         executionStartedAt: 250,
         cost: 8,
         latencyCost: 158,

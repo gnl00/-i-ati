@@ -92,14 +92,14 @@ describe('ToolCallInspectorDetails result renderers', () => {
   }
 
   it('keeps pending args hidden and shows running args', async () => {
-    await renderTool(createToolCall('execute_command', 'pending', {
+    await renderTool(createToolCall('exec', 'pending', {
       command: 'pnpm test',
       payload: 'streaming argument'
     }))
     expect(container.textContent).toContain('Preparing parameters')
     expect(container.textContent).not.toContain('streaming argument')
 
-    await renderTool(createToolCall('execute_command', 'running', {
+    await renderTool(createToolCall('exec', 'running', {
       command: 'pnpm test',
       payload: 'ready argument'
     }))

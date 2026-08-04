@@ -111,7 +111,7 @@ These jobs preserve the main run completion boundary.
 
 Embedded tool metadata can declare `resultCompaction` with an enabled flag,
 level, and compactor ID. `web_fetch` declares the `balanced` level with the
-`web-document` compactor. `execute_command` declares the `balanced` level with
+`web-document` compactor. `exec` declares the `balanced` level with
 the `command-output` compactor. Both profiles use a 1,000-character semantic
 content budget; the reserved `minimal` level uses 500 characters.
 

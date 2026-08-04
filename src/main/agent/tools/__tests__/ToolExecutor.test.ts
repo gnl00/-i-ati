@@ -27,7 +27,7 @@ vi.mock('@tools/registry', () => ({
       || name === 'plan_create'
       || name === 'activity_journal_append'
       || name === 'subagent_spawn'
-      || name === 'execute_command'
+      || name === 'exec'
       || name === 'wiki_delete'
       || name === 'write'
       || name === 'knowledgebase_search'
@@ -70,7 +70,7 @@ describe('ToolExecutor runtime context', () => {
 
     await executor.execute([{
       id: 'call-output',
-      function: 'execute_command',
+      function: 'exec',
       args: JSON.stringify({ command: 'echo hello' })
     } as any])
 
@@ -109,7 +109,7 @@ describe('ToolExecutor runtime context', () => {
 
     await executor.execute([{
       id: 'call-output-stress',
-      function: 'execute_command',
+      function: 'exec',
       args: JSON.stringify({ command: 'large-output' })
     } as any])
 
@@ -247,7 +247,7 @@ describe('ToolExecutor runtime context', () => {
 
     await executor.execute([{
       id: 'call-3b',
-      function: 'execute_command',
+      function: 'exec',
       args: JSON.stringify({
         command: 'printf "hello\\nworld"',
         execution_reason: 'Check escaping',
@@ -317,7 +317,7 @@ describe('ToolExecutor runtime context', () => {
     expect(callArgs.parent_submission_id).toBe('submission-runtime')
   })
 
-  it('injects chat_uuid for execute_command from runtime context', async () => {
+  it('injects chat_uuid for exec from runtime context', async () => {
     handlerMock.mockClear()
     const executor = new ToolExecutor({
       chatUuid: 'chat-runtime'
@@ -325,7 +325,7 @@ describe('ToolExecutor runtime context', () => {
 
     await executor.execute([{
       id: 'call-5b',
-      function: 'execute_command',
+      function: 'exec',
       args: JSON.stringify({
         command: 'pwd',
         execution_reason: 'Check working directory',
@@ -376,7 +376,7 @@ describe('ToolExecutor runtime context', () => {
     await executor.execute([
       {
         id: 'call-5d',
-        function: 'execute_command',
+        function: 'exec',
         args: JSON.stringify({
           command: 'pwd',
           execution_reason: 'Check working directory',
@@ -534,7 +534,7 @@ describe('ToolExecutor runtime context', () => {
 
     const [result] = await executor.execute([{
       id: 'call-8c',
-      function: 'execute_command',
+      function: 'exec',
       args: JSON.stringify({
         command: 'echo secret > /dev/null',
         execution_reason: 'Verify command',
@@ -569,7 +569,7 @@ describe('ToolExecutor runtime context', () => {
 
     const [result] = await executor.execute([{
       id: 'call-8c-auto',
-      function: 'execute_command',
+      function: 'exec',
       args: JSON.stringify({
         command: 'rm -rf ./tmp-output',
         execution_reason: 'Clean generated output',
@@ -607,7 +607,7 @@ describe('ToolExecutor runtime context', () => {
 
     const [result] = await executor.execute([{
       id: 'call-8d',
-      function: 'execute_command',
+      function: 'exec',
       args: JSON.stringify({
         command: 'cat ~/.zshrc',
         execution_reason: 'Inspect shell config',
@@ -642,7 +642,7 @@ describe('ToolExecutor runtime context', () => {
 
     const [result] = await executor.execute([{
       id: 'call-cwd-traversal',
-      function: 'execute_command',
+      function: 'exec',
       args: JSON.stringify({
         command: 'pwd',
         cwd: '../../etc',
@@ -673,7 +673,7 @@ describe('ToolExecutor runtime context', () => {
 
     const [result] = await executor.execute([{
       id: 'call-sensitive-env',
-      function: 'execute_command',
+      function: 'exec',
       args: JSON.stringify({
         command: 'node ./script.js',
         env: {
@@ -707,7 +707,7 @@ describe('ToolExecutor runtime context', () => {
 
     const [result] = await executor.execute([{
       id: 'call-workspace-cwd',
-      function: 'execute_command',
+      function: 'exec',
       args: JSON.stringify({
         command: 'pwd',
         cwd: 'src',
@@ -739,7 +739,7 @@ describe('ToolExecutor runtime context', () => {
 
     const [result] = await executor.execute([{
       id: 'call-relative-workspace-root',
-      function: 'execute_command',
+      function: 'exec',
       args: JSON.stringify({
         command: 'pwd',
         cwd: 'src',
@@ -780,7 +780,7 @@ describe('ToolExecutor runtime context', () => {
 
     await executor.execute([{
       id: 'call-9',
-      function: 'execute_command',
+      function: 'exec',
       args: JSON.stringify({
         command: 'npm test',
         execution_reason: 'Run tests',

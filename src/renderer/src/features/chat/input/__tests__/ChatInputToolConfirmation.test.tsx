@@ -90,12 +90,12 @@ describe('ChatInputToolConfirmation', () => {
     container.remove()
   })
 
-  it('renders execute_command confirmation from the input area queue', async () => {
+  it('renders exec confirmation from the input area queue', async () => {
     useToolConfirmationStore.setState({
       pendingRequests: [
         {
           toolCallId: 'call-1',
-          name: 'execute_command',
+          name: 'exec',
           ui: {
             command: 'rm -rf /tmp/x',
             riskLevel: 'dangerous',
@@ -105,7 +105,7 @@ describe('ChatInputToolConfirmation', () => {
         },
         {
           toolCallId: 'call-2',
-          name: 'execute_command',
+          name: 'exec',
           args: {
             command: 'pwd'
           }
@@ -205,7 +205,7 @@ describe('ChatInputToolConfirmation', () => {
       pendingRequests: [
         {
           toolCallId: 'call-1',
-          name: 'execute_command',
+          name: 'exec',
           args: {
             command: 'pnpm test'
           }
@@ -231,7 +231,7 @@ describe('ChatInputToolConfirmation', () => {
         pendingRequests: [
           {
             toolCallId: 'call-2',
-            name: 'execute_command',
+            name: 'exec',
             args: {
               command: 'rm -rf build'
             }
@@ -260,14 +260,14 @@ describe('ChatInputToolConfirmation', () => {
       pendingRequests: [
         {
           toolCallId: 'call-1',
-          name: 'execute_command',
+          name: 'exec',
           args: {
             command: 'git reset --hard'
           }
         },
         {
           toolCallId: 'call-2',
-          name: 'execute_command',
+          name: 'exec',
           args: {
             command: 'git clean -fd'
           }
@@ -286,7 +286,7 @@ describe('ChatInputToolConfirmation', () => {
         pendingRequests: [
           {
             toolCallId: 'call-2',
-            name: 'execute_command',
+            name: 'exec',
             args: {
               command: 'git clean -fd'
             }
@@ -308,7 +308,7 @@ describe('ChatInputToolConfirmation', () => {
       pendingRequests: [
         {
           toolCallId: 'call-1',
-          name: 'execute_command',
+          name: 'exec',
           args: {
             command: 'git push --force'
           }

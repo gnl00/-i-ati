@@ -92,7 +92,7 @@ export function buildToolConfirmationRequest(input: {
     return undefined
   }
 
-  if (pendingToolConfirm.name === 'execute_command') {
+  if (pendingToolConfirm.name === 'exec') {
     return buildCommandConfirmationRequest(input)
   }
 

@@ -57,8 +57,8 @@ describe('embeddedToolMetadata', () => {
     expect(embeddedToolMetadata.web_search.resultCompaction).toBeUndefined()
   })
 
-  it('declares execute_command balanced result compaction through tool metadata', () => {
-    expect(embeddedToolMetadata.execute_command.resultCompaction).toEqual({
+  it('declares exec balanced result compaction through tool metadata', () => {
+    expect(embeddedToolMetadata.exec.resultCompaction).toEqual({
       enabled: true,
       level: 'balanced',
       compactorId: 'command-output',

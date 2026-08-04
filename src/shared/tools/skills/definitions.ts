@@ -126,7 +126,7 @@ export const skillTools = [
     type: 'function',
     function: {
       name: 'run_skill_script',
-      description: 'Run a script bundled inside an available skill with the working directory fixed to that skill root. Use this instead of execute_command for scripts referenced by skill documents.',
+      description: 'Run a script bundled inside an available skill with the working directory fixed to that skill root. Use this instead of exec for scripts referenced by skill documents.',
       parameters: {
         type: 'object',
         properties: {

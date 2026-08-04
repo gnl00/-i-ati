@@ -313,7 +313,7 @@ markup can be removed.
 
 The second metadata configuration lives in
 [`command/metadata.ts`](../../../src/shared/tools/command/metadata.ts).
-`execute_command` uses `level: 'balanced'` with the `command-output` compactor.
+`exec` uses `level: 'balanced'` with the `command-output` compactor.
 Its compact envelope preserves command, exit code, execution time, errors,
 confirmation state, and risk fields. The semantic `output_summary` retains
 stdout and stderr attribution, failure evidence, test names and totals,
@@ -597,7 +597,7 @@ Add `resultCompaction` metadata to tools according to observed request volume
 and semantic shape. Each new `compactorId` receives an implementation and
 field-preservation tests.
 
-Status: `execute_command` joined this phase on 2026-07-17 with `balanced`
+Status: `exec` joined this phase on 2026-07-17 with `balanced`
 metadata, the `command-output` profile, model-backed semantic extraction, and a
 bounded head-tail fallback.
 
@@ -610,7 +610,7 @@ Automated coverage:
 - enabled, disabled, and missing `resultCompaction` routing;
 - configured level and compactor ID propagation;
 - `web_fetch` metadata configuration;
-- `execute_command` metadata configuration;
+- `exec` metadata configuration;
 - compaction after raw tool-result persistence;
 - raw result equality across the active agent loop and renderer event;
 - active-loop continuation before background compaction completion;
@@ -628,7 +628,7 @@ Automated coverage:
 - URL, title, extraction status, truncation state, references, and errors in the
   `web_fetch` compact result;
 - command, exit code, execution time, errors, stream attribution, and diagnostic
-  evidence in the `execute_command` compact result;
+  evidence in the `exec` compact result;
 - lite-model semantic extraction, request identity, output budget, and prompt
   version;
 - model error, timeout, and empty-output deterministic fallback;
@@ -658,7 +658,7 @@ git diff --check
 5. The active agent loop and renderer consume full raw content.
 6. Shared tool metadata controls compaction eligibility, level, and compactor.
 7. `web_fetch` declares `balanced` compaction in `webTools/metadata.ts`.
-8. `execute_command` declares `balanced` compaction in `command/metadata.ts`.
+8. `exec` declares `balanced` compaction in `command/metadata.ts`.
 9. New submitted runs prefer an eligible positive-gain ready compact result
    wrapped in `compacted/lossy/result` during request assembly.
 10. The current request guard handles raw fallback.
