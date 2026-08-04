@@ -242,6 +242,61 @@ describe('OpenAIAdapter request mapping', () => {
     })
   })
 
+  it('preserves an omitted finish reason from raw stream chunks', async () => {
+    const adapter = new OpenAIAdapter()
+    const streamReader = {
+      read: vi.fn()
+        .mockResolvedValueOnce({
+          done: false,
+          value: `data: ${JSON.stringify({
+            id: 'resp-reasoning-only',
+            model: 'kimi-k2',
+            choices: [{
+              index: 0,
+              delta: { reasoning_content: 'Checking the tool results.' }
+            }]
+          })}\n\n`
+        })
+        .mockResolvedValueOnce({
+          done: false,
+          value: 'data: [DONE]\n\n'
+        })
+        .mockResolvedValueOnce({ done: true })
+    } as unknown as ReadableStreamDefaultReader<string>
+    const responses: IUnifiedResponse[] = []
+
+    for await (const response of adapter.transformStreamResponse(streamReader)) {
+      responses.push(response)
+    }
+
+    expect(responses).toHaveLength(1)
+    expect(responses[0]).toEqual(expect.objectContaining({
+      id: 'resp-reasoning-only',
+      model: 'kimi-k2',
+      reasoning: 'Checking the tool results.',
+      finishReason: undefined
+    }))
+  })
+
+  it('keeps an explicit stop finish reason from raw stream chunks', () => {
+    const adapter = new OpenAIAdapter()
+
+    const chunk = adapter.parseStreamResponse(`data: ${JSON.stringify({
+      id: 'resp-complete',
+      model: 'kimi-k2',
+      choices: [{
+        index: 0,
+        delta: { content: 'Completed response.' },
+        finish_reason: 'stop'
+      }]
+    })}`)
+
+    expect(chunk?.delta).toEqual(expect.objectContaining({
+      content: 'Completed response.',
+      finishReason: 'stop'
+    }))
+  })
+
   it('derives prompt cache miss tokens from cached token details', () => {
     const adapter = new OpenAIAdapter()
 

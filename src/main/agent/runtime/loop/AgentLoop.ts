@@ -39,6 +39,9 @@ import type { AgentTranscriptUserRecord } from '../transcript/AgentTranscriptRec
 
 const logger = createLogger('AgentRuntimeLoop')
 
+const MAX_INCOMPLETE_RESPONSE_RECOVERY_ATTEMPTS = 1
+const INCOMPLETE_MODEL_RESPONSE_CODE = 'INCOMPLETE_MODEL_RESPONSE'
+
 export interface AgentLoop {
   run(input: AgentLoopInput, dependencies: AgentLoopDependencies): Promise<AgentLoopResult>
 }
@@ -280,6 +283,20 @@ const formatBudgetExhaustedMessage = (input: {
   ].join('\n')
 }
 
+const hasVisibleAssistantContent = (draft: AgentStepDraft): boolean => (
+  draft.snapshot.content.trim().length > 0
+)
+
+const formatIncompleteModelResponseMessage = (input: {
+  recoveryAttempts: number
+  draft: AgentStepDraft
+}): string => (
+  'Model stream ended without user-visible content '
+  + `(finishReason=${input.draft.snapshot.finishReason ?? 'missing'}, `
+  + `reasoningCharacters=${input.draft.snapshot.reasoning?.length ?? 0}) `
+  + `after ${input.recoveryAttempts} recovery attempt(s).`
+)
+
 export class DefaultAgentLoop implements AgentLoop {
   async run(
     input: AgentLoopInput,
@@ -293,6 +310,7 @@ export class DefaultAgentLoop implements AgentLoop {
     let budgetExtensionCount = 0
     let lastBudgetProgressSources: string[] = []
     let stepIndex = 0
+    let incompleteResponseRecoveryAttempts = 0
 
     while (
       stepIndex < budgetState.hardMaxSteps
@@ -410,6 +428,46 @@ export class DefaultAgentLoop implements AgentLoop {
         })
       }
 
+      if (
+        draft.snapshot.toolCalls.length === 0
+        && !hasVisibleAssistantContent(draft)
+      ) {
+        const nextRecoveryAttempt = incompleteResponseRecoveryAttempts + 1
+
+        if (nextRecoveryAttempt <= MAX_INCOMPLETE_RESPONSE_RECOVERY_ATTEMPTS) {
+          incompleteResponseRecoveryAttempts = nextRecoveryAttempt
+          logger.warn('response.incomplete_retry_scheduled', {
+            runId: input.run.runId,
+            stepId,
+            stepIndex,
+            recoveryAttempt: nextRecoveryAttempt,
+            maxRecoveryAttempts: MAX_INCOMPLETE_RESPONSE_RECOVERY_ATTEMPTS,
+            finishReason: draft.snapshot.finishReason,
+            reasoningCharacters: draft.snapshot.reasoning?.length ?? 0
+          })
+          continue
+        }
+
+        const completedAt = dependencies.runtimeClock.now()
+        return this.finalizeFailed({
+          startedAt,
+          completedAt,
+          transcript,
+          usage,
+          failure: {
+            name: 'IncompleteModelResponseError',
+            code: INCOMPLETE_MODEL_RESPONSE_CODE,
+            message: formatIncompleteModelResponseMessage({
+              recoveryAttempts: incompleteResponseRecoveryAttempts,
+              draft
+            })
+          },
+          dependencies,
+          finalStep: lastStableStep
+        })
+      }
+
+      incompleteResponseRecoveryAttempts = 0
       const completedAt = dependencies.runtimeClock.now()
       if (draft.snapshot.toolCalls.length > 0) {
         draft = {

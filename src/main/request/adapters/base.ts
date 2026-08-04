@@ -213,7 +213,7 @@ export abstract class BaseAdapter {
       content: response.delta?.content || '',
       reasoning: response.delta?.reasoning,
       toolCalls: response.delta?.toolCalls,
-      finishReason: response.delta?.finishReason || 'stop',
+      finishReason: response.delta?.finishReason,
       usage: response.usage,
       raw: response.raw
     }

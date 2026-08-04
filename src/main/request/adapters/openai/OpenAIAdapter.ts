@@ -204,7 +204,9 @@ export class OpenAIAdapter extends BaseAdapter {
             content: delta?.content,
             reasoning: delta?.reasoning_content ?? delta?.reasoning,
             toolCalls: this.transformToolCalls(delta?.tool_calls),
-            finishReason: this.mapFinishReason(choice.finish_reason)
+            finishReason: choice.finish_reason
+              ? this.mapFinishReason(choice.finish_reason)
+              : undefined
           },
           usage: this.extractUsage(data),
           raw: data

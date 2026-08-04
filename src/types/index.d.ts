@@ -287,7 +287,7 @@ declare interface IUnifiedResponse {
   content: string
   reasoning?: string
   toolCalls?: IToolCall[]
-  finishReason: 'stop' | 'length' | 'tool_calls' | 'content_filter' | 'error'
+  finishReason?: 'stop' | 'length' | 'tool_calls' | 'content_filter' | 'error'
   usage?: ITokenUsage
   raw?: any
 }

@@ -36,6 +36,25 @@ The runtime consumes host-neutral request specifications and tool execution
 facts. Chat entities, renderer state, and Electron event transport stay outside
 the kernel.
 
+### Empty terminal response recovery
+
+Provider stream chunks may omit `finish_reason`, including every emitted chunk
+before `[DONE]`. The OpenAI-compatible adapters preserve that absence through
+the normalized stream contract, so the runtime can distinguish an explicit
+terminal reason from an in-progress delta.
+
+`AgentLoop` treats a completed provider stream as incomplete when its step has
+zero tool calls and no trimmed user-visible text. It retries the same transcript
+once without materializing the incomplete step or appending it to the
+transcript. A second incomplete response produces the
+`INCOMPLETE_MODEL_RESPONSE` failure result. The run finalizer therefore follows
+the failure path and leaves earlier assistant drafts untouched. Tool-call steps,
+explicit text responses, and steering behavior retain their existing loop
+semantics.
+
+The completed investigation record is
+[agent-loop-empty-terminal-response-recovery-2026-08-04.md](../archive/2026/chat/agent-loop-empty-terminal-response-recovery-2026-08-04.md).
+
 ## Chat host
 
 `src/main/hosts/chat/ChatAgentAdapter.ts` coordinates chat-specific behavior:

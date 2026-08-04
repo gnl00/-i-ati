@@ -70,6 +70,25 @@ const runDescriptorSource: LoopRunDescriptorSource = {
   })
 }
 
+const createTestAgentEventEmitter = (): AgentEventEmitter => ({
+  emitStepStarted: vi.fn(async () => undefined),
+  emitStepDelta: vi.fn(async () => undefined),
+  emitStepCompleted: vi.fn(async () => undefined),
+  emitStepFailed: vi.fn(async () => undefined),
+  emitStepAborted: vi.fn(async () => undefined),
+  emitToolAwaitingConfirmation: vi.fn(async () => undefined),
+  emitToolConfirmationDenied: vi.fn(async () => undefined),
+  emitToolExecutionStarted: vi.fn(async () => undefined),
+  emitToolExecutionOutput: vi.fn(async () => undefined),
+  emitToolExecutionCompleted: vi.fn(async () => undefined),
+  emitToolExecutionFailed: vi.fn(async () => undefined),
+  emitToolExecutionAborted: vi.fn(async () => undefined),
+  emitLoopCompleted: vi.fn(async () => undefined),
+  emitLoopFailed: vi.fn(async () => undefined),
+  emitLoopAborted: vi.fn(async () => undefined),
+  emitSteeringConsumed: vi.fn(async () => undefined)
+})
+
 describe('DefaultAgentRuntime', () => {
   it('completes a single-step text response', async () => {
     const modelStreamExecutor: ModelStreamExecutor = {
@@ -434,6 +453,188 @@ describe('DefaultAgentRuntime', () => {
       })
     ]))
     expect(toolExecutorDispatcher.dispatch).toHaveBeenCalledTimes(1)
+  })
+
+  it('retries a reasoning-only terminal response after tools without committing it', async () => {
+    let postToolAttempt = 0
+    const modelStreamExecutor: ModelStreamExecutor = {
+      execute: vi.fn(async ({ request }) => {
+        if (!request.messages.some(message => message.role === 'tool')) {
+          return createAsyncStream([
+            {
+              kind: 'delta',
+              responseId: 'resp-tool',
+              model: 'test-model',
+              toolCalls: [{
+                argumentsMode: 'snapshot',
+                toolCall: {
+                  id: 'tool-1',
+                  index: 0,
+                  type: 'function',
+                  function: {
+                    name: 'sum',
+                    arguments: '{"a":1,"b":1}'
+                  }
+                }
+              }],
+              finishReason: 'tool_calls'
+            },
+            {
+              kind: 'final',
+              responseId: 'resp-tool',
+              model: 'test-model'
+            }
+          ])
+        }
+
+        postToolAttempt += 1
+        if (postToolAttempt === 1) {
+          return createAsyncStream([
+            {
+              kind: 'delta',
+              responseId: 'resp-incomplete',
+              model: 'test-model',
+              reasoning: 'I will now summarize the result.'
+            },
+            {
+              kind: 'final',
+              responseId: 'resp-incomplete',
+              model: 'test-model'
+            }
+          ])
+        }
+
+        return createAsyncStream([
+          {
+            kind: 'delta',
+            responseId: 'resp-recovered',
+            model: 'test-model',
+            content: 'The result is 2.',
+            finishReason: 'stop'
+          },
+          {
+            kind: 'final',
+            responseId: 'resp-recovered',
+            model: 'test-model'
+          }
+        ])
+      })
+    }
+    const toolExecutorDispatcher: ToolExecutorDispatcher = {
+      dispatch: vi.fn(async (batch) => ({
+        status: 'completed' as const,
+        batchId: batch.batchId,
+        stepId: batch.stepId,
+        results: [{
+          stepId: batch.stepId,
+          toolCallId: 'tool-1',
+          toolCallIndex: 0,
+          toolName: 'sum',
+          status: 'success' as const,
+          content: { result: 2 }
+        }]
+      }))
+    }
+    const agentEventEmitter = createTestAgentEventEmitter()
+    const runtime = new DefaultAgentRuntime({
+      requestSpecSource,
+      runDescriptorSource,
+      loopInputBootstrapper: new DefaultLoopInputBootstrapper(),
+      userRecordMaterializer: new DefaultUserRecordMaterializer(),
+      initialTranscriptMaterializer: new DefaultInitialTranscriptMaterializer(),
+      runtimeInfrastructure: createDefaultRuntimeInfrastructure(),
+      agentLoop: new DefaultAgentLoop(),
+      agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
+        modelStreamExecutor,
+        toolExecutorDispatcher,
+        agentEventEmitter
+      })
+    })
+
+    const result = await runtime.run({
+      hostRequest: {
+        hostType: 'test',
+        hostRequestId: 'req-incomplete-after-tool',
+        submittedAt: Date.now(),
+        userContent: [{ type: 'input_text', text: 'use a tool' }]
+      }
+    })
+
+    expect(result.status).toBe('completed')
+    if (result.status !== 'completed') {
+      throw new Error('Expected completed result')
+    }
+    expect(result.finalStep.content).toBe('The result is 2.')
+    expect(result.transcript.records.map(record => record.kind)).toEqual([
+      'user',
+      'assistant_step',
+      'tool_result',
+      'assistant_step'
+    ])
+    expect(modelStreamExecutor.execute).toHaveBeenCalledTimes(3)
+    expect(vi.mocked(modelStreamExecutor.execute).mock.calls[1]?.[0].request.messages).toEqual(
+      vi.mocked(modelStreamExecutor.execute).mock.calls[2]?.[0].request.messages
+    )
+    expect(toolExecutorDispatcher.dispatch).toHaveBeenCalledTimes(1)
+    expect(agentEventEmitter.emitStepCompleted).toHaveBeenCalledTimes(2)
+    expect(agentEventEmitter.emitLoopCompleted).toHaveBeenCalledTimes(1)
+    expect(agentEventEmitter.emitLoopFailed).not.toHaveBeenCalled()
+  })
+
+  it('fails with a searchable error after the bounded empty-response recovery', async () => {
+    const modelStreamExecutor: ModelStreamExecutor = {
+      execute: vi.fn(async () => createAsyncStream([
+        {
+          kind: 'delta',
+          responseId: 'resp-incomplete',
+          model: 'test-model',
+          reasoning: 'I will answer shortly.'
+        },
+        {
+          kind: 'final',
+          responseId: 'resp-incomplete',
+          model: 'test-model'
+        }
+      ]))
+    }
+    const agentEventEmitter = createTestAgentEventEmitter()
+    const runtime = new DefaultAgentRuntime({
+      requestSpecSource,
+      runDescriptorSource,
+      loopInputBootstrapper: new DefaultLoopInputBootstrapper(),
+      userRecordMaterializer: new DefaultUserRecordMaterializer(),
+      initialTranscriptMaterializer: new DefaultInitialTranscriptMaterializer(),
+      runtimeInfrastructure: createDefaultRuntimeInfrastructure(),
+      agentLoop: new DefaultAgentLoop(),
+      agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
+        modelStreamExecutor,
+        agentEventEmitter
+      })
+    })
+
+    const result = await runtime.run({
+      hostRequest: {
+        hostType: 'test',
+        hostRequestId: 'req-incomplete',
+        submittedAt: Date.now(),
+        userContent: [{ type: 'input_text', text: 'answer me' }]
+      }
+    })
+
+    expect(result.status).toBe('failed')
+    if (result.status !== 'failed') {
+      throw new Error('Expected failed result')
+    }
+    expect(result.failure).toEqual(expect.objectContaining({
+      name: 'IncompleteModelResponseError',
+      code: 'INCOMPLETE_MODEL_RESPONSE',
+      message: 'Model stream ended without user-visible content (finishReason=missing, reasoningCharacters=22) after 1 recovery attempt(s).'
+    }))
+    expect(result.transcript.records.map(record => record.kind)).toEqual(['user'])
+    expect(modelStreamExecutor.execute).toHaveBeenCalledTimes(2)
+    expect(agentEventEmitter.emitStepCompleted).not.toHaveBeenCalled()
+    expect(agentEventEmitter.emitLoopCompleted).not.toHaveBeenCalled()
+    expect(agentEventEmitter.emitLoopFailed).toHaveBeenCalledTimes(1)
   })
 
   it('leaves steering queued after tools when the next step reaches the hard limit', async () => {

@@ -66,7 +66,9 @@ export class OpenAIImage1Adapter extends BaseAdapter {
           delta: {
             content: delta?.content,
             toolCalls: this.transformToolCalls(delta?.tool_calls),
-            finishReason: this.mapFinishReason(choice.finish_reason)
+            finishReason: choice.finish_reason
+              ? this.mapFinishReason(choice.finish_reason)
+              : undefined
           },
           raw: data
         }
