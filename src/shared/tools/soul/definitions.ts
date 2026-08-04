@@ -4,53 +4,32 @@ export const soulTools = [
   {
     type: 'function',
     function: {
-      name: 'get_soul',
-      description: 'Read the current agent soul markdown that shapes tone, values, and collaboration style.',
-      parameters: {
-        type: 'object',
-        properties: {},
-        additionalProperties: false,
-        required: []
-      }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'edit_soul',
-      description: 'Replace the current agent soul markdown. Use this only for tone, values, working style, and collaboration style updates.',
+      name: 'soul',
+      description: 'Manage the persisted agent soul markdown that shapes tone, values, and collaboration style. Set action to get, edit, or reset; the processor validates action-specific fields.',
       parameters: {
         type: 'object',
         properties: {
+          action: {
+            type: 'string',
+            enum: ['get', 'edit', 'reset'],
+            description: 'Operation to perform: get retrieves the current soul, edit replaces the full soul markdown, reset restores the built-in default.'
+          },
           content: {
             type: 'string',
-            description: 'The full new soul markdown content.'
+            description: 'The full new soul markdown content. Required for action=edit.'
           },
           reason: {
             type: 'string',
-            description: 'Why this soul update is being made.'
-          }
-        },
-        additionalProperties: false,
-        required: ['content']
-      }
-    }
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'reset_soul',
-      description: 'Reset the current agent soul to the built-in default.',
-      parameters: {
-        type: 'object',
-        properties: {
+            description: 'Why this soul update is being made for action=edit.'
+          },
           confirm: {
             type: 'boolean',
-            description: 'Must be true to confirm the reset.'
+            description: 'Must be true to confirm the reset for action=reset.'
           }
         },
         additionalProperties: false,
-        required: ['confirm']
+        required: ['action'],
+        $schema: 'http://json-schema.org/draft-07/schema#'
       }
     }
   }

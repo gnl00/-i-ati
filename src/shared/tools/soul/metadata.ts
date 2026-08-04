@@ -1,22 +1,15 @@
 import type { EmbeddedToolMetadataMap } from '../metadata-types'
 
 export const soulToolMetadata = {
-  get_soul: {
+  soul: {
     capability: 'soul',
     riskLevel: 'none',
     mutatesWorkspace: false,
-    subagent: 'deny'
-  },
-  edit_soul: {
-    capability: 'soul',
-    riskLevel: 'warning',
-    mutatesWorkspace: false,
-    subagent: 'deny'
-  },
-  reset_soul: {
-    capability: 'soul',
-    riskLevel: 'warning',
-    mutatesWorkspace: false,
-    subagent: 'deny'
+    subagent: 'deny',
+    actionOverrides: {
+      get: { capability: 'soul', riskLevel: 'none', mutatesWorkspace: false },
+      edit: { capability: 'soul', riskLevel: 'warning', mutatesWorkspace: false },
+      reset: { capability: 'soul', riskLevel: 'warning', mutatesWorkspace: false }
+    }
   }
 } satisfies EmbeddedToolMetadataMap

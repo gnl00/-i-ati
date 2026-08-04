@@ -24,6 +24,39 @@ type ResetSoulArgs = {
   confirm?: boolean
 }
 
+type SoulAction = 'get' | 'edit' | 'reset'
+
+type SoulResponse = GetSoulResponse | EditSoulResponse
+
+const SOUL_ACTIONS: SoulAction[] = ['get', 'edit', 'reset']
+
+export async function processSoul(
+  args: unknown = {}
+): Promise<SoulResponse> {
+  const normalizedArgs = args && typeof args === 'object' && !Array.isArray(args)
+    ? args as Partial<Record<'action' | 'content' | 'reason' | 'confirm', unknown>>
+    : {}
+  const action = typeof normalizedArgs.action === 'string' ? normalizedArgs.action.trim() : ''
+  if (!action) {
+    return { success: false, message: 'Missing required parameter: action' }
+  }
+  if (!SOUL_ACTIONS.includes(action as SoulAction)) {
+    return {
+      success: false,
+      message: `Invalid action: ${action}. Expected one of: ${SOUL_ACTIONS.join(', ')}`
+    }
+  }
+
+  switch (action as SoulAction) {
+    case 'get':
+      return processGetSoul()
+    case 'edit':
+      return processEditSoul(normalizedArgs as EditSoulArgs)
+    case 'reset':
+      return processResetSoul(normalizedArgs as ResetSoulArgs)
+  }
+}
+
 export async function processGetSoul(): Promise<GetSoulResponse> {
   try {
     const current = soulService.getSoul()

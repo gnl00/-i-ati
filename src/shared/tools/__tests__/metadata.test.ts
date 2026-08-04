@@ -66,6 +66,19 @@ describe('embeddedToolMetadata', () => {
     expect(embeddedToolMetadata.user_info.subagent).toBe('deny')
   })
 
+  it('keeps soul action metadata aligned with action-specific risk policy', () => {
+    const overrides = embeddedToolMetadata.soul.actionOverrides
+    const soulMetadataNames = Object.keys(embeddedToolMetadata)
+      .filter(name => name === 'soul' || name.startsWith('soul_'))
+      .sort()
+
+    expect(soulMetadataNames).toEqual(['soul'])
+    expect(overrides?.get).toMatchObject({ capability: 'soul', riskLevel: 'none', mutatesWorkspace: false })
+    expect(overrides?.edit).toMatchObject({ capability: 'soul', riskLevel: 'warning', mutatesWorkspace: false })
+    expect(overrides?.reset).toMatchObject({ capability: 'soul', riskLevel: 'warning', mutatesWorkspace: false })
+    expect(embeddedToolMetadata.soul.subagent).toBe('deny')
+  })
+
   it('declares web_fetch result compaction through tool metadata', () => {
     expect(embeddedToolMetadata.web_fetch.resultCompaction).toEqual({
       enabled: true,

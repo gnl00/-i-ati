@@ -19,6 +19,75 @@ describe('SoulToolsProcessor', () => {
     resetSoul.mockReset()
   })
 
+  it('returns missing action error', async () => {
+    const { processSoul } = await import('../SoulToolsProcessor')
+    const result = await processSoul({})
+
+    expect(result.success).toBe(false)
+    expect(result.message).toBe('Missing required parameter: action')
+  })
+
+  it('returns invalid action error', async () => {
+    const { processSoul } = await import('../SoulToolsProcessor')
+    const result = await processSoul({ action: 'delete' })
+
+    expect(result.success).toBe(false)
+    expect(result.message).toBe('Invalid action: delete. Expected one of: get, edit, reset')
+  })
+
+  it('dispatches get action to processGetSoul', async () => {
+    getSoul.mockReturnValue({
+      content: '## Tone\n- calm',
+      source: 'config'
+    })
+
+    const { processSoul } = await import('../SoulToolsProcessor')
+    const result = await processSoul({ action: 'get' }) as any
+
+    expect(result.success).toBe(true)
+    expect(result.content).toContain('## Tone')
+    expect(result.source).toBe('config')
+  })
+
+  it('dispatches edit action to processEditSoul', async () => {
+    getSoul.mockReturnValue({
+      content: '## Tone\n- calm',
+      source: 'config'
+    })
+    saveSoul.mockReturnValue({
+      content: '## Tone\n- direct'
+    })
+
+    const { processSoul } = await import('../SoulToolsProcessor')
+    const result = await processSoul({
+      action: 'edit',
+      content: '## Tone\n- direct',
+      reason: 'Need more directness'
+    }) as any
+
+    expect(result.success).toBe(true)
+    expect(result.previousContent).toContain('- calm')
+    expect(result.content).toContain('- direct')
+    expect(result.reason).toBe('Need more directness')
+  })
+
+  it('dispatches reset action to processResetSoul', async () => {
+    getSoul.mockReturnValue({
+      content: '## Tone\n- custom',
+      source: 'config'
+    })
+    resetSoul.mockReturnValue({
+      content: '## Tone\n- calm'
+    })
+
+    const { processSoul } = await import('../SoulToolsProcessor')
+    const result = await processSoul({ action: 'reset', confirm: true }) as any
+
+    expect(result.success).toBe(true)
+    expect(result.previousContent).toContain('- custom')
+    expect(result.content).toContain('- calm')
+  })
+
   it('returns current soul content', async () => {
     getSoul.mockReturnValue({
       content: '## Tone\n- calm',

@@ -12,7 +12,7 @@ describe('tool definitions', () => {
     const toolNames = (tools as ToolDefinition[]).map(tool => tool.function.name)
 
     expect(new Set(toolNames).size).toBe(toolNames.length)
-    expect(toolNames).toHaveLength(67)
+    expect(toolNames).toHaveLength(65)
   })
 
   it('exposes one flat wiki definition with a required action enum', () => {
@@ -45,6 +45,22 @@ describe('tool definitions', () => {
       enum: ['get', 'set']
     }))
     expect(userInfoNames).toHaveLength(1)
+  })
+
+  it('exposes one flat soul definition with a required action enum', () => {
+    const soul = (tools as ToolDefinition[]).find(tool => tool.function.name === 'soul')
+    const soulNames = (tools as ToolDefinition[])
+      .map(tool => tool.function.name)
+      .filter(name => name === 'soul' || name.startsWith('soul_'))
+      .sort()
+
+    expect(soulNames).toEqual(['soul'])
+    expect(soul?.function.parameters.required).toContain('action')
+    expect(soul?.function.parameters.properties.action).toEqual(expect.objectContaining({
+      type: 'string',
+      enum: ['get', 'edit', 'reset']
+    }))
+    expect(soulNames).toHaveLength(1)
   })
 
   it('requires tool_call_reason on all embedded tool definitions', () => {

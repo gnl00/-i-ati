@@ -37,11 +37,7 @@ import {
 } from '@main/tools/skills/SkillToolsProcessor'
 import { processPlan } from '@main/tools/taskPlanner/TaskPlannerProcessor'
 import { processSchedule } from '@main/tools/schedule/ScheduleToolsProcessor'
-import {
-  processEditSoul,
-  processGetSoul,
-  processResetSoul
-} from '@main/tools/soul/SoulToolsProcessor'
+import { processSoul } from '@main/tools/soul/SoulToolsProcessor'
 import { processEmotionReport } from '@main/tools/emotion/EmotionToolsProcessor'
 import {
   processListPlugins,
@@ -134,9 +130,7 @@ export const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   run_skill_script: processRunSkillScript,
   plan: processPlan,
   schedule: processSchedule,
-  get_soul: processGetSoul,
-  edit_soul: processEditSoul,
-  reset_soul: processResetSoul,
+  soul: processSoul,
   emotion_report: processEmotionReport,
   list_plugins: processListPlugins,
   plugin_install: processPluginInstall,
