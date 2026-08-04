@@ -47,3 +47,19 @@ export interface SubagentWaitResponse {
   subagent?: SubagentRecord
   message: string
 }
+
+export type SubagentAction = 'spawn' | 'wait'
+
+export type SubagentArgs =
+  | ({ action: 'spawn' } & SubagentSpawnArgs)
+  | ({ action: 'wait' } & SubagentWaitArgs)
+
+export type SubagentResponse =
+  | SubagentSpawnResponse
+  | SubagentWaitResponse
+  | SubagentErrorResponse
+
+export interface SubagentErrorResponse {
+  success: false
+  message: string
+}

@@ -1,16 +1,14 @@
 import type { EmbeddedToolMetadataMap } from '../metadata-types'
 
 export const subagentToolMetadata = {
-  subagent_spawn: {
+  subagent: {
     capability: 'subagent',
     riskLevel: 'warning',
     mutatesWorkspace: false,
-    subagent: 'deny'
-  },
-  subagent_wait: {
-    capability: 'subagent',
-    riskLevel: 'none',
-    mutatesWorkspace: false,
-    subagent: 'deny'
+    subagent: 'deny',
+    actionOverrides: {
+      spawn: { capability: 'subagent', riskLevel: 'warning', mutatesWorkspace: false },
+      wait: { capability: 'subagent', riskLevel: 'none', mutatesWorkspace: false }
+    }
   }
 } satisfies EmbeddedToolMetadataMap

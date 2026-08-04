@@ -25,7 +25,7 @@ vi.mock('@tools/registry', () => ({
       name === 'schedule'
       || name === 'plan'
       || name === 'activity_journal_append'
-      || name === 'subagent_spawn'
+      || name === 'subagent'
       || name === 'exec'
       || name === 'wiki'
       || name === 'write'
@@ -302,8 +302,9 @@ describe('ToolExecutor runtime context', () => {
 
     await executor.execute([{
       id: 'call-5',
-      function: 'subagent_spawn',
+      function: 'subagent',
       args: JSON.stringify({
+        action: 'spawn',
         task: 'Inspect a file'
       })
     } as any])
@@ -417,8 +418,9 @@ describe('ToolExecutor runtime context', () => {
 
     const [result] = await executor.execute([{
       id: 'call-6',
-      function: 'subagent_spawn',
+      function: 'subagent',
       args: JSON.stringify({
+        action: 'spawn',
         task: 'Inspect a file'
       })
     } as any])

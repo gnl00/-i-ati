@@ -208,7 +208,8 @@ describe('ToolCallInspectorDetails result renderers', () => {
   })
 
   it('renders subagent results and exposes the full raw payload', async () => {
-    await renderTool(createToolCall('subagent_spawn', 'completed', {
+    await renderTool(createToolCall('subagent', 'completed', {
+      action: 'spawn',
       task: 'Review inspector'
     }, {
       subagent: {

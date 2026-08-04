@@ -21,7 +21,9 @@ user_info phase consolidates the two user profile operations into one
 `user_info` resource tool, reducing the public embedded-tool count from
 68 → 67. The soul phase consolidates the three soul operations into one
 `soul` resource tool, reducing the public embedded-tool count from
-67 → 65. The cumulative consolidation count changes from 84 → 65 while
+67 → 65. The subagent phase consolidates the two subagent operations into
+one `subagent` resource tool, reducing the public embedded-tool count from
+65 → 64. The cumulative consolidation count changes from 84 → 64 while
 keeping existing data models and operation behavior stable.
 
 ## Decision
@@ -66,6 +68,19 @@ All actions remain denied to subagents. The executor resolves this metadata
 from `args.action`, preserving the existing behavior where no soul action
 requests a workspace mutation confirmation.
 
+Expose one public `subagent` function definition with a required `action`
+enum: `spawn` and `wait`. The schema remains flat and retains the existing
+subagent parameter names (`task`, `role`, `context_mode`, `files`,
+`background`, `subagent_id`, `timeout_seconds`), which are only meaningful
+for their respective actions. The action-aware metadata preserves the
+established risk policy: spawn is a warning-level background task launch,
+and wait is a non-mutating status read at `none` risk. Both actions remain
+denied to subagents. The executor resolves this metadata from `args.action`
+and injects `model_ref`, `parent_submission_id`, and
+`permission_approval_mode` into subagent calls from runtime context,
+preserving the established behavior where no subagent action requests a
+workspace mutation confirmation.
+
 The schema stays flat and uses the existing operation parameter names. A flat
 object schema is compatible with the provider schema subset already used by the
 application. Each processor dispatches by `action`, validates its presence, and
@@ -73,9 +88,9 @@ returns `Missing required parameter: action` for omitted values. Unknown values
 return a clear expected-action error. Processors validate each action's former
 required fields before invoking the retained operation implementation.
 
-The cutover publishes `todo`, `plan`, `schedule`, `wiki`, `user_info`, and
-`soul` as canonical public definitions, metadata entries, and main-process
-handlers. `plan` with `action=create` retains the special plan review and its
+The cutover publishes `todo`, `plan`, `schedule`, `wiki`, `user_info`,
+`soul`, and `subagent` as canonical public definitions, metadata entries,
+and main-process handlers. `plan` with `action=create` retains the special plan review and its
 automatic-approval policy. Wiki metadata resolves from `args.action` to
 preserve the established read, write, delete, and search capability, risk,
 mutation, confirmation, and subagent behavior. user_info metadata resolves
@@ -95,7 +110,8 @@ resource operations with distinct confirmation behavior.
 - The Wiki phase changes the public embedded-tool total from 72 → 68. The
   user_info phase changes the public embedded-tool total from 68 → 67. The
   soul phase changes the public embedded-tool total from 67 → 65. The
-  cumulative consolidation count changes from 84 → 65.
+  subagent phase changes the public embedded-tool total from 65 → 64. The
+  cumulative consolidation count changes from 84 → 64.
 - Existing operation processors remain the behavior authority behind the
   dispatcher.
 - TODO, Plan, and Schedule retain resource-level metadata policies. Wiki
@@ -106,8 +122,12 @@ resource operations with distinct confirmation behavior.
   `warning`-risk profile write; neither mutates the workspace. soul resolves
   action-aware metadata: get is a `none`-risk read, and edit and reset are
   `warning`-risk profile writes; no soul action mutates the workspace.
+  subagent resolves action-aware metadata: spawn is a `warning`-risk
+  background task launch, and wait is a `none`-risk status read; neither
+  action mutates the workspace.
 - Runtime context continues to inject `chat_uuid` for the canonical Plan and
-  Schedule handlers.
+  Schedule handlers and additionally injects `model_ref`,
+  `parent_submission_id`, and `permission_approval_mode` for subagent calls.
 
 ## Verification
 

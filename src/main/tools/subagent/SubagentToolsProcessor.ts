@@ -1,6 +1,8 @@
 import subagentRunService from '@main/services/subagent/subagent-run-service'
 import { normalizePermissionApprovalMode } from '@tools/approval'
 import type {
+  SubagentAction,
+  SubagentResponse,
   SubagentRole,
   SubagentSpawnResponse,
   SubagentWaitResponse
@@ -21,6 +23,33 @@ type SubagentSpawnArgs = {
 type SubagentWaitArgs = {
   subagent_id: string
   timeout_seconds?: number
+}
+
+const SUBAGENT_ACTIONS: SubagentAction[] = ['spawn', 'wait']
+
+export async function processSubagent(
+  args: unknown = {}
+): Promise<SubagentResponse> {
+  const normalizedArgs = args && typeof args === 'object' && !Array.isArray(args)
+    ? args as Partial<Record<'action' | 'task' | 'role' | 'context_mode' | 'files' | 'background' | 'subagent_id' | 'timeout_seconds' | 'chat_uuid' | 'model_ref' | 'parent_submission_id' | 'permission_approval_mode', unknown>>
+    : {}
+  const action = typeof normalizedArgs.action === 'string' ? normalizedArgs.action.trim() : ''
+  if (!action) {
+    return { success: false, message: 'Missing required parameter: action' }
+  }
+  if (!SUBAGENT_ACTIONS.includes(action as SubagentAction)) {
+    return {
+      success: false,
+      message: `Invalid action: ${action}. Expected one of: ${SUBAGENT_ACTIONS.join(', ')}`
+    }
+  }
+
+  switch (action as SubagentAction) {
+    case 'spawn':
+      return processSubagentSpawn(normalizedArgs as unknown as SubagentSpawnArgs)
+    case 'wait':
+      return processSubagentWait(normalizedArgs as unknown as SubagentWaitArgs)
+  }
 }
 
 const clampTimeoutSeconds = (value?: number): number => {

@@ -59,10 +59,7 @@ import {
   processActivityJournalSearch
 } from '@main/tools/activityJournal/ActivityJournalToolsProcessor'
 import { processKnowledgebaseSearch } from '@main/tools/knowledgebase/KnowledgebaseToolsProcessor'
-import {
-  processSubagentSpawn,
-  processSubagentWait
-} from '@main/tools/subagent/SubagentToolsProcessor'
+import { processSubagent } from '@main/tools/subagent/SubagentToolsProcessor'
 import { processLogSearch } from '@main/tools/log/LogToolsProcessor'
 import { processWiki } from '@main/tools/wiki/WikiToolsProcessor'
 import {
@@ -148,8 +145,7 @@ export const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   knowledgebase_search: processKnowledgebaseSearch,
   log_search: processLogSearch,
   wiki: processWiki,
-  subagent_spawn: processSubagentSpawn,
-  subagent_wait: processSubagentWait
+  subagent: processSubagent
 }
 
 export function initializeMainEmbeddedTools(): void {

@@ -515,7 +515,7 @@ export class ToolExecutor implements IToolExecutor {
       }
     }
 
-    if (toolName?.startsWith('subagent_')) {
+    if (toolName?.toLowerCase() === 'subagent') {
       if (this.modelRef && !nextArgs.model_ref) {
         nextArgs = { ...nextArgs, model_ref: this.modelRef }
       }

@@ -43,6 +43,7 @@ export interface ToolCallHeaderState {
   tone: SupportSegmentHeaderTone
 }
 type WikiAction = 'list' | 'read' | 'write' | 'delete' | 'search'
+type SubagentAction = 'spawn' | 'wait'
 type WikiResultRecord = Record<string, unknown>
 
 const TOOL_COST_TICK_MS = 1000
@@ -96,6 +97,28 @@ function getWikiAction(args: ToolCallResponse['args']): WikiAction | undefined {
   }
   const action = value.action
   return action === 'list' || action === 'read' || action === 'write' || action === 'delete' || action === 'search'
+    ? action
+    : undefined
+}
+
+function isSubagentToolName(toolName: string): boolean {
+  return toolName === 'subagent'
+}
+
+function getSubagentAction(args: ToolCallResponse['args']): SubagentAction | undefined {
+  let value: unknown = args
+  if (typeof value === 'string') {
+    try {
+      value = JSON.parse(value)
+    } catch {
+      return undefined
+    }
+  }
+  if (!isRecord(value)) {
+    return undefined
+  }
+  const action = value.action
+  return action === 'spawn' || action === 'wait'
     ? action
     : undefined
 }
@@ -893,9 +916,10 @@ export const ToolCallInspectorDetails = React.memo(({
   const webSearchPayload = toolName === 'web_search'
     ? (toolResponse?.result ?? toolResponse?.raw ?? toolResponse)
     : undefined
-  const isSubagentTool = toolName === 'subagent_spawn' || toolName === 'subagent_wait'
+  const isSubagentTool = isSubagentToolName(toolName)
   const isWikiTool = isWikiToolName(toolName)
   const wikiAction = getWikiAction(toolResponse?.args)
+  const subagentAction = getSubagentAction(toolResponse?.args)
   const hasWebSearchResults = Boolean(
     webSearchPayload
     && isRecord(webSearchPayload)
@@ -1020,7 +1044,7 @@ export const ToolCallInspectorDetails = React.memo(({
           </div>
         ) : isSubagentTool && resultPayload ? (
           <div className="pr-3 pb-3">
-            <SubagentResults toolName={toolName} payload={resultPayload} />
+            <SubagentResults action={subagentAction} payload={resultPayload} />
           </div>
         ) : isWikiTool && resultPayload !== undefined ? (
           <div className="pr-3 pb-3">

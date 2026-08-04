@@ -2,10 +2,10 @@ import { cn } from '@renderer/shared/lib/utils'
 import { useSubagentRuntimeStore } from '@renderer/features/subagents'
 import { Bot, CheckCircle2, Clock3, Loader2, ShieldAlert, XCircle } from 'lucide-react'
 import React, { useMemo } from 'react'
-import type { BuiltInSubagentRole, SubagentRecord, SubagentStatus } from '@tools/subagent/index.d'
+import type { BuiltInSubagentRole, SubagentAction, SubagentRecord, SubagentStatus } from '@tools/subagent/index.d'
 
 type SubagentResultsProps = {
-  toolName: string
+  action?: SubagentAction
   payload: any
 }
 
@@ -75,7 +75,7 @@ function normalizeSummary(summary?: string): string {
     .join('\n')
 }
 
-export const SubagentResults: React.FC<SubagentResultsProps> = React.memo(({ toolName, payload }) => {
+export const SubagentResults: React.FC<SubagentResultsProps> = React.memo(({ action, payload }) => {
   const baseSubagent = (payload?.subagent ?? payload) as SubagentRecord | undefined
   const liveSubagent = useSubagentRuntimeStore(state => (
     baseSubagent?.id ? state.recordsById[baseSubagent.id] : undefined
@@ -84,7 +84,7 @@ export const SubagentResults: React.FC<SubagentResultsProps> = React.memo(({ too
   const message = typeof payload?.message === 'string' ? payload.message : undefined
   const success = typeof payload?.success === 'boolean' ? payload.success : undefined
 
-  const status = subagent?.status ?? (toolName === 'subagent_spawn' ? 'queued' : undefined)
+  const status = subagent?.status ?? (action === 'spawn' ? 'queued' : undefined)
   const statusMeta = getStatusMeta(status)
   const StatusIcon = statusMeta.icon
   const toolsUsed = subagent?.artifacts?.tools_used ?? []
@@ -131,7 +131,7 @@ export const SubagentResults: React.FC<SubagentResultsProps> = React.memo(({ too
           </div>
         </div>
         <span className="shrink-0 rounded-full bg-slate-200/65 px-2 py-1 text-[10px] font-mono text-slate-500 dark:bg-white/6 dark:text-slate-400">
-          {toolName === 'subagent_spawn' ? 'SPAWN' : 'WAIT'}
+          {action === 'spawn' ? 'SPAWN' : 'WAIT'}
         </span>
       </div>
 

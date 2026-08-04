@@ -79,6 +79,18 @@ describe('embeddedToolMetadata', () => {
     expect(embeddedToolMetadata.soul.subagent).toBe('deny')
   })
 
+  it('keeps subagent action metadata aligned with action-specific risk policy', () => {
+    const overrides = embeddedToolMetadata.subagent.actionOverrides
+    const subagentMetadataNames = Object.keys(embeddedToolMetadata)
+      .filter(name => name === 'subagent' || name.startsWith('subagent_'))
+      .sort()
+
+    expect(subagentMetadataNames).toEqual(['subagent'])
+    expect(overrides?.spawn).toMatchObject({ capability: 'subagent', riskLevel: 'warning', mutatesWorkspace: false })
+    expect(overrides?.wait).toMatchObject({ capability: 'subagent', riskLevel: 'none', mutatesWorkspace: false })
+    expect(embeddedToolMetadata.subagent.subagent).toBe('deny')
+  })
+
   it('declares web_fetch result compaction through tool metadata', () => {
     expect(embeddedToolMetadata.web_fetch.resultCompaction).toEqual({
       enabled: true,

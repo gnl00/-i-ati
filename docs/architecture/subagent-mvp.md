@@ -8,8 +8,8 @@
 
 - 让主代理把一个边界清晰的子任务派发到后台执行
 - 让子代理拥有独立上下文和独立工具执行能力
-- 让主代理后续通过 `subagent_wait` 汇总结果
-- 让用户在 UI 中直接看到 subagent 的运行状态，而不依赖主代理必须再次调用 `subagent_wait`
+- 让主代理后续通过 `subagent` (action: wait) 汇总结果
+- 让用户在 UI 中直接看到 subagent 的运行状态，而不依赖主代理必须再次调用 `subagent` (action: wait)
 
 当前实现不是 Worker Thread，也不是独立进程。
 
@@ -40,12 +40,12 @@
 
 ## 工具接口
 
-当前提供两个工具：
+当前提供一个 `subagent` 工具，通过 `action` 区分两种操作：
 
-- `subagent_spawn`
-- `subagent_wait`
+- `subagent` (action: spawn)
+- `subagent` (action: wait)
 
-### `subagent_spawn`
+### `subagent` (action: spawn)
 
 用途：
 
@@ -65,7 +65,7 @@
 - `model_ref`
 - `parent_submission_id`
 
-### `subagent_wait`
+### `subagent` (action: wait)
 
 用途：
 
@@ -76,7 +76,7 @@
 
 ### 1. 创建
 
-主代理调用 `subagent_spawn` 后：
+主代理调用 `subagent` (action: spawn) 后：
 
 - `SubagentRunService.spawn()` 创建一条内存态记录
 - 初始状态为 `queued`
@@ -105,7 +105,7 @@
   - `artifacts.tools_used`
   - `artifacts.files_touched`
 
-主代理如果需要拿最终结果，再调用 `subagent_wait`。
+主代理如果需要拿最终结果，再调用 `subagent` (action: wait)。
 
 ## 上下文注入
 
@@ -198,7 +198,7 @@
 
 ## UI 状态卡
 
-### 为什么不依赖 `subagent_wait`
+### 为什么不依赖 `subagent` (action: wait)
 
 用户需要看到的是：
 
@@ -207,11 +207,11 @@
 - 是否卡在确认
 - 是否完成
 
-如果 UI 只能依赖 `subagent_wait`，那么当主代理没有主动再次调用 `subagent_wait` 时，用户就看不到显眼状态。
+如果 UI 只能依赖 `subagent` (action: wait)，那么当主代理没有主动再次调用 `subagent` (action: wait) 时，用户就看不到显眼状态。
 
 因此当前 UI 设计是：
 
-- `subagent_spawn` 和 `subagent_wait` 都会渲染成轻量状态卡
+- `subagent` (action: spawn) 和 `subagent` (action: wait) 都会渲染成轻量状态卡
 - 状态本身通过 chat run 事件实时更新
 
 ### 当前状态流
@@ -231,12 +231,12 @@
 
 渲染方式：
 
-- [ToolCallResult.tsx](../../src/renderer/src/features/chat/message/assistant-message/toolcall/ToolCallResult.tsx) 对 `subagent_spawn / subagent_wait` 做特殊分支
+- [ToolCallResult.tsx](../../src/renderer/src/features/chat/message/assistant-message/toolcall/ToolCallResult.tsx) 对 `subagent` 做特殊分支
 - 实际卡片在 [SubagentResults.tsx](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/features/chat/message/assistant-message/toolcall/SubagentResults.tsx)
 
 ### 当前行为
 
-- `subagent_spawn` 不再永远停在创建时的静态 `Queued`
+- `subagent` (action: spawn) 不再永远停在创建时的静态 `Queued`
 - renderer 会根据运行时 store 把它更新为：
   - `Running`
   - `Waiting for confirmation`
@@ -251,7 +251,7 @@
 - 子代理不会再 spawn 子代理
 - `plan` 工具没有开放给 subagent
 - `exec` 仍然受主确认链控制
-- `subagent_wait` 主要用于让主代理拿最终结果，不负责 UI 状态可见性
+- `subagent` (action: wait) 主要用于让主代理拿最终结果，不负责 UI 状态可见性
 - 主 chat message 中的 tool call 投影仍然偏简化，完整中间过程更多依赖运行时事件和 subagent 状态卡
 
 ## 下一步建议

@@ -12,7 +12,7 @@ describe('tool definitions', () => {
     const toolNames = (tools as ToolDefinition[]).map(tool => tool.function.name)
 
     expect(new Set(toolNames).size).toBe(toolNames.length)
-    expect(toolNames).toHaveLength(65)
+    expect(toolNames).toHaveLength(64)
   })
 
   it('exposes one flat wiki definition with a required action enum', () => {
@@ -61,6 +61,22 @@ describe('tool definitions', () => {
       enum: ['get', 'edit', 'reset']
     }))
     expect(soulNames).toHaveLength(1)
+  })
+
+  it('exposes one flat subagent definition with a required action enum', () => {
+    const subagent = (tools as ToolDefinition[]).find(tool => tool.function.name === 'subagent')
+    const subagentNames = (tools as ToolDefinition[])
+      .map(tool => tool.function.name)
+      .filter(name => name === 'subagent' || name.startsWith('subagent_'))
+      .sort()
+
+    expect(subagentNames).toEqual(['subagent'])
+    expect(subagent?.function.parameters.required).toContain('action')
+    expect(subagent?.function.parameters.properties.action).toEqual(expect.objectContaining({
+      type: 'string',
+      enum: ['spawn', 'wait']
+    }))
+    expect(subagentNames).toHaveLength(1)
   })
 
   it('requires tool_call_reason on all embedded tool definitions', () => {
