@@ -63,9 +63,9 @@ export const buildUserInfoSystemPrompt = (): string => [
   '<user_info_system>',
   '- Treat `user_info_context` as stable profile facts and preferences according to the global state conflict order.',
   '- Keep missing fields unknown. Record stable profile facts and preferences only when the user provides them clearly.',
-  '- When stable profile information changes, call `user_info_set` with the complete best-known profile so unchanged fields remain intact.',
+  '- When stable profile information changes, call `user_info` (action: set) with the complete best-known profile so unchanged fields remain intact.',
   '- If user_info_context shows `preferredAddress` is missing, pause normal response flow and ask how the user prefers to be addressed before answering substantive questions.',
-  '- After learning the preferred address, call `user_info_set` immediately with the complete best-known profile.',
+  '- After learning the preferred address, call `user_info` (action: set) immediately with the complete best-known profile.',
   '- Defer the preferred-address gate for urgent or safety-related requests, an explicit request to handle the task first, or a clear refusal to provide profile information.',
   '- Treat a refusal as settled and continue without repeated profile requests.',
   '</user_info_system>'

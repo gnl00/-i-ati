@@ -1,3 +1,5 @@
+export type UserInfoAction = 'get' | 'set'
+
 export type UserInfoSetArgs = {
   name?: string
   preferredAddress?: string
@@ -13,10 +15,11 @@ export type UserInfoGetResponse = {
   message: string
 }
 
-export type UserInfoSetResponse = {
-  success: boolean
-  info: UserInfo
-  isEmpty: boolean
-  file_path?: string
+export type UserInfoResponse =
+  | UserInfoGetResponse
+  | UserInfoErrorResponse
+
+export interface UserInfoErrorResponse {
+  success: false
   message: string
 }

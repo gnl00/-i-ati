@@ -317,7 +317,7 @@ nearby tool results:
 | `read` | 原文或 compact | compact | 保留 path、range、truncated、关键内容片段 |
 | `grep` / `log_search` / `history_search` | 原文或 compact | compact | 保留 query、count、path、line、snippet |
 | `ls` / `tree` / `glob` | 原文或 compact | compact | 保留 path、count、entries 概览 |
-| `memory_*` / `user_info_*` / `emotion_report` | 原文 | 原文 | 体积通常较小，语义密度高 |
+| `memory_*` / `user_info` / `emotion_report` | 原文 | 原文 | 体积通常较小，语义密度高 |
 
 ## Tool Output Compact 的位置
 

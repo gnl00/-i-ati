@@ -1,8 +1,9 @@
 import UserInfoService from '@main/services/userInfo/UserInfoService'
 import type {
+  UserInfoAction,
   UserInfoGetResponse,
-  UserInfoSetArgs,
-  UserInfoSetResponse
+  UserInfoResponse,
+  UserInfoSetArgs
 } from '@tools/userInfo/index.d'
 
 const MAX_NAME_LENGTH = 80
@@ -10,7 +11,34 @@ const MAX_PREFERRED_ADDRESS_LENGTH = 80
 const MAX_BASIC_INFO_LENGTH = 500
 const MAX_PREFERENCES_LENGTH = 500
 
+const USER_INFO_ACTIONS: UserInfoAction[] = ['get', 'set']
+
 const trimValue = (value?: string): string => value?.trim() || ''
+
+export async function processUserInfo(
+  args: unknown = {}
+): Promise<UserInfoResponse> {
+  const normalizedArgs = args && typeof args === 'object' && !Array.isArray(args)
+    ? args as Partial<Record<'action' | 'name' | 'preferredAddress' | 'basicInfo' | 'preferences', unknown>>
+    : {}
+  const action = typeof normalizedArgs.action === 'string' ? normalizedArgs.action.trim() : ''
+  if (!action) {
+    return { success: false, message: 'Missing required parameter: action' }
+  }
+  if (!USER_INFO_ACTIONS.includes(action as UserInfoAction)) {
+    return {
+      success: false,
+      message: `Invalid action: ${action}. Expected one of: ${USER_INFO_ACTIONS.join(', ')}`
+    }
+  }
+
+  switch (action as UserInfoAction) {
+    case 'get':
+      return processUserInfoGet()
+    case 'set':
+      return processUserInfoSet(normalizedArgs as UserInfoSetArgs)
+  }
+}
 
 export async function processUserInfoGet(): Promise<UserInfoGetResponse> {
   try {
@@ -37,7 +65,7 @@ export async function processUserInfoGet(): Promise<UserInfoGetResponse> {
 
 export async function processUserInfoSet(
   args: UserInfoSetArgs
-): Promise<UserInfoSetResponse> {
+): Promise<UserInfoGetResponse> {
   const name = trimValue(args.name)
   const preferredAddress = trimValue(args.preferredAddress)
   const basicInfo = trimValue(args.basicInfo)

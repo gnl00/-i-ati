@@ -54,6 +54,18 @@ describe('embeddedToolMetadata', () => {
     expect(embeddedToolMetadata.wiki.subagent).toBe('deny')
   })
 
+  it('keeps user_info action metadata aligned with action-specific risk policy', () => {
+    const overrides = embeddedToolMetadata.user_info.actionOverrides
+    const userInfoMetadataNames = Object.keys(embeddedToolMetadata)
+      .filter(name => name === 'user_info' || name.startsWith('user_info_'))
+      .sort()
+
+    expect(userInfoMetadataNames).toEqual(['user_info'])
+    expect(overrides?.get).toMatchObject({ capability: 'user_info', riskLevel: 'none', mutatesWorkspace: false })
+    expect(overrides?.set).toMatchObject({ capability: 'user_info', riskLevel: 'warning', mutatesWorkspace: false })
+    expect(embeddedToolMetadata.user_info.subagent).toBe('deny')
+  })
+
   it('declares web_fetch result compaction through tool metadata', () => {
     expect(embeddedToolMetadata.web_fetch.resultCompaction).toEqual({
       enabled: true,

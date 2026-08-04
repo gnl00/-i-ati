@@ -55,10 +55,7 @@ import {
 } from '@main/tools/telegram/TelegramToolsProcessor'
 import { processChatSetTitle } from '@main/tools/title/TitleToolsProcessor'
 import { processTodo } from '@main/tools/todo/TodoToolsProcessor'
-import {
-  processUserInfoGet,
-  processUserInfoSet
-} from '@main/tools/userInfo/UserInfoToolsProcessor'
+import { processUserInfo } from '@main/tools/userInfo/UserInfoToolsProcessor'
 import { processVisionAnalyze } from '@main/tools/vision/VisionToolsProcessor'
 import {
   processActivityJournalAppend,
@@ -149,8 +146,7 @@ export const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   telegram_send_message: processTelegramSendMessage,
   chat_set_title: processChatSetTitle,
   todo: processTodo,
-  user_info_get: processUserInfoGet,
-  user_info_set: processUserInfoSet,
+  user_info: processUserInfo,
   vision_analyze: processVisionAnalyze,
   activity_journal_append: processActivityJournalAppend,
   activity_journal_list: processActivityJournalList,

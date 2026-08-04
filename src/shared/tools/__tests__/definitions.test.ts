@@ -12,7 +12,7 @@ describe('tool definitions', () => {
     const toolNames = (tools as ToolDefinition[]).map(tool => tool.function.name)
 
     expect(new Set(toolNames).size).toBe(toolNames.length)
-    expect(toolNames).toHaveLength(68)
+    expect(toolNames).toHaveLength(67)
   })
 
   it('exposes one flat wiki definition with a required action enum', () => {
@@ -29,6 +29,22 @@ describe('tool definitions', () => {
       enum: ['list', 'read', 'write', 'delete', 'search']
     }))
     expect(wikiNames).toHaveLength(1)
+  })
+
+  it('exposes one flat user_info definition with a required action enum', () => {
+    const userInfo = (tools as ToolDefinition[]).find(tool => tool.function.name === 'user_info')
+    const userInfoNames = (tools as ToolDefinition[])
+      .map(tool => tool.function.name)
+      .filter(name => name === 'user_info' || name.startsWith('user_info_'))
+      .sort()
+
+    expect(userInfoNames).toEqual(['user_info'])
+    expect(userInfo?.function.parameters.required).toContain('action')
+    expect(userInfo?.function.parameters.properties.action).toEqual(expect.objectContaining({
+      type: 'string',
+      enum: ['get', 'set']
+    }))
+    expect(userInfoNames).toHaveLength(1)
   })
 
   it('requires tool_call_reason on all embedded tool definitions', () => {

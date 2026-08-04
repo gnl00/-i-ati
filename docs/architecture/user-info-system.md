@@ -9,8 +9,7 @@
 
 因此系统引入：
 
-- `user_info_get`
-- `user_info_set`
+- `user_info` 工具（`action: get` / `action: set`）
 - `<user_info>` prompt section
 
 并使用一个本地文件作为唯一数据源。
@@ -77,7 +76,7 @@ This file stores the stable global user profile used for prompt injection.
 
 ## 工具设计
 
-### `user_info_get`
+### `user_info`（`action: get`）
 
 作用：
 
@@ -103,7 +102,7 @@ This file stores the stable global user profile used for prompt injection.
 }
 ```
 
-### `user_info_set`
+### `user_info`（`action: set`）
 
 作用：
 
@@ -156,7 +155,7 @@ This file stores the stable global user profile used for prompt injection.
 
 - 在早期合适的轮次询问用户
 - 用简短问题采集关键信息
-- 采集后调用 `user_info_set`
+- 采集后调用 `user_info`（`action: set`）
 
 ## 一次完整流程
 
@@ -167,7 +166,7 @@ This file stores the stable global user profile used for prompt injection.
 3. `UserInfoPromptProvider` 生成 `<user_info>` section。
 4. 模型在本轮中读取用户稳定资料。
 5. 如果用户本轮没有改口，模型直接按资料进行称呼和风格调整。
-6. 如果用户本轮明确更正资料，模型应在回复前或回复过程中调用 `user_info_set` 保存新的完整版本。
+6. 如果用户本轮明确更正资料，模型应在回复前或回复过程中调用 `user_info`（`action: set`）保存新的完整版本。
 
 ### 分支 B：`user_info` 为空
 
@@ -177,7 +176,7 @@ This file stores the stable global user profile used for prompt injection.
 4. 如果当前轮次适合采集，模型应提出简短问题，例如：
    - 希望我怎么称呼你？
    - 有没有我应该长期记住的偏好？
-5. 用户回答后，模型调用 `user_info_set` 保存完整资料。
+5. 用户回答后，模型调用 `user_info`（`action: set`）保存完整资料。
 6. 下一轮开始，新的 `<user_info>` section 自动生效。
 
 ## 当前边界
