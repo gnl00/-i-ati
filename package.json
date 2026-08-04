@@ -44,6 +44,9 @@
   },
   "dependencies": {
     "@codemirror/lang-json": "^6.0.2",
+    "@codemirror/language": "^6.12.1",
+    "@codemirror/state": "^6.5.4",
+    "@codemirror/view": "^6.39.11",
     "@electron-toolkit/utils": "^4.0.0",
     "@mantine/hooks": "^7.15.3",
     "@mixmark-io/domino": "^2.2.0",
