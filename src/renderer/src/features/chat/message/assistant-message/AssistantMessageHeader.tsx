@@ -25,9 +25,6 @@ export const AssistantMessageHeader: React.FC<AssistantMessageHeaderProps> = mem
       model={header.badgeModel}
       provider={header.modelProvider}
       animate={badgeAnimate}
-      emotionLabel={header.emotionLabel}
-      emotionEmoji={header.emotionEmoji}
-      emotionIntensity={header.emotionIntensity}
     />
   )
 })

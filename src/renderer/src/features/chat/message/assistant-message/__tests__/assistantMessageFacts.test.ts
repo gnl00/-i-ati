@@ -56,46 +56,6 @@ describe('buildAssistantMessageFacts', () => {
     expect(facts.transcript.committedSegments.map(segment => segment.segmentId)).toEqual(['text-1'])
   })
 
-  it('prefers preview unified emotion from host-provided message semantics', () => {
-    const facts = buildAssistantMessageFacts({
-      committedMessage: {
-        role: 'assistant',
-        content: '',
-        emotion: {
-          label: 'calm',
-          emoji: '😌',
-          intensity: 0.2,
-          source: 'computed'
-        },
-        segments: []
-      },
-      previewMessage: {
-        role: 'assistant',
-        content: '',
-        emotion: {
-          label: 'excited',
-          emoji: '🤩',
-          intensity: 0.9,
-          source: 'tool'
-        },
-        segments: [
-          toolCallSegment({
-            id: 'emotion-tool',
-            name: 'emotion_report',
-            toolCallId: 'emotion-tool',
-            transcriptVisible: false
-          })
-        ]
-      }
-    })
-
-    expect(facts.emotion).toEqual({
-      label: 'excited',
-      emoji: '🤩',
-      intensity: 0.9
-    })
-  })
-
   it('keeps only visible tool calls in presence facts', () => {
     const facts = buildAssistantMessageFacts({
       committedMessage: {

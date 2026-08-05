@@ -43,9 +43,6 @@ export interface AssistantMessageMapperContext {
 export interface AssistantMessageHeaderProjection {
   badgeModel?: string
   modelProvider?: string
-  emotionLabel?: string
-  emotionEmoji?: string
-  emotionIntensity?: number
 }
 
 export interface AssistantMessageTranscriptProjection {
@@ -168,10 +165,7 @@ export function mapAssistantMessage(
   return {
     header: {
       badgeModel: facts.badge.model,
-      modelProvider: resolveMessageProvider(facts.badge.modelRef, providerDefinitions, accounts),
-      emotionLabel: facts.emotion.label,
-      emotionEmoji: facts.emotion.emoji,
-      emotionIntensity: facts.emotion.intensity
+      modelProvider: resolveMessageProvider(facts.badge.modelRef, providerDefinitions, accounts)
     },
     transcript: {
       isOverlayPreview: facts.isOverlayPreview,

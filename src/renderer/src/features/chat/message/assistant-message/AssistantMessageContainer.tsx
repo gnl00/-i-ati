@@ -169,18 +169,12 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
   const headerModel = useMemo(() => buildAssistantMessageHeaderModel({
     headerProjection: {
       badgeModel: renderState.header.badgeModel,
-      modelProvider: renderState.header.modelProvider,
-      emotionLabel: renderState.header.emotionLabel,
-      emotionEmoji: renderState.header.emotionEmoji,
-      emotionIntensity: renderState.header.emotionIntensity
+      modelProvider: renderState.header.modelProvider
     },
     badgeAnimate: isAssistantResponseActive && isLatest
   }), [
     renderState.header.badgeModel,
     renderState.header.modelProvider,
-    renderState.header.emotionLabel,
-    renderState.header.emotionEmoji,
-    renderState.header.emotionIntensity,
     isAssistantResponseActive,
     isLatest
   ])

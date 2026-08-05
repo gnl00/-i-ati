@@ -4,11 +4,6 @@ export interface AssistantMessageFacts {
     model?: string
     modelRef?: ModelRef
   }
-  emotion: {
-    label?: string
-    emoji?: string
-    intensity?: number
-  }
   transcript: {
     committedSegments: MessageSegment[]
     previewSegments: MessageSegment[]
@@ -17,18 +12,6 @@ export interface AssistantMessageFacts {
     hasContent: boolean
     hasSegments: boolean
     hasToolCalls: boolean
-  }
-}
-
-function resolveHeaderEmotion(messages: Array<ChatMessage | undefined>): AssistantMessageFacts['emotion'] {
-  const emotion = messages.find(message => message?.emotion)?.emotion
-
-  return {
-    label: emotion?.label?.trim(),
-    emoji: emotion?.emoji?.trim(),
-    intensity: typeof emotion?.intensity === 'number'
-      ? emotion.intensity
-      : undefined
   }
 }
 
@@ -61,7 +44,6 @@ export function buildAssistantMessageFacts(source: {
       model: displayMessage.model,
       modelRef: displayMessage.modelRef
     },
-    emotion: resolveHeaderEmotion([previewMessage, committedMessage]),
     transcript: {
       committedSegments,
       previewSegments

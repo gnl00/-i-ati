@@ -142,9 +142,6 @@ describe('mapAssistantMessage', () => {
     ])
     expect(renderState.header.badgeModel).toBe('gpt-5-preview')
     expect(renderState.header.modelProvider).toBe('openai')
-    expect(renderState.header.emotionLabel).toBe('joy')
-    expect(renderState.header.emotionEmoji).toBe('🙂')
-    expect(renderState.header.emotionIntensity).toBe(0.7)
   })
 
   it('does not expose emotion-only tool calls as visible tool calls', () => {
@@ -174,91 +171,6 @@ describe('mapAssistantMessage', () => {
 
     expect(renderState.transcript.textItems).toHaveLength(0)
     expect(renderState.transcript.supportItems).toHaveLength(0)
-  })
-
-  it('falls back to emotion tool segments when unified emotion is absent', () => {
-    const renderState = mapAssistantMessage({
-      committedMessage: {
-        role: 'assistant',
-        content: '',
-        segments: [
-          toolCallSegment({
-            id: 'emotion-tool',
-            name: 'emotion_report',
-            toolCallId: 'emotion-tool',
-            transcriptVisible: false
-          })
-        ]
-      },
-      previewMessage: {
-        role: 'assistant',
-        content: '',
-        emotion: {
-          label: 'excited',
-          emoji: '🤩',
-          intensity: 0.9,
-          source: 'tool'
-        },
-        segments: [
-          {
-            ...toolCallSegment({
-              id: 'preview-emotion-tool',
-              name: 'emotion_report',
-              toolCallId: 'preview-emotion-tool',
-              transcriptVisible: false
-            })
-          }
-        ]
-      }
-    }, {
-      isLatest: true,
-      isStreaming: true,
-      providerDefinitions: [],
-      accounts: []
-    })
-
-    expect(renderState.header.emotionLabel).toBe('excited')
-    expect(renderState.header.emotionEmoji).toBe('🤩')
-    expect(renderState.header.emotionIntensity).toBe(0.9)
-  })
-
-  it('keeps unified emotion precedence over later tool segment derivation', () => {
-    const renderState = mapAssistantMessage({
-      committedMessage: {
-        role: 'assistant',
-        content: '',
-        emotion: {
-          label: 'calm',
-          emoji: '😌',
-          intensity: 0.2,
-          source: 'computed'
-        },
-        segments: []
-      },
-      previewMessage: {
-        role: 'assistant',
-        content: '',
-        segments: [
-          {
-            ...toolCallSegment({
-              id: 'preview-emotion-tool',
-              name: 'emotion_report',
-              toolCallId: 'preview-emotion-tool',
-              transcriptVisible: false
-            })
-          }
-        ]
-      }
-    }, {
-      isLatest: true,
-      isStreaming: true,
-      providerDefinitions: [],
-      accounts: []
-    })
-
-    expect(renderState.header.emotionLabel).toBe('calm')
-    expect(renderState.header.emotionEmoji).toBe('😌')
-    expect(renderState.header.emotionIntensity).toBe(0.2)
   })
 
   it('marks only the preview tail support item as streaming', () => {
@@ -1095,10 +1007,7 @@ describe('mapAssistantMessage', () => {
 
     expect(renderState.header).toEqual({
       badgeModel: 'gpt-5',
-      modelProvider: undefined,
-      emotionLabel: undefined,
-      emotionEmoji: undefined,
-      emotionIntensity: undefined
+      modelProvider: undefined
     })
     expect(renderState.transcript.supportItems).toHaveLength(3)
     expect(renderState.transcript.supportItems.map(item => item.segment.type)).toEqual([

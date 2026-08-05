@@ -134,9 +134,6 @@ function ViewportProbe({
               model="MiniMax-M2.5"
               provider="minimax"
               animate
-              emotionLabel="focused"
-              emotionEmoji="◐"
-              emotionIntensity={2}
             />
 
             <div className="flex w-full flex-col gap-1.5">

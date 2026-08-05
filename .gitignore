@@ -26,3 +26,4 @@ workspaces/**
 # SwiftPM native helpers
 native/**/.build/
 resources/native/kwwk-computer-use-bridge
+tsconfig*.tsbuildinfo

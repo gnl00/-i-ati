@@ -1,19 +1,24 @@
 import { ActivityLogIcon, GearIcon } from '@radix-ui/react-icons'
+import { AnimatePresence, motion } from 'framer-motion'
+import { getEmotionAssetUrl } from '@renderer/shared/assets/emotions/emotionAssetUrls'
 import { ModeToggleSlide } from '@renderer/shared/components/ModeToggleSlide'
 import { SettingsPanel } from '@renderer/features/settings'
 import { Button } from '@renderer/shared/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@renderer/shared/components/ui/popover'
 import TrafficLights from '@renderer/shared/components/ui/traffic-lights'
 import { cn } from '@renderer/shared/lib/utils'
+import { useAppConfigStore } from '@renderer/infrastructure/config/appConfig'
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
 import {
   invokeWindowClose,
   invokeWindowMaximize,
   invokeWindowMinimize
 } from '@renderer/infrastructure/ipc'
+import { getEmotionState } from '@renderer/infrastructure/persistence/EmotionStateRepository'
+import { normalizeEmotionLabel, pickEmotionEmoji } from '@shared/emotion/emotionAssetCatalog'
 import { useSheetStore } from '@renderer/features/chat/state/sheetStore'
 import { PanelRight } from 'lucide-react'
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 
 const headerActionButtonClassName = [
   'app-undragable pointer-events-auto h-8 w-8 rounded-lg border border-transparent bg-transparent p-0',
@@ -21,6 +26,50 @@ const headerActionButtonClassName = [
   'hover:border-black/[0.08] hover:bg-black/[0.045] hover:text-slate-950 active:scale-95',
   'dark:text-zinc-400 dark:hover:border-white/10 dark:hover:bg-white/[0.07] dark:hover:text-zinc-100'
 ].join(' ')
+
+export function useHeaderEmotion(): ChatEmotionState | undefined {
+  const currentChatId = useChatStore(state => state.currentChatId)
+  const [dbSnapshot, setDbSnapshot] = useState<ChatEmotionState>()
+
+  useEffect(() => {
+    let cancelled = false
+    getEmotionState().then(snapshot => {
+      if (cancelled) return
+      if (!snapshot?.current) return
+      const label = normalizeEmotionLabel(snapshot.current.label)
+      if (!label) return
+      setDbSnapshot({
+        label,
+        emoji: pickEmotionEmoji(label, snapshot.current.intensity),
+        intensity: snapshot.current.intensity,
+        source: 'computed'
+      })
+    }).catch(() => {
+      // DB snapshot unavailable — fall through to undefined
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  const transcriptEmotion = useChatStore(state => {
+    const fromPreview = state.preview.message?.body?.emotion
+    if (fromPreview?.label || fromPreview?.emoji) return fromPreview
+
+    for (let i = state.messages.length - 1; i >= 0; i--) {
+      const emotion = state.messages[i].body.emotion
+      if (state.messages[i].body.role === 'assistant' && (emotion?.label || emotion?.emoji)) {
+        return emotion
+      }
+    }
+    return undefined
+  })
+
+  // Hide on welcome stage
+  if (currentChatId === null || currentChatId === undefined) {
+    return undefined
+  }
+
+  return transcriptEmotion ?? dbSnapshot
+}
 
 const ChatHeader: React.FC = () => {
   const chatTitle = useChatStore(state => state.chatTitle)
@@ -30,6 +79,16 @@ const ChatHeader: React.FC = () => {
   const artifactsToggleLabel = artifactsPanelOpen
     ? 'Close artifacts panel'
     : 'Open artifacts panel'
+  const emotion = useHeaderEmotion()
+  const emotionAssetPack = useAppConfigStore(state => state.appConfig.emotion?.assetPack || 'default')
+  const [assetFailed, setAssetFailed] = React.useState(false)
+  const emotionAssetUrl = getEmotionAssetUrl(emotionAssetPack, emotion?.label, emotion?.intensity)
+  const shouldRenderAsset = Boolean(emotionAssetUrl) && !assetFailed
+  const emotionKey = `${emotion?.label || ''}:${emotion?.intensity ?? ''}:${emotion?.emoji || ''}`
+
+  React.useEffect(() => {
+    setAssetFailed(false)
+  }, [emotionAssetUrl, emotion?.intensity, emotion?.emoji])
 
   return (
     <header
@@ -82,8 +141,39 @@ const ChatHeader: React.FC = () => {
         </div>
 
         <div className="min-w-0 justify-self-center px-3">
-          <div className="group relative max-w-[min(34rem,42vw)] min-w-0 px-2">
-            <span className="block truncate px-3 py-1 text-sm font-semibold text-slate-600 dark:text-zinc-100">
+          <div className="group relative flex items-center gap-1.5 max-w-[min(34rem,42vw)] min-w-0 px-2">
+            <AnimatePresence initial={false} mode="popLayout">
+              {(emotion && (shouldRenderAsset || emotion.emoji)) && (
+                <motion.span
+                  key={emotionKey}
+                  layout
+                  initial={{ opacity: 0, scale: 0.78, x: -6, y: 2, rotate: -6, filter: 'blur(4px)' }}
+                  animate={{ opacity: 1, scale: 1, x: 0, y: 0, rotate: 0, filter: 'blur(0px)' }}
+                  exit={{ opacity: 0, scale: 0.84, x: 6, y: -1, rotate: 4, filter: 'blur(2px)' }}
+                  transition={{
+                    type: 'spring',
+                    stiffness: 460,
+                    damping: 28,
+                    mass: 0.68
+                  }}
+                  className="app-undragable pointer-events-auto inline-flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full"
+                  aria-label={emotion.label ? `Current emotion: ${emotion.label}` : 'Current emotion'}
+                  title={emotion.label ? `Current emotion: ${emotion.label}` : 'Current emotion'}
+                >
+                  {shouldRenderAsset ? (
+                    <img
+                      src={emotionAssetUrl}
+                      alt=""
+                      className="h-6 w-6 object-contain scale-[1.08]"
+                      onError={() => setAssetFailed(true)}
+                    />
+                  ) : (
+                    <span className="text-sm leading-none">{emotion.emoji}</span>
+                  )}
+                </motion.span>
+              )}
+            </AnimatePresence>
+            <span className="block truncate py-1 text-sm font-semibold text-slate-600 dark:text-zinc-100">
               {chatTitle}
             </span>
             <div className="absolute inset-x-0 bottom-0 h-px origin-center scale-x-75 bg-linear-to-r from-transparent via-blue-400/55 to-transparent opacity-80 transition-transform duration-300 group-hover:scale-x-100 dark:via-sky-300/40" />

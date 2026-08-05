@@ -180,10 +180,7 @@ function buildAssistantModel(args: {
       badgeAnimate: args.isLatest ?? false,
       header: {
         badgeModel: args.model ?? 'Claude Sonnet 4.5',
-        modelProvider: args.provider ?? 'anthropic',
-        emotionLabel: 'focused',
-        emotionEmoji: '◐',
-        emotionIntensity: 2
+        modelProvider: args.provider ?? 'anthropic'
       }
     },
     body: {
