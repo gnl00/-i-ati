@@ -101,7 +101,7 @@ function shouldBuildCompletedWorkGroup(items: SupportSegmentRenderItem[]): boole
   const completedWorkItemCount = items.filter(item => (
     item.segment.type === 'reasoning' || item.segment.type === 'toolCall'
   )).length
-  return completedWorkItemCount > 3
+  return completedWorkItemCount > 1
 }
 
 export function buildSupportRenderUnits(
