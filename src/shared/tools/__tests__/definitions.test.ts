@@ -12,7 +12,7 @@ describe('tool definitions', () => {
     const toolNames = (tools as ToolDefinition[]).map(tool => tool.function.name)
 
     expect(new Set(toolNames).size).toBe(toolNames.length)
-    expect(toolNames).toHaveLength(64)
+    expect(toolNames).toHaveLength(63)
   })
 
   it('exposes one flat wiki definition with a required action enum', () => {
@@ -61,6 +61,22 @@ describe('tool definitions', () => {
       enum: ['get', 'edit', 'reset']
     }))
     expect(soulNames).toHaveLength(1)
+  })
+
+  it('exposes one flat session_context definition with a required action enum', () => {
+    const sessionContext = (tools as ToolDefinition[]).find(tool => tool.function.name === 'session_context')
+    const sessionContextNames = (tools as ToolDefinition[])
+      .map(tool => tool.function.name)
+      .filter(name => name === 'session_context' || name.startsWith('session_context_'))
+      .sort()
+
+    expect(sessionContextNames).toEqual(['session_context'])
+    expect(sessionContext?.function.parameters.required).toContain('action')
+    expect(sessionContext?.function.parameters.properties.action).toEqual(expect.objectContaining({
+      type: 'string',
+      enum: ['get', 'set']
+    }))
+    expect(sessionContextNames).toHaveLength(1)
   })
 
   it('exposes one flat subagent definition with a required action enum', () => {

@@ -23,8 +23,10 @@ user_info phase consolidates the two user profile operations into one
 `soul` resource tool, reducing the public embedded-tool count from
 67 → 65. The subagent phase consolidates the two subagent operations into
 one `subagent` resource tool, reducing the public embedded-tool count from
-65 → 64. The cumulative consolidation count changes from 84 → 64 while
-keeping existing data models and operation behavior stable.
+65 → 64. The session_context phase consolidates the two work context
+operations into one `session_context` resource tool, reducing the public
+embedded-tool count from 64 → 63. The cumulative consolidation count changes
+from 84 → 63 while keeping existing data models and operation behavior stable.
 
 ## Decision
 
@@ -81,6 +83,16 @@ and injects `model_ref`, `parent_submission_id`, and
 preserving the established behavior where no subagent action requests a
 workspace mutation confirmation.
 
+Expose one public `session_context` function definition with a required
+`action` enum: `get` and `set`. The schema remains flat and retains the
+existing work context parameter names (`content`), which is only meaningful
+for `action=set`. The action-aware metadata preserves the established risk
+policy: get is a non-mutating read at `none` risk, and set is a non-mutating
+in-memory/database write at `none` risk. Both actions remain denied to
+subagents. The executor resolves this metadata from `args.action`, preserving
+the existing behavior where neither action requests a workspace mutation
+confirmation.
+
 The schema stays flat and uses the existing operation parameter names. A flat
 object schema is compatible with the provider schema subset already used by the
 application. Each processor dispatches by `action`, validates its presence, and
@@ -89,8 +101,8 @@ return a clear expected-action error. Processors validate each action's former
 required fields before invoking the retained operation implementation.
 
 The cutover publishes `todo`, `plan`, `schedule`, `wiki`, `user_info`,
-`soul`, and `subagent` as canonical public definitions, metadata entries,
-and main-process handlers. `plan` with `action=create` retains the special plan review and its
+`soul`, `subagent`, and `session_context` as canonical public definitions,
+metadata entries, and main-process handlers. `plan` with `action=create` retains the special plan review and its
 automatic-approval policy. Wiki metadata resolves from `args.action` to
 preserve the established read, write, delete, and search capability, risk,
 mutation, confirmation, and subagent behavior. user_info metadata resolves
@@ -111,7 +123,8 @@ resource operations with distinct confirmation behavior.
   user_info phase changes the public embedded-tool total from 68 → 67. The
   soul phase changes the public embedded-tool total from 67 → 65. The
   subagent phase changes the public embedded-tool total from 65 → 64. The
-  cumulative consolidation count changes from 84 → 64.
+  session_context phase changes the public embedded-tool total from 64 → 63.
+  The cumulative consolidation count changes from 84 → 63.
 - Existing operation processors remain the behavior authority behind the
   dispatcher.
 - TODO, Plan, and Schedule retain resource-level metadata policies. Wiki
@@ -124,6 +137,8 @@ resource operations with distinct confirmation behavior.
   `warning`-risk profile writes; no soul action mutates the workspace.
   subagent resolves action-aware metadata: spawn is a `warning`-risk
   background task launch, and wait is a `none`-risk status read; neither
+  action mutates the workspace. session_context resolves action-aware
+  metadata: get and set are both `none`-risk memory reads/writes; neither
   action mutates the workspace.
 - Runtime context continues to inject `chat_uuid` for the canonical Plan and
   Schedule handlers and additionally injects `model_ref`,

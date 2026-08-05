@@ -48,3 +48,31 @@ export interface WorkContextSetResponse {
   file_path?: string
   message: string
 }
+
+export type SessionContextAction = 'get' | 'set'
+
+export type SessionContextGetArgs = {
+  chat_uuid?: string
+}
+
+export type SessionContextSetArgs = {
+  content: string
+  chat_uuid?: string
+}
+
+export type SessionContextGetResponse = WorkContextGetResponse
+export type SessionContextSetResponse = WorkContextSetResponse
+
+export type SessionContextArgs =
+  | ({ action: 'get' } & SessionContextGetArgs)
+  | ({ action: 'set' } & SessionContextSetArgs)
+
+export type SessionContextResponse =
+  | SessionContextGetResponse
+  | SessionContextSetResponse
+  | SessionContextErrorResponse
+
+export interface SessionContextErrorResponse {
+  success: false
+  message: string
+}

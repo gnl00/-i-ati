@@ -22,7 +22,7 @@ import { userInfoToolMetadata } from './userInfo/metadata'
 import { visionToolMetadata } from './vision/metadata'
 import { webToolMetadata } from './webTools/metadata'
 import { wikiToolMetadata } from './wiki/metadata'
-import { workContextToolMetadata } from './workContext/metadata'
+import { sessionContextToolMetadata } from './workContext/metadata'
 
 export type {
   EmbeddedToolCapability,
@@ -35,7 +35,7 @@ export const embeddedToolMetadata = mergeEmbeddedToolMetadata(
   registryToolMetadata,
   webToolMetadata,
   fileOperationsToolMetadata,
-  workContextToolMetadata,
+  sessionContextToolMetadata,
   memoryToolMetadata,
   historyToolMetadata,
   computerUseToolMetadata,

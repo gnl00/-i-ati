@@ -85,10 +85,10 @@ describe('shared prompts systemPrompt', () => {
     expect(prompt).toContain('<state_and_memory>')
     expect(prompt).toContain('Start substantive turns from the injected `<awake_state>`')
     expect(prompt).toContain('`memory` owns durable user preferences')
-    expect(prompt).toContain('`work_context` owns the current chat goal')
+    expect(prompt).toContain('`session_context` owns the current chat goal')
     expect(prompt).toContain('`wiki` owns durable project knowledge and reusable documents.')
     expect(prompt).toContain('`history_search` retrieves raw prior conversation content.')
-    expect(prompt).toContain('Replace `work_context` with complete Markdown')
+    expect(prompt).toContain('Replace `session_context` with complete Markdown')
     expect(prompt).toContain(
       'Resolve conflicts in this order: safety and platform constraints; current explicit user instructions; current runtime state; newer saved facts; older context.'
     )
@@ -157,7 +157,7 @@ describe('shared prompts systemPrompt', () => {
       conversationText: '<tool name="plan"><result>{"status":"pending"}</result></tool>'
     })
 
-    expect(prompt).toContain('Stateful tools include plan, todo, schedule, work_context_*')
+    expect(prompt).toContain('Stateful tools include plan, todo, schedule, session_context')
     expect(prompt).toContain('Stateful tool results are source-of-truth records')
     expect(prompt).toContain('currentStepId')
     expect(prompt).toContain('failureReason')

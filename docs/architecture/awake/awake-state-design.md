@@ -8,7 +8,7 @@
 当前 Agent 启动阶段依赖多个分散工具和 prompt 协议：
 
 ```text
-memory_retrieval -> work_context_get -> emotion_report -> [other tools] -> start work
+memory_retrieval -> session_context -> emotion_report -> [other tools] -> start work
 ```
 
 这套流程带来几个问题：

@@ -115,7 +115,7 @@
 
 - 当前任务描述
 - 最近消息摘要
-- `work_context`
+- `session_context`
 - 最近 activity journal 片段
 - 文件提示 `files`
 
@@ -149,7 +149,7 @@
 - `web_search`
 - `web_fetch`
 - `memory_retrieval`
-- `work_context_get`
+- `session_context`
 - `activity_journal_search`
 - `exec`
 

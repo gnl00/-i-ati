@@ -19,7 +19,7 @@
 
 - `todo_*`: 用户待办清单，支持新增、列表、更新、删除。
 - `plan_*`: 当前复杂目标的执行步骤。
-- `work_context`: 当前 chat 的短期状态快照。
+- `session_context`: 当前 chat 的短期状态快照。
 - `activity_journal_*`: 重要工作事件时间线。
 - `schedule_*`: 未来时间触发的任务。
 

@@ -1,16 +1,14 @@
 import type { EmbeddedToolMetadataMap } from '../metadata-types'
 
-export const workContextToolMetadata = {
-  work_context_get: {
+export const sessionContextToolMetadata = {
+  session_context: {
     capability: 'memory',
     riskLevel: 'none',
     mutatesWorkspace: false,
-    subagent: 'allow'
-  },
-  work_context_set: {
-    capability: 'memory',
-    riskLevel: 'none',
-    mutatesWorkspace: false,
-    subagent: 'deny'
+    subagent: 'deny',
+    actionOverrides: {
+      get: { capability: 'memory', riskLevel: 'none', mutatesWorkspace: false },
+      set: { capability: 'memory', riskLevel: 'none', mutatesWorkspace: false }
+    }
   }
 } satisfies EmbeddedToolMetadataMap

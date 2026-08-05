@@ -100,7 +100,7 @@ latest 3 pairs      -> messagesToKeep
 `src/shared/prompts/compression.ts` 已增加状态保真规则：
 
 ```text
-- Stateful tools include plan, todo, schedule, work_context_*, task/workflow tools, approval tools, notification tools, and automation run tools.
+- Stateful tools include plan, todo, schedule, session_context, task/workflow tools, approval tools, notification tools, and automation run tools.
 - Stateful tool results are source-of-truth records. Preserve entity ids, status, step status, currentStepId, activeStepId, failureReason, error, timestamps, owner, assignee, dependencies, and schedule times verbatim.
 - For plans and todos, preserve every visible step/item id, title, status, dependsOn, owner/assignee, currentStepId, and failureReason.
 - pending、todo、doing、in_progress、pending_review、blocked 表示仍有后续动作；摘要写成“计划已创建/等待执行/正在执行/阻塞中”，并放入 Pending Tasks。
@@ -312,7 +312,7 @@ nearby tool results:
 | `plan` | 原文 | 原文或结构化事实 | `status`、`step.status`、`currentStepId`、`failureReason` 是事实来源 |
 | `todo` | 原文 | 原文或结构化事实 | action item 的状态和归属需要高保真 |
 | `schedule` | 原文 | 原文或结构化事实 | 时间、执行状态、失败原因需要高保真 |
-| `work_context_*` | 原文 | 原文或结构化事实 | 当前目标、决策、进行中事项需要高保真 |
+| `session_context` | 原文 | 原文或结构化事实 | 当前目标、决策、进行中事项需要高保真 |
 | `exec` | 原文或 compact | compact | 保留 command、cwd、exit_code、pass/fail、错误片段 |
 | `read` | 原文或 compact | compact | 保留 path、range、truncated、关键内容片段 |
 | `grep` / `log_search` / `history_search` | 原文或 compact | compact | 保留 query、count、path、line、snippet |
@@ -411,7 +411,7 @@ toolCompactor exists?
 5. 强化 tool facts：
    Tool result status fields are source-of-truth facts.
    success=true means the tool call succeeded.
-   Stateful tools include plan, todo, schedule, work_context_*.
+   Stateful tools include plan, todo, schedule, session_context.
    State fields include ids, status, step/item status, currentStepId, activeStepId, failureReason, owner/assignee, dependencies, and schedule times.
    Open states must be recorded in Pending Tasks.
 

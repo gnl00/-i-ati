@@ -5,6 +5,7 @@ import {
   workContextService
 } from '@main/services/workContext/WorkContextService'
 import type {
+  SessionContextResponse,
   WorkContextGetResponse,
   WorkContextSetResponse
 } from '@tools/memory/index.d'
@@ -16,6 +17,34 @@ interface WorkContextGetArgs {
 interface WorkContextSetArgs {
   content: string
   chat_uuid?: string
+}
+
+const SESSION_CONTEXT_ACTIONS = ['get', 'set'] as const
+type SessionContextAction = (typeof SESSION_CONTEXT_ACTIONS)[number]
+
+export async function processSessionContext(
+  args: unknown = {}
+): Promise<SessionContextResponse> {
+  const normalizedArgs = args && typeof args === 'object' && !Array.isArray(args)
+    ? args as Partial<Record<'action' | 'content', unknown>>
+    : {}
+  const action = typeof normalizedArgs.action === 'string' ? normalizedArgs.action.trim() : ''
+  if (!action) {
+    return { success: false, message: 'Missing required parameter: action' }
+  }
+  if (!SESSION_CONTEXT_ACTIONS.includes(action as SessionContextAction)) {
+    return {
+      success: false,
+      message: `Invalid action: ${action}. Expected one of: ${SESSION_CONTEXT_ACTIONS.join(', ')}`
+    }
+  }
+
+  switch (action as SessionContextAction) {
+    case 'get':
+      return processWorkContextGet(normalizedArgs as WorkContextGetArgs)
+    case 'set':
+      return processWorkContextSet(normalizedArgs as WorkContextSetArgs)
+  }
 }
 
 export async function processWorkContextGet(

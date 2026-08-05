@@ -22,10 +22,7 @@ import {
   processMemoryUpdate
 } from '@main/tools/memory/MemoryToolsProcessor'
 import { processHistorySearch } from '@main/tools/history/HistoryToolsProcessor'
-import {
-  processWorkContextGet,
-  processWorkContextSet
-} from '@main/tools/workContext/WorkContextToolsProcessor'
+import { processSessionContext } from '@main/tools/workContext/WorkContextToolsProcessor'
 import { processExecuteCommand } from '@main/tools/command/CommandProcessor'
 import {
   processInstallSkill,
@@ -116,8 +113,7 @@ export const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   computer_use_scroll: processComputerUseScroll,
   computer_use_drag: processComputerUseDrag,
   computer_use_finish: processComputerUseFinish,
-  work_context_get: processWorkContextGet,
-  work_context_set: processWorkContextSet,
+  session_context: processSessionContext,
   exec: processExecuteCommand,
   install_skill: processInstallSkill,
   load_skill: processLoadSkill,

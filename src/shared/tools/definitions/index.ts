@@ -27,7 +27,7 @@ import { userInfoTools } from '../userInfo/definitions'
 import { visionTools } from '../vision/definitions'
 import { webTools } from '../webTools/definitions'
 import { wikiTools } from '../wiki/definitions'
-import { workContextTools } from '../workContext/definitions'
+import { sessionContextTools } from '../workContext/definitions'
 
 /**
  * 合并所有工具定义
@@ -36,7 +36,7 @@ export const tools = mergeToolDefinitions(
   registryTools,
   webTools,
   fileOperationsTools,
-  workContextTools,
+  sessionContextTools,
   memoryTools,
   historyTools,
   computerUseTools,

@@ -33,7 +33,15 @@ vi.mock('@main/db/DatabaseService', () => ({
   }
 }))
 
-import { processWorkContextGet, processWorkContextSet } from '../WorkContextToolsProcessor'
+import type {
+  SessionContextGetResponse,
+  SessionContextSetResponse
+} from '@tools/memory/index.d'
+import {
+  processSessionContext,
+  processWorkContextGet,
+  processWorkContextSet
+} from '../WorkContextToolsProcessor'
 
 describe('WorkContextToolsProcessor', () => {
   const chatUuid = 'c06fa90a-436c-46fb-84ff-3d2532cacec1'
@@ -181,5 +189,65 @@ describe('WorkContextToolsProcessor', () => {
 
     expect(res.success).toBe(false)
     expect(res.message).toContain('chat_uuid not found')
+  })
+
+  describe('processSessionContext dispatcher', () => {
+    it('returns error when action is missing', async () => {
+      const res = await processSessionContext({})
+
+      expect(res.success).toBe(false)
+      expect(res.message).toBe('Missing required parameter: action')
+    })
+
+    it('returns error for an unknown action', async () => {
+      const res = await processSessionContext({ action: 'list' })
+
+      expect(res.success).toBe(false)
+      expect(res.message).toBe('Invalid action: list. Expected one of: get, set')
+    })
+
+    it('returns error when args is not an object', async () => {
+      const res = await processSessionContext('get' as any)
+
+      expect(res.success).toBe(false)
+      expect(res.message).toBe('Missing required parameter: action')
+    })
+
+    it('dispatches action get to the work context read', async () => {
+      getWorkContextByChatUuidMock.mockReturnValue(undefined)
+
+      const res = await processSessionContext({ action: 'get', chat_uuid: chatUuid }) as SessionContextGetResponse
+
+      expect(res.success).toBe(true)
+      expect(res.exists).toBe(false)
+      expect(res.content).toBe(WORK_CONTEXT_TEMPLATE)
+    })
+
+    it('dispatches action set to the work context write', async () => {
+      getChatByUuidMock.mockReturnValue(chatEntity)
+      getWorkContextByChatUuidMock.mockReturnValue(undefined)
+
+      const res = await processSessionContext({
+        action: 'set',
+        chat_uuid: chatUuid,
+        content: '# Work Context\n\n## Current Goal\nDispatch works.'
+      }) as SessionContextSetResponse
+
+      expect(res.success).toBe(true)
+      expect(res.updated).toBe(true)
+      expect(res.skipped).toBe(false)
+      expect(upsertWorkContextMock).toHaveBeenCalledWith(
+        chatEntity.id,
+        chatUuid,
+        '# Work Context\n\n## Current Goal\nDispatch works.\n'
+      )
+    })
+
+    it('passes through set validation when content is missing', async () => {
+      const res = await processSessionContext({ action: 'set', chat_uuid: chatUuid })
+
+      expect(res.success).toBe(false)
+      expect(res.message).toBe('missing required param: content')
+    })
   })
 })

@@ -79,6 +79,18 @@ describe('embeddedToolMetadata', () => {
     expect(embeddedToolMetadata.soul.subagent).toBe('deny')
   })
 
+  it('keeps session_context action metadata aligned with action-specific risk policy', () => {
+    const overrides = embeddedToolMetadata.session_context.actionOverrides
+    const sessionContextMetadataNames = Object.keys(embeddedToolMetadata)
+      .filter(name => name === 'session_context' || name.startsWith('session_context_'))
+      .sort()
+
+    expect(sessionContextMetadataNames).toEqual(['session_context'])
+    expect(overrides?.get).toMatchObject({ capability: 'memory', riskLevel: 'none', mutatesWorkspace: false })
+    expect(overrides?.set).toMatchObject({ capability: 'memory', riskLevel: 'none', mutatesWorkspace: false })
+    expect(embeddedToolMetadata.session_context.subagent).toBe('deny')
+  })
+
   it('keeps subagent action metadata aligned with action-specific risk policy', () => {
     const overrides = embeddedToolMetadata.subagent.actionOverrides
     const subagentMetadataNames = Object.keys(embeddedToolMetadata)
