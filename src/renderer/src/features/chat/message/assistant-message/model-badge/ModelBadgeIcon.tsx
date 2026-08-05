@@ -33,10 +33,16 @@ function inferProviderFromModel(model: string): string | undefined {
   if (normalized.includes('groq')) {
     return 'groq'
   }
+  if (normalized.includes('doubao')) {
+    return 'doubao'
+  }
   if (normalized.includes('kimi') || normalized.includes('moonshot')) {
     return 'moonshot'
   }
-  if (normalized.includes('qwen') || normalized.includes('zai') || normalized.includes('glm') || normalized.includes('zhipu')) {
+  if (normalized.includes('qwen')) {
+    return 'qwen'
+  }
+  if (normalized.includes('zai') || normalized.includes('glm') || normalized.includes('zhipu')) {
     return normalized.includes('zhipu') || normalized.includes('glm') ? 'zhipu' : 'zai'
   }
   if (normalized.includes('ollama')) {

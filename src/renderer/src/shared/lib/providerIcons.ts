@@ -1,6 +1,7 @@
 // Provider icons
 import anthropicIcon from '@renderer/shared/assets/provider-icons/anthropic.svg'
 import deepseekIcon from '@renderer/shared/assets/provider-icons/deepseek.svg'
+import doubaoIcon from '@renderer/shared/assets/provider-icons/doubao.svg'
 import geminiColorIcon from '@renderer/shared/assets/provider-icons/gemini-color.svg'
 import githubCopilotIcon from '@renderer/shared/assets/provider-icons/githubcopilot.svg'
 import grokIcon from '@renderer/shared/assets/provider-icons/grok.svg'
@@ -12,6 +13,7 @@ import ollamaIcon from '@renderer/shared/assets/provider-icons/ollama.svg'
 import openaiTextIcon from '@renderer/shared/assets/provider-icons/openai-text.svg'
 import openaiIcon from '@renderer/shared/assets/provider-icons/openai.svg'
 import openrouterIcon from '@renderer/shared/assets/provider-icons/openrouter.svg'
+import qwenIcon from '@renderer/shared/assets/provider-icons/qwen.svg'
 import robotIcon from '@renderer/shared/assets/provider-icons/robot-2-line.svg'
 import siliconcloudIcon from '@renderer/shared/assets/provider-icons/siliconcloud.svg'
 import xiaomiMiMoIcon from '@renderer/shared/assets/provider-icons/xiaomimimo.svg'
@@ -38,6 +40,10 @@ export const PROVIDER_ICON_MAP: Record<string, string> = {
   // Groq
   deepseek: deepseekIcon,
   groq: groqIcon,
+  // Doubao / Volcengine
+  doubao: doubaoIcon,
+  volcengine: doubaoIcon,
+  volces: doubaoIcon,
   // Moonshot / Kimi
   moonshot: moonshotIcon,
   kimi: kimiColorIcon,
@@ -63,6 +69,9 @@ export const PROVIDER_ICON_MAP: Record<string, string> = {
   xiaomi: xiaomiMiMoIcon,
   xiaomimimo: xiaomiMiMoIcon,
   mimo: xiaomiMiMoIcon,
+  // Qwen / Tongyi
+  qwen: qwenIcon,
+  tongyi: qwenIcon,
 }
 
 /**
