@@ -1,5 +1,5 @@
 import { AbortError } from './errors'
-import type { ToolConfirmationRequester } from '@main/agent/contracts'
+import type { ToolConfirmationRequester, ToolQuestionRequester } from '@main/agent/contracts'
 import { AgentRun } from './AgentRun'
 import { PostRunJobService } from '@main/orchestration/chat/postRun'
 import { ChatAgentAdapter } from '@main/hosts/chat/ChatAgentAdapter'
@@ -10,7 +10,8 @@ import { normalizePermissionApprovalMode, type PermissionApprovalMode } from '@t
 import type {
   RunEventEmitterFactory,
   RunEventSink,
-  ToolConfirmationManager
+  ToolConfirmationManager,
+  ToolQuestionManager
 } from '../infrastructure'
 import { RunRegistry } from './RunRegistry'
 import type { MainAgentRuntimeRunner } from './MainAgentRuntimeRunner'
@@ -23,6 +24,7 @@ type StartRunResult = {
 
 export type RunManagerDependencies = {
   toolConfirmationManager: ToolConfirmationManager
+  toolQuestionManager?: ToolQuestionManager
   eventEmitterFactory: RunEventEmitterFactory
   mainAgentRuntimeRunner: MainAgentRuntimeRunner
   chatAgentAdapter: ChatAgentAdapter
@@ -85,10 +87,12 @@ export class RunManager {
     const run = this.registry.get(submissionId)
     if (!run) {
       this.deps.toolConfirmationManager.cancelForSubmission(submissionId)
+      this.deps.toolQuestionManager?.cancelForSubmission(submissionId)
       return
     }
     run.cancel()
     this.deps.toolConfirmationManager.cancelForSubmission(submissionId)
+    this.deps.toolQuestionManager?.cancelForSubmission(submissionId)
   }
 
   steer(input: RunSteerRequest): RunSteerResult {
@@ -138,6 +142,11 @@ export class RunManager {
     const toolConfirmationRequester: ToolConfirmationRequester = {
       request: (request) => this.deps.toolConfirmationManager.request(emitter, request)
     }
+    const toolQuestionRequester: ToolQuestionRequester = {
+      request: (request) => this.deps.toolQuestionManager
+        ? this.deps.toolQuestionManager.request(emitter, request)
+        : Promise.resolve({ status: 'unavailable', reason: 'User question manager unavailable' })
+    }
     const run = new AgentRun(input, {
       mainAgentRuntimeRunner: this.deps.mainAgentRuntimeRunner,
       chatAgentAdapter: this.deps.chatAgentAdapter,
@@ -145,6 +154,7 @@ export class RunManager {
     }, {
       emitter,
       toolConfirmationRequester,
+      toolQuestionRequester,
       hostRenderSinks
     })
     this.registry.add(input.submissionId, run)

@@ -15,6 +15,7 @@ export type {
   ToolConfirmationRequest,
   ToolConfirmationRequester
 } from './ToolConfirmation'
+export type { ToolQuestionRequest, ToolQuestionRequester } from './ToolQuestion'
 export type { AgentMessageEventSink } from './AgentMessageEventSink'
 export type { ConversationStore } from './ConversationStore'
 export type { RunEventEmitter, RunEventMeta, RunEventSink } from './RunEvents'

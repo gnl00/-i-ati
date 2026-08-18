@@ -56,6 +56,7 @@ export class ToolExecutor implements IToolExecutor {
   private readonly approvalPolicy: ResolvedAgentApprovalPolicy
   private readonly confirmationSource?: AgentConfirmationSource
   private readonly requestConfirmation?: ToolExecutorConfig['requestConfirmation']
+  private readonly requestUserQuestion?: ToolExecutorConfig['requestUserQuestion']
 
   constructor(config: ToolExecutorConfig = {}) {
     this.config = {
@@ -71,6 +72,7 @@ export class ToolExecutor implements IToolExecutor {
     this.approvalPolicy = config.approvalPolicy ?? { mode: 'strict' }
     this.confirmationSource = config.confirmationSource
     this.requestConfirmation = config.requestConfirmation
+    this.requestUserQuestion = config.requestUserQuestion
   }
 
   async execute(calls: ToolCallProps[]): Promise<ToolExecutionResult[]> {
@@ -405,6 +407,10 @@ export class ToolExecutor implements IToolExecutor {
         return await handler(safeArgs, {
           signal: this.signal,
           metadataConfirmationApproved,
+          toolCallId,
+          submissionId: this.submissionId,
+          chatUuid: this.chatUuid,
+          requestUserQuestion: this.requestUserQuestion,
           onOutput: (chunk) => {
             const chunkBytes = Buffer.byteLength(chunk.text, 'utf8')
             if (chunk.stream === 'stdout') {

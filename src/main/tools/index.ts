@@ -1,5 +1,9 @@
 import tools from '@tools/definitions'
-import { embeddedToolsRegistry, type ToolDefinition } from '@tools/registry'
+import {
+  embeddedToolsRegistry,
+  type EmbeddedToolExecutionContext,
+  type ToolDefinition
+} from '@tools/registry'
 import { embeddedToolMetadata } from '@tools/metadata'
 import {
   processRead,
@@ -59,6 +63,7 @@ import { processKnowledgebaseSearch } from '@main/tools/knowledgebase/Knowledgeb
 import { processSubagent } from '@main/tools/subagent/SubagentToolsProcessor'
 import { processLogSearch } from '@main/tools/log/LogToolsProcessor'
 import { processWiki } from '@main/tools/wiki/WikiToolsProcessor'
+import { processAskUserQuestion } from '@main/tools/userQuestion/UserQuestionToolsProcessor'
 import {
   processComputerUseApps,
   processComputerUseClickCoordinate,
@@ -77,7 +82,10 @@ import {
   processComputerUseWindows
 } from '@main/tools/computerUse/ComputerUseToolsProcessor'
 
-export const toolHandlers: Record<string, (args: any) => Promise<any>> = {
+export const toolHandlers: Record<
+  string,
+  (args: any, context?: EmbeddedToolExecutionContext) => Promise<any>
+> = {
   list_tools: async () => embeddedToolsRegistry.getAllToolDefinitions(),
   search_tools: (args) => embeddedToolsRegistry.searchTools(args),
   web_search: processWebSearch,
@@ -141,7 +149,8 @@ export const toolHandlers: Record<string, (args: any) => Promise<any>> = {
   knowledgebase_search: processKnowledgebaseSearch,
   log_search: processLogSearch,
   wiki: processWiki,
-  subagent: processSubagent
+  subagent: processSubagent,
+  ask_user_question: processAskUserQuestion
 }
 
 export function initializeMainEmbeddedTools(): void {

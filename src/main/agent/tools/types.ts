@@ -1,6 +1,7 @@
 import type { ToolCallProps } from '@main/agent/contracts'
 import type { AgentConfirmationSource, ResolvedAgentApprovalPolicy } from '@tools/approval'
 import type { ToolOutputBatch } from '@shared/run/tool-events'
+import type { ToolQuestionRequester } from '@main/agent/contracts'
 
 export interface ToolExecutionResult {
   id: string
@@ -55,6 +56,7 @@ export interface ToolExecutorConfig {
       filesystemReason?: string
     }
   }) => Promise<{ approved: boolean; reason?: string; args?: unknown }>
+  requestUserQuestion?: ToolQuestionRequester['request']
 }
 
 export interface IToolExecutor {

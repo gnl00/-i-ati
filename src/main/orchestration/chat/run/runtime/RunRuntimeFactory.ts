@@ -1,7 +1,11 @@
 import { TitleGenerationService, CompressionExecutionService } from '@main/orchestration/chat/maintenance'
 import { PostRunJobService } from '@main/orchestration/chat/postRun'
 import { ChatAgentAdapter } from '@main/hosts/chat/ChatAgentAdapter'
-import { RunEventEmitterFactory, ToolConfirmationManager } from '../infrastructure'
+import {
+  RunEventEmitterFactory,
+  ToolConfirmationManager,
+  ToolQuestionManager
+} from '../infrastructure'
 import { RunManager } from './RunManager'
 import { DefaultMainAgentRuntimeRunner } from './DefaultMainAgentRuntimeRunner'
 import { toolResultCompactionScheduler } from '@main/orchestration/chat/toolResultCompaction/ToolResultCompactionScheduler'
@@ -9,6 +13,7 @@ import { AgentNotificationSink } from '@main/notifications/AgentNotificationSink
 
 export type RunRuntimeDeps = {
   toolConfirmationManager: ToolConfirmationManager
+  toolQuestionManager: ToolQuestionManager
   eventEmitterFactory: RunEventEmitterFactory
   runManager: RunManager
   compressionExecutionService: CompressionExecutionService
@@ -18,6 +23,7 @@ export type RunRuntimeDeps = {
 export class RunRuntimeFactory {
   create(): RunRuntimeDeps {
     const toolConfirmationManager = new ToolConfirmationManager()
+    const toolQuestionManager = new ToolQuestionManager()
     const eventEmitterFactory = new RunEventEmitterFactory()
     const chatAgentAdapter = new ChatAgentAdapter()
     const postRunJobService = new PostRunJobService(eventEmitterFactory)
@@ -30,6 +36,7 @@ export class RunRuntimeFactory {
 
     const runManager = new RunManager({
       toolConfirmationManager,
+      toolQuestionManager,
       eventEmitterFactory,
       mainAgentRuntimeRunner,
       chatAgentAdapter,
@@ -38,6 +45,7 @@ export class RunRuntimeFactory {
 
     return {
       toolConfirmationManager,
+      toolQuestionManager,
       eventEmitterFactory,
       runManager,
       compressionExecutionService: new CompressionExecutionService(eventEmitterFactory),

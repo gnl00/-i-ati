@@ -51,6 +51,60 @@ describe('DefaultToolExecutorDispatcher', () => {
     toolExecutorConfig = undefined
   })
 
+  it('treats ask_user_question as an interaction barrier for later batch calls', async () => {
+    const executeToolCalls = vi.fn(async (calls) => [{
+      id: calls[0].id!,
+      index: calls[0].index ?? 0,
+      name: calls[0].function,
+      content: { status: 'submitted', answers: [] },
+      cost: 1,
+      status: 'success' as const
+    }])
+    const dispatcher = new DefaultToolExecutorDispatcher({
+      runtimeClock: { now: (): number => 123 },
+      executeToolCalls
+    })
+
+    const outcome = await dispatcher.dispatch({
+      batchId: 'batch-question',
+      stepId: 'step-question',
+      createdAt: 1,
+      calls: [
+        {
+          toolCallId: 'question-1',
+          stepId: 'step-question',
+          index: 0,
+          name: 'ask_user_question',
+          arguments: '{}',
+          confirmationPolicy: { mode: 'not_required' },
+          status: 'pending'
+        },
+        {
+          toolCallId: 'exec-1',
+          stepId: 'step-question',
+          index: 1,
+          name: 'exec',
+          arguments: '{"command":"echo stale"}',
+          confirmationPolicy: { mode: 'not_required' },
+          status: 'pending'
+        }
+      ]
+    })
+
+    expect(executeToolCalls).toHaveBeenCalledTimes(1)
+    expect(outcome).toEqual(expect.objectContaining({
+      status: 'completed',
+      results: [
+        expect.objectContaining({ toolCallId: 'question-1', status: 'success' }),
+        expect.objectContaining({
+          toolCallId: 'exec-1',
+          status: 'success',
+          content: expect.objectContaining({ status: 'deferred_due_to_user_question' })
+        })
+      ]
+    }))
+  })
+
   it('waits for external confirmation and executes when approved', async () => {
     executeMock.mockResolvedValue([
       {

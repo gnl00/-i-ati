@@ -4,6 +4,10 @@
  */
 
 import type { EmbeddedToolMetadata } from './metadata-types'
+import type {
+  ToolUserQuestionRequest,
+  ToolUserQuestionToolResult
+} from './userQuestion'
 import { withToolCallReasonDefinition } from './definitions-utils'
 
 export type { EmbeddedToolMetadata } from './metadata-types'
@@ -21,6 +25,12 @@ export interface EmbeddedToolExecutionContext {
   onOutput?: (chunk: EmbeddedToolOutputChunk) => void
   /** Set only by ToolExecutor after an embedded-tool metadata review or trusted auto approval. */
   metadataConfirmationApproved?: boolean
+  toolCallId?: string
+  submissionId?: string
+  chatUuid?: string
+  requestUserQuestion?: (
+    request: ToolUserQuestionRequest
+  ) => Promise<ToolUserQuestionToolResult>
 }
 
 export interface ToolDefinition {

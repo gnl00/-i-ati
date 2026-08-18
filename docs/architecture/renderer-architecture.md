@@ -34,6 +34,13 @@ provider, MCP, skill, plugin, memory, and knowledge-base management. Artifacts,
 subagents, task planner, and workspace each own their renderer-side state and
 behavior.
 
+Paused model questions are owned by `features/chat/toolUserQuestion/`, the
+colocated `toolUserQuestionStore`, and `UserQuestionCard` in the chat input
+surface. The hook hydrates Main-owned pending interactions and consumes their
+required/resolved events. The card submits structured answers through the run
+IPC adapter while the ordinary chat draft stays local and send actions remain
+held.
+
 Chat-level User Instruction remains part of chat session state and request
 materialization. The `assistant` message role and assistant-message renderers
 remain part of the transcript protocol. Assistant preset selection and

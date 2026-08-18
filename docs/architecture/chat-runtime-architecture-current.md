@@ -9,7 +9,7 @@ The chat runtime uses four cooperating boundaries:
 - `src/main/hosts/chat/`: chat preparation, persistence, mapping, rendering, and
   finalization.
 - `src/main/orchestration/chat/run/`: active-run lifecycle, cancellation,
-  confirmation, and runtime assembly.
+  confirmation, paused user questions, and runtime assembly.
 - `src/main/orchestration/chat/maintenance/` and `postRun/`: explicit maintenance
   operations and asynchronous completion jobs.
 
@@ -73,7 +73,8 @@ inside orchestration infrastructure.
 ## Run orchestration
 
 `src/main/orchestration/chat/run/index.ts` exposes start, execute, cancellation,
-confirmation, and active-run configuration updates.
+confirmation, user-question submission and hydration, and active-run
+configuration updates.
 
 Key implementation files:
 
@@ -84,11 +85,21 @@ Key implementation files:
 - `runtime/RunFinalizer.ts`: terminal result mapping;
 - `infrastructure/event-emitter.ts`: Electron transport and trace persistence;
 - `infrastructure/tool-confirmation.ts`: confirmation state.
+- `infrastructure/tool-question.ts`: pending structured questions, validated
+  answers, cancellation, and recommended-answer timeout resolution.
 
 The mutable runtime context currently carries `permissionApprovalMode`. Renderer
 updates reach the active run through `run:permission-approval-mode:update`.
 Pending confirmation is released when the updated mode permits automatic
 execution, and the event stream records the mode change.
+
+`ask_user_question` uses a separate `ToolQuestionManager`. The manager emits a
+required event, waits on a keyed Promise, validates the renderer submission,
+and returns the answer as the tool result for the next model step. A bounded
+timeout selects the validated recommendations with an `auto_submitted` status.
+The dispatcher treats the question as a batch interaction barrier and defers
+later calls until the model has consumed that result. Pending interactions can
+be listed by chat UUID so renderer remounts recover the active form.
 
 ## Maintenance and post-run work
 

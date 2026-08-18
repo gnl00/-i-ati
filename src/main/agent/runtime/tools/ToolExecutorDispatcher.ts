@@ -148,7 +148,8 @@ export class DefaultToolExecutorDispatcher implements ToolExecutorDispatcher {
   async dispatch(batch: ToolBatch): Promise<ToolDispatchOutcome> {
     const results: ToolResultFact[] = []
 
-    for (const call of batch.calls) {
+    for (let callIndex = 0; callIndex < batch.calls.length; callIndex += 1) {
+      const call = batch.calls[callIndex]
       if (call.confirmationPolicy.mode === 'required') {
         await this.options.agentEventEmitter?.emitToolAwaitingConfirmation({
           timestamp: this.options.runtimeClock.now(),
@@ -195,6 +196,20 @@ export class DefaultToolExecutorDispatcher implements ToolExecutorDispatcher {
       results.push(result.result)
       if (result.terminalOutcome) {
         return result.terminalOutcome(batch, results)
+      }
+      if (call.name === 'ask_user_question') {
+        results.push(...batch.calls.slice(callIndex + 1).map(deferredCall => ({
+          stepId: deferredCall.stepId,
+          toolCallId: deferredCall.toolCallId,
+          toolCallIndex: deferredCall.index,
+          toolName: deferredCall.name,
+          status: 'success' as const,
+          content: {
+            status: 'deferred_due_to_user_question',
+            reason: 'Submit this tool call again after incorporating the user answer.'
+          }
+        })))
+        break
       }
     }
 

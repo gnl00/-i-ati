@@ -71,6 +71,10 @@ vi.mock('@renderer/features/chat/input/ChatInputToolConfirmation', () => ({
   ChatInputToolConfirmation: () => <div>Confirmation</div>
 }))
 
+vi.mock('@renderer/features/chat/input/ChatInputUserQuestion', () => ({
+  ChatInputUserQuestion: () => <div>User question</div>
+}))
+
 vi.mock('@renderer/features/chat/message/ChatMessageComponent', () => ({
   default: ({ onTypingChange }: { onTypingChange?: () => void }) => (
     <button data-testid="typing-change" onClick={onTypingChange}>Message</button>
@@ -169,6 +173,9 @@ vi.mock('@renderer/features/task-planner', () => ({
 vi.mock('@renderer/features/subagents', () => ({ useSubagentRuntime: vi.fn() }))
 vi.mock('@renderer/features/chat/toolConfirmation/useToolConfirmations', () => ({
   useToolConfirmations: vi.fn()
+}))
+vi.mock('@renderer/features/chat/toolUserQuestion/useToolUserQuestions', () => ({
+  useToolUserQuestions: vi.fn()
 }))
 vi.mock('@renderer/features/chat/schedule/useScheduleNotifications', () => ({
   useScheduleNotifications: vi.fn()

@@ -7,12 +7,21 @@ import {
   RUN_START,
   RUN_STEER,
   RUN_TITLE_GENERATE,
-  RUN_TOOL_CONFIRM
+  RUN_TOOL_CONFIRM,
+  RUN_TOOL_USER_QUESTION_LIST_PENDING,
+  RUN_TOOL_USER_QUESTION_SUBMIT
 } from '@shared/constants'
 
-const { ipcMainHandleMock, runServiceSteerMock } = vi.hoisted(() => ({
+const {
+  ipcMainHandleMock,
+  runServiceSteerMock,
+  runServiceSubmitQuestionMock,
+  runServiceListQuestionsMock
+} = vi.hoisted(() => ({
   ipcMainHandleMock: vi.fn(),
-  runServiceSteerMock: vi.fn()
+  runServiceSteerMock: vi.fn(),
+  runServiceSubmitQuestionMock: vi.fn(),
+  runServiceListQuestionsMock: vi.fn()
 }))
 
 vi.mock('electron', () => ({
@@ -26,6 +35,8 @@ vi.mock('@main/orchestration/chat/run', () => ({
     start = vi.fn()
     cancel = vi.fn()
     resolveToolConfirmation = vi.fn()
+    submitToolUserQuestion = runServiceSubmitQuestionMock
+    listPendingToolUserQuestions = runServiceListQuestionsMock
     steer = runServiceSteerMock
     updatePermissionApprovalModeForChat = vi.fn()
     executeCompression = vi.fn()
@@ -61,6 +72,35 @@ describe('registerChatHandlers', () => {
   beforeEach(() => {
     ipcMainHandleMock.mockReset()
     runServiceSteerMock.mockReset()
+    runServiceSubmitQuestionMock.mockReset()
+    runServiceListQuestionsMock.mockReset()
+  })
+
+  it('routes user-question submit and hydration requests through RunService', async () => {
+    const { registerChatHandlers } = await import('../chat')
+    registerChatHandlers()
+    const submitHandler = ipcMainHandleMock.mock.calls
+      .find(([channel]) => channel === RUN_TOOL_USER_QUESTION_SUBMIT)?.[1]
+    const listHandler = ipcMainHandleMock.mock.calls
+      .find(([channel]) => channel === RUN_TOOL_USER_QUESTION_LIST_PENDING)?.[1]
+    const request = {
+      action: 'submit',
+      submissionId: 'submission-1',
+      chatUuid: 'chat-1',
+      toolCallId: 'call-1',
+      interactionId: 'interaction-1',
+      answers: [{ questionId: 'choice', optionIds: ['recommended'] }]
+    }
+    runServiceSubmitQuestionMock.mockReturnValue({ ok: true })
+    runServiceListQuestionsMock.mockReturnValue([{ interactionId: 'interaction-1' }])
+
+    await expect(submitHandler({}, request)).resolves.toEqual({ ok: true })
+    expect(runServiceSubmitQuestionMock).toHaveBeenCalledWith(request)
+    await expect(listHandler({}, { chatUuid: 'chat-1' })).resolves.toEqual({
+      questions: [{ interactionId: 'interaction-1' }]
+    })
+    expect(runServiceListQuestionsMock).toHaveBeenCalledWith('chat-1')
+    await expect(listHandler({}, undefined)).resolves.toEqual({ questions: [] })
   })
 
   it('registers run handlers on new run:* channels while keeping legacy request aliases', async () => {
@@ -76,6 +116,8 @@ describe('registerChatHandlers', () => {
     expect(registeredChannels).toContain(RUN_CANCEL)
     expect(registeredChannels).toContain('chat-run:cancel')
     expect(registeredChannels).toContain(RUN_TOOL_CONFIRM)
+    expect(registeredChannels).toContain(RUN_TOOL_USER_QUESTION_SUBMIT)
+    expect(registeredChannels).toContain(RUN_TOOL_USER_QUESTION_LIST_PENDING)
     expect(registeredChannels).toContain(RUN_STEER)
     expect(registeredChannels).toContain('chat-run:tool-confirm')
     expect(registeredChannels).toContain(RUN_PERMISSION_APPROVAL_MODE_UPDATE)

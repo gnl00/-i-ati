@@ -5,9 +5,16 @@ import {
   RUN_START,
   RUN_STEER,
   RUN_TITLE_GENERATE,
-  RUN_TOOL_CONFIRM
+  RUN_TOOL_CONFIRM,
+  RUN_TOOL_USER_QUESTION_LIST_PENDING,
+  RUN_TOOL_USER_QUESTION_SUBMIT
 } from '@shared/constants/index'
 import type { RunSteerRequest, RunSteerResult } from '@shared/run/steering-events'
+import type {
+  PendingToolQuestion,
+  ToolUserQuestionSubmitRequest,
+  ToolUserQuestionSubmitResult
+} from '@shared/tools/userQuestion'
 import { invokeIpc } from './client'
 
 export const invokeRunStart = (data: {
@@ -33,6 +40,12 @@ export const invokeRunSteer = (data: RunSteerRequest): Promise<RunSteerResult> =
   invokeIpc(RUN_STEER, data)
 export const invokeRunToolConfirm = (data: { toolCallId: string; approved: boolean; reason?: string; args?: unknown }): Promise<{ ok: boolean }> =>
   invokeIpc(RUN_TOOL_CONFIRM, data)
+export const invokeRunToolUserQuestionSubmit = (
+  data: ToolUserQuestionSubmitRequest
+): Promise<ToolUserQuestionSubmitResult> => invokeIpc(RUN_TOOL_USER_QUESTION_SUBMIT, data)
+export const invokeRunToolUserQuestionListPending = (
+  data: { chatUuid: string }
+): Promise<{ questions: PendingToolQuestion[] }> => invokeIpc(RUN_TOOL_USER_QUESTION_LIST_PENDING, data)
 export const invokeRunPermissionApprovalModeUpdate = (data: { chatUuid: string; permissionApprovalMode: PermissionApprovalMode }): Promise<{ updated: boolean }> =>
   invokeIpc(RUN_PERMISSION_APPROVAL_MODE_UPDATE, data)
 export const invokeRunCompressionExecute = (data: {

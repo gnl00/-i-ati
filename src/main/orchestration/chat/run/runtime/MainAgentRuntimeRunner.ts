@@ -1,4 +1,4 @@
-import type { ToolConfirmationRequester } from '@main/agent/contracts'
+import type { ToolConfirmationRequester, ToolQuestionRequester } from '@main/agent/contracts'
 import type { MainAgentRunInput, RunPreparationResult } from '@main/hosts/chat/preparation/types'
 import type { HostRenderEventSink } from '@main/hosts/shared/render'
 import type { PermissionApprovalMode } from '@tools/approval'
@@ -21,6 +21,7 @@ export interface MainAgentRuntimeRunnerInput {
   hostRenderSinks?: HostRenderEventSink[]
   signal: AbortSignal
   toolConfirmationRequester: ToolConfirmationRequester
+  toolQuestionRequester?: ToolQuestionRequester
 }
 
 export interface MainAgentRuntimeRunResult {

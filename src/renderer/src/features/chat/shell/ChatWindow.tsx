@@ -3,6 +3,7 @@ import ChatHeader from "@renderer/features/chat/shell/ChatHeader"
 import ChatSidePanelLayout from '@renderer/features/chat/shell/ChatSidePanelLayout'
 import ChatInputArea, { type ChatInputAreaHandle } from "@renderer/features/chat/input/ChatInputArea"
 import { ChatInputToolConfirmation } from "@renderer/features/chat/input/ChatInputToolConfirmation"
+import { ChatInputUserQuestion } from "@renderer/features/chat/input/ChatInputUserQuestion"
 import ChatMessageComponent from "@renderer/features/chat/message/ChatMessageComponent"
 import WelcomeMessage from "@renderer/features/chat/welcome/SmartWelcomeEntrance"
 import { useScrollManagerTop, type UserScrollSource } from '@renderer/features/chat/useScrollManagerTop'
@@ -18,6 +19,7 @@ import { TaskPlanBar } from '../task/TaskPlanBar'
 import { useTaskPlan } from '@renderer/features/task-planner'
 import { useSubagentRuntime } from '@renderer/features/subagents'
 import { useToolConfirmations } from '@renderer/features/chat/toolConfirmation/useToolConfirmations'
+import { useToolUserQuestions } from '@renderer/features/chat/toolUserQuestion/useToolUserQuestions'
 import { useScheduleNotifications } from '@renderer/features/chat/schedule/useScheduleNotifications'
 import {
   calculateAnchorLockBottomSpacer,
@@ -299,6 +301,7 @@ const ChatWindow: React.FC = () => {
   const initialScrollChatKeyRef = useRef<string | null>(null)
   const { activePlans, pendingPlanReview, approvePlanReview, abortPlanReview, refreshPlans } = useTaskPlan(chatUuid)
   useToolConfirmations(chatUuid)
+  useToolUserQuestions(chatUuid)
   useSubagentRuntime(chatUuid)
   useScheduleNotifications(chatUuid)
   const displayPlans = pendingPlanReview
@@ -1204,7 +1207,8 @@ const ChatWindow: React.FC = () => {
               className="relative bg-transparent"
               style={{ overflow: 'visible' }}
             >
-              <div className="pointer-events-none absolute inset-x-0 bottom-full z-50 mb-2 px-2">
+              <div className="pointer-events-none absolute inset-x-0 bottom-full z-50 mb-2 grid gap-1 px-2">
+                <ChatInputUserQuestion className="pointer-events-auto px-0 pb-0" />
                 <ChatInputToolConfirmation className="pointer-events-auto px-0 pb-0" />
               </div>
 

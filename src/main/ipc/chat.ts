@@ -23,6 +23,8 @@ import {
   RUN_START,
   RUN_CANCEL,
   RUN_TOOL_CONFIRM,
+  RUN_TOOL_USER_QUESTION_SUBMIT,
+  RUN_TOOL_USER_QUESTION_LIST_PENDING,
   RUN_STEER,
   RUN_PERMISSION_APPROVAL_MODE_UPDATE,
   RUN_COMPRESSION_EXECUTE,
@@ -97,6 +99,21 @@ export function registerChatHandlers(): void {
     }
     runService.resolveToolConfirmation(data.toolCallId, decision)
     return { ok: true }
+  }
+
+  const handleRunToolUserQuestionSubmit = async (
+    _event: Electron.IpcMainInvokeEvent,
+    data: unknown
+  ) => runService.submitToolUserQuestion(data)
+
+  const handleRunToolUserQuestionListPending = async (
+    _event: Electron.IpcMainInvokeEvent,
+    data: { chatUuid?: unknown }
+  ) => {
+    if (typeof data?.chatUuid !== 'string' || data.chatUuid.trim().length === 0) {
+      return { questions: [] }
+    }
+    return { questions: runService.listPendingToolUserQuestions(data.chatUuid) }
   }
 
   const handleRunSteer = async (
@@ -177,6 +194,8 @@ export function registerChatHandlers(): void {
 
   ipcMain.handle(RUN_TOOL_CONFIRM, handleRunToolConfirm)
   ipcMain.handle(LEGACY_RUN_TOOL_CONFIRM, handleRunToolConfirm)
+  ipcMain.handle(RUN_TOOL_USER_QUESTION_SUBMIT, handleRunToolUserQuestionSubmit)
+  ipcMain.handle(RUN_TOOL_USER_QUESTION_LIST_PENDING, handleRunToolUserQuestionListPending)
 
   ipcMain.handle(RUN_STEER, handleRunSteer)
 

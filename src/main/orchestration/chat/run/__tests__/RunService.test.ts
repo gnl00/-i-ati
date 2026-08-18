@@ -71,6 +71,12 @@ vi.mock('../infrastructure', () => {
     ToolConfirmationManager: class {
       request = vi.fn(async () => ({ approved: true }))
       resolve = vi.fn()
+    },
+    ToolQuestionManager: class {
+      request = vi.fn(async () => ({ status: 'unavailable' }))
+      submit = vi.fn(() => ({ ok: false, reason: 'not_found' }))
+      listPending = vi.fn(() => [])
+      cancelForSubmission = vi.fn()
     }
   }
 })
@@ -79,6 +85,10 @@ vi.mock('../runtime/DefaultMainAgentRuntimeRunner', () => ({
   DefaultMainAgentRuntimeRunner: class {
     run = runtimeRunnerMock
   }
+}))
+
+vi.mock('@main/notifications/AgentNotificationSink', () => ({
+  AgentNotificationSink: class {}
 }))
 
 vi.mock('@main/agent/tools', () => ({
@@ -152,6 +162,7 @@ vi.mock('@main/db/DatabaseService', () => ({
     getChatByUuid: vi.fn(() => undefined),
     getMessagesByChatId: vi.fn(() => []),
     getMessagesByChatUuid: vi.fn(() => []),
+    getMessageByIds: vi.fn(() => []),
     saveMessage: vi.fn()
       .mockReturnValueOnce(101)
       .mockReturnValueOnce(102)

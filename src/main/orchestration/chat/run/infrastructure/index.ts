@@ -8,3 +8,4 @@ export {
   type ToolConfirmationDecision,
   type ToolConfirmationRequest
 } from './tool-confirmation'
+export { ToolQuestionManager } from './tool-question'

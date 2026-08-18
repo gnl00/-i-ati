@@ -1,4 +1,4 @@
-import type { ToolConfirmationRequester } from '@main/agent/contracts'
+import type { ToolConfirmationRequester, ToolQuestionRequester } from '@main/agent/contracts'
 import { AbortError } from './errors'
 import { ChatAgentAdapter } from '@main/hosts/chat/ChatAgentAdapter'
 import type { MainAgentRunInput } from '@main/hosts/chat/preparation/types'
@@ -27,6 +27,7 @@ export type AgentRunServices = {
 export type AgentRunRuntime = {
   emitter: RunEventEmitter
   toolConfirmationRequester: ToolConfirmationRequester
+  toolQuestionRequester?: ToolQuestionRequester
   hostRenderSinks?: HostRenderEventSink[]
 }
 
@@ -145,7 +146,8 @@ export class AgentRun {
         emitter: this.emitter,
         hostRenderSinks: this.runtime.hostRenderSinks,
         signal: this.controller.signal,
-        toolConfirmationRequester: this.runtime.toolConfirmationRequester
+        toolConfirmationRequester: this.runtime.toolConfirmationRequester,
+        toolQuestionRequester: this.runtime.toolQuestionRequester
       })
 
       this.returnPendingSteering()

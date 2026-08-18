@@ -163,7 +163,9 @@ export class RunRequestFactory {
         apiKey: environment.modelContext.account.apiKey,
         model: environment.modelContext.model.id,
         modelType: environment.modelContext.model.type,
-        tools: this.toolListBuilder.build(input.tools),
+        tools: this.toolListBuilder.build(input.tools, {
+          excludedToolNames: input.source ? ['ask_user_question'] : []
+        }),
         options: this.resolveRequestOptions(environment, input.options),
         stream: input.stream,
         payloadExtensions: environment.modelContext.providerDefinition.payloadExtensions,

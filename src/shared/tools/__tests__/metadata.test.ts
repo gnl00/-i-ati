@@ -121,4 +121,13 @@ describe('embeddedToolMetadata', () => {
       modelInputPolicy: 'redact-secrets'
     })
   })
+
+  it('keeps ask_user_question on the main agent surface', () => {
+    expect(embeddedToolMetadata.ask_user_question).toMatchObject({
+      capability: 'chat',
+      riskLevel: 'none',
+      mutatesWorkspace: false,
+      subagent: 'deny'
+    })
+  })
 })

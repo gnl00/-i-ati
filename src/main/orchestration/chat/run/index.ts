@@ -7,6 +7,10 @@ import type { MainAgentRunInput } from '@main/hosts/chat/preparation/types'
 import type { HostRenderEventSink } from '@main/hosts/shared/render'
 import type { PermissionApprovalMode } from '@tools/approval'
 import type { ToolConfirmationDecision } from './infrastructure'
+import type {
+  PendingToolQuestion,
+  ToolUserQuestionSubmitResult
+} from '@shared/tools/userQuestion'
 import type { RunSteerRequest, RunSteerResult } from '@shared/run/steering-events'
 import { RunRuntimeFactory, type RunRuntimeDeps } from './runtime/RunRuntimeFactory'
 
@@ -46,6 +50,14 @@ export class RunService {
 
   resolveToolConfirmation(toolCallId: string, decision: ToolConfirmationDecision): void {
     this.runtime.toolConfirmationManager.resolve(toolCallId, decision)
+  }
+
+  submitToolUserQuestion(request: unknown): ToolUserQuestionSubmitResult {
+    return this.runtime.toolQuestionManager.submit(request)
+  }
+
+  listPendingToolUserQuestions(chatUuid: string): PendingToolQuestion[] {
+    return this.runtime.toolQuestionManager.listPending(chatUuid)
   }
 
   cancel(submissionId: string): void {

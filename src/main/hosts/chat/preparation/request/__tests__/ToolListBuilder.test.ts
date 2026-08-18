@@ -18,6 +18,15 @@ vi.mock('@tools/registry', () => ({
             required: ['file_path']
           }
         }
+      },
+      {
+        type: 'function',
+        source: 'embedded',
+        function: {
+          name: 'ask_user_question',
+          description: 'Ask a question',
+          parameters: { type: 'object', properties: {}, required: [] }
+        }
       }
     ])
   }
@@ -44,7 +53,7 @@ describe('ToolListBuilder', () => {
       }
     ])
 
-    expect(tools).toHaveLength(2)
+    expect(tools).toHaveLength(3)
     for (const tool of tools) {
       expect(tool.parameters.properties[TOOL_CALL_REASON_PARAMETER_NAME]).toEqual(expect.objectContaining({
         type: 'string'
@@ -52,5 +61,14 @@ describe('ToolListBuilder', () => {
       expect(tool.parameters.required).toContain(TOOL_CALL_REASON_PARAMETER_NAME)
     }
     expect(tools.find(tool => tool.name === 'mcp_search')?.parameters.additionalProperties).toBe(false)
+  })
+
+  it('can exclude interactive tools for external-source runs', async () => {
+    const { ToolListBuilder } = await import('../ToolListBuilder')
+    const tools = new ToolListBuilder().build(undefined, {
+      excludedToolNames: ['ask_user_question']
+    })
+
+    expect(tools.map(tool => tool.name)).toEqual(['read'])
   })
 })

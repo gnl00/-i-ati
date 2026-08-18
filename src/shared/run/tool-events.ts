@@ -1,5 +1,9 @@
 import type { AgentConfirmationSource } from '@tools/approval'
 import type { EmbeddedToolOutputChunk } from '@tools/registry'
+import type {
+  PendingToolQuestion,
+  ToolUserQuestionResolutionStatus
+} from '@shared/tools/userQuestion'
 
 export interface ToolOutputBatch {
   toolCallId: string
@@ -25,6 +29,8 @@ export type RunToolCall = {
 export const RUN_TOOL_EVENTS = {
   TOOL_CALL_DETECTED: 'tool.call.detected',
   TOOL_CONFIRMATION_REQUIRED: 'tool.confirmation.required',
+  TOOL_USER_QUESTION_REQUIRED: 'tool.user_question.required',
+  TOOL_USER_QUESTION_RESOLVED: 'tool.user_question.resolved',
   TOOL_EXECUTION_STARTED: 'tool.execution.started',
   TOOL_EXECUTION_OUTPUT: 'tool.execution.output',
   TOOL_EXECUTION_COMPLETED: 'tool.execution.completed',
@@ -50,6 +56,13 @@ export type RunToolEventPayloads = {
       inferredFilesystemScope?: 'workspace' | 'outside_workspace' | 'unknown'
       filesystemReason?: string
     }
+  }
+  'tool.user_question.required': Omit<PendingToolQuestion, 'submissionId' | 'chatUuid'>
+  'tool.user_question.resolved': {
+    toolCallId: string
+    interactionId: string
+    status: ToolUserQuestionResolutionStatus
+    reason?: string
   }
   'tool.execution.started': { toolCallId: string; name: string; timestamp: number; executionStartedAt: number }
   'tool.execution.output': ToolOutputBatch

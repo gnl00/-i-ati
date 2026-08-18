@@ -201,7 +201,12 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
         permissionApprovalMode
       },
       onProgress,
-      requestConfirmation: (request) => input.toolConfirmationRequester.request(request)
+      requestConfirmation: (request) => input.toolConfirmationRequester.request(request),
+      requestUserQuestion: input.runInput.input.source
+        ? undefined
+        : input.toolQuestionRequester
+          ? (request) => input.toolQuestionRequester!.request(request)
+          : undefined
     })
 
     return toolExecutor.execute(calls)

@@ -12,7 +12,7 @@ describe('tool definitions', () => {
     const toolNames = (tools as ToolDefinition[]).map(tool => tool.function.name)
 
     expect(new Set(toolNames).size).toBe(toolNames.length)
-    expect(toolNames).toHaveLength(63)
+    expect(toolNames).toHaveLength(64)
   })
 
   it('exposes one flat wiki definition with a required action enum', () => {
@@ -103,6 +103,21 @@ describe('tool definitions', () => {
       }))
       expect(tool.function.parameters.required).toContain(TOOL_CALL_REASON_PARAMETER_NAME)
     }
+  })
+
+  it('defines ask_user_question as a bounded recommendation-backed interaction', () => {
+    const definition = (tools as ToolDefinition[])
+      .find(tool => tool.function.name === 'ask_user_question')
+
+    expect(definition?.function.parameters.properties.questions).toEqual(expect.objectContaining({
+      type: 'array',
+      minItems: 1,
+      maxItems: 3
+    }))
+    expect(definition?.function.parameters.properties.timeout_seconds).toEqual(expect.objectContaining({
+      minimum: 60,
+      maximum: 300
+    }))
   })
 
   it('adds tool_call_reason without dropping existing strict schema settings', () => {

@@ -34,6 +34,7 @@ import {
   useChatInputQueueStore,
   type ChatInputQueueScope
 } from './chatInputQueueStore'
+import { useToolUserQuestionStore } from '@renderer/features/chat/state/toolUserQuestionStore'
 
 interface ChatInputAreaProps {
   onMessagesUpdate?: () => void
@@ -83,6 +84,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
   const setPermissionApprovalMode = useChatStore(state => state.setPermissionApprovalMode)
   const ensureSelectedModelRef = useChatStore(state => state.ensureSelectedModelRef)
   const editUserInstructionDraft = useChatStore(state => state.editUserInstructionDraft)
+  const hasPendingUserQuestion = useToolUserQuestionStore(state => state.pendingRequests.length > 0)
 
   const {
     mainModel,
@@ -374,6 +376,10 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     if (!trimmedInput) {
       return
     }
+    if (hasPendingUserQuestion) {
+      toast.info('Answer the pending question to continue')
+      return
+    }
     const activeModelRef = ensureSelectedModelRef()
     if (!activeModelRef) {
       toast.warning('Please select a model')
@@ -443,13 +449,20 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     enqueueMessage,
     submitMessage,
     setImageSrcBase64List,
-    setQueuePaused
+    setQueuePaused,
+    hasPendingUserQuestion
   ])
 
   const insertQueuedMessage = useCallback(async () => {
     const first = queuedMessages[0]
     const canSteerCurrentRun = runPhase === 'submitting' || runPhase === 'streaming'
-    if (!first || first.status !== 'queued' || queuePaused || !canSteerCurrentRun) {
+    if (
+      !first
+      || first.status !== 'queued'
+      || queuePaused
+      || !canSteerCurrentRun
+      || hasPendingUserQuestion
+    ) {
       return
     }
 
@@ -479,7 +492,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
       )))
       toast.error('Failed to insert queued message')
     }
-  }, [queuePaused, queuedMessages, runPhase, setQueuedMessages, steerChatRun])
+  }, [hasPendingUserQuestion, queuePaused, queuedMessages, runPhase, setQueuedMessages, steerChatRun])
 
   useEffect(() => {
     if (
@@ -638,6 +651,10 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     // Handle Enter for submit, Shift+Enter for newline
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
+      if (hasPendingUserQuestion) {
+        toast.info('Answer the pending question to continue')
+        return
+      }
       if (!inputContent.trim()) {
         toast.error('Input text content is required')
         return
@@ -666,7 +683,17 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
         caretOverlayRef.current?.updateCaret(true)
       })
     }
-  }, [handleCommandKeyDown, onSubmitClick, inputContent, selectedModelRef, ensureSelectedModelRef, queuedMessages.length, editingQueue, startEditQueuedMessage])
+  }, [
+    handleCommandKeyDown,
+    onSubmitClick,
+    inputContent,
+    selectedModelRef,
+    ensureSelectedModelRef,
+    queuedMessages.length,
+    editingQueue,
+    startEditQueuedMessage,
+    hasPendingUserQuestion
+  ])
 
   const onTextAreaCompositionStart = useCallback(() => {
     isComposingRef.current = true
@@ -759,6 +786,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
       paused={queuePaused}
       canInsert={
         !editingQueue
+        && !hasPendingUserQuestion
         && (runPhase === 'submitting' || runPhase === 'streaming')
       }
       onInsert={() => {
@@ -794,7 +822,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
           textareaClassName="caret-transparent"
           isDragging={isDragging}
           value={inputContent}
-          placeholder="Ask @i what to work on..."
+          placeholder={hasPendingUserQuestion ? 'Answer the question above to continue' : 'Ask @i what to work on...'}
           onChange={onTextAreaChange}
           onKeyDown={onTextAreaKeyDown}
           onCompositionStart={onTextAreaCompositionStart}
@@ -853,7 +881,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
               onSubmit={onSubmitClick}
               onCancel={cancelChatSubmit}
               workspacePathToSelect={workspacePathToSelect}
-              submitDisabled={!inputContent.trim()}
+              submitDisabled={!inputContent.trim() || hasPendingUserQuestion}
             />
           )}
         />
@@ -901,7 +929,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
               )}
               isDragging={isDragging}
               value={inputContent}
-              placeholder="Type anything to chat"
+              placeholder={hasPendingUserQuestion ? 'Draft stays here while the question is pending' : 'Type anything to chat'}
               onChange={onTextAreaChange}
               onKeyDown={onTextAreaKeyDown}
               onCompositionStart={onTextAreaCompositionStart}
@@ -950,7 +978,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
                   onSubmit={onSubmitClick}
                   onCancel={cancelChatSubmit}
                   workspacePathToSelect={workspacePathToSelect}
-                  submitDisabled={!inputContent.trim()}
+                  submitDisabled={!inputContent.trim() || hasPendingUserQuestion}
                 />
               )}
             />

@@ -47,7 +47,8 @@ vi.mock('@main/hosts/chat/ChatAgentAdapter', () => ({
 
 vi.mock('../../infrastructure', () => ({
   RunEventEmitterFactory: class {},
-  ToolConfirmationManager: class {}
+  ToolConfirmationManager: class {},
+  ToolQuestionManager: class {}
 }))
 
 vi.mock('../RunManager', () => ({
