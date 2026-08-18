@@ -88,10 +88,6 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
       >
         <div className="flex items-center gap-2">
           <div className="flex min-w-0 items-center gap-2">
-            {/* <CircleGauge
-              className="h-3.5 w-3.5 shrink-0 text-indigo-500 dark:text-(--app-accent-strong)"
-              aria-hidden="true"
-            /> */}
             <h2
               id="auto-compact-heading"
               className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:tracking-[0.11em] dark:text-(--app-text-secondary)"
@@ -243,7 +239,7 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
             variant="outline"
             size="icon"
             role="combobox"
-            aria-label="Open chat statistics"
+            aria-label="Open chat overview"
             className={cn(
               'relative h-7 w-7 overflow-hidden border border-slate-200/50 bg-slate-50/50 transition-all duration-300 ease-out dark:border-slate-700/50 dark:bg-slate-800/50',
               'group-hover:border-slate-300 group-hover:bg-slate-100 group-hover:shadow-xs dark:group-hover:border-slate-600 dark:group-hover:bg-slate-700',

@@ -64,7 +64,7 @@ for transcript grouping, inline disclosure, accessibility, and motion rules.
 
 ## Artifacts lifecycle
 
-Stats and Tools can open without loading the workspace tree. Preview or Files
+Overview and Tools can open without loading the workspace tree. Preview or Files
 mounts the workspace surface on first access. That surface stays mounted across
 later tab changes to retain the selected file and preview server state. The
 workspace footer appears with Preview and Files.

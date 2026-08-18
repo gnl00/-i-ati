@@ -38,7 +38,7 @@ vi.mock('@renderer/features/chat', async () => {
   const actual = await vi.importActual<typeof import('@renderer/features/chat')>('@renderer/features/chat')
   return {
     ...actual,
-    ChatStatsPanel: () => <div>Stats content</div>
+    ChatStatsPanel: () => <div>Overview content</div>
   }
 })
 
@@ -163,7 +163,9 @@ describe('ArtifactsPanel', () => {
     expect(toolsTab?.className).not.toContain('h-full')
     expect(toolsTab?.className).toContain('focus-visible:ring-2')
     expect(toolsPanel?.className).not.toContain('animate-in')
-    expect(container.querySelectorAll('[role="tab"]')).toHaveLength(4)
+    const tabLabels = Array.from(container.querySelectorAll('[role="tab"]'))
+      .map(tab => tab.textContent)
+    expect(tabLabels).toEqual(['Overview', 'Tools', 'Preview', 'Files'])
     expect(container.querySelector(
       'button[aria-label="Close artifacts"]'
     )).toBeNull()

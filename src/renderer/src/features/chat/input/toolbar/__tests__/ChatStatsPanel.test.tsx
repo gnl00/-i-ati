@@ -111,4 +111,12 @@ describe('ChatStatsPanel', () => {
     expect(container.querySelectorAll('section')).toHaveLength(2)
     expect(container.querySelector('article')).toBeNull()
   })
+
+  it('labels the popover entry as the chat overview', async () => {
+    await act(async () => {
+      root.render(<ChatStatsPanel />)
+    })
+
+    expect(container.querySelector('[aria-label="Open chat overview"]')).not.toBeNull()
+  })
 })
