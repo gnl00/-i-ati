@@ -37,9 +37,34 @@ import {
 import { Button } from '@renderer/shared/components/ui/button'
 
 const modelRouteRowClassName = 'flex-col items-stretch gap-2 border-t border-gray-100 px-4 py-3 first:border-t-0 dark:border-gray-700/50 sm:flex-row sm:items-center sm:gap-4'
-const modelRouteControlClassName = 'w-full min-w-0 justify-end gap-1.5 sm:w-auto'
+export const modelRouteControlClassName = 'w-full min-w-0 justify-end gap-1.5 border-0 bg-transparent p-0 dark:bg-transparent sm:w-auto'
+export const modelRouteEmptyStateClassName = 'flex h-8 w-full min-w-0 max-w-full items-center rounded-lg border border-gray-200 bg-white px-3 text-[11.5px] text-gray-400 dark:border-(--app-border-standard) dark:bg-(--app-surface-raised) dark:text-(--app-text-muted) sm:w-[260px]'
 const modelRouteSelectorClassName = 'w-full min-w-0 max-w-full sm:w-[260px]'
 const modelRouteChipClassName = 'inline-flex h-4 shrink-0 items-center rounded border border-gray-200 bg-gray-50 px-1.5 text-[9px] font-medium uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400'
+export const emotionPackSelectTriggerClassName = cn(
+    'h-8 min-w-[180px] rounded-lg border border-gray-200 bg-white px-3 text-[12.5px] text-gray-700 shadow-xs',
+    'transition-[background-color,border-color,color,box-shadow] duration-150',
+    'hover:border-slate-300 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-slate-400/20',
+    'data-[state=open]:border-slate-300 data-[state=open]:bg-slate-50',
+    '[&>svg]:text-slate-400 [&>svg]:transition-transform [&>svg]:duration-150 data-[state=open]:[&>svg]:rotate-180',
+    'dark:border-(--app-border-standard) dark:bg-(--app-surface-raised) dark:text-(--app-text-body) dark:shadow-none',
+    'dark:hover:border-(--app-accent) dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-primary)',
+    'dark:focus-visible:border-(--app-accent) dark:focus-visible:ring-(--app-border-standard)',
+    'dark:data-[state=open]:border-(--app-accent) dark:data-[state=open]:bg-(--app-surface-hover) dark:data-[state=open]:text-(--app-text-primary)',
+    'dark:[&>svg]:text-(--app-text-muted)'
+)
+export const emotionPackSelectContentClassName = cn(
+    'rounded-[10px] border border-slate-200/80 bg-white text-slate-700 shadow-[0_12px_32px_rgba(15,23,42,0.14)] backdrop-blur-none',
+    'dark:border-(--app-border-standard) dark:bg-(--app-surface-raised) dark:text-(--app-text-body)',
+    'dark:shadow-[0_16px_40px_rgba(0,0,0,0.38)] dark:backdrop-blur-none'
+)
+export const emotionPackSelectItemClassName = cn(
+    'h-8 rounded-md py-0 pl-8 pr-2 text-[12px] font-medium text-slate-700',
+    'focus:bg-slate-100 focus:text-slate-950 data-[state=checked]:bg-slate-100/80 data-[state=checked]:text-slate-950',
+    'dark:text-(--app-text-body) dark:focus:bg-(--app-surface-hover) dark:focus:text-(--app-text-primary)',
+    'dark:data-[state=checked]:bg-(--app-surface-hover) dark:data-[state=checked]:text-(--app-text-primary)',
+    'dark:[&_.lucide-check]:text-(--app-accent-strong)'
+)
 
 interface ToolsManagerProps {
     maxWebSearchItems: number
@@ -267,7 +292,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                 {mainModel && (
                                     <button
                                         type="button"
-                                        className={cn(settingsIconButtonClassName, 'shrink-0 bg-white dark:bg-gray-800')}
+                                        className={cn(settingsIconButtonClassName, 'shrink-0 bg-white dark:bg-(--app-surface-raised)')}
                                         aria-label="Clear main model"
                                         title="Clear main model"
                                         onClick={() => setMainModel(undefined)}
@@ -304,7 +329,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                 {liteModel && (
                                     <button
                                         type="button"
-                                        className={cn(settingsIconButtonClassName, 'shrink-0 bg-white dark:bg-gray-800')}
+                                        className={cn(settingsIconButtonClassName, 'shrink-0 bg-white dark:bg-(--app-surface-raised)')}
                                         aria-label="Clear lite model"
                                         title="Clear lite model"
                                         onClick={() => setLiteModel(undefined)}
@@ -340,14 +365,14 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                                         }}
                                     />
                                 ) : (
-                                    <div className="flex h-8 w-full min-w-0 max-w-full items-center rounded-lg border border-gray-200 bg-white px-3 text-[11.5px] text-gray-400 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-500 sm:w-[260px]">
+                                    <div className={modelRouteEmptyStateClassName}>
                                         Add a vision-capable model in Providers.
                                     </div>
                                 )}
                                 {visionModel && (
                                     <button
                                         type="button"
-                                        className={cn(settingsIconButtonClassName, 'shrink-0 bg-white dark:bg-gray-800')}
+                                        className={cn(settingsIconButtonClassName, 'shrink-0 bg-white dark:bg-(--app-surface-raised)')}
                                         aria-label="Clear vision model"
                                         title="Clear vision model"
                                         onClick={() => setVisionModel(undefined)}
@@ -404,20 +429,24 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                         <div className="flex items-center gap-2">
                             <Select value={emotionAssetPack} onValueChange={setEmotionAssetPack}>
                                 <SelectTrigger
-                                    className="h-8 min-w-[180px] rounded-lg bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-[12.5px]"
+                                    className={emotionPackSelectTriggerClassName}
                                     onPointerDown={(event) => event.stopPropagation()}
                                     onClick={(event) => event.stopPropagation()}
                                 >
                                     <SelectValue placeholder="Select emotion pack" />
                                 </SelectTrigger>
                                 <SelectContent
-                                    className="bg-white/20 backdrop-blur-3xl dark:bg-gray-900 rounded-lg"
+                                    className={emotionPackSelectContentClassName}
                                     portalContainer={emotionPackSectionRef.current}
                                     onPointerDown={(event) => event.stopPropagation()}
                                     onClick={(event) => event.stopPropagation()}
                                 >
                                     {availableEmotionPacks.map(pack => (
-                                        <SelectItem key={pack.name} value={pack.name}>
+                                        <SelectItem
+                                            key={pack.name}
+                                            value={pack.name}
+                                            className={emotionPackSelectItemClassName}
+                                        >
                                             {pack.name}{pack.source === 'user' ? ' (custom)' : ''}
                                         </SelectItem>
                                     ))}
@@ -426,7 +455,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                             <Button
                                 variant="ghost"
                                 size="xs"
-                                className='shrink-0 flex items-center gap-1 justify-center px-2 text-[11px] h-7 font-semibold text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-all duration-200'
+                                className='flex h-7 shrink-0 items-center justify-center gap-1 rounded-md px-2 text-[11px] font-semibold text-gray-500 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-700 dark:text-(--app-text-secondary) dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-primary)'
                                 onClick={async (event) => {
                                     event.stopPropagation()
                                     const result = await invokeOpenPath('./emotions/packs')

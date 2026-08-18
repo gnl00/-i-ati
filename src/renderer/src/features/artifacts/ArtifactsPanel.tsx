@@ -99,7 +99,7 @@ export const ArtifactsPanel: React.FC = () => {
               value="stats"
               className={tabTriggerClassName}
             >
-              Stats
+              Overview
             </TabsTrigger>
             <TabsTrigger value="tools" className={tabTriggerClassName}>
               Tools

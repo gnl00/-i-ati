@@ -23,12 +23,9 @@ const SettingsInlineModelSelector: React.FC<SettingsInlineModelSelectorProps> = 
   return (
     <BaseModelSelector
       {...props}
+      variant="settings"
       align="end"
-      popoverContentClassName="w-fit bg-white/50 backdrop-blur-lg"
-      commandClassName="rounded-3xl bg-transparent"
       commandInputPlaceholder="Search model..."
-      commandListClassName="max-h-[300px] overflow-y-auto"
-      itemClassName="cursor-pointer rounded-xl"
       triggerRenderer={(selectedModel, isOpen) => (
         <button
           type="button"
@@ -38,7 +35,13 @@ const SettingsInlineModelSelector: React.FC<SettingsInlineModelSelectorProps> = 
           title={ariaLabel}
           disabled={disabled}
           className={cn(
-            'h-8 px-3 flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-[12px] hover:bg-gray-50 dark:hover:bg-gray-700/50 disabled:opacity-40 disabled:pointer-events-none transition-all duration-150 min-w-[180px] justify-between',
+            'flex h-8 min-w-[180px] items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2.5 text-[12px]',
+            'text-slate-700 shadow-xs transition-[background-color,border-color,color] duration-150',
+            'hover:border-slate-300 hover:bg-slate-50 disabled:pointer-events-none disabled:opacity-40',
+            'aria-expanded:border-slate-300 aria-expanded:bg-slate-100',
+            'dark:border-(--app-border-standard) dark:bg-(--app-surface-raised) dark:text-(--app-text-body) dark:shadow-none',
+            'dark:hover:border-(--app-accent) dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-primary)',
+            'dark:aria-expanded:border-(--app-accent) dark:aria-expanded:bg-(--app-surface-hover) dark:aria-expanded:text-(--app-text-primary)',
             triggerClassName
           )}
         >
@@ -52,7 +55,12 @@ const SettingsInlineModelSelector: React.FC<SettingsInlineModelSelectorProps> = 
               </span>
             )}
           </div>
-          <i className="ri-arrow-down-s-line ml-1 text-gray-400 opacity-70" />
+          <i
+            className={cn(
+              'ri-arrow-down-s-line ml-1 text-slate-400 opacity-70 transition-transform duration-150 dark:text-(--app-text-muted)',
+              isOpen && 'rotate-180'
+            )}
+          />
         </button>
       )}
     />

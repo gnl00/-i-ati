@@ -56,6 +56,7 @@ The provider workflow should keep its sidebar/detail structure. Shared settings 
 - Settings panel frame: title, save state, tab bar, and active tab content share one neutral outer frame so the page reads as a single settings workspace.
 - Content surfaces live inside the settings frame as internal structure. Keep sibling outer cards for separate workflows outside the main settings panel.
 - Dark surfaces use the app semantic graphite tokens: popover canvas (`--app-canvas`), settings frame (`--app-surface`), content panels (`--app-surface-raised`), row hover (`--app-surface-hover`), and form/list inset (`--app-surface-inset`). Borders and text use the matching app semantic tokens.
+- Shared model selectors expose an explicit settings variant. Settings triggers read as raised selects; Model Routing pairs use transparent layout groups so the selector and clear button own the enclosure. Their popovers use the raised graphite surface, inset search controls, quiet sticky provider headers, and compact current/keyboard selection states. Drawer and chat selector variants keep their own established material and interaction language.
 - Light surfaces remain white or light gray, `rounded-xl`, with a subtle border and `shadow-xs`.
 - Header title: `text-[13.5px] font-semibold tracking-tight`.
 - Header description: `text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed`.

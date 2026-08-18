@@ -5,7 +5,6 @@ import { cn } from '@renderer/shared/lib/utils'
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
 import { useAppConfigStore } from '@renderer/infrastructure/config/appConfig'
 import {
-  CircleGauge,
   Sparkles,
   Wrench
 } from 'lucide-react'
@@ -89,10 +88,10 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
       >
         <div className="flex items-center gap-2">
           <div className="flex min-w-0 items-center gap-2">
-            <CircleGauge
+            {/* <CircleGauge
               className="h-3.5 w-3.5 shrink-0 text-indigo-500 dark:text-(--app-accent-strong)"
               aria-hidden="true"
-            />
+            /> */}
             <h2
               id="auto-compact-heading"
               className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:tracking-[0.11em] dark:text-(--app-text-secondary)"
@@ -104,9 +103,6 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
 
         <div className="mt-6 flex items-end justify-between gap-2 dark:mt-5 dark:gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-medium text-zinc-500 dark:text-(--app-text-secondary)">
-              Current accumulated
-            </p>
             <p className="mt-1 truncate font-mono text-base font-semibold tracking-tight tabular-nums text-zinc-900 dark:text-(--app-text-primary)">
               {hasInitialSnapshot ? formatCompactTokenCount(stats.accumulatedTokens) : '—'}
               <span className="px-1.5 font-sans text-xs font-normal text-zinc-400 dark:text-(--app-text-muted)">
