@@ -81,16 +81,17 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
                     'bg-slate-50/50 text-slate-500 dark:bg-slate-800/50 dark:text-slate-400',
                     'border border-slate-200/50 dark:border-slate-700/50',
                     'transition-all duration-300 ease-out',
+                    'dark:border-(--app-border-subtle) dark:bg-(--app-surface) dark:text-(--app-text-secondary)',
+                    'dark:hover:border-(--app-border-standard) dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-primary) dark:hover:shadow-none',
                     'hover:border-slate-300 hover:bg-slate-100 hover:text-slate-700 hover:shadow-xs',
-                    'active:scale-95 focus-visible:ring-0 focus-visible:ring-offset-0',
-                    'dark:hover:border-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-300'
+                    'active:scale-95 focus-visible:ring-0 focus-visible:ring-offset-0'
                   )}
                   onClick={onNewChat}
                 >
                   <BadgePlus className="relative z-10 h-5 w-5 transition-transform duration-300 ease-out group-hover:rotate-90 group-hover:scale-110" strokeWidth={2} />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent className="rounded-lg border border-slate-700/50 bg-slate-900/95 px-3 py-1.5 text-xs text-slate-100 shadow-xl shadow-black/20 backdrop-blur-xl dark:border-slate-600/50 dark:bg-slate-800/95">
+              <TooltipContent className="rounded-lg border border-slate-700/50 bg-slate-900/95 px-3 py-1.5 text-xs text-slate-100 shadow-xl shadow-black/20 backdrop-blur-xl dark:border-(--app-border-standard) dark:bg-(--app-surface-raised) dark:text-(--app-text-primary) dark:backdrop-blur-none">
                 <p className="font-medium">New Chat</p>
               </TooltipContent>
             </Tooltip>

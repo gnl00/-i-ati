@@ -36,7 +36,7 @@ const MCPTabSwitcher: React.FC<MCPTabSwitcherProps> = ({
     <div
       className={cn(
         'inline-flex h-8 items-center gap-0.5 rounded-lg border p-0.5 shadow-inner shrink-0',
-        'border-gray-200/70 bg-gray-100/80 dark:border-gray-700/70 dark:bg-gray-900/70'
+        'border-gray-200/70 bg-gray-100/80 dark:border-(--app-border-standard) dark:bg-(--app-surface-inset)'
       )}
     >
       {tabs.map((tab) => {
@@ -49,8 +49,8 @@ const MCPTabSwitcher: React.FC<MCPTabSwitcherProps> = ({
             className={cn(
               'flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-medium transition-all duration-150',
               active
-                ? 'bg-white text-gray-900 shadow-xs dark:bg-gray-800 dark:text-gray-100'
-                : 'text-gray-500 hover:bg-white/50 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800/50 dark:hover:text-gray-200'
+                ? 'bg-white text-gray-900 shadow-xs dark:bg-(--app-surface-hover) dark:text-(--app-text-primary) dark:shadow-none'
+                : 'text-gray-500 hover:bg-white/50 hover:text-gray-700 dark:text-(--app-text-secondary) dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-primary)'
             )}
             aria-pressed={active}
           >
@@ -65,8 +65,8 @@ const MCPTabSwitcher: React.FC<MCPTabSwitcherProps> = ({
                 className={cn(
                   'rounded px-1.5 text-[10px] font-medium leading-4',
                   active
-                    ? 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300'
-                    : 'bg-gray-200/70 text-gray-400 dark:bg-gray-800 dark:text-gray-500'
+                    ? 'bg-gray-100 text-gray-500 dark:bg-(--app-surface-inset) dark:text-(--app-text-secondary)'
+                    : 'bg-gray-200/70 text-gray-400 dark:bg-(--app-surface) dark:text-(--app-text-muted)'
                 )}
               >
                 {installedCount}

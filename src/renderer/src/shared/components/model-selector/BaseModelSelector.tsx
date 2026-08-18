@@ -1,8 +1,8 @@
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@renderer/shared/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@renderer/shared/components/ui/popover'
+import { ProviderIcon } from '@renderer/shared/components/ProviderIcon'
 import { cn } from '@renderer/shared/lib/utils'
 import type { ModelOption } from '@renderer/shared/config/modelTypes'
-import { getProviderIcon } from '@renderer/shared/lib/providerIcons'
 import { Check } from 'lucide-react'
 import React, { useMemo } from 'react'
 
@@ -94,10 +94,10 @@ const BaseModelSelector: React.FC<BaseModelSelectorProps> = ({
                   className='scroll-smooth **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:font-medium **:[[cmdk-group-heading]]:text-muted-foreground'
                   heading={
                     <div className="flex rounded items-center gap-2 px-2 py-1.5 dark:bg-gray-800/80 -mx-2 sticky top-0 z-10 border-b border-black/5 dark:border-gray-800">
-                      <img
-                        src={getProviderIcon(group.definition.iconKey || group.definition.id)}
+                      <ProviderIcon
+                        provider={group.definition.iconKey || group.definition.id}
                         alt={displayName}
-                        className="w-4 h-4 object-contain dark:invert dark:brightness-90 opacity-70"
+                        className="w-4 h-4 object-contain"
                       />
                       <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 tracking-tight">
                         {displayName}

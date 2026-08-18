@@ -59,6 +59,10 @@ hover/focus 时同步写入 `hoverIndex` 和 `activeIndex`。点击后 ChatInput
 
 ## 视觉规则
 
+暗色模式采用应用级 graphite 语义材质：页面沿用 `--app-canvas`，推荐卡片使用 `--app-surface-raised`，交互态使用 `--app-surface-hover`，边界与文字分别使用 `--app-border-*` 和 `--app-text-*`。卡片之间继续通过 opacity、scale 与错位建立深度，材质本身保持低彩度、低反差。
+
+底部 Welcome composer 与卡片共享同一套语义层级。折叠态使用半透明 surface，展开态提升到 raised；展开聚焦保留原有 opacity 和 scale，同时把背景内容 blur 收敛到 0，避免暗色界面出现浑浊光晕。Chat composer 继续使用 `--chat-*` 别名，这些别名与应用级 token 保持一致。
+
 默认层级由 `depth` 计算生成。第一层作为基准，后续层按 index 推导 offset、scale、opacity、blur 和 z-index。
 
 ```ts

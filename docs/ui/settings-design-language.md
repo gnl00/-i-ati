@@ -13,7 +13,7 @@ Settings pages used several local visual patterns before this normalization pass
 - MCP Servers keeps its drawer workflow while using the resource-list two-card layout: a compact header/status card for page explanation and low-noise runtime summary above an internal scrolling list/editor card whose toolbar owns the mode tabs and current-mode actions. Server items use flat full-width resource rows with soft separators, compact metadata, status, and right-aligned actions.
 - Providers uses a master-detail workspace with a provider list, configuration detail panel, and model list region.
 
-The main remaining inconsistency is local styling inside provider-specific detail panels and any feature-specific advanced editor surfaces.
+Provider-specific detail panels and advanced editor surfaces share the same dark material ladder as the settings frame. Feature-specific semantic tones remain local to their workflows.
 
 ## Target Templates
 
@@ -55,7 +55,8 @@ The provider workflow should keep its sidebar/detail structure. Shared settings 
 - Both modes should consume available space from the nearest settings container (for example a popover that sets `w-[95vw] h-[93vh]`).
 - Settings panel frame: title, save state, tab bar, and active tab content share one neutral outer frame so the page reads as a single settings workspace.
 - Content surfaces live inside the settings frame as internal structure. Keep sibling outer cards for separate workflows outside the main settings panel.
-- Surfaces: white or dark gray, `rounded-xl`, subtle border, `shadow-xs`.
+- Dark surfaces use the app semantic graphite tokens: popover canvas (`--app-canvas`), settings frame (`--app-surface`), content panels (`--app-surface-raised`), row hover (`--app-surface-hover`), and form/list inset (`--app-surface-inset`). Borders and text use the matching app semantic tokens.
+- Light surfaces remain white or light gray, `rounded-xl`, with a subtle border and `shadow-xs`.
 - Header title: `text-[13.5px] font-semibold tracking-tight`.
 - Header description: `text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed`.
 - Toolbar labels: `text-[11px] font-medium uppercase tracking-wider`.
@@ -68,7 +69,9 @@ The provider workflow should keep its sidebar/detail structure. Shared settings 
 ## Taste Decisions
 
 - The main settings panel should feel like one connected control workspace. Header, save state, tabs, and tab content share the same outer boundary.
-- Providers keep the product's established active selection treatment: blue horizontal gradient, bottom blue accent line, provider icon scale feedback, and expressive delete-hover motion.
+- Providers keep a low-amplitude blue selection rail and tint, provider icon scale feedback, and expressive delete-hover motion.
+- Dark depth comes from small luminance steps. Settings surfaces use quiet borders and restrained shadows; inputs and search controls read as inset regions.
+- Provider model collections use separators between rows. Enabled, save, test, reset, delete, warning, and danger states retain their semantic weight.
 - Settings normalization should preserve proven feature-specific active-state semantics while aligning surrounding shell, density, typography, inputs, and buttons.
 
 ## Shared Primitives

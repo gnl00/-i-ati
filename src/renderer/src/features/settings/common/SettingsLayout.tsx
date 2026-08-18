@@ -1,5 +1,12 @@
 import React from 'react'
 import { cn } from '@renderer/shared/lib/utils'
+import {
+  dangerButtonClassName,
+  iconButtonClassName,
+  outlineButtonClassName,
+  primaryButtonClassName,
+  secondaryButtonClassName
+} from '@renderer/shared/components/ui/buttonTokens'
 
 type DivProps = React.HTMLAttributes<HTMLDivElement>
 
@@ -49,24 +56,35 @@ interface SettingsSubsectionHeaderProps extends Omit<DivProps, 'title'> {
   actions?: React.ReactNode
 }
 
-export const settingsScrollbarClassName = 'scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent'
+export const settingsScrollbarClassName = 'scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-(--app-border-standard) scrollbar-track-transparent'
 
-// Button tokens live in shared/ so non-settings features can consume them
-// without depending on this settings module. Re-exported here under their
-// original names for existing settings call sites.
-export {
-  primaryButtonClassName as settingsPrimaryButtonClassName,
-  secondaryButtonClassName as settingsSecondaryButtonClassName,
-  outlineButtonClassName as settingsOutlineButtonClassName,
-  iconButtonClassName as settingsIconButtonClassName,
-  dangerButtonClassName as settingsDangerButtonClassName
-} from '@renderer/shared/components/ui/buttonTokens'
+export const settingsPrimaryButtonClassName = cn(
+  primaryButtonClassName,
+  'dark:bg-(--app-accent) dark:text-(--app-canvas) dark:shadow-none dark:hover:bg-(--app-accent-strong)'
+)
+
+export const settingsSecondaryButtonClassName = cn(
+  secondaryButtonClassName,
+  'dark:text-(--app-text-secondary) dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-primary)'
+)
+
+export const settingsOutlineButtonClassName = cn(
+  outlineButtonClassName,
+  'dark:border-(--app-border-standard) dark:text-(--app-text-body) dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-primary)'
+)
+
+export const settingsIconButtonClassName = cn(
+  iconButtonClassName,
+  'dark:border-(--app-border-standard) dark:text-(--app-text-secondary) dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-primary)'
+)
+
+export const settingsDangerButtonClassName = dangerButtonClassName
 
 export const settingsInputClassName = cn(
   'focus-visible:ring-transparent focus-visible:ring-offset-0',
-  'bg-white dark:bg-gray-800',
-  'border-gray-200 dark:border-gray-700',
-  'shadow-xs'
+  'bg-white dark:bg-(--app-surface-inset)',
+  'border-gray-200 dark:border-(--app-border-standard)',
+  'text-gray-900 dark:text-(--app-text-body) shadow-xs dark:shadow-none'
 )
 
 export const settingsSearchInputClassName = cn(
@@ -83,7 +101,7 @@ export const SettingsPageShell: React.FC<SettingsPageShellProps> = ({
 }) => (
   <div
     className={cn(
-      'w-full h-full min-h-0 min-w-0 overflow-hidden focus:ring-0 focus-visible:ring-0',
+      'w-full h-full min-h-0 min-w-0 overflow-hidden focus:ring-0 focus-visible:ring-0 dark:text-(--app-text-body)',
       className
     )}
     {...props}
@@ -109,7 +127,7 @@ export const SettingsSurface: React.FC<DivProps> = ({
 }) => (
   <div
     className={cn(
-      'h-full min-w-0 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs overflow-hidden flex flex-col',
+      'h-full min-w-0 bg-white dark:bg-(--app-surface-raised) rounded-xl border border-gray-200 dark:border-(--app-border-standard) shadow-xs dark:shadow-none overflow-hidden flex flex-col',
       className
     )}
     {...props}
@@ -125,7 +143,7 @@ export const SettingsMasterDetail: React.FC<DivProps> = ({
 }) => (
   <div
     className={cn(
-      'h-full min-w-0 overflow-hidden bg-gray-50 dark:bg-gray-900 p-1 rounded-xl flex gap-2',
+      'h-full min-w-0 overflow-hidden bg-gray-50 dark:bg-(--app-canvas) p-1 rounded-xl flex gap-2',
       className
     )}
     {...props}
@@ -141,7 +159,7 @@ export const SettingsSidePanel: React.FC<DivProps> = ({
 }) => (
   <div
     className={cn(
-      'w-[184px] shrink-0 min-w-0 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xs overflow-hidden flex flex-col',
+      'w-[184px] shrink-0 min-w-0 bg-white dark:bg-(--app-surface-raised) rounded-xl border border-gray-200 dark:border-(--app-border-standard) shadow-xs dark:shadow-none overflow-hidden flex flex-col',
       className
     )}
     {...props}
@@ -157,7 +175,7 @@ export const SettingsDetailPanel: React.FC<DivProps> = ({
 }) => (
   <div
     className={cn(
-      'flex-1 min-w-0 h-full rounded-xl border border-gray-200/70 dark:border-gray-700/70 bg-white dark:bg-gray-800 shadow-xs overflow-hidden flex flex-col',
+      'flex-1 min-w-0 h-full rounded-xl border border-gray-200/70 dark:border-(--app-border-standard) bg-white dark:bg-(--app-surface-raised) shadow-xs dark:shadow-none overflow-hidden flex flex-col',
       className
     )}
     {...props}
@@ -174,7 +192,7 @@ export const SettingsSection = React.forwardRef<HTMLDivElement, DivProps>(({
   <div
     ref={ref}
     className={cn(
-      'bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-xs overflow-hidden',
+      'bg-white dark:bg-(--app-surface-raised) rounded-xl border border-gray-100 dark:border-(--app-border-standard) shadow-xs dark:shadow-none overflow-hidden',
       className
     )}
     {...props}
@@ -196,13 +214,13 @@ export const SettingsSectionHeader: React.FC<SettingsSectionHeaderProps> = ({
   <div className={cn('px-4 py-4 flex items-start justify-between gap-3 min-w-0', className)} {...props}>
     <div className="space-y-1.5 min-w-0 flex-1">
       <div className="flex items-center gap-2 min-w-0 flex-wrap">
-        <div className="text-[13.5px] font-semibold text-gray-900 dark:text-gray-100 tracking-tight cursor-default">
+        <div className="text-[13.5px] font-semibold text-gray-900 dark:text-(--app-text-primary) tracking-tight cursor-default">
           {title}
         </div>
         {badges}
       </div>
       {description && (
-        <p className="text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed break-words">
+        <p className="text-[12px] text-gray-400 dark:text-(--app-text-muted) leading-relaxed break-words">
           {description}
         </p>
       )}
@@ -223,7 +241,7 @@ export const SettingsToolbar: React.FC<DivProps> = ({
 }) => (
   <div
     className={cn(
-      'px-4 py-2.5 bg-gray-50/80 dark:bg-gray-900/20',
+      'px-4 py-2.5 bg-gray-50/80 dark:bg-(--app-surface-inset)',
       className
     )}
     {...props}
@@ -239,7 +257,7 @@ export const SettingsToolbarLabel: React.FC<DivProps> = ({
 }) => (
   <span
     className={cn(
-      'text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider',
+      'text-[11px] font-medium text-gray-400 dark:text-(--app-text-muted) uppercase tracking-wider',
       className
     )}
     {...props}
@@ -262,11 +280,11 @@ export const SettingsFieldRow: React.FC<SettingsFieldRowProps> = ({
     {...props}
   >
     <div className={cn('flex-1 min-w-0', contentClassName)}>
-      <p className="text-[12.5px] font-medium text-gray-700 dark:text-gray-300">
+      <p className="text-[12.5px] font-medium text-gray-700 dark:text-(--app-text-body)">
         {title}
       </p>
       {description && (
-        <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
+        <p className="text-[11px] text-gray-400 dark:text-(--app-text-muted) mt-0.5">
           {description}
         </p>
       )}
@@ -287,7 +305,7 @@ export const SettingsControlGroup: React.FC<DivProps> = ({
 }) => (
   <div
     className={cn(
-      'flex items-center gap-3 bg-gray-50 dark:bg-gray-900 rounded-lg p-1.5 border border-gray-200 dark:border-gray-700 shrink-0',
+      'flex items-center gap-3 bg-gray-50 dark:bg-(--app-surface-inset) rounded-lg p-1.5 border border-gray-200 dark:border-(--app-border-standard) shrink-0',
       className
     )}
     {...props}
@@ -304,7 +322,7 @@ export const SettingsCollapsibleArea: React.FC<SettingsCollapsibleAreaProps> = (
 }) => (
   <div
     className={cn(
-      'grid transition-all duration-300 ease-in-out bg-gray-50/50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700/50',
+      'grid transition-all duration-300 ease-in-out bg-gray-50/50 dark:bg-(--app-surface-inset) border-t border-gray-100 dark:border-(--app-border-subtle)',
       open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
       className
     )}
@@ -338,15 +356,15 @@ export const SettingsMetricItem: React.FC<SettingsMetricItemProps> = ({
 }) => (
   <div
     className={cn(
-      'min-w-0 rounded-lg border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/60 px-3 py-2',
+      'min-w-0 rounded-lg border border-gray-200 dark:border-(--app-border-standard) bg-white/80 dark:bg-(--app-surface-raised) px-3 py-2',
       className
     )}
     {...props}
   >
-    <p className="text-[11px] uppercase tracking-wider text-gray-400 dark:text-gray-500 break-words">
+    <p className="text-[11px] uppercase tracking-wider text-gray-400 dark:text-(--app-text-muted) break-words">
       {label}
     </p>
-    <div className={cn('mt-1 text-[18px] font-semibold text-gray-900 dark:text-gray-100', valueClassName)}>
+    <div className={cn('mt-1 text-[18px] font-semibold text-gray-900 dark:text-(--app-text-primary)', valueClassName)}>
       {value}
     </div>
   </div>
@@ -361,7 +379,7 @@ export const SettingsNotice: React.FC<SettingsNoticeProps> = ({
   <div
     className={cn(
       'rounded-xl border px-3 py-2.5 text-[11px] leading-relaxed',
-      tone === 'neutral' && 'border-gray-100 bg-white/90 text-gray-400 dark:border-gray-700 dark:bg-gray-800/70 dark:text-gray-500',
+      tone === 'neutral' && 'border-gray-100 bg-white/90 text-gray-400 dark:border-(--app-border-standard) dark:bg-(--app-surface-raised) dark:text-(--app-text-muted)',
       tone === 'warning' && 'border-amber-200 bg-amber-50/70 text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300',
       tone === 'danger' && 'border-rose-200 bg-rose-50/70 text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300',
       className
@@ -382,20 +400,20 @@ export const SettingsSubsectionHeader: React.FC<SettingsSubsectionHeaderProps> =
 }) => (
   <div
     className={cn(
-      'px-4 py-3 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/60 dark:bg-gray-900/20 flex items-start justify-between gap-3 min-w-0',
+      'px-4 py-3 border-t border-gray-100 dark:border-(--app-border-subtle) bg-gray-50/60 dark:bg-(--app-surface-inset) flex items-start justify-between gap-3 min-w-0',
       className
     )}
     {...props}
   >
     <div className="min-w-0 flex-1 space-y-1">
       <div className="flex items-center gap-2 min-w-0 flex-wrap">
-        <span className="text-[12px] font-semibold tracking-wide text-gray-700 dark:text-gray-300">
+        <span className="text-[12px] font-semibold tracking-wide text-gray-700 dark:text-(--app-text-body)">
           {title}
         </span>
         {badges}
       </div>
       {description && (
-        <p className="text-[11.5px] text-gray-400 dark:text-gray-500 leading-relaxed break-words">
+        <p className="text-[11.5px] text-gray-400 dark:text-(--app-text-muted) leading-relaxed break-words">
           {description}
         </p>
       )}
@@ -417,10 +435,10 @@ export const SettingsLoadingState: React.FC<DivProps> = ({
     className={cn('py-10 flex flex-col items-center justify-center gap-3 text-center', className)}
     {...props}
   >
-    <div className="h-8 w-8 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center justify-center">
-      <div className="h-4 w-4 rounded-full border-2 border-gray-200 border-t-gray-500 dark:border-gray-700 dark:border-t-gray-300 animate-spin" />
+    <div className="h-8 w-8 dark:border-(--app-border-standard) bg-white dark:bg-(--app-surface-raised) flex items-center justify-center">
+      <div className="h-4 w-4 rounded-full border-2 border-gray-200 border-t-gray-500 dark:border-(--app-border-standard) dark:border-t-(--app-text-secondary) animate-spin" />
     </div>
-    <p className="text-[12px] font-medium text-gray-400 dark:text-gray-500">
+    <p className="text-[12px] font-medium text-gray-400 dark:text-(--app-text-muted)">
       {children}
     </p>
   </div>
@@ -433,7 +451,7 @@ export const SettingsList: React.FC<DivProps> = ({
 }) => (
   <div
     className={cn(
-      'border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/40 dark:bg-gray-900/30 flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden',
+      'border-t border-gray-100 dark:border-(--app-border-subtle) bg-gray-50/40 dark:bg-(--app-surface-inset) flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden',
       settingsScrollbarClassName,
       className
     )}
@@ -450,8 +468,8 @@ export const SettingsListItem: React.FC<DivProps> = ({
 }) => (
   <div
     className={cn(
-      'group flex w-full min-w-0 items-start justify-between gap-4 px-4 py-3.5 border-b border-gray-100 dark:border-gray-800/70 last:border-b-0',
-      'hover:bg-white/70 dark:hover:bg-gray-800/40 transition-colors duration-150',
+      'group flex w-full min-w-0 items-start justify-between gap-4 px-4 py-3.5 border-b border-gray-100 dark:border-(--app-border-subtle) last:border-b-0',
+      'hover:bg-white/70 dark:hover:bg-(--app-surface-hover) transition-colors duration-150',
       className
     )}
     {...props}
@@ -472,15 +490,15 @@ export const SettingsEmptyState: React.FC<SettingsEmptyStateProps> = ({
     className={cn('py-10 flex flex-col items-center gap-2.5 text-center', className)}
     {...props}
   >
-    <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+    <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 dark:border-(--app-border-standard) bg-white dark:bg-(--app-surface-raised)">
       {icon}
     </div>
     <div className="space-y-0.5">
-      <p className="text-[12.5px] font-medium text-gray-600 dark:text-gray-300">
+      <p className="text-[12.5px] font-medium text-gray-600 dark:text-(--app-text-body)">
         {title}
       </p>
       {description && (
-        <p className="text-[11.5px] text-gray-400 dark:text-gray-500">
+        <p className="text-[11.5px] text-gray-400 dark:text-(--app-text-muted)">
           {description}
         </p>
       )}

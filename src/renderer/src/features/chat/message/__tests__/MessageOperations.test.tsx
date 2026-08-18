@@ -37,6 +37,16 @@ describe('MessageOperations', () => {
     expect(button?.className).toContain('message-operation-button')
 
     act(() => {
+      button?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
+    })
+
+    const tooltip = container.querySelector('[role="tooltip"]')
+    expect(tooltip?.className).toContain('dark:bg-(--app-surface-raised)')
+    expect(tooltip?.className).toContain('dark:border-(--app-border-standard)')
+    expect(tooltip?.className).toContain('dark:text-(--app-text-primary)')
+    expect(tooltip?.firstElementChild?.className).toContain('dark:border-t-(--app-surface-raised)')
+
+    act(() => {
       button?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
@@ -204,5 +214,11 @@ describe('MessageOperations', () => {
     expect(container.textContent).toContain('Output tokens: 0.3k')
     expect(container.textContent).toContain('Cache hit tokens: 88.6k')
     expect(container.textContent).toContain('Cache hit rate: 54%')
+
+    const tooltip = container.querySelector('[role="tooltip"]')
+    expect(tooltip?.className).toContain('dark:bg-(--app-surface-raised)')
+    expect(tooltip?.className).toContain('dark:border-(--app-border-standard)')
+    expect(tooltip?.className).toContain('dark:text-(--app-text-primary)')
+    expect(tooltip?.lastElementChild?.className).toContain('dark:border-t-(--app-surface-raised)')
   })
 })

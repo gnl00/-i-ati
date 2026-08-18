@@ -78,27 +78,27 @@ const ExpandableSearchInput: React.FC<ExpandableSearchInputProps> = ({
       <div
         className={cn(
           'relative flex items-center rounded-lg',
-          'bg-gray-100/80 shadow-inner dark:bg-gray-950/50',
-          'ring-1 ring-inset ring-gray-200/70 dark:ring-gray-700',
-          'focus-within:bg-white dark:focus-within:bg-gray-900',
+          'bg-gray-100/80 shadow-inner dark:bg-(--app-surface-inset)',
+          'ring-1 ring-inset ring-gray-200/70 dark:ring-(--app-border-standard)',
+          'focus-within:bg-white dark:focus-within:bg-(--app-surface-inset) dark:focus-within:ring-(--app-accent)',
           className
         )}
       >
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400 dark:text-(--app-text-muted)" />
         <Input
           ref={inputRef}
           placeholder={placeholder}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          className="h-8 rounded-lg border-transparent bg-transparent pl-8 pr-8 text-[12px] text-gray-700 shadow-none placeholder:text-gray-400/70 dark:text-gray-200 dark:placeholder:text-gray-600 focus-visible:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+          className="h-8 rounded-lg border-transparent bg-transparent pl-8 pr-8 text-[12px] text-gray-700 shadow-none placeholder:text-gray-400/70 dark:text-(--app-text-body) dark:placeholder:text-(--app-text-muted) focus-visible:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
           disabled={disabled}
         />
         {showClear && value && (
           <button
             type="button"
             onClick={() => onChange('')}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded text-gray-400 hover:text-gray-600 dark:text-(--app-text-muted) dark:hover:text-(--app-text-primary) transition-colors"
             aria-label="Clear search"
           >
             <X className="h-3 w-3" />
@@ -125,19 +125,19 @@ const ExpandableSearchInput: React.FC<ExpandableSearchInputProps> = ({
       }}
       className={cn(
         'relative flex items-center rounded-lg overflow-hidden transition-all duration-300 ease-out',
-        'bg-gray-100/80 shadow-inner dark:bg-gray-950/50',
-        'ring-1 ring-inset ring-gray-200/70 dark:ring-gray-700',
+        'bg-gray-100/80 shadow-inner dark:bg-(--app-surface-inset)',
+        'ring-1 ring-inset ring-gray-200/70 dark:ring-(--app-border-standard)',
         isEffectivelyExpanded
-          ? cn(expandedWidth, 'focus-within:bg-white dark:focus-within:bg-gray-900')
-          : 'w-8 h-8 cursor-pointer hover:ring-gray-300 dark:hover:ring-gray-600',
+          ? cn(expandedWidth, 'focus-within:bg-white dark:focus-within:bg-(--app-surface-inset) dark:focus-within:ring-(--app-accent)')
+          : 'w-8 h-8 cursor-pointer hover:ring-gray-300 dark:hover:ring-(--app-accent)',
         className
       )}
     >
       <Search
         className={cn(
           'pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 transition-colors duration-200',
-          'text-gray-400 dark:text-gray-500',
-          isEffectivelyExpanded && 'text-gray-500 dark:text-gray-300'
+          'text-gray-400 dark:text-(--app-text-muted)',
+          isEffectivelyExpanded && 'text-gray-500 dark:text-(--app-text-secondary)'
         )}
       />
       <Input
@@ -149,7 +149,7 @@ const ExpandableSearchInput: React.FC<ExpandableSearchInputProps> = ({
         onBlur={handleBlur}
         className={cn(
           'h-8 rounded-lg border-transparent bg-transparent pl-8 pr-8 text-[12px] text-gray-700 shadow-none',
-          'placeholder:text-gray-400/70 dark:text-gray-200 dark:placeholder:text-gray-600',
+          'placeholder:text-gray-400/70 dark:text-(--app-text-body) dark:placeholder:text-(--app-text-muted)',
           'focus-visible:border-transparent focus-visible:ring-0 focus-visible:ring-offset-0',
           'transition-opacity duration-200',
           isEffectivelyExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none'

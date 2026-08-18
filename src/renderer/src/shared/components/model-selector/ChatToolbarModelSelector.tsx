@@ -19,9 +19,9 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from '@renderer/shared/components/ui/tooltip'
+import { ProviderIcon } from '@renderer/shared/components/ProviderIcon'
 import { cn } from '@renderer/shared/lib/utils'
 import type { ModelOption } from '@renderer/shared/config/modelTypes'
-import { getProviderIcon } from '@renderer/shared/lib/providerIcons'
 import {
   getDefaultThinkingLevel,
   getRequestAdapterThinkingCapability,
@@ -88,7 +88,9 @@ export const getChatToolbarModelSelectorTriggerClassName = (
       'transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out',
       'hover:border-border/45 hover:bg-foreground/[0.035] hover:text-foreground hover:shadow-[0_8px_18px_color-mix(in_srgb,hsl(var(--foreground))_4%,transparent)]',
       'active:scale-[0.985] focus-visible:ring-0 focus-visible:ring-offset-0',
-      selected && 'border-border/35 bg-transparent text-foreground dark:border-border/30',
+      'dark:border-(--app-border-subtle) dark:bg-(--app-surface) dark:text-(--app-text-secondary)',
+      'dark:hover:border-(--app-border-standard) dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-primary) dark:hover:shadow-none',
+      selected && 'border-border/35 bg-transparent text-foreground dark:border-(--app-border-standard) dark:bg-(--app-surface-hover) dark:text-(--app-text-primary)',
       triggerClassName
     )
   }
@@ -271,10 +273,10 @@ const ProviderGroupSection: React.FC<ProviderGroupSectionProps> = ({ group, inde
     <DropdownMenuGroup>
       {index > 0 && <DropdownMenuSeparator className="bg-border/55 dark:bg-(--chat-border-subtle)" />}
       <DropdownMenuLabel className="flex items-center gap-2 px-2 py-1.5 text-[11px] font-semibold text-muted-foreground dark:text-(--chat-text-secondary)">
-        <img
-          src={getProviderIcon(group.definition.iconKey || group.definition.id)}
+        <ProviderIcon
+          provider={group.definition.iconKey || group.definition.id}
           alt={displayName}
-          className="h-4 w-4 object-contain opacity-70 dark:invert dark:brightness-90"
+          className="h-4 w-4 object-contain"
         />
         <span className="min-w-0 truncate">
           {displayName}
@@ -418,7 +420,6 @@ const ThinkingLevelSubMenu: React.FC<ThinkingLevelSubMenuProps> = ({
                 'dark:data-[state=checked]:border-(--chat-border-standard) dark:data-[state=checked]:bg-(--chat-surface-hover) dark:data-[state=checked]:text-(--chat-text-primary)'
               )}
             >
-              <Lightbulb className="h-3.5 w-3.5 shrink-0 text-muted-foreground dark:text-(--chat-text-muted)" />
               <span className="min-w-0 flex-1 truncate capitalize select-none">{level}</span>
               <span
                 className={cn(

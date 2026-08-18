@@ -142,9 +142,10 @@ describe('filterModelSelectorGroups', () => {
 })
 
 describe('getChatToolbarModelSelectorTriggerClassName', () => {
-  it('uses the graphite surface geometry without changing the baseline variant', () => {
+  it('uses the graphite material tokens across surface and baseline variants', () => {
     const surface = getChatToolbarModelSelectorTriggerClassName('surface', true)
-    const baseline = getChatToolbarModelSelectorTriggerClassName('baseline', true)
+    const baseline = getChatToolbarModelSelectorTriggerClassName('baseline', false)
+    const selectedBaseline = getChatToolbarModelSelectorTriggerClassName('baseline', true)
 
     expect(surface).toContain('min-w-[136px]')
     expect(surface).toContain('max-w-[220px]')
@@ -154,6 +155,8 @@ describe('getChatToolbarModelSelectorTriggerClassName', () => {
     expect(baseline).toContain('min-w-[118px]')
     expect(baseline).toContain('max-w-[184px]')
     expect(baseline).toContain('rounded-xl')
-    expect(baseline).not.toContain('dark:bg-(--chat-surface)')
+    expect(baseline).toContain('dark:bg-(--app-surface)')
+    expect(baseline).toContain('dark:hover:bg-(--app-surface-hover)')
+    expect(selectedBaseline).toContain('dark:bg-(--app-surface-hover)')
   })
 })

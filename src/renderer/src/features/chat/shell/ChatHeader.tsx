@@ -134,7 +134,7 @@ const ChatHeader: React.FC = () => {
                   <span className="sr-only">Open settings</span>
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="app-undragable ml-1 mt-0.5 h-[93vh] w-[95vw] overflow-hidden rounded-2xl p-2 bg-white dark:bg-zinc-950/80">
+              <PopoverContent className="app-undragable ml-1 mt-0.5 h-[93vh] w-[95vw] overflow-hidden rounded-2xl border border-border/60 bg-white p-2 shadow-2xl dark:border-(--app-border-standard) dark:bg-(--app-canvas) dark:text-(--app-text-body) dark:shadow-black/40">
                 <SettingsPanel />
               </PopoverContent>
             </Popover>

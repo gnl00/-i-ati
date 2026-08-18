@@ -16,6 +16,12 @@
     transform 220ms var(--welcome-v2-ease);
 }
 
+.dark .welcome-v2-stage {
+  --welcome-v2-card-border: var(--app-border-standard);
+  --welcome-v2-card-shadow: 0 20px 52px rgb(0 0 0 / 0.16);
+  color: var(--app-text-primary);
+}
+
 .welcome-v2-bg {
   position: absolute;
   inset: 0;
@@ -40,6 +46,26 @@
   opacity: 0.86;
 }
 
+.dark .welcome-v2-bg {
+  background:
+    radial-gradient(
+      ellipse at 18% 18%,
+      color-mix(in oklab, var(--app-text-primary) 3.5%, transparent),
+      transparent 34%
+    ),
+    radial-gradient(
+      ellipse at 78% 34%,
+      color-mix(in oklab, var(--app-accent) 6%, transparent),
+      transparent 38%
+    ),
+    radial-gradient(
+      ellipse at 50% 94%,
+      color-mix(in oklab, var(--app-surface-raised) 44%, transparent),
+      transparent 56%
+    );
+  opacity: 0.58;
+}
+
 .welcome-v2-bg::before,
 .welcome-v2-bg::after {
   content: '';
@@ -57,6 +83,11 @@
   transform: rotate(-4deg);
 }
 
+.dark .welcome-v2-bg::before {
+  border-color: var(--app-border-subtle);
+  opacity: 0.44;
+}
+
 .welcome-v2-bg::after {
   left: 50%;
   bottom: -12%;
@@ -72,6 +103,16 @@
   filter: blur(34px);
   opacity: 0.56;
   transform: translateX(-50%);
+}
+
+.dark .welcome-v2-bg::after {
+  background:
+    radial-gradient(
+      ellipse at 50% 44%,
+      color-mix(in oklab, var(--app-surface-raised) 42%, transparent),
+      transparent 70%
+    );
+  opacity: 0.42;
 }
 
 .welcome-v2-shell {
@@ -108,13 +149,13 @@
 
 .welcome-v2-composer-focused .welcome-v2-top {
   opacity: 0.76;
-  filter: blur(0.12px);
+  filter: blur(0);
   transform: translateY(-5px) scale(0.985);
 }
 
 .welcome-v2-composer-focused .welcome-v2-deck {
   opacity: 0.6;
-  filter: blur(0.16px);
+  filter: blur(0);
   transform: translateY(-5px) scale(0.965);
 }
 
@@ -157,6 +198,16 @@
     );
   opacity: 0.72;
   transform: translateX(-50%);
+}
+
+.dark .welcome-v2-middle::after {
+  background:
+    linear-gradient(
+      180deg,
+      transparent,
+      color-mix(in oklab, var(--app-canvas) 48%, transparent) 72%,
+      color-mix(in oklab, var(--app-canvas) 76%, transparent)
+    );
 }
 
 .welcome-v2-emotion {
@@ -345,6 +396,13 @@
   animation-delay: calc(var(--welcome-v2-card-index) * 70ms);
 }
 
+.dark .welcome-v2-message {
+  border-color: var(--app-border-standard);
+  background: color-mix(in oklab, var(--app-surface-raised) 92%, transparent);
+  box-shadow: var(--welcome-v2-card-shadow);
+  backdrop-filter: blur(8px);
+}
+
 .welcome-v2-deck-card {
   opacity: var(--welcome-v2-card-opacity);
   animation: welcome-v2-deck-card-enter 500ms var(--welcome-v2-ease) both;
@@ -365,6 +423,11 @@
   opacity: 0.74;
 }
 
+.dark .welcome-v2-message::before {
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.035), transparent 32%);
+  opacity: 1;
+}
+
 .welcome-v2-deck-card-active .welcome-v2-message {
   border-color: color-mix(in srgb, hsl(var(--border)) 66%, hsl(var(--foreground)) 8%);
   box-shadow: 0 28px 74px color-mix(in srgb, hsl(var(--foreground)) 14%, transparent);
@@ -377,9 +440,18 @@
   transition-property: background-color, border-color, box-shadow;
 }
 
+.dark .welcome-v2-deck-card-active .welcome-v2-message {
+  border-color: color-mix(in oklab, var(--app-accent) 34%, var(--app-border-standard));
+  box-shadow: 0 24px 58px rgb(0 0 0 / 0.2);
+}
+
 .welcome-v2-deck-card-muted .welcome-v2-message {
   box-shadow: 0 16px 42px color-mix(in srgb, hsl(var(--foreground)) 8%, transparent);
   transform: scale(0.985);
+}
+
+.dark .welcome-v2-deck-card-muted .welcome-v2-message {
+  box-shadow: 0 14px 34px rgb(0 0 0 / 0.1);
 }
 
 .welcome-v2-deck-card-active .welcome-v2-message-action {

@@ -83,27 +83,27 @@ export const ProviderAdvanceConfigDrawer: React.FC<ProviderAdvanceConfigDrawerPr
       <DrawerTrigger asChild>
         {trigger}
       </DrawerTrigger>
-      <DrawerContent className="max-h-[80vh] bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800">
+      <DrawerContent className="max-h-[80vh] bg-white dark:bg-(--app-surface-raised) border-gray-200 dark:border-(--app-border-standard) dark:text-(--app-text-body)">
         <DrawerHeaderBar
           title="Request Payload Overrides"
           description="Applies to provider"
           badge={providerDefinition && (
             <Badge
               variant="outline"
-              className="text-[10px] font-semibold px-3 py-0 bg-gray-100/80 dark:bg-gray-900/80 border-gray-300/50 dark:border-gray-700/50 text-gray-600 dark:text-gray-400 backdrop-blur-xs"
+              className="text-[10px] font-semibold px-3 py-0 bg-gray-100/80 dark:bg-(--app-surface-inset) border-gray-300/50 dark:border-(--app-border-standard) text-gray-600 dark:text-(--app-text-secondary) backdrop-blur-xs dark:backdrop-blur-none"
             >
               {providerDefinition.displayName}
             </Badge>
           )}
         />
         <div className="px-6 pb-4 space-y-3">
-          <div className="rounded-xl border border-gray-200/80 dark:border-gray-800/80 bg-gray-50/80 dark:bg-gray-950/40 p-3">
-            <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed">
+          <div className="rounded-xl border border-gray-200/80 dark:border-(--app-border-standard) bg-gray-50/80 dark:bg-(--app-surface-inset) p-3">
+            <p className="text-[11px] text-gray-500 dark:text-(--app-text-secondary) leading-relaxed">
               Paste a JSON object to append into every request payload.
               Keys <span className="font-mono">stream</span>, <span className="font-mono">messages</span>, <span className="font-mono">tools</span>, <span className="font-mono">model</span> are blocked.
             </p>
           </div>
-          <div className="min-h-[220px] rounded-xl border border-gray-200/80 dark:border-gray-800/80 bg-white dark:bg-gray-950/40 overflow-hidden">
+          <div className="min-h-[220px] rounded-xl border border-gray-200/80 dark:border-(--app-border-standard) bg-white dark:bg-(--app-surface-inset) overflow-hidden">
             <CodeMirror
               value={draft}
               height="220px"

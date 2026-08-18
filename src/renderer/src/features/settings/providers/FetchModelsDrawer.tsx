@@ -55,14 +55,14 @@ const MODEL_TABLE_CLASSNAME = 'table-fixed'
 const MODEL_SELECTION_COLUMN_CLASSNAME = 'w-[46px] min-w-[46px] max-w-[46px] pl-5'
 const MODEL_TYPE_COLUMN_CLASSNAME = 'w-[100px] min-w-[100px] max-w-[100px]'
 const MODEL_STATUS_COLUMN_CLASSNAME = 'w-[120px] min-w-[120px] max-w-[120px]'
-const MODEL_HEADER_CELL_CLASSNAME = 'text-[11px] font-medium text-gray-500 dark:text-gray-400'
-const MODEL_TYPE_BADGE_CLASSNAME = 'text-[9.5px] font-medium uppercase px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-0'
+const MODEL_HEADER_CELL_CLASSNAME = 'text-[11px] font-medium text-gray-500 dark:text-(--app-text-secondary)'
+const MODEL_TYPE_BADGE_CLASSNAME = 'text-[9.5px] font-medium uppercase px-1.5 py-0.5 bg-gray-100 dark:bg-(--app-surface-inset) text-gray-500 dark:text-(--app-text-secondary) border-0'
 const MODEL_SELECTION_CHECKBOX_CLASSNAME = cn(
     'h-3.5 w-3.5 rounded-[4px] border bg-white shadow-xs transition-colors duration-150',
     'border-gray-300 text-gray-800 hover:border-gray-400',
     'focus-visible:ring-2 focus-visible:ring-gray-400/40 focus-visible:ring-offset-0',
     'disabled:cursor-not-allowed disabled:opacity-40',
-    'dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100 dark:hover:border-gray-500 dark:focus-visible:ring-gray-500/40',
+    'dark:border-(--app-border-standard) dark:bg-(--app-surface-inset) dark:text-(--app-text-primary) dark:hover:border-(--app-accent) dark:focus-visible:ring-(--app-accent)',
     'data-[state=checked]:border-gray-800 data-[state=checked]:bg-gray-800 data-[state=checked]:text-white',
     'dark:data-[state=checked]:border-gray-200 dark:data-[state=checked]:bg-gray-200 dark:data-[state=checked]:text-gray-900',
     '[&>span>svg]:h-3 [&>span>svg]:w-3'
@@ -318,7 +318,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
 
     return (
         <Drawer open={open} onOpenChange={onOpenChange}>
-            <DrawerContent className="h-[80vh] max-h-[80vh] flex flex-col overflow-hidden">
+            <DrawerContent className="h-[80vh] max-h-[80vh] flex flex-col overflow-hidden dark:border-(--app-border-standard) dark:bg-(--app-surface-raised) dark:text-(--app-text-body)">
                 {/* Header */}
                 <DrawerHeaderBar
                     className="shrink-0"
@@ -329,7 +329,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                 />
 
                 {/* Model Search Bar */}
-                <div className="shrink-0 border-b border-gray-200/60 bg-gray-50/70 px-5 py-3 dark:border-gray-800/60 dark:bg-gray-950/30">
+                <div className="shrink-0 border-b border-gray-200/60 bg-gray-50/70 px-5 py-3 dark:border-(--app-border-subtle) dark:bg-(--app-surface-inset)">
                     <div className="flex min-w-0 items-center gap-3">
                         <ExpandableSearchInput
                             value={searchQuery}
@@ -340,7 +340,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                             showClear
                             className="h-9 min-w-0 flex-1"
                         />
-                        <div className="flex shrink-0 items-center gap-2 border-l border-gray-200/70 pl-3 dark:border-gray-800/70">
+                        <div className="flex shrink-0 items-center gap-2 border-l border-gray-200/70 pl-3 dark:border-(--app-border-standard)">
                             <Button
                                 variant="ghost"
                                 onClick={handleFetch}
@@ -351,7 +351,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                             >
                                 <RefreshCw
                                     className={cn(
-                                        'h-3.5 w-3.5 text-gray-500 dark:text-gray-400 transition-transform duration-500 ease-out',
+                                        'h-3.5 w-3.5 text-gray-500 dark:text-(--app-text-secondary) transition-transform duration-500 ease-out',
                                         isFetching ? 'animate-spin' : 'group-hover:rotate-180'
                                     )}
                                 />
@@ -372,32 +372,32 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                 </div>
 
                 {/* 模型列表 */}
-                <div className="flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden bg-white/40 dark:bg-gray-950/40">
+                <div className="flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden bg-white/40 dark:bg-(--app-surface)">
                     {isFetching ? (
                         <div className="flex h-full min-h-0 flex-col">
-                            <div className="flex h-9 items-center gap-2 border-b border-gray-200/60 bg-gray-50/70 px-5 text-[11px] font-medium text-gray-500 dark:border-gray-800/60 dark:bg-gray-950/30 dark:text-gray-400">
-                                <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400 dark:text-gray-500" />
+                            <div className="flex h-9 items-center gap-2 border-b border-gray-200/60 bg-gray-50/70 px-5 text-[11px] font-medium text-gray-500 dark:border-(--app-border-subtle) dark:bg-(--app-surface-inset) dark:text-(--app-text-secondary)">
+                                <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400 dark:text-(--app-text-muted)" />
                                 <span className="truncate">Fetching models…</span>
                             </div>
                             <div className="min-h-0 flex-1 overflow-hidden">
                                 <Table className={MODEL_TABLE_CLASSNAME}>
                                     <TableBody>
                                         {FETCH_PENDING_ROWS.map((row) => (
-                                            <TableRow key={row} className="border-b border-gray-100 dark:border-gray-900/50 hover:bg-transparent">
+                                            <TableRow key={row} className="border-b border-gray-100 dark:border-(--app-border-subtle) hover:bg-transparent">
                                                 <TableCell className={MODEL_SELECTION_COLUMN_CLASSNAME}>
-                                                    <div className="h-3.5 w-3.5 rounded border border-gray-200 bg-gray-100 dark:border-gray-800 dark:bg-gray-900" />
+                                                    <div className="h-3.5 w-3.5 rounded border border-gray-200 bg-gray-100 dark:border-(--app-border-standard) dark:bg-(--app-surface-inset)" />
                                                 </TableCell>
                                                 <TableCell>
                                                     <div
-                                                        className="h-3 w-full max-w-[360px] rounded-sm bg-gray-200/70 dark:bg-gray-800/70 animate-pulse"
+                                                        className="h-3 w-full max-w-[360px] rounded-sm bg-gray-200/70 dark:bg-(--app-surface-hover) animate-pulse"
                                                         style={{ width: `${52 + (row % 4) * 9}%` }}
                                                     />
                                                 </TableCell>
                                                 <TableCell className={MODEL_TYPE_COLUMN_CLASSNAME}>
-                                                    <div className="h-5 w-12 rounded-md border border-gray-200 bg-gray-100 dark:border-gray-800 dark:bg-gray-900 animate-pulse" />
+                                                    <div className="h-5 w-12 rounded-md border border-gray-200 bg-gray-100 dark:border-(--app-border-standard) dark:bg-(--app-surface-inset) animate-pulse" />
                                                 </TableCell>
                                                 <TableCell className={MODEL_STATUS_COLUMN_CLASSNAME}>
-                                                    <div className="h-3 w-16 rounded-sm bg-gray-200/70 dark:bg-gray-800/70 animate-pulse" />
+                                                    <div className="h-3 w-16 rounded-sm bg-gray-200/70 dark:bg-(--app-surface-hover) animate-pulse" />
                                                 </TableCell>
                                             </TableRow>
                                         ))}
@@ -408,12 +408,12 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                     ) : filteredModels.length === 0 ? (
                         <div className="flex h-full flex-col items-center justify-center gap-3 px-5 text-muted-foreground">
                             <div className="relative">
-                                <Search className="h-12 w-12 text-gray-300 dark:text-gray-700" />
-                                <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center">
-                                    <X className="h-2.5 w-2.5 text-gray-400 dark:text-gray-600" />
+                                <Search className="h-12 w-12 text-gray-300 dark:text-(--app-border-standard)" />
+                                <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-gray-200 dark:bg-(--app-surface-inset) flex items-center justify-center">
+                                    <X className="h-2.5 w-2.5 text-gray-400 dark:text-(--app-text-muted)" />
                                 </div>
                             </div>
-                            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                            <p className="text-sm font-medium text-gray-600 dark:text-(--app-text-secondary)">
                                 {searchQuery ? 'No matching models' : 'No models available'}
                             </p>
                             {searchQuery && (
@@ -421,7 +421,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                                     variant="link"
                                     size="sm"
                                     onClick={() => setSearchQuery('')}
-                                    className="text-gray-500 dark:text-gray-400 text-xs hover:text-gray-700 dark:hover:text-gray-200"
+                                    className="text-gray-500 dark:text-(--app-text-secondary) text-xs hover:text-gray-700 dark:hover:text-(--app-text-primary)"
                                 >
                                     Clear filters
                                 </Button>
@@ -429,7 +429,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                         </div>
                     ) : (
                         <div className="flex min-h-0 flex-1 flex-col">
-                            <div className="border-b border-gray-200/60 bg-gray-50/70 dark:border-gray-800/60 dark:bg-gray-950/30">
+                            <div className="border-b border-gray-200/60 bg-gray-50/70 dark:border-(--app-border-subtle) dark:bg-(--app-surface-inset)">
                                 <Table className={MODEL_TABLE_CLASSNAME}>
                                     <TableHeader>
                                         <TableRow className="hover:bg-transparent border-0">
@@ -468,17 +468,17 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                                                 <TableRow
                                                     key={idx}
                                                     className={cn(
-                                                        "group cursor-pointer border-b border-gray-100 dark:border-gray-900/50 transition-colors duration-150",
-                                                        !isExisting && "hover:bg-gray-50 dark:hover:bg-gray-900/40",
-                                                        isExisting && "bg-gray-50/30 dark:bg-gray-900/20 opacity-60 cursor-not-allowed"
+                                                        "group cursor-pointer border-b border-gray-100 dark:border-(--app-border-subtle) transition-colors duration-150",
+                                                        !isExisting && "hover:bg-gray-50 dark:hover:bg-(--app-surface-hover)",
+                                                        isExisting && "bg-gray-50/30 dark:bg-(--app-surface-inset) opacity-60 cursor-not-allowed"
                                                     )}
                                                     onClick={() => !isExisting && handleModelToggle(model.id)}
                                                 >
 
                                                     <TableCell className={MODEL_SELECTION_COLUMN_CLASSNAME}>
                                                         {isExisting ? (
-                                                            <div className="w-4 h-4 rounded border-2 border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                                                                <Check className="h-2.5 w-2.5 text-gray-400 dark:text-gray-600" />
+                                                            <div className="w-4 h-4 rounded border-2 border-gray-300 dark:border-(--app-border-standard) bg-gray-100 dark:bg-(--app-surface-inset) flex items-center justify-center">
+                                                                <Check className="h-2.5 w-2.5 text-gray-400 dark:text-(--app-text-muted)" />
                                                             </div>
                                                         ) : (
                                                             <Checkbox
@@ -492,8 +492,8 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                                                     <TableCell className={cn(
                                                         "text-[12.5px] font-medium truncate transition-colors",
                                                         isSelected
-                                                            ? "text-gray-900 dark:text-gray-100"
-                                                            : "text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-gray-100"
+                                                            ? "text-gray-900 dark:text-(--app-text-primary)"
+                                                            : "text-gray-700 dark:text-(--app-text-body) group-hover:text-gray-900 dark:group-hover:text-(--app-text-primary)"
                                                     )}>
                                                         {model.id}
                                                     </TableCell>
@@ -507,16 +507,16 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                                                     </TableCell>
                                                     <TableCell className={MODEL_STATUS_COLUMN_CLASSNAME}>
                                                         {isExisting ? (
-                                                            <span className="inline-flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400 font-medium">
+                                                            <span className="inline-flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-(--app-text-secondary) font-medium">
                                                                 <Check className="w-3 h-3" />
                                                                 Added
                                                             </span>
                                                         ) : isSelected ? (
-                                                            <span className="inline-flex items-center gap-1.5 text-[11px] text-gray-800 dark:text-gray-200 font-medium">
+                                                            <span className="inline-flex items-center gap-1.5 text-[11px] text-gray-800 dark:text-(--app-text-primary) font-medium">
                                                                 Selected
                                                             </span>
                                                         ) : (
-                                                            <span className="inline-flex items-center gap-1.5 text-[11px] text-gray-400 dark:text-gray-500 font-medium">
+                                                            <span className="inline-flex items-center gap-1.5 text-[11px] text-gray-400 dark:text-(--app-text-muted) font-medium">
                                                                 Available
                                                             </span>
                                                         )}
@@ -539,7 +539,7 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                                     const hasMore = displayedCount < totalFiltered
 
                                     return (
-                                        <div className="py-4 text-center text-[11px] text-gray-400 dark:text-gray-500">
+                                        <div className="py-4 text-center text-[11px] text-gray-400 dark:text-(--app-text-muted)">
                                             {hasMore ? (
                                                 <>{displayedCount} of {totalFiltered} · scroll for more</>
                                             ) : (
@@ -554,9 +554,9 @@ const FetchModelsDrawer: React.FC<FetchModelsDrawerProps> = ({
                 </div>
 
                 {/* Footer */}
-                <DrawerFooter className="shrink-0 border-t border-gray-200/60 bg-gray-50/40 px-5 py-4 dark:border-gray-800/60 dark:bg-gray-900/20">
+                <DrawerFooter className="shrink-0 border-t border-gray-200/60 bg-gray-50/40 px-5 py-4 dark:border-(--app-border-subtle) dark:bg-(--app-surface-inset)">
                     <div className="flex items-center justify-between w-full">
-                        <span className="text-[12px] text-gray-500 dark:text-gray-400">
+                        <span className="text-[12px] text-gray-500 dark:text-(--app-text-secondary)">
                             {selectedModelIds.size > 0
                                 ? `${selectedModelIds.size} selected`
                                 : 'No selection'}

@@ -60,7 +60,7 @@ const TASK_STATUS_META: Record<string, { label: string; tone: string; icon: Reac
   },
   cancelled: {
     label: 'Cancelled',
-    tone: 'text-slate-700 dark:text-slate-300',
+    tone: 'text-slate-700 dark:text-(--app-text-secondary)',
     icon: <AlertCircle className="h-3 w-3" />
   }
 }
@@ -391,58 +391,58 @@ const ChatScheduleBoard: React.FC<ChatScheduleBoardProps> = ({
         }
       `}</style>
 
-      <div className="overflow-hidden rounded-xl border border-white/55 bg-white/72 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/50 shadow-xs">
-        <div className="space-y-1 p-1">
-          <div className="flex items-start justify-between gap-3">
+      <div className="overflow-hidden rounded-xl border border-white/55 bg-white/72 backdrop-blur-xl shadow-xs dark:border-(--app-border-subtle) dark:bg-(--app-surface-raised) dark:shadow-none dark:backdrop-blur-none">
+        <div className="space-y-1 p-1 dark:space-y-2.5 dark:p-3">
+          <div className="flex items-start justify-between gap-3 dark:pb-0.5">
             <div className="min-w-0 flex-1 space-y-1">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-(--app-text-muted)">
                 Task Board
               </p>
               {/** nextTask.goal **/}
               {nextTask ? (
                 <GoalTooltip goal={nextTask.goal}>
-                  <h3 className="line-clamp-2 wrap-break-word text-xs font-semibold leading-4 text-slate-600 dark:text-slate-100">
+                  <h3 className="line-clamp-2 wrap-break-word text-xs font-semibold leading-4 text-slate-600 dark:text-(--app-text-primary)">
                     {nextTask.goal}
                   </h3>
                 </GoalTooltip>
               ) : (
-                <h3 className="line-clamp-3 wrap-break-word text-xs font-semibold leading-4 text-slate-900 dark:text-slate-100">
+                <h3 className="line-clamp-3 wrap-break-word text-xs font-semibold leading-4 text-slate-900 dark:text-(--app-text-primary)">
                   --
                 </h3>
               )}
             </div>
 
-            <div className="shrink-0 rounded-2xl border border-white/45 bg-slate-100/40 px-1.5 py-2 text-right backdrop-blur-md dark:border-white/10 dark:bg-slate-900/45">
-              <div className="flex items-center justify-end gap-1.5 text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            <div className="shrink-0 rounded-2xl border border-white/45 bg-slate-100/40 px-1.5 py-2 text-right backdrop-blur-md dark:border-transparent dark:bg-transparent dark:backdrop-blur-none">
+              <div className="flex items-center justify-end gap-1.5 text-[10px] uppercase tracking-wide text-slate-500 dark:text-(--app-text-muted)">
                 <CalendarClock className="h-3.5 w-3.5" />
                 Next run
               </div>
-              <div className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-100">
+              <div className="mt-1 text-xs font-semibold text-slate-500 dark:text-(--app-text-primary)">
                 {nextTask ? formatRunAt(nextTask.run_at) : '-- --'}
               </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-white/45 bg-black/1 px-0.5 py-2 backdrop-blur-md dark:border-white/8 dark:bg-slate-900/45">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-white/45 bg-black/1 px-0.5 py-2 backdrop-blur-md dark:rounded-none dark:border-x-0 dark:border-(--app-border-subtle) dark:bg-transparent dark:px-1 dark:py-2.5 dark:backdrop-blur-none">
             {(Object.keys(SUMMARY_META) as SummaryKey[]).map(key => {
               const meta = SUMMARY_META[key]
               return (
                 <div
                   key={key}
-                  className="inline-flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-300"
+                  className="inline-flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-(--app-text-body)"
                 >
                   <span className={cn('h-1.5 w-1.5 rounded-full', meta.dotClassName)} />
                   <span className={cn('font-semibold leading-none tracking-tight', meta.valueClassName)}>
                     {scheduleSummary[key]}
                   </span>
-                  <span className="leading-none text-slate-500 dark:text-slate-400">{meta.label}</span>
+                  <span className="leading-none text-slate-500 dark:text-(--app-text-muted)">{meta.label}</span>
                 </div>
               )
             })}
           </div>
 
           {scheduleLoading ? (
-            <div className="flex h-28 items-center justify-center rounded-2xl border border-dashed border-slate-300/80 text-sm text-slate-500 dark:border-slate-700/70 dark:text-slate-400">
+            <div className="flex h-28 items-center justify-center rounded-2xl border border-dashed border-slate-300/80 text-sm text-slate-500 dark:border-(--app-border-standard) dark:text-(--app-text-secondary)">
               Loading schedules...
             </div>
           ) : scheduleLoadError ? (
@@ -451,7 +451,7 @@ const ChatScheduleBoard: React.FC<ChatScheduleBoardProps> = ({
             </div>
           ) : visibleTasks.length === 0 ? (
             <div
-              className="flex min-h-10 items-center justify-center rounded-xl border border-dashed border-slate-300/80 text-sm font-medium text-slate-500 dark:border-slate-700/70 dark:text-slate-400"
+              className="flex min-h-10 items-center justify-center rounded-xl border border-dashed border-slate-300/80 text-sm font-medium text-slate-500 dark:border-(--app-border-standard) dark:text-(--app-text-secondary)"
               style={{ animation: '_csb_empty_in 300ms cubic-bezier(0.16, 1, 0.3, 1) both' }}
             >
               No Tasks
@@ -459,8 +459,8 @@ const ChatScheduleBoard: React.FC<ChatScheduleBoardProps> = ({
           ) : (
             <div className="relative">
               {/* No space-y-2 — spacing managed via wrapper paddingBottom */}
-              <div className="relative max-h-50 overflow-y-auto pr-1">
-              {visibleTasks.map((task) => {
+              <div className="relative max-h-50 overflow-y-auto pr-1 dark:px-1">
+              {visibleTasks.map((task, index) => {
                 const meta = TASK_STATUS_META[task.status] ?? TASK_STATUS_META.pending
                 const actionMeta = getTaskActionMeta(task.status)
                 const requiresConfirm = task.status === 'pending' || task.status === 'running'
@@ -472,22 +472,25 @@ const ChatScheduleBoard: React.FC<ChatScheduleBoardProps> = ({
                       {/* Card: owns visual transform/opacity */}
                       <div
                         ref={(node) => setItemRef(task.id, node)}
-                        className="group rounded-2xl border border-white/45 bg-white/48 px-0.5 py-0.5 dark:border-white/8 dark:bg-slate-900/42"
+                        className={cn(
+                          'group rounded-2xl border border-white/45 bg-white/48 px-0.5 py-0.5 dark:rounded-none dark:border-x-0 dark:border-b-0 dark:bg-transparent dark:px-1 dark:py-2',
+                          index === 0 ? 'dark:border-t-transparent' : 'dark:border-t-(--app-border-subtle)'
+                        )}
                         style={getCardStyle(task.id)}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0 space-y-1">
-                            <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
+                            <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-(--app-text-muted)">
                               <span className={cn('inline-flex items-center gap-1 font-medium', meta.tone)}>
                                 {meta.icon}
                                 {meta.label}
                               </span>
-                              <span className="text-slate-300 dark:text-slate-700">·</span>
+                              <span className="text-slate-300 dark:text-(--app-border-standard)">·</span>
                               <span>{formatRunAt(task.run_at)}</span>
                             </div>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <span className="inline-flex max-w-full truncate rounded-md border border-slate-200/70 px-1.5 py-0.5 text-[9px] font-medium text-slate-500 dark:border-slate-700/70 dark:text-slate-400">
+                                <span className="inline-flex max-w-full truncate rounded-md border border-slate-200/70 px-1.5 py-0.5 text-[9px] font-medium text-slate-500 dark:border-(--app-border-subtle) dark:text-(--app-text-muted)/80">
                                   {task.schedule_type === 'cron' ? 'Recurring' : 'One time'}
                                   {task.last_run_status ? ` · Last ${task.last_run_status}` : ''}
                                 </span>
@@ -498,7 +501,7 @@ const ChatScheduleBoard: React.FC<ChatScheduleBoardProps> = ({
                             </Tooltip>
                             {/** task.goal **/}
                             <GoalTooltip goal={task.goal}>
-                              <p className="line-clamp-2 wrap-break-word text-[10px] font-medium leading-3 text-slate-600 dark:text-slate-100">
+                              <p className="line-clamp-2 wrap-break-word text-[10px] font-medium leading-3 text-slate-600 dark:text-(--app-text-body)">
                                 {task.goal}
                               </p>
                             </GoalTooltip>
@@ -518,7 +521,7 @@ const ChatScheduleBoard: React.FC<ChatScheduleBoardProps> = ({
                               type="button"
                               onClick={() => setConfirmingTaskId(null)}
                               disabled={isPendingAction}
-                              className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 transition-all hover:bg-black/5 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 dark:text-slate-500 dark:hover:bg-white/6 dark:hover:text-slate-200 dark:focus-visible:ring-slate-700"
+                              className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 transition-all hover:bg-black/5 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 dark:text-(--app-text-muted) dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-primary) dark:focus-visible:ring-(--app-border-standard)"
                               aria-label="Keep task"
                               title="Keep task"
                               >
@@ -547,7 +550,7 @@ const ChatScheduleBoard: React.FC<ChatScheduleBoardProps> = ({
                               void handleTaskAction(task)
                             }}
                             disabled={isPendingAction}
-                            className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 opacity-0 transition-all hover:bg-black/5 hover:text-slate-700 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 disabled:pointer-events-none disabled:opacity-50 group-hover:opacity-100 dark:text-slate-500 dark:hover:bg-white/6 dark:hover:text-slate-200 dark:focus-visible:ring-slate-700"
+                            className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 opacity-0 transition-all hover:bg-black/5 hover:text-slate-700 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 disabled:pointer-events-none disabled:opacity-50 group-hover:opacity-100 dark:text-(--app-text-muted) dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-primary) dark:focus-visible:ring-(--app-border-standard)"
                             aria-label={actionMeta.label}
                             title={actionMeta.label}
                           >
@@ -562,7 +565,7 @@ const ChatScheduleBoard: React.FC<ChatScheduleBoardProps> = ({
               </div>
 
               {shouldShowScrollFade && (
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 rounded-b-xl bg-linear-to-b from-transparent via-white/55 to-white/92 dark:via-slate-950/55 dark:to-slate-950/92" />
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 rounded-b-xl bg-linear-to-b from-transparent via-white/55 to-white/92 dark:via-(--app-surface-raised)/70 dark:to-(--app-surface-raised)" />
               )}
             </div>
           )}

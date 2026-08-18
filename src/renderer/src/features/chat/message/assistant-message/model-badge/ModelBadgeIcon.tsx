@@ -1,6 +1,6 @@
 import React from 'react'
+import { ProviderIcon } from '@renderer/shared/components/ProviderIcon'
 import { cn } from '@renderer/shared/lib/utils'
-import { getProviderIcon } from '@renderer/shared/lib/providerIcons'
 
 interface ModelBadgeIconProps {
   provider?: string
@@ -60,8 +60,6 @@ export const ModelBadgeIcon: React.FC<ModelBadgeIconProps> = ({
   model,
   animate = false
 }) => {
-  const iconSrc = getProviderIcon(provider || inferProviderFromModel(model))
-
   return (
     <span
       className={cn(
@@ -69,10 +67,9 @@ export const ModelBadgeIcon: React.FC<ModelBadgeIconProps> = ({
         'bg-slate-100/92 dark:bg-white/4.5'
       )}
     >
-      <img
-        src={iconSrc}
+      <ProviderIcon
+        provider={provider || inferProviderFromModel(model)}
         alt=""
-        aria-hidden="true"
         className={cn(
           'h-3 w-3 object-contain',
           animate && 'animate-model-badge-dot'

@@ -8,7 +8,7 @@ import { ArtifactsToolsTab } from './ArtifactsToolsTab'
 import { openWorkspaceFolder } from './artifactUtils'
 import { useWorkspaceFiles } from './useWorkspaceFiles'
 
-const tabTriggerClassName = 'h-full min-w-12 rounded-none border-b-2 border-transparent bg-transparent px-1 py-0 text-[11px] font-medium text-zinc-500 shadow-none outline-hidden transition-[border-color,color] duration-200 hover:text-zinc-800 focus-visible:ring-2 focus-visible:ring-zinc-500/60 focus-visible:ring-inset focus-visible:ring-offset-0 data-[state=active]:border-zinc-900 data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-zinc-950 data-[state=active]:shadow-none dark:text-zinc-500 dark:hover:text-zinc-200 dark:focus-visible:ring-zinc-400/70 dark:data-[state=active]:border-zinc-100 dark:data-[state=active]:text-zinc-50'
+const tabTriggerClassName = 'h-6 min-w-14 rounded-md border border-transparent bg-transparent px-2 py-0 text-[11px] font-medium text-zinc-500 shadow-none outline-hidden transition-[background-color,border-color,color] duration-200 hover:bg-zinc-100/70 hover:text-zinc-800 focus-visible:ring-2 focus-visible:ring-zinc-500/60 focus-visible:ring-inset focus-visible:ring-offset-0 data-[state=active]:border-zinc-200 data-[state=active]:bg-zinc-100/70 data-[state=active]:font-semibold data-[state=active]:text-zinc-950 data-[state=active]:shadow-none dark:text-(--app-text-muted) dark:duration-150 dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-body) dark:focus-visible:ring-(--app-accent) dark:data-[state=active]:border-(--app-border-standard) dark:data-[state=active]:bg-(--app-surface-hover) dark:data-[state=active]:text-(--app-text-primary)'
 
 const WorkspaceTabs: React.FC<{
   activeTab: ArtifactsTab
@@ -41,14 +41,14 @@ const WorkspaceTabs: React.FC<{
       <TabsContent
         value="preview"
         forceMount
-        className="m-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden data-[state=active]:animate-in data-[state=active]:fade-in data-[state=active]:duration-300"
+        className="m-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden"
       >
         <ArtifactsPreviewTab files={files} />
       </TabsContent>
       <TabsContent
         value="files"
         forceMount
-        className="m-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden data-[state=active]:animate-in data-[state=active]:fade-in data-[state=active]:duration-300"
+        className="m-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden"
       >
         {files.workspaceTree.length > 0 && (
           <FilesTabToolbar
@@ -74,25 +74,27 @@ const WorkspaceTabs: React.FC<{
 export const ArtifactsPanel: React.FC = () => {
   const { artifactsActiveTab, setArtifactsActiveTab } = useChatStore()
   const [searchQuery, setSearchQuery] = useState('')
+  const isWorkspaceTabActive = artifactsActiveTab === 'preview' || artifactsActiveTab === 'files'
   const [hasMountedWorkspaceTabs, setHasMountedWorkspaceTabs] = useState(
-    artifactsActiveTab === 'preview' || artifactsActiveTab === 'files'
+    isWorkspaceTabActive
   )
+  const shouldMountWorkspaceTabs = hasMountedWorkspaceTabs || isWorkspaceTabActive
 
   useEffect(() => {
-    if (artifactsActiveTab === 'preview' || artifactsActiveTab === 'files') {
+    if (isWorkspaceTabActive) {
       setHasMountedWorkspaceTabs(true)
     }
-  }, [artifactsActiveTab])
+  }, [isWorkspaceTabActive])
 
   return (
-    <div className="h-full flex flex-col overflow-hidden rounded-lg border border-black/6 bg-zinc-50/95 shadow-xs backdrop-blur-xl dark:border-white/[0.08] dark:bg-zinc-950/95">
+    <div className="h-full flex flex-col overflow-hidden rounded-lg border border-black/6 bg-zinc-50/95 shadow-xs backdrop-blur-xl dark:rounded-[10px] dark:border-(--app-border-subtle) dark:bg-(--app-surface) dark:shadow-none dark:backdrop-blur-none">
       <Tabs
         value={artifactsActiveTab}
         className="flex-1 flex flex-col min-h-0"
         onValueChange={(value) => setArtifactsActiveTab(value as ArtifactsTab)}
       >
-        <div className="flex h-8 shrink-0 items-center gap-2 border-b border-black/[0.06] bg-white/80 px-2 dark:border-white/[0.08] dark:bg-zinc-950/80">
-          <TabsList className="h-full min-w-0 flex-1 justify-start gap-4 rounded-none border-0 bg-transparent p-0 text-zinc-500 dark:text-zinc-500">
+        <div className="flex h-8 shrink-0 items-center gap-2 border-b border-black/[0.06] bg-white/80 px-2 dark:border-(--app-border-subtle) dark:bg-(--app-surface-raised)">
+          <TabsList className="h-fit min-w-0 flex-1 self-center justify-start gap-1 rounded-none border-0 bg-transparent p-0 text-zinc-500 dark:text-(--app-text-muted)">
             <TabsTrigger
               value="stats"
               className={tabTriggerClassName}
@@ -102,7 +104,7 @@ export const ArtifactsPanel: React.FC = () => {
             <TabsTrigger value="tools" className={tabTriggerClassName}>
               Tools
             </TabsTrigger>
-            <span className="h-3 w-px bg-zinc-200 dark:bg-zinc-800" aria-hidden="true" />
+            <span className="mx-1 h-3 w-px bg-zinc-200 dark:bg-(--app-border-standard)" aria-hidden="true" />
             <TabsTrigger
               value="preview"
               className={tabTriggerClassName}
@@ -120,21 +122,21 @@ export const ArtifactsPanel: React.FC = () => {
 
         <TabsContent
           value="tools"
-          className="m-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden"
+          className="m-0 flex min-h-0 flex-1 flex-col overflow-hidden dark:bg-(--app-surface) data-[state=inactive]:hidden"
         >
           <ArtifactsToolsTab />
         </TabsContent>
 
         <TabsContent
           value="stats"
-          className="flex-1 min-h-0 m-0 flex flex-col overflow-hidden data-[state=inactive]:hidden data-[state=active]:animate-in data-[state=active]:fade-in data-[state=active]:duration-300"
+          className="flex-1 min-h-0 m-0 flex flex-col overflow-hidden dark:bg-(--app-surface) data-[state=inactive]:hidden"
         >
           <ChatStatsPanel variant="inline" />
         </TabsContent>
 
-        {hasMountedWorkspaceTabs && (
+        {shouldMountWorkspaceTabs && (
           <div className={artifactsActiveTab === 'preview' || artifactsActiveTab === 'files'
-            ? 'flex min-h-0 flex-1 flex-col'
+            ? 'flex min-h-0 flex-1 flex-col dark:bg-(--app-surface)'
             : 'hidden'}
           >
             <WorkspaceTabs

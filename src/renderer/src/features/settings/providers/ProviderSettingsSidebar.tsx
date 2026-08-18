@@ -16,10 +16,10 @@ import {
     SelectValue,
 } from '@renderer/shared/components/ui/select'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@renderer/shared/components/ui/tooltip'
+import { ProviderIcon } from '@renderer/shared/components/ProviderIcon'
 import { cn } from '@renderer/shared/lib/utils'
 import type { ProviderEntry } from '@renderer/infrastructure/config/appConfig'
 import { getRequestAdapterOptionsFromPlugins } from '@shared/plugins/requestAdapters'
-import { getProviderIcon } from '@renderer/shared/lib/providerIcons'
 import { ProviderIconPicker } from './ProviderIconPicker'
 import { groupProviderEntries } from './providerEntryList'
 import {
@@ -59,7 +59,7 @@ interface ProviderSettingsSidebarProps {
     }
 }
 
-const PROVIDER_TOOLTIP_CLASS_NAME = 'bg-gray-900/95 dark:bg-gray-800/95 backdrop-blur-xl border border-gray-700/50 dark:border-gray-600/50 text-gray-100 text-xs px-3 py-1.5 rounded-lg shadow-xl shadow-black/20'
+const PROVIDER_TOOLTIP_CLASS_NAME = 'bg-gray-900/95 dark:bg-(--app-surface-raised) backdrop-blur-xl dark:backdrop-blur-none border border-gray-700/50 dark:border-(--app-border-standard) text-gray-100 dark:text-(--app-text-primary) text-xs px-3 py-1.5 rounded-lg shadow-xl shadow-black/20'
 
 const ProviderSettingsSidebar: React.FC<ProviderSettingsSidebarProps> = ({
     plugins,
@@ -75,7 +75,6 @@ const ProviderSettingsSidebar: React.FC<ProviderSettingsSidebarProps> = ({
 
     const renderProviderEntry = ({ definition }: ProviderEntry) => {
         const iconKey = definition.iconKey || definition.id
-        const iconSrc = getProviderIcon(iconKey)
         const isActive = definition.id === selectedProviderId
         const isProviderEnabled = definition.enabled !== false
         const isHovered = hoverProviderId === definition.id
@@ -87,39 +86,35 @@ const ProviderSettingsSidebar: React.FC<ProviderSettingsSidebarProps> = ({
                     'flex items-center gap-2 px-3 py-2.5 rounded-lg cursor-pointer select-none relative group',
                     'transition-all duration-200 ease-out',
                     isActive
-                        ? 'bg-linear-to-r from-blue-50/80 via-blue-50/30 to-transparent dark:from-blue-900/20 dark:via-blue-900/10 dark:to-transparent after:content-["" ] after:absolute after:bottom-0.5 after:left-3 after:w-28 after:h-0.5 after:bg-linear-to-r after:from-blue-500 after:via-blue-400/60 after:to-transparent after:rounded-full hover:from-blue-50/90 hover:via-blue-50/40 dark:hover:from-blue-900/25 dark:hover:via-blue-900/15'
-                        : 'hover:bg-gray-100 dark:hover:bg-gray-700/80'
+                        ? 'bg-linear-to-r from-blue-50/80 via-blue-50/30 to-transparent dark:from-blue-900/16 dark:via-blue-900/7 dark:to-transparent after:content-["" ] after:absolute after:bottom-0.5 after:left-3 after:w-28 after:h-px after:bg-linear-to-r after:from-blue-500/75 after:via-blue-400/35 after:to-transparent after:rounded-full hover:from-blue-50/90 hover:via-blue-50/40 dark:hover:from-blue-900/20 dark:hover:via-blue-900/9'
+                        : 'hover:bg-gray-100 dark:hover:bg-(--app-surface-hover)'
                 )}
                 onMouseEnter={() => setHoverProviderId(definition.id)}
                 onMouseLeave={() => setHoverProviderId(undefined)}
                 onClick={() => onSelectProvider(definition)}
             >
-                {iconSrc && (
-                    <img
-                        id="providerIcon"
-                        draggable={false}
-                        src={iconSrc}
-                        alt={definition.displayName}
-                        className={cn(
-                            'w-5 h-5 flex-none dark:invert dark:brightness-90 transition-all duration-200 ease-out',
-                            isProviderEnabled ? 'opacity-90' : 'opacity-35 grayscale',
-                            isHovered && 'scale-110',
-                            isActive && 'scale-125'
-                        )}
-                    />
-                )}
+                <ProviderIcon
+                    provider={iconKey}
+                    alt={definition.displayName}
+                    disabled={!isProviderEnabled}
+                    className={cn(
+                        'w-5 h-5 flex-none transition-all duration-200 ease-out',
+                        isHovered && 'scale-110',
+                        isActive && 'scale-125'
+                    )}
+                />
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <div className="flex-1 min-w-0">
                             <p className={cn(
                                 'truncate font-medium text-sm transition-colors duration-200 ease-out',
                                 isProviderEnabled
-                                    ? 'text-gray-700 dark:text-gray-300'
-                                    : 'text-gray-400 dark:text-gray-500',
+                                    ? 'text-gray-700 dark:text-(--app-text-body)'
+                                    : 'text-gray-400 dark:text-(--app-text-muted)',
                                 isHovered && (
                                     isProviderEnabled
-                                        ? 'text-gray-900 dark:text-gray-100'
-                                        : 'text-gray-500 dark:text-gray-400'
+                                        ? 'text-gray-900 dark:text-(--app-text-primary)'
+                                        : 'text-gray-500 dark:text-(--app-text-secondary)'
                                 )
                             )}>
                                 {definition.displayName}
@@ -171,7 +166,7 @@ const ProviderSettingsSidebar: React.FC<ProviderSettingsSidebarProps> = ({
                         <i className='ri-add-circle-line text-[15px] transition-transform duration-150 group-hover:scale-105'></i>
                         <span>Add Provider</span>
                     </DrawerTrigger>
-                    <DrawerContent className="border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                    <DrawerContent className="border-gray-200 dark:border-(--app-border-standard) bg-white dark:bg-(--app-surface-raised) dark:text-(--app-text-body)">
                         <DrawerHeaderBar
                             icon={<PlugZap className="h-4 w-4" />}
                             title="Add provider"
@@ -196,7 +191,7 @@ const ProviderSettingsSidebar: React.FC<ProviderSettingsSidebarProps> = ({
                                         <SelectTrigger id="adapterPluginId" className={providerConfigSelectTriggerClassName}>
                                             <SelectValue placeholder="Select adapter" />
                                         </SelectTrigger>
-                                        <SelectContent className="bg-white/95 dark:bg-gray-900/95 rounded-lg shadow-xs backdrop-blur font-medium">
+                                        <SelectContent className="bg-white/95 dark:bg-(--app-surface-raised) rounded-lg shadow-xs backdrop-blur dark:backdrop-blur-none font-medium">
                                             <SelectGroup>
                                                 {adapterOptions.map(option => (
                                                     <SelectItem
@@ -280,7 +275,7 @@ const ProviderSettingsSidebar: React.FC<ProviderSettingsSidebarProps> = ({
                     </DrawerContent>
                 </Drawer>
             </div>
-            <div className={cn('flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-2 space-y-1 border-t border-gray-100 dark:border-gray-700/50', settingsScrollbarClassName)}>
+            <div className={cn('flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-2 space-y-1 border-t border-gray-100 dark:border-(--app-border-subtle)', settingsScrollbarClassName)}>
                 <TooltipProvider delayDuration={400}>
                     {providerGroups.enabled.length > 0 && (
                         <div className="space-y-1">

@@ -30,6 +30,15 @@ export interface MessageOperationButtonsProps {
 }
 
 const operationMetaTextClassName = "min-w-0 truncate text-[11px] font-medium leading-none text-gray-400 tabular-nums dark:text-gray-500"
+const operationTooltipSurfaceClassName = cn(
+  'border border-transparent bg-gray-900 text-white shadow-lg',
+  'dark:border-(--app-border-standard) dark:bg-(--app-surface-raised) dark:text-(--app-text-primary)',
+  'dark:shadow-[0_12px_28px_-16px_rgba(0,0,0,0.72)]'
+)
+const operationTooltipArrowClassName = cn(
+  'absolute top-full left-1/2 -mt-1 -translate-x-1/2 border-4 border-transparent border-t-gray-900',
+  'dark:border-t-(--app-surface-raised)'
+)
 const operationButtonMotionClassName = cn(
   'transition-all duration-300 ease-out hover:scale-110 active:scale-95',
   'motion-reduce:scale-none! motion-reduce:transition-colors',
@@ -114,19 +123,19 @@ const OperationButton: React.FC<OperationButtonProps> = ({
 
       {!isCompact && (
         <div
+          role="tooltip"
           className={cn(
             'absolute bottom-full left-1/2 -translate-x-1/2 mb-2',
             'px-2 py-1 rounded text-xs font-medium whitespace-nowrap',
-            'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900',
+            operationTooltipSurfaceClassName,
             'transition-all duration-200 pointer-events-none',
-            'shadow-lg',
             showTooltip
               ? 'opacity-100 translate-y-0'
               : 'opacity-0 translate-y-1'
           )}
         >
           {label}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900 dark:border-t-gray-100" />
+          <div className={operationTooltipArrowClassName} />
         </div>
       )}
     </div>
@@ -175,10 +184,11 @@ const TokenUsageInfo: React.FC<{
 
       {showTooltip && (
         <div
+          role="tooltip"
           className={cn(
             "absolute bottom-full left-1/2 -translate-x-1/2 mb-2",
-            "rounded-md bg-gray-900 px-2.5 py-2 text-left text-[11px] font-medium leading-4 text-white",
-            "shadow-lg dark:bg-gray-100 dark:text-gray-900",
+            "rounded-md px-2.5 py-2 text-left text-[11px] font-medium leading-4",
+            operationTooltipSurfaceClassName,
             "transition-all duration-200 pointer-events-none whitespace-nowrap z-10",
             "opacity-100 translate-y-0"
           )}
@@ -186,7 +196,7 @@ const TokenUsageInfo: React.FC<{
           {display.tooltipItems.map((item) => (
             <div key={item}>{item}</div>
           ))}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900 dark:border-t-gray-100" />
+          <div className={operationTooltipArrowClassName} />
         </div>
       )}
     </div>

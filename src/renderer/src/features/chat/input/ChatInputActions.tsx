@@ -276,7 +276,9 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
                         'shadow-xs shadow-blue-500/10 dark:shadow-blue-500/20',
                         'hover:shadow-sm hover:shadow-blue-500/25 dark:hover:shadow-blue-500/35',
                         'hover:text-blue-500',
-                        'active:scale-[0.98] active:brightness-95'
+                        'active:scale-[0.98] active:brightness-95',
+                        'dark:border-(--app-border-standard) dark:bg-(--app-surface-hover) dark:bg-none dark:text-(--app-accent-strong) dark:shadow-none',
+                        'dark:hover:border-(--app-accent) dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-primary) dark:hover:shadow-none'
                       ]
                     : [
                         'bg-slate-50/50 dark:bg-slate-800/50',
@@ -286,7 +288,9 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
                         'hover:text-slate-700 dark:hover:text-slate-300',
                         'hover:border-slate-300 dark:hover:border-slate-600',
                         'hover:shadow-xs',
-                        'active:scale-[0.98]'
+                        'active:scale-[0.98]',
+                        'dark:border-(--app-border-subtle) dark:bg-(--app-surface) dark:text-(--app-text-secondary)',
+                        'dark:hover:border-(--app-border-standard) dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-primary) dark:hover:shadow-none'
                       ]
                 )}
                 onClick={_ => {handleWorkspaceSelect()}}
@@ -300,7 +304,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
                 </span>
               </Button>
             </TooltipTrigger>
-            <TooltipContent className="rounded-lg border border-slate-700/50 bg-slate-900/95 px-3 py-1.5 text-xs text-slate-100 shadow-xl shadow-black/20 backdrop-blur-xl dark:border-slate-600/50 dark:bg-slate-800/95">
+            <TooltipContent className="rounded-lg border border-slate-700/50 bg-slate-900/95 px-3 py-1.5 text-xs text-slate-100 shadow-xl shadow-black/20 backdrop-blur-xl dark:border-(--app-border-standard) dark:bg-(--app-surface-raised) dark:text-(--app-text-primary) dark:backdrop-blur-none">
               <p className="font-medium">
                 {isCustomWorkspace ? currentWorkspacePath : 'Select Workspace'}
               </p>
@@ -318,7 +322,8 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
               'border border-slate-600/50 bg-linear-to-br from-slate-700 to-slate-800 shadow-lg shadow-slate-500/20',
               'transition-all duration-300 ease-out',
               'hover:scale-105 hover:shadow-xl hover:shadow-slate-500/30 active:scale-95',
-              'dark:border-slate-500/50 dark:from-slate-600 dark:to-slate-700 dark:shadow-slate-600/25 dark:hover:shadow-slate-600/40',
+              'dark:border-(--app-border-standard) dark:bg-(--app-accent) dark:bg-none dark:text-(--app-canvas) dark:shadow-none',
+              'dark:hover:border-(--app-accent-strong) dark:hover:bg-(--app-accent-strong) dark:hover:shadow-none',
               'disabled:pointer-events-none disabled:opacity-[0.24]'
             )}
           >

@@ -1,6 +1,7 @@
 import { Input } from '@renderer/shared/components/ui/input'
 import { Label } from '@renderer/shared/components/ui/label'
 import { Switch } from '@renderer/shared/components/ui/switch'
+import { ProviderIcon } from '@renderer/shared/components/ProviderIcon'
 import {
   Select,
     SelectContent,
@@ -9,7 +10,6 @@ import {
     SelectValue
 } from '@renderer/shared/components/ui/select'
 import { cn } from '@renderer/shared/lib/utils'
-import { getProviderIcon } from '@renderer/shared/lib/providerIcons'
 import { getRequestAdapterOptionsFromPlugins } from '@shared/plugins/requestAdapters'
 import { listRequestPayloadExtensionsByFeature } from '@shared/plugins/requestPayloadExtensions'
 import type { ProviderTestConnectionResponse } from '@shared/providers/testConnection'
@@ -87,7 +87,6 @@ const ProviderConfigurations = ({
     const selectedThinkingPayloadExtensionId = providerDefinition?.payloadExtensions?.thinking ?? NO_THINKING_PAYLOAD_EXTENSION
     const selectedThinkingPayloadExtension = thinkingPayloadExtensions.find(extension => extension.id === selectedThinkingPayloadExtensionId)
     const providerEnabled = providerDefinition?.enabled !== false
-    const providerIconSrc = getProviderIcon(providerDefinition?.iconKey || providerDefinition?.id)
     const canTestProvider = Boolean(
         providerDefinition
         && account
@@ -115,10 +114,10 @@ const ProviderConfigurations = ({
     }
 
     return (
-        <div className='px-3 py-2 border-b border-gray-200/70 dark:border-gray-700/60 space-y-1.5'>
+        <div className='px-3 py-2 border-b border-gray-200/70 dark:border-(--app-border-subtle) space-y-1.5'>
             {/* Header */}
             <div className='flex items-center justify-between gap-3'>
-                <h3 className='text-[13.5px] font-semibold tracking-tight text-gray-900 dark:text-gray-100'>
+                <h3 className='text-[13.5px] font-semibold tracking-tight text-gray-900 dark:text-(--app-text-primary)'>
                     {providerDefinition?.displayName || 'Provider'}
                 </h3>
                 <div className='flex items-center gap-2'>
@@ -144,8 +143,8 @@ const ProviderConfigurations = ({
                         <i className="ri-refresh-line text-[11px]"></i>
                         Reset
                     </button>
-                    <div className='h-5 w-px bg-gray-200 dark:bg-gray-700' />
-                    <div className='flex items-center gap-1.5 text-[11px] font-medium text-gray-500 dark:text-gray-400 select-none'>
+                    <div className='h-5 w-px bg-gray-200 dark:bg-(--app-border-standard)' />
+                    <div className='flex items-center gap-1.5 text-[11px] font-medium text-gray-500 dark:text-(--app-text-secondary) select-none'>
                         <span>{providerEnabled ? 'Enabled' : 'Disabled'}</span>
                         <Switch
                             aria-label="Toggle provider availability"
@@ -207,7 +206,7 @@ const ProviderConfigurations = ({
                         >
                             <SelectValue placeholder="Select adapter" />
                         </SelectTrigger>
-                        <SelectContent className='bg-white/95 dark:bg-gray-900/95 rounded-lg shadow-xs backdrop-blur font-medium'>
+                        <SelectContent className='bg-white/95 dark:bg-(--app-surface-raised) rounded-lg shadow-xs backdrop-blur dark:backdrop-blur-none font-medium'>
                             {adapterOptions.map(option => (
                                 <SelectItem
                                     key={option.pluginId}
@@ -253,7 +252,7 @@ const ProviderConfigurations = ({
                         >
                             <SelectValue placeholder="Select thinking payload" />
                         </SelectTrigger>
-                        <SelectContent className='bg-white/95 dark:bg-gray-900/95 rounded-lg shadow-xs backdrop-blur font-medium'>
+                        <SelectContent className='bg-white/95 dark:bg-(--app-surface-raised) rounded-lg shadow-xs backdrop-blur dark:backdrop-blur-none font-medium'>
                             <SelectItem
                                 value={NO_THINKING_PAYLOAD_EXTENSION}
                                 className='text-[11px] tracking-tight'
@@ -282,9 +281,9 @@ const ProviderConfigurations = ({
                 </div>
 
                 <div className='md:col-span-2 space-y-1'>
-                    <Label htmlFor="provider-api-url" className='flex items-baseline gap-1.5 text-[10.5px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500'>
+                    <Label htmlFor="provider-api-url" className='flex items-baseline gap-1.5 text-[10.5px] font-medium uppercase tracking-wider text-gray-400 dark:text-(--app-text-muted)'>
                         API Base URL
-                        <span className='text-[10px] normal-case tracking-tight text-gray-400/70 dark:text-gray-500 select-none'>
+                        <span className='text-[10px] normal-case tracking-tight text-gray-400/70 dark:text-(--app-text-muted) select-none'>
                             Adapter adds the endpoint path.
                         </span>
                     </Label>
@@ -345,7 +344,7 @@ const ProviderConfigurations = ({
             {/* Header actions — flat row */}
             <div className='flex flex-wrap items-center justify-start gap-x-3 gap-y-2 pt-0.5'>
                 <div className='flex items-center justify-start space-x-2'>
-                    <span className='text-[10.5px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider'>
+                    <span className='text-[10.5px] font-medium text-gray-400 dark:text-(--app-text-muted) uppercase tracking-wider'>
                         Request Payload
                     </span>
                     <ProviderAdvanceConfigDrawer
@@ -374,7 +373,7 @@ const ProviderConfigurations = ({
                     />
                 </div>
                 <div className='flex items-center justify-start space-x-2'>
-                    <span className='text-[10.5px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider'>
+                    <span className='text-[10.5px] font-medium text-gray-400 dark:text-(--app-text-muted) uppercase tracking-wider'>
                         Icon
                     </span>
                     <ProviderIconConfigDrawer
@@ -396,11 +395,10 @@ const ProviderConfigurations = ({
                                     'h-6 px-2 shrink-0'
                                 )}
                             >
-                                <img
-                                    src={providerIconSrc}
+                                <ProviderIcon
+                                    provider={providerDefinition?.iconKey || providerDefinition?.id}
                                     alt=""
-                                    className="h-3 w-3 select-none dark:invert dark:brightness-90"
-                                    draggable={false}
+                                    className="h-3 w-3 select-none"
                                 />
                                 Configure
                             </button>

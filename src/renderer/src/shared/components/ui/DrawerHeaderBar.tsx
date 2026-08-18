@@ -50,7 +50,7 @@ const DrawerHeaderBar: React.FC<DrawerHeaderBarProps> = ({
       {eyebrow && <div className="mb-2">{eyebrow}</div>}
       <DrawerTitle
         className={cn(
-          'font-semibold tracking-tight text-gray-900 dark:text-gray-100',
+          'font-semibold tracking-tight text-gray-900 dark:text-(--app-text-primary)',
           isLarge ? 'text-[22px]' : 'text-[15px]'
         )}
       >
@@ -61,7 +61,7 @@ const DrawerHeaderBar: React.FC<DrawerHeaderBarProps> = ({
           {description ? (
             <DrawerDescription
               className={cn(
-                'min-w-0 text-gray-500 dark:text-gray-400',
+                'min-w-0 text-gray-500 dark:text-(--app-text-secondary)',
                 isLarge ? 'text-sm leading-relaxed' : 'truncate text-[12px] leading-4'
               )}
             >
@@ -73,7 +73,7 @@ const DrawerHeaderBar: React.FC<DrawerHeaderBarProps> = ({
               className={cn(
                 'inline-flex h-5 max-w-full min-w-0 items-center rounded-md border px-2',
                 'border-gray-200/80 bg-gray-100/80 text-[10.5px] font-medium text-gray-600 shadow-inner',
-                'dark:border-gray-800 dark:bg-gray-950/45 dark:text-gray-400'
+                'dark:border-(--app-border-standard) dark:bg-(--app-surface-inset) dark:text-(--app-text-secondary)'
               )}
             >
               <span className="sr-only">Context: </span>
@@ -89,7 +89,7 @@ const DrawerHeaderBar: React.FC<DrawerHeaderBarProps> = ({
   return (
     <DrawerHeader
       className={cn(
-        'space-y-0 border-b border-gray-200/70 text-left dark:border-gray-800/80',
+        'space-y-0 border-b border-gray-200/70 text-left dark:border-(--app-border-subtle)',
         isLarge ? 'px-4 pt-4 pb-3.5 md:px-6' : 'px-5 pt-4 pb-3.5',
         className
       )}
@@ -102,7 +102,7 @@ const DrawerHeaderBar: React.FC<DrawerHeaderBarProps> = ({
                 className={cn(
                   'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border shadow-inner',
                   'border-gray-200/80 bg-gray-50 text-gray-600',
-                  'dark:border-gray-800 dark:bg-gray-950/45 dark:text-gray-300'
+                  'dark:border-(--app-border-standard) dark:bg-(--app-surface-inset) dark:text-(--app-text-body)'
                 )}
                 aria-hidden="true"
               >

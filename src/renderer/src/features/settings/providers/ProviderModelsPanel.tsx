@@ -51,8 +51,8 @@ type ProviderModelsPanelProps = {
 // fr units: allocated after container width is known → never overflows
 const GRID_COLS = '50fr 14fr 16fr 20fr'
 const ADD_ROW_GRID_COLS = '30fr 34fr 20fr 16fr'
-const MODEL_TOOLTIP_CLASS_NAME = 'bg-gray-900/95 dark:bg-gray-800/95 backdrop-blur-xl border border-gray-700/50 dark:border-gray-600/50 text-gray-100 text-xs px-3 py-1.5 rounded-lg shadow-xl shadow-black/20'
-const MODEL_ADD_FIELD_CLASSNAME = 'h-8 rounded-lg border border-transparent bg-gray-100/80 px-2.5 text-[12.5px] text-gray-800 shadow-inner ring-1 ring-inset ring-gray-200/70 transition-[background-color,border-color,box-shadow] duration-150 placeholder:text-[11px] placeholder:tracking-tight placeholder:text-gray-400 focus:border-gray-300 focus:bg-white focus:ring-1 focus:ring-gray-400/70 focus:ring-offset-0 focus-visible:border-gray-300 focus-visible:bg-white focus-visible:ring-1 focus-visible:ring-gray-400/70 focus-visible:ring-offset-0 dark:bg-gray-950/45 dark:text-gray-100 dark:ring-gray-700 dark:placeholder:text-gray-500 dark:focus:border-gray-600 dark:focus:bg-gray-950/70 dark:focus:ring-gray-500/70 dark:focus-visible:border-gray-600 dark:focus-visible:bg-gray-950/70 dark:focus-visible:ring-gray-500/70'
+const MODEL_TOOLTIP_CLASS_NAME = 'bg-gray-900/95 dark:bg-(--app-surface-raised) backdrop-blur-xl dark:backdrop-blur-none border border-gray-700/50 dark:border-(--app-border-standard) text-gray-100 dark:text-(--app-text-primary) text-xs px-3 py-1.5 rounded-lg shadow-xl shadow-black/20'
+const MODEL_ADD_FIELD_CLASSNAME = 'h-8 rounded-lg border border-transparent bg-gray-100/80 px-2.5 text-[12.5px] text-gray-800 shadow-inner ring-1 ring-inset ring-gray-200/70 transition-[background-color,border-color,box-shadow] duration-150 placeholder:text-[11px] placeholder:tracking-tight placeholder:text-gray-400 focus:border-gray-300 focus:bg-white focus:ring-1 focus:ring-gray-400/70 focus:ring-offset-0 focus-visible:border-gray-300 focus-visible:bg-white focus-visible:ring-1 focus-visible:ring-gray-400/70 focus-visible:ring-offset-0 dark:bg-(--app-surface-inset) dark:text-(--app-text-body) dark:ring-(--app-border-standard) dark:placeholder:text-(--app-text-muted) dark:focus:border-(--app-accent) dark:focus:bg-(--app-surface-inset) dark:focus:ring-(--app-accent) dark:focus-visible:border-(--app-accent) dark:focus-visible:bg-(--app-surface-inset) dark:focus-visible:ring-(--app-accent)'
 const MODEL_TYPE_SELECT_TRIGGER_CLASSNAME = cn(
   'w-full rounded-lg border border-gray-200/85 bg-white/90 text-[12.5px] text-gray-800 shadow-xs',
   'transition-[background-color,border-color,box-shadow,color] duration-150',
@@ -62,11 +62,11 @@ const MODEL_TYPE_SELECT_TRIGGER_CLASSNAME = cn(
   'data-[state=open]:border-gray-400/80 data-[state=open]:bg-white data-[state=open]:shadow-sm',
   'disabled:cursor-not-allowed disabled:opacity-50',
   '[&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:text-gray-400 [&>svg]:opacity-80',
-  'dark:border-gray-800/90 dark:bg-gray-900/70 dark:text-gray-100 dark:shadow-none',
-  'dark:hover:border-gray-700/90 dark:hover:bg-gray-900/90',
-  'dark:focus:border-gray-700 dark:focus:ring-gray-600/80 dark:focus-visible:border-gray-700 dark:focus-visible:ring-gray-600/80',
-  'dark:data-[state=open]:border-gray-600/90 dark:data-[state=open]:bg-gray-900',
-  'dark:[&>svg]:text-gray-500'
+  'dark:border-(--app-border-standard) dark:bg-(--app-surface-raised) dark:text-(--app-text-body) dark:shadow-none',
+  'dark:hover:border-(--app-accent) dark:hover:bg-(--app-surface-hover)',
+  'dark:focus:border-(--app-accent) dark:focus:ring-(--app-accent) dark:focus-visible:border-(--app-accent) dark:focus-visible:ring-(--app-accent)',
+  'dark:data-[state=open]:border-(--app-accent) dark:data-[state=open]:bg-(--app-surface-hover)',
+  'dark:[&>svg]:text-(--app-text-muted)'
 )
 
 const MODALITY_OPTIONS = [
@@ -108,7 +108,7 @@ const getModalityTagClassName = (modality: string): string => {
       return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
     case 'text':
     default:
-      return 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
+      return 'bg-gray-100 text-gray-600 dark:bg-(--app-surface-inset) dark:text-(--app-text-secondary)'
   }
 }
 
@@ -310,7 +310,7 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
           setEditingContextWindowTokens('')
         }}
       >
-        <DrawerContent className="max-h-[72vh] border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
+        <DrawerContent className="max-h-[72vh] border-gray-200 dark:border-(--app-border-standard) bg-white dark:bg-(--app-surface-raised) dark:text-(--app-text-body) overflow-hidden">
           <DrawerHeaderBar
             title="Edit Model"
             description={editingModel ? `${editingModel.label} · ${editingModel.id}` : undefined}
@@ -318,7 +318,7 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
 
           <div className="px-5 py-4 space-y-3">
             <div className="space-y-1.5">
-              <Label className="text-[12px] font-medium text-gray-700 dark:text-gray-300">
+              <Label className="text-[12px] font-medium text-gray-700 dark:text-(--app-text-body)">
                 Model Type
               </Label>
               <Select
@@ -334,7 +334,7 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
                 <SelectTrigger className={cn(MODEL_TYPE_SELECT_TRIGGER_CLASSNAME, 'h-9')}>
                   <SelectValue placeholder="Select model type" />
                 </SelectTrigger>
-                <SelectContent className="bg-white/95 dark:bg-gray-900/95 rounded-lg shadow-lg backdrop-blur font-medium">
+                <SelectContent className="bg-white/95 dark:bg-(--app-surface-raised) rounded-lg shadow-lg backdrop-blur dark:backdrop-blur-none font-medium">
                   <SelectGroup>
                     <SelectItem value="llm" className='text-[11px] tracking-tight'>LLM</SelectItem>
                     <SelectItem value="vlm" className='text-[11px] tracking-tight'>VLM</SelectItem>
@@ -345,7 +345,7 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[12px] font-medium text-gray-700 dark:text-gray-300">
+              <Label className="text-[12px] font-medium text-gray-700 dark:text-(--app-text-body)">
                 Context Window Tokens
               </Label>
               <Input
@@ -354,11 +354,11 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
                 value={editingContextWindowTokens}
                 onChange={(event) => setEditingContextWindowTokens(event.target.value)}
                 placeholder="128000"
-                className={cn(settingsInputClassName, 'h-9 text-[12.5px] bg-white dark:bg-gray-900 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none')}
+                className={cn(settingsInputClassName, 'h-9 text-[12.5px] bg-white dark:bg-(--app-surface-inset) [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none')}
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[12px] font-medium text-gray-700 dark:text-gray-300">
+              <Label className="text-[12px] font-medium text-gray-700 dark:text-(--app-text-body)">
                 Modalities
               </Label>
               <div className="grid grid-cols-2 gap-2">
@@ -368,8 +368,8 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
                   className={cn(
                     'flex items-center gap-2 rounded-lg border px-3 py-2 cursor-pointer transition-colors',
                     editingModalities.includes(option.value)
-                      ? 'border-gray-400 dark:border-gray-500 bg-gray-50 dark:bg-gray-800/80'
-                      : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                      ? 'border-gray-400 dark:border-(--app-accent) bg-gray-50 dark:bg-(--app-surface-hover)'
+                      : 'border-gray-200 dark:border-(--app-border-standard) hover:border-gray-300 dark:hover:border-(--app-accent)'
                   )}
                 >
                   <Checkbox
@@ -377,7 +377,7 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
                     onCheckedChange={(checked) => toggleEditingModality(option.value, checked === true)}
                   />
                   <div className="min-w-0">
-                    <Label className="text-[12.5px] font-medium text-gray-800 dark:text-gray-200 cursor-pointer">
+                    <Label className="text-[12.5px] font-medium text-gray-800 dark:text-(--app-text-body) cursor-pointer">
                       {option.label}
                     </Label>
                   </div>
@@ -385,12 +385,12 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
               ))}
               </div>
             </div>
-            <p className="text-[11px] text-gray-500 dark:text-gray-400">
+            <p className="text-[11px] text-gray-500 dark:text-(--app-text-secondary)">
               Use modalities to describe what this model can handle, such as text, image, audio, or video.
             </p>
           </div>
 
-          <DrawerFooter className="px-5 py-4 border-t border-gray-200/80 dark:border-gray-800 bg-gray-50/60 dark:bg-gray-900/60 flex-row gap-2">
+          <DrawerFooter className="px-5 py-4 border-t border-gray-200/80 dark:border-(--app-border-subtle) bg-gray-50/60 dark:bg-(--app-surface-inset) flex-row gap-2">
             <button
               type="button"
               onClick={() => {
@@ -414,8 +414,8 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
       </Drawer>
 
       {/* ── Toolbar ─────────────────────────────────────────── */}
-      <div className='flex items-center gap-3 px-2 py-2 border-b border-gray-200/70 dark:border-gray-700/60 bg-gray-50/40 dark:bg-gray-900/20 shrink-0'>
-        <h3 className='text-xs font-semibold tracking-tight text-gray-900 dark:text-gray-100 shrink-0'>Models</h3>
+      <div className='flex items-center gap-3 px-2 py-2 border-b border-gray-200/70 dark:border-(--app-border-subtle) bg-gray-50/40 dark:bg-(--app-surface-inset) shrink-0'>
+        <h3 className='text-xs font-semibold tracking-tight text-gray-900 dark:text-(--app-text-primary) shrink-0'>Models</h3>
         <div className="flex items-center gap-2 ml-auto flex-row">
           <ExpandableSearchInput
             value={modelSearchQuery}
@@ -427,7 +427,7 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
             size="xs"
             onClick={onOpenFetchModels}
             disabled={isFetchDisabled}
-            className='space-x-0.5 text-[11px] tracking-tight text-gray-500 dark:text-gray-400'
+            className='space-x-0.5 text-[11px] tracking-tight text-gray-500 dark:text-(--app-text-secondary)'
           >
             <i className="ri-download-cloud-line"></i>
             <span>Fetch Models</span>
@@ -437,7 +437,7 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
 
       {/* ── Add row ──────────────────────────────────────────── */}
       <div
-        className='grid shrink-0 border-b border-gray-200/80 bg-gray-50/75 dark:border-gray-700/70 dark:bg-gray-900/35 py-2 px-2 space-x-2'
+        className='grid shrink-0 border-b border-gray-200/80 bg-gray-50/75 dark:border-(--app-border-subtle) dark:bg-(--app-surface-inset) py-2 px-2 space-x-2'
         style={{ gridTemplateColumns: ADD_ROW_GRID_COLS }}
       >
         <div className=''>
@@ -465,7 +465,7 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
             >
               <SelectValue placeholder="Type" />
             </SelectTrigger>
-            <SelectContent className="bg-white/95 dark:bg-gray-900/95 rounded-lg shadow-xs backdrop-blur font-medium">
+            <SelectContent className="bg-white/95 dark:bg-(--app-surface-raised) rounded-lg shadow-xs backdrop-blur dark:backdrop-blur-none font-medium">
               <SelectGroup>
                 <SelectItem value="llm" className='text-[11px] tracking-tight'>LLM</SelectItem>
                 <SelectItem value="vlm" className='text-[11px] tracking-tight'>VLM</SelectItem>
@@ -498,8 +498,8 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
               <div
                 key={idx}
                 className={cn(
-                  'grid border-b border-gray-100 dark:border-gray-700/60',
-                  'hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors duration-150',
+                  'grid border-b border-gray-100 dark:border-(--app-border-subtle)',
+                  'hover:bg-gray-50 dark:hover:bg-(--app-surface-hover) transition-colors duration-150',
                   'animate-in fade-in slide-in-from-bottom-1'
                 )}
                 style={{
@@ -513,7 +513,7 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <p
-                          className='truncate text-[12.5px] font-medium text-gray-700 dark:text-gray-300 cursor-pointer hover:text-gray-900 dark:hover:text-gray-100 transition-colors duration-150'
+                          className='truncate text-[12.5px] font-medium text-gray-700 dark:text-(--app-text-body) cursor-pointer hover:text-gray-900 dark:hover:text-(--app-text-primary) transition-colors duration-150'
                           onClick={_ => onModelTableCellClick(m.label)}
                         >
                           {m.label}
@@ -526,7 +526,7 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <p
-                          className='truncate text-[11px] text-gray-500 dark:text-gray-400 font-mono cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 transition-colors duration-150'
+                          className='truncate text-[11px] text-gray-500 dark:text-(--app-text-secondary) font-mono cursor-pointer hover:text-gray-700 dark:hover:text-(--app-text-primary) transition-colors duration-150'
                           onClick={_ => onModelTableCellClick(m.id)}
                         >
                           {m.id}
@@ -550,20 +550,20 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
                           </span>
                         ))
                       ) : (
-                        <span className='text-[10px] text-gray-400 dark:text-gray-500'>
+                        <span className='text-[10px] text-gray-400 dark:text-(--app-text-muted)'>
                           No modalities
                         </span>
                       )}
                     </div>
                     {m.contextWindowTokens ? (
-                      <p className='text-[10px] text-gray-400 dark:text-gray-500 font-mono'>
+                      <p className='text-[10px] text-gray-400 dark:text-(--app-text-muted) font-mono'>
                         ctx {m.contextWindowTokens.toLocaleString()} tokens
                       </p>
                     ) : null}
                   </div>
                 </div>
                 <div className='px-4 py-2.5 flex items-center justify-center'>
-                  <Badge variant="secondary" className='text-[9.5px] font-medium uppercase px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border-0'>
+                  <Badge variant="secondary" className='text-[9.5px] font-medium uppercase px-1.5 py-0.5 bg-gray-100 dark:bg-(--app-surface-inset) text-gray-500 dark:text-(--app-text-secondary) border-0'>
                     {m.type}
                   </Badge>
                 </div>
@@ -580,8 +580,8 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
                       'transition-colors duration-200 ease-in-out',
                       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-1',
                       m.enabled !== false
-                        ? 'bg-gray-800 dark:bg-gray-200'
-                        : 'bg-gray-200 dark:bg-gray-700'
+                        ? 'bg-gray-800 dark:bg-(--app-accent-strong)'
+                        : 'bg-gray-200 dark:bg-(--app-surface-inset)'
                     )}
                   >
                     <span
@@ -590,8 +590,8 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
                         'transition-transform duration-200 ease-in-out',
                         'mt-[2px]',
                         m.enabled !== false
-                          ? 'translate-x-[14px] bg-white dark:bg-gray-900'
-                          : 'translate-x-[2px] bg-white dark:bg-gray-400'
+                          ? 'translate-x-[14px] bg-white dark:bg-(--app-canvas)'
+                          : 'translate-x-[2px] bg-white dark:bg-(--app-text-muted)'
                       )}
                     />
                   </button>
@@ -606,7 +606,7 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
                       <i className="ri-edit-line text-[11px]" />
                       Edit
                     </button>
-                    <div className='w-8 border-t border-gray-200 dark:border-gray-700' />
+                    <div className='w-8 border-t border-gray-200 dark:border-(--app-border-subtle)' />
                     <InlineDeleteConfirm
                       onConfirm={() => {
                         if (!currentAccount) return
@@ -627,7 +627,7 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
           </TooltipProvider>
         ) : (
           <SettingsEmptyState
-            icon={<i className={`${!currentAccount || currentAccount.models.length === 0 ? 'ri-inbox-line' : 'ri-search-line'} text-[18px] text-gray-400 dark:text-gray-500`} />}
+            icon={<i className={`${!currentAccount || currentAccount.models.length === 0 ? 'ri-inbox-line' : 'ri-search-line'} text-[18px] text-gray-400 dark:text-(--app-text-muted)`} />}
             title={!currentAccount || currentAccount.models.length === 0 ? 'No models yet' : 'No models match'}
             description={!currentAccount || currentAccount.models.length === 0 ? 'Add a model using the form above' : 'Try a different keyword'}
             className="py-10"

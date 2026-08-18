@@ -354,7 +354,11 @@ const ChatSheet: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
 
     return (
         <Sheet open={sheetOpenState} onOpenChange={() => { setSheetOpenState(!sheetOpenState) }}>
-            <SheetContent side={"left"} className="[&>button]:hidden w-full outline-0 focus:outline-0 select-none flex flex-col h-full">
+            <SheetContent
+                side={"left"}
+                overlayClassName="bg-slate-950/18 dark:bg-(--app-scrim) dark:backdrop-blur-[2px]"
+                className="[&>button]:hidden w-full outline-0 focus:outline-0 select-none flex flex-col h-full dark:border-(--app-border-standard) dark:bg-(--app-canvas) dark:text-(--app-text-primary) dark:shadow-2xl dark:shadow-black/35"
+            >
                 {/* Traffic Lights in Sheet */}
                 <div className="absolute top-4 left-4 z-50">
                     <TrafficLights
@@ -385,7 +389,7 @@ const ChatSheet: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
                             <Button
                                 onClick={onNewChatClick}
                                 variant={"default"}
-                                className="w-full p-2.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-lg shadow-xs bg-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:hover:bg-gray-200 text-white dark:text-gray-900"
+                                className="w-full p-2.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-lg shadow-xs bg-gray-900 hover:bg-gray-800 dark:border dark:border-white/10 dark:bg-[oklch(80%_0.012_250)] dark:text-(--app-canvas) dark:shadow-none dark:hover:bg-[oklch(84%_0.012_250)] dark:active:scale-[0.99]"
                             >
                                 <BadgePlus className='w-4 h-4' />
                                 <span className="ml-2">New Chat</span>
@@ -403,8 +407,8 @@ const ChatSheet: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
                 </div>
 
                 {/* Footer - 固定在底部 */}
-                <div className="shrink-0 px-4 py-3 border-t border-gray-200 dark:border-gray-800">
-                    <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                <div className="shrink-0 px-4 py-3 border-t border-gray-200 dark:border-(--app-border-subtle)">
+                    <div className="flex items-center justify-between text-xs text-gray-500 dark:text-(--app-text-muted)">
                         <span>v{appVersion}</span>
                         <div className="flex items-center gap-2">
                             <a
@@ -414,7 +418,7 @@ const ChatSheet: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
                                     event.preventDefault()
                                     void invokeOpenExternal('https://github.com/gnl00/-i-ati')
                                 }}
-                                className="hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                                className="hover:text-gray-700 dark:hover:text-(--app-text-primary) transition-colors"
                             >
                                 GitHub
                             </a>
@@ -426,7 +430,7 @@ const ChatSheet: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
                                     event.preventDefault()
                                     void invokeOpenExternal('https://github.com/gnl00/atiapp-plugins')
                                 }}
-                                className="hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                                className="hover:text-gray-700 dark:hover:text-(--app-text-primary) transition-colors"
                             >
                                 Plugins
                             </a>

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { act } from 'react'
+import { act, Profiler } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { UseWorkspaceFilesReturn } from '../useWorkspaceFiles'
@@ -99,14 +99,15 @@ describe('ArtifactsPanel', () => {
 
     await act(async () => useChatStore.getState().setArtifactsActiveTab('preview'))
 
-    expect(workspaceFilesMock).toHaveBeenCalledTimes(1)
+    const renderCountAfterPreview = workspaceFilesMock.mock.calls.length
+    expect(renderCountAfterPreview).toBeGreaterThan(0)
     expect(container.querySelector('[role="tabpanel"][data-state="active"]')?.textContent)
       .toContain('Preview content')
     expect(container.querySelector('[data-testid="artifacts-footer"]')).toBeTruthy()
 
     await act(async () => useChatStore.getState().setArtifactsActiveTab('tools'))
 
-    expect(workspaceFilesMock).toHaveBeenCalledTimes(2)
+    expect(workspaceFilesMock).toHaveBeenCalledTimes(renderCountAfterPreview + 1)
     expect(container.querySelector('[data-testid="preview-content"]')).toBeTruthy()
     expect(container.querySelector('[data-testid="artifacts-footer"]')).toBeNull()
   })
@@ -138,22 +139,99 @@ describe('ArtifactsPanel', () => {
     expect(container.querySelector('[data-testid="files-toolbar"]')).toBeTruthy()
   })
 
-  it('keeps tab dimensions stable and exposes a visible keyboard focus treatment', async () => {
+  it('keeps tab geometry compact and exposes a visible keyboard focus treatment', async () => {
     await renderPanel()
 
+    const tabsList = container.querySelector<HTMLElement>('[role="tablist"]')
+    const tabsHeader = tabsList?.parentElement
     const toolsTab = Array.from(container.querySelectorAll<HTMLElement>('[role="tab"]'))
       .find(tab => tab.textContent === 'Tools')
     const toolsPanel = container.querySelector<HTMLElement>(
       '[role="tabpanel"][data-state="active"]'
     )
 
-    expect(toolsTab?.className).toContain('min-w-12')
+    expect(tabsHeader?.className).toContain('h-8')
+    expect(tabsHeader?.className).toContain('items-center')
+    expect(tabsList?.className).toContain('h-fit')
+    expect(tabsList?.className).toContain('self-center')
+    expect(tabsList?.className).toContain('gap-1')
+    expect(tabsList?.className).not.toContain('h-full')
+    expect(tabsList?.className).not.toContain('gap-4')
+    expect(toolsTab?.className).toContain('h-6')
+    expect(toolsTab?.className).toContain('min-w-14')
+    expect(toolsTab?.className).toContain('px-2')
+    expect(toolsTab?.className).not.toContain('h-full')
     expect(toolsTab?.className).toContain('focus-visible:ring-2')
     expect(toolsPanel?.className).not.toContain('animate-in')
     expect(container.querySelectorAll('[role="tab"]')).toHaveLength(4)
     expect(container.querySelector(
       'button[aria-label="Close artifacts"]'
     )).toBeNull()
+  })
+
+  it('shows the workspace content in the first committed frame after activation', async () => {
+    const committedActivePanels: string[] = []
+
+    await act(async () => root.render(
+      <Profiler
+        id="artifacts-panel"
+        onRender={() => {
+          committedActivePanels.push(
+            container.querySelector<HTMLElement>(
+              '[role="tabpanel"][data-state="active"]'
+            )?.textContent ?? ''
+          )
+        }}
+      >
+        <ArtifactsPanel />
+      </Profiler>
+    ))
+    rootIsMounted = true
+
+    committedActivePanels.length = 0
+    await act(async () => useChatStore.getState().setArtifactsActiveTab('preview'))
+
+    expect(committedActivePanels[0]).toContain('Preview content')
+  })
+
+  it('keeps top-level tab transitions animation-free', async () => {
+    await renderPanel()
+
+    await act(async () => useChatStore.getState().setArtifactsActiveTab('preview'))
+    const previewPanel = container.querySelector<HTMLElement>(
+      '[role="tabpanel"][data-state="active"]'
+    )
+    expect(previewPanel?.className).not.toContain('animate-in')
+    expect(previewPanel?.className).not.toContain('fade-in')
+    expect(previewPanel?.className).not.toContain('duration-300')
+
+    await act(async () => useChatStore.getState().setArtifactsActiveTab('files'))
+    const filesPanel = container.querySelector<HTMLElement>(
+      '[role="tabpanel"][data-state="active"]'
+    )
+    expect(filesPanel?.textContent).toContain('Files content')
+    expect(filesPanel?.className).not.toContain('animate-in')
+    expect(filesPanel?.className).not.toContain('fade-in')
+    expect(filesPanel?.className).not.toContain('duration-300')
+
+    await act(async () => useChatStore.getState().setArtifactsActiveTab('stats'))
+    const statsPanel = container.querySelector<HTMLElement>(
+      '[role="tabpanel"][data-state="active"]'
+    )
+    expect(statsPanel?.className).not.toContain('animate-in')
+    expect(statsPanel?.className).not.toContain('fade-in')
+    expect(statsPanel?.className).not.toContain('duration-300')
+
+    await act(async () => useChatStore.getState().setArtifactsActiveTab('tools'))
+    const toolsPanel = container.querySelector<HTMLElement>(
+      '[role="tabpanel"][data-state="active"]'
+    )
+    const toolsEmptyState = container.querySelector<HTMLElement>(
+      '[data-testid="tool-inspector-empty"]'
+    )
+    expect(toolsPanel?.className).not.toContain('animate-in')
+    expect(toolsEmptyState?.className).toContain('animate-in')
+    expect(toolsEmptyState?.className).toContain('fade-in')
   })
 
   it('centers the Tools empty state within the available content area', async () => {

@@ -360,7 +360,7 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = ({ plugins }) => {
                     {!selectedDefinition ? (
                         <SettingsDetailPanel>
                             <SettingsEmptyState
-                                icon={<i className="ri-cloud-line text-[16px] text-gray-400 dark:text-gray-500" />}
+                                icon={<i className="ri-cloud-line text-[16px] text-gray-400 dark:text-(--app-text-muted)" />}
                                 title="No providers available"
                                 description="Add a provider to configure accounts and models."
                                 className="h-full py-0"

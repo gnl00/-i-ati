@@ -201,7 +201,7 @@ function TelegramChatBadge({ meta, compact = false }: { meta?: TelegramBadgeMeta
   return (
     <span
       className={cn(
-        'inline-flex min-w-0 max-w-full items-center gap-1.5 text-[11px] leading-none text-gray-500 dark:text-gray-400',
+        'inline-flex min-w-0 max-w-full items-center gap-1.5 text-[11px] leading-none text-gray-500 dark:text-(--app-text-secondary)',
         compact && 'text-[10.5px]'
       )}
       title={`Telegram ${meta.label}`}
@@ -211,7 +211,7 @@ function TelegramChatBadge({ meta, compact = false }: { meta?: TelegramBadgeMeta
       </span>
       <span className="min-w-0 truncate">{meta.label}</span>
       {peerLabel && (
-        <span className="shrink-0 text-gray-400 dark:text-gray-500">{peerLabel}</span>
+        <span className="shrink-0 text-gray-400 dark:text-(--app-text-muted)">{peerLabel}</span>
       )}
     </span>
   )
@@ -402,7 +402,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
   if (sortedChatList.filter(item => item.id !== -1).length === 0) {
     return (
       <div className="flex h-full items-center justify-center">
-        <div className="text-center text-gray-400 dark:text-gray-600">
+        <div className="text-center text-gray-400 dark:text-(--app-text-muted)">
           <p className="text-sm">No chats yet</p>
           <p className="mt-1 text-xs">Start a new conversation</p>
         </div>
@@ -423,13 +423,13 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
           className="pointer-events-auto absolute top-0 right-2"
         >
           <div className={cn(
-            "flex h-8.5 items-center overflow-hidden rounded-lg bg-white/70 backdrop-blur-xl dark:border-gray-700/45 dark:bg-zinc-900/58 ",
-            searchOpen && 'border border-gray-200/45 shadow-[0_1px_1px_rgba(15,23,42,0.03)] dark:shadow-[0_1px_1px_rgba(0,0,0,0.14)]'
+            "flex h-8.5 items-center overflow-hidden rounded-lg bg-white/70 backdrop-blur-xl dark:border-(--app-border-standard) dark:bg-(--app-surface-raised) dark:text-(--app-text-primary) dark:backdrop-blur-none ",
+            searchOpen && 'border border-gray-200/45 shadow-[0_1px_1px_rgba(15,23,42,0.03)] dark:shadow-none'
           )}>
             <button
               type="button"
               onClick={searchOpen ? undefined : openSearch}
-              className="h-8.5 w-8.5 shrink-0 flex justify-center items-center text-gray-500 transition-colors hover:bg-black/4 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/6 dark:hover:text-gray-200"
+              className="h-8.5 w-8.5 shrink-0 flex justify-center items-center text-gray-500 transition-colors hover:bg-black/4 hover:text-gray-700 dark:text-(--app-text-secondary) dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-primary)"
               aria-label="Search chats"
             >
               <Search className="-translate-x-[2px] h-3.5 w-3.5" />
@@ -455,7 +455,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
                   <button
                     type="button"
                     onClick={closeSearch}
-                    className="mr-1.5 flex h-6.5 w-6.5 shrink-0 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-black/4 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/6 dark:hover:text-gray-200"
+                    className="mr-1.5 flex h-6.5 w-6.5 shrink-0 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-black/4 hover:text-gray-700 dark:text-(--app-text-secondary) dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-primary)"
                     aria-label="Close search"
                   >
                     <X className="h-3.5 w-3.5" />
@@ -470,18 +470,18 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
       {searchError ? (
         <div className={cn('px-4 pb-10 text-center', listTopPaddingClass)}>
           <p className="text-sm text-rose-500 dark:text-rose-400">Search failed</p>
-          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">{searchError}</p>
+          <p className="mt-1 text-xs text-gray-400 dark:text-(--app-text-muted)">{searchError}</p>
         </div>
       ) : searchLoading ? (
         <div className={cn('px-4 pb-10 text-center', listTopPaddingClass)}>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Searching chats...</p>
-          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Scanning titles and messages</p>
+          <p className="text-sm text-gray-500 dark:text-(--app-text-secondary)">Searching chats...</p>
+          <p className="mt-1 text-xs text-gray-400 dark:text-(--app-text-muted)">Scanning titles and messages</p>
         </div>
       ) : isSearchMode ? (
         displayResults.length === 0 ? (
           <div className={cn('px-4 pb-10 text-center', listTopPaddingClass)}>
-            <p className="text-sm text-gray-500 dark:text-gray-400">No matching chats</p>
-            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Try another title or message keyword</p>
+            <p className="text-sm text-gray-500 dark:text-(--app-text-secondary)">No matching chats</p>
+            <p className="mt-1 text-xs text-gray-400 dark:text-(--app-text-muted)">Try another title or message keyword</p>
           </div>
         ) : (
           <div className={cn('space-y-0.5 px-1', listTopPaddingClass)}>
@@ -503,8 +503,8 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
                     'group relative flex cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5',
                     'transition-all duration-200 ease-out',
                     isActive
-                      ? "bg-linear-to-r from-blue-50/80 via-blue-50/30 to-transparent after:absolute after:bottom-0.5 after:left-3 after:h-0.5 after:w-48 after:rounded-full after:bg-linear-to-r after:from-blue-500 after:via-blue-400/60 after:to-transparent after:content-[''] hover:from-blue-50/90 hover:via-blue-50/40 dark:from-blue-900/20 dark:via-blue-900/10 dark:to-transparent dark:hover:from-blue-900/25 dark:hover:via-blue-900/15"
-                      : 'hover:scale-[1.01] hover:bg-gray-100 hover:shadow-xs dark:hover:bg-gray-800'
+                      ? "bg-linear-to-r from-blue-50/80 via-blue-50/30 to-transparent after:absolute after:bottom-0.5 after:left-3 after:h-0.5 after:w-48 after:rounded-full after:bg-linear-to-r after:from-blue-500 after:via-blue-400/60 after:to-transparent after:content-[''] hover:from-blue-50/90 hover:via-blue-50/40 dark:bg-(--app-surface-hover) dark:bg-none dark:after:bg-(--app-accent) dark:after:opacity-70"
+                      : 'hover:scale-[1.01] hover:bg-gray-100 hover:shadow-xs dark:hover:bg-(--app-surface-hover) dark:hover:shadow-none'
                   )}
                 >
                   <div className="min-w-0 flex-1">
@@ -512,17 +512,17 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
                       <div className="min-w-0 flex items-center gap-2">
                         <span
                           className={cn(
-                            'line-clamp-1 text-sm font-medium text-gray-700 transition-colors duration-200 dark:text-gray-300',
-                            isHovered && 'text-gray-900 dark:text-gray-100'
+                            'line-clamp-1 text-sm font-medium text-gray-700 transition-colors duration-200 dark:text-(--app-text-body)',
+                            isHovered && 'text-gray-900 dark:text-(--app-text-primary)'
                           )}
                         >
                           {renderHighlightedTitle(item.title, searchQuery)}
                         </span>
-                        <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                        <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:bg-(--app-surface-inset) dark:text-(--app-text-muted)">
                           {formatHitCountLabel(hitCount)}
                         </span>
                       </div>
-                      <span className="shrink-0 pt-0.5 text-[11px] font-medium tabular-nums text-gray-400 dark:text-gray-500">
+                      <span className="shrink-0 pt-0.5 text-[11px] font-medium tabular-nums text-gray-400 dark:text-(--app-text-muted)">
                         {formatSearchResultDateTime(getSearchResultTimestamp(result))}
                       </span>
                     </div>
@@ -532,7 +532,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
                       </div>
                     )}
                     {result.snippet && (
-                      <p className="mt-1 line-clamp-2 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                      <p className="mt-1 line-clamp-2 text-xs leading-5 text-gray-500 dark:text-(--app-text-secondary)">
                         {renderHighlightedSnippet(result.snippet, searchQuery)}
                       </p>
                     )}
@@ -544,8 +544,8 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
         )
       ) : groupedChatList.length === 0 ? (
         <div className={cn('px-4 pb-10 text-center', listTopPaddingClass)}>
-          <p className="text-sm text-gray-500 dark:text-gray-400">No matching chats</p>
-          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Try another title keyword</p>
+          <p className="text-sm text-gray-500 dark:text-(--app-text-secondary)">No matching chats</p>
+          <p className="mt-1 text-xs text-gray-400 dark:text-(--app-text-muted)">Try another title keyword</p>
         </div>
       ) : (
         groupedChatList.map(([groupName, items], index) => (
@@ -553,8 +553,8 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
             key={groupName}
             className={cn('mb-2', index === 0 && listTopPaddingClass)}
           >
-            <div className="sticky top-0 z-20 border-b border-gray-200/80 bg-background/94 px-3 pt-3 pb-2 backdrop-blur-md dark:border-gray-700/80">
-              <h4 className="truncate text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400">
+            <div className="sticky top-0 z-20 border-b border-gray-200/80 bg-background/94 px-3 pt-3 pb-2 backdrop-blur-md dark:border-(--app-border-subtle) dark:bg-(--app-canvas)/94">
+              <h4 className="truncate text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-(--app-text-muted)">
                 {groupName}
               </h4>
             </div>
@@ -577,8 +577,8 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
                       'group relative flex cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5',
                       'transition-all duration-200 ease-out',
                       isActive
-                        ? "bg-linear-to-r from-blue-50/80 via-blue-50/30 to-transparent after:absolute after:bottom-0.5 after:left-3 after:h-0.5 after:w-48 after:rounded-full after:bg-linear-to-r after:from-blue-500 after:via-blue-400/60 after:to-transparent after:content-[''] hover:from-blue-50/90 hover:via-blue-50/40 dark:from-blue-900/20 dark:via-blue-900/10 dark:to-transparent dark:hover:from-blue-900/25 dark:hover:via-blue-900/15"
-                        : 'hover:scale-[1.01] hover:bg-gray-100 hover:shadow-xs dark:hover:bg-gray-800'
+                        ? "bg-linear-to-r from-blue-50/80 via-blue-50/30 to-transparent after:absolute after:bottom-0.5 after:left-3 after:h-0.5 after:w-48 after:rounded-full after:bg-linear-to-r after:from-blue-500 after:via-blue-400/60 after:to-transparent after:content-[''] hover:from-blue-50/90 hover:via-blue-50/40 dark:bg-(--app-surface-hover) dark:bg-none dark:after:bg-(--app-accent) dark:after:opacity-70"
+                        : 'hover:scale-[1.01] hover:bg-gray-100 hover:shadow-xs dark:hover:bg-(--app-surface-hover) dark:hover:shadow-none'
                     )}
                   >
                     <div className="min-w-0 flex-1 pt-0.5">
@@ -593,8 +593,8 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
                       ) : (
                         <span
                           className={cn(
-                            'line-clamp-1 text-sm font-medium text-gray-700 transition-colors duration-200 dark:text-gray-300',
-                            isHovered && 'text-gray-900 dark:text-gray-100'
+                            'line-clamp-1 text-sm font-medium text-gray-700 transition-colors duration-200 dark:text-(--app-text-body)',
+                            isHovered && 'text-gray-900 dark:text-(--app-text-primary)'
                           )}
                         >
                           {item.title}
@@ -610,7 +610,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
                     <div className="relative flex h-7 w-16 shrink-0 items-center gap-1 pt-0.5">
                       <span
                         className={cn(
-                          'absolute inset-0 flex items-center justify-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-500 transition-all duration-200 ease-out dark:bg-gray-800 dark:text-gray-400',
+                          'absolute inset-0 flex items-center justify-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-500 transition-all duration-200 ease-out dark:bg-(--app-surface-inset) dark:text-(--app-text-muted)',
                           isHovered
                             ? 'pointer-events-none translate-x-2 scale-75 opacity-0'
                             : 'translate-x-0 scale-100 opacity-100'
@@ -640,7 +640,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
                           <button
                             onClick={e => onSheetChatItemEditClick(e, item)}
                             className={cn(
-                              'relative rounded-xl border border-slate-200/50 bg-slate-100/80 p-1.5 text-slate-600 shadow-inner transition-all duration-300 ease-out hover:-translate-y-0.5 hover:scale-110 hover:bg-slate-200 hover:shadow-lg hover:shadow-slate-500/10 active:translate-y-0 active:scale-95 active:shadow-inner dark:border-slate-700/50 dark:bg-slate-800/60 dark:text-slate-400 dark:hover:bg-slate-700'
+                              'relative rounded-xl border border-slate-200/50 bg-slate-100/80 p-1.5 text-slate-600 shadow-inner transition-all duration-300 ease-out hover:-translate-y-0.5 hover:scale-110 hover:bg-slate-200 hover:shadow-lg hover:shadow-slate-500/10 active:translate-y-0 active:scale-95 active:shadow-inner dark:border-(--app-border-standard) dark:bg-(--app-surface-inset) dark:text-(--app-text-secondary) dark:shadow-none dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-primary)'
                             )}
                           >
                             <Pencil2Icon className="h-3.5 w-3.5" />
@@ -665,7 +665,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
       )}
 
       <div className="py-4 text-center">
-        <span className="text-xs text-gray-400 dark:text-gray-600">No more chats</span>
+        <span className="text-xs text-gray-400 dark:text-(--app-text-muted)">No more chats</span>
       </div>
     </div>
   )

@@ -85,7 +85,7 @@ const InlineDeleteConfirm: React.FC<InlineDeleteConfirmProps> = ({
           type="button"
           onClick={() => setConfirming(false)}
           tabIndex={confirming ? 0 : -1}
-          className="h-[22px] px-2 text-[11px] font-medium text-gray-500 hover:text-gray-800 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700/60 rounded-l-md border border-gray-200 dark:border-gray-700 border-r-0"
+          className="h-[22px] px-2 text-[11px] font-medium text-gray-500 dark:text-(--app-text-secondary) hover:text-gray-800 dark:hover:text-(--app-text-primary) hover:bg-gray-100 dark:hover:bg-(--app-surface-hover) rounded-l-md border border-gray-200 dark:border-(--app-border-standard) border-r-0"
           style={{ transition: 'background-color 120ms ease, color 120ms ease' }}
         >
           No
@@ -95,7 +95,7 @@ const InlineDeleteConfirm: React.FC<InlineDeleteConfirmProps> = ({
           onClick={() => void handleConfirm()}
           tabIndex={confirming ? 0 : -1}
           disabled={disabled || loading}
-          className="h-[22px] px-2 text-[11px] font-medium text-rose-500 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-r-md border border-gray-200 dark:border-gray-700 disabled:opacity-40"
+          className="h-[22px] px-2 text-[11px] font-medium text-rose-500 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-r-md border border-gray-200 dark:border-(--app-border-standard) disabled:opacity-40"
           style={{ transition: 'background-color 120ms ease, color 120ms ease' }}
         >
           {loading ? busyLabel : 'Yes'}

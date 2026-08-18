@@ -76,40 +76,40 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
   const statsContent = (
     <div
       className={cn(
-        'flex min-h-0 flex-col text-zinc-900 dark:text-zinc-100',
+        'flex min-h-0 flex-col text-zinc-900 dark:text-(--app-text-body)',
         variant === 'inline' ? 'min-h-full' : 'max-h-128'
       )}
     >
       <section
         className={cn(
-          'shrink-0 border-b border-zinc-200/80 dark:border-zinc-800/80',
-          variant === 'inline' ? 'px-2 py-2 sm:px-3 sm:py-3' : 'px-1.5 py-1.5'
+          'shrink-0 border-b border-zinc-200/80 dark:border-(--app-border-subtle)',
+          variant === 'inline' ? 'px-2 py-2 sm:px-4 sm:py-4' : 'px-1.5 py-1.5'
         )}
         aria-labelledby="auto-compact-heading"
       >
         <div className="flex items-center gap-2">
           <div className="flex min-w-0 items-center gap-2">
             <CircleGauge
-              className="h-3.5 w-3.5 shrink-0 text-indigo-500 dark:text-indigo-400"
+              className="h-3.5 w-3.5 shrink-0 text-indigo-500 dark:text-(--app-accent-strong)"
               aria-hidden="true"
             />
             <h2
               id="auto-compact-heading"
-              className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400"
+              className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:tracking-[0.11em] dark:text-(--app-text-secondary)"
             >
               Auto Compact
             </h2>
           </div>
         </div>
 
-        <div className="mt-6 flex items-end justify-between gap-2">
+        <div className="mt-6 flex items-end justify-between gap-2 dark:mt-5 dark:gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+            <p className="text-[11px] font-medium text-zinc-500 dark:text-(--app-text-secondary)">
               Current accumulated
             </p>
-            <p className="mt-1 truncate font-mono text-base font-semibold tracking-tight tabular-nums text-zinc-900 dark:text-zinc-100">
+            <p className="mt-1 truncate font-mono text-base font-semibold tracking-tight tabular-nums text-zinc-900 dark:text-(--app-text-primary)">
               {hasInitialSnapshot ? formatCompactTokenCount(stats.accumulatedTokens) : '—'}
-              <span className="px-1.5 font-sans text-xs font-normal text-zinc-400 dark:text-zinc-500">
+              <span className="px-1.5 font-sans text-xs font-normal text-zinc-400 dark:text-(--app-text-muted)">
                 /
               </span>
               {stats.thresholdTokens
@@ -122,7 +122,7 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
               'shrink-0 font-mono text-sm font-semibold tabular-nums',
               stats.status === 'compacting'
                 ? 'text-amber-600 dark:text-amber-400'
-                : 'text-indigo-600 dark:text-indigo-400'
+                : 'text-indigo-600 dark:text-(--app-accent-strong)'
             )}
             aria-label={progressPercent === undefined
               ? 'Compaction progress unavailable'
@@ -133,7 +133,7 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
         </div>
 
         <div
-          className="relative mt-4 h-1.5 overflow-hidden rounded-sm bg-zinc-200/80 dark:bg-zinc-800"
+          className="relative mt-4 h-1.5 overflow-hidden rounded-sm bg-zinc-200/80 dark:bg-(--app-surface-inset) dark:ring-1 dark:ring-(--app-border-subtle) dark:ring-inset"
           role="progressbar"
           aria-label="Progress to automatic compaction"
           aria-valuemin={0}
@@ -147,8 +147,8 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
               stats.status === 'compacting'
                 ? 'bg-amber-500 dark:bg-amber-400'
                 : stats.status === 'disabled' || stats.status === 'context-unavailable'
-                  ? 'bg-zinc-400 dark:bg-zinc-600'
-                  : 'bg-indigo-500 dark:bg-indigo-400'
+                  ? 'bg-zinc-400 dark:bg-(--app-text-muted)'
+                  : 'bg-indigo-500 dark:bg-(--app-accent)'
             )}
             style={{
               width: '100%',
@@ -156,23 +156,23 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
             }}
           />
           <span
-            className="absolute inset-y-0 right-0 w-px bg-zinc-500/70 dark:bg-zinc-300/70"
+            className="absolute inset-y-0 right-0 w-px bg-zinc-500/70 dark:bg-(--app-accent-strong)/70"
             aria-hidden="true"
           />
         </div>
 
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[10px] text-zinc-500 dark:text-zinc-400">
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[10px] text-zinc-500 dark:text-(--app-text-muted)">
           {stats.contextWindowTokens ? (
             <>
               <span>
                 Model window{' '}
-                <span className="font-mono tabular-nums text-zinc-600 dark:text-zinc-300">
+                <span className="font-mono tabular-nums text-zinc-600 dark:text-(--app-text-body)">
                   {formatCompactTokenCount(stats.contextWindowTokens)}
                 </span>
               </span>
               <span>
                 Trigger at{' '}
-                <span className="font-mono tabular-nums text-zinc-600 dark:text-zinc-300">
+                <span className="font-mono tabular-nums text-zinc-600 dark:text-(--app-text-body)">
                   {triggerPercent}
                 </span>
               </span>
@@ -186,41 +186,43 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
       <section
         className={cn(
           'shrink-0',
-          variant === 'inline' ? 'px-5 py-5 sm:px-6 sm:py-6' : 'px-4 py-4'
+          variant === 'inline'
+            ? 'px-5 py-5 sm:px-6 sm:py-6 dark:px-4 dark:py-4'
+            : 'px-4 py-4'
         )}
         aria-labelledby="chat-activity-heading"
       >
         <h2
           id="chat-activity-heading"
-          className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400"
+          className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:tracking-[0.11em] dark:text-(--app-text-secondary)"
         >
           Activity
         </h2>
-        <dl className="mt-4 grid grid-cols-3">
-          <div className="min-w-0 pr-3">
-            <dt className="flex items-center gap-1.5 text-[10px] text-zinc-500 dark:text-zinc-400">
+        <dl className="mt-4 grid grid-cols-3 dark:mt-3 dark:overflow-hidden dark:rounded-lg dark:border dark:border-(--app-border-subtle) dark:bg-(--app-surface-inset)">
+          <div className="min-w-0 pr-3 dark:px-3 dark:py-2.5">
+            <dt className="flex items-center gap-1.5 text-[10px] text-zinc-500 dark:text-(--app-text-muted)">
               <TokensIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
               Tokens
             </dt>
-            <dd className="mt-2 truncate font-mono text-xs font-semibold tabular-nums text-zinc-800 dark:text-zinc-100">
+            <dd className="mt-2 truncate font-mono text-xs font-semibold tabular-nums text-zinc-800 dark:text-(--app-text-primary)">
               {formatCompactTokenCount(stats.totalConversationTokens)}
             </dd>
           </div>
-          <div className="min-w-0 border-l border-zinc-200/80 px-3 dark:border-zinc-800/80">
-            <dt className="flex items-center gap-1.5 text-[10px] text-zinc-500 dark:text-zinc-400">
+          <div className="min-w-0 border-l border-zinc-200/80 px-3 dark:border-(--app-border-subtle) dark:py-2.5">
+            <dt className="flex items-center gap-1.5 text-[10px] text-zinc-500 dark:text-(--app-text-muted)">
               <Wrench className="h-3 w-3 shrink-0" aria-hidden="true" />
               Tools
             </dt>
-            <dd className="mt-2 truncate font-mono text-xs font-semibold tabular-nums text-zinc-800 dark:text-zinc-100">
+            <dd className="mt-2 truncate font-mono text-xs font-semibold tabular-nums text-zinc-800 dark:text-(--app-text-primary)">
               {stats.toolCallCount}/{stats.toolResultCount}
             </dd>
           </div>
-          <div className="min-w-0 border-l border-zinc-200/80 pl-3 dark:border-zinc-800/80">
-            <dt className="flex items-center gap-1.5 text-[10px] text-zinc-500 dark:text-zinc-400">
+          <div className="min-w-0 border-l border-zinc-200/80 pl-3 dark:border-(--app-border-subtle) dark:px-3 dark:py-2.5">
+            <dt className="flex items-center gap-1.5 text-[10px] text-zinc-500 dark:text-(--app-text-muted)">
               <Sparkles className="h-3 w-3 shrink-0" aria-hidden="true" />
               Skills
             </dt>
-            <dd className="mt-2 truncate font-mono text-xs font-semibold tabular-nums text-zinc-800 dark:text-zinc-100">
+            <dd className="mt-2 truncate font-mono text-xs font-semibold tabular-nums text-zinc-800 dark:text-(--app-text-primary)">
               {persistedStats.activeSkills.length}
             </dd>
           </div>
@@ -231,7 +233,7 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
 
   if (variant === 'inline') {
     return (
-      <div className="h-full min-h-0 overflow-y-auto bg-zinc-50/40 dark:bg-zinc-950/40">
+      <div className="h-full min-h-0 overflow-y-auto bg-zinc-50/40 dark:bg-(--app-surface)">
         {statsContent}
       </div>
     )
@@ -267,7 +269,7 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
       </PopoverTrigger>
       <PopoverContent
         className={cn(
-          'w-80 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 p-0 shadow-2xl shadow-slate-900/10 backdrop-blur-xl dark:border-slate-800/80 dark:bg-slate-950/95 dark:shadow-black/50',
+          'w-80 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 p-0 shadow-2xl shadow-slate-900/10 backdrop-blur-xl dark:border-(--app-border-standard) dark:bg-(--app-surface-raised) dark:shadow-black/40',
           'animate-in fade-in-0 slide-in-from-top-2 zoom-in-95 motion-reduce:animate-none',
           'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95'
         )}

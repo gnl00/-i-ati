@@ -21,58 +21,117 @@ import zaiIcon from '@renderer/shared/assets/provider-icons/zai.svg'
 import zerooneIcon from '@renderer/shared/assets/provider-icons/zeroone.svg'
 import zhipuIcon from '@renderer/shared/assets/provider-icons/zhipu.svg'
 
-/**
- * Provider icon mapping
- * Maps provider names (case-insensitive) to their corresponding icon
- */
-export const PROVIDER_ICON_MAP: Record<string, string> = {
-  // OpenAI + variants
-  openai: openaiIcon,
-  'openai-text': openaiTextIcon,
-  // Anthropic
-  anthropic: anthropicIcon,
-  // Google / Gemini
-  google: geminiColorIcon,
-  gemini: geminiColorIcon,
-  // Grok / xAI
-  grok: grokIcon,
-  xai: grokIcon,
-  // Groq
-  deepseek: deepseekIcon,
-  groq: groqIcon,
-  // Doubao / Volcengine
-  doubao: doubaoIcon,
-  volcengine: doubaoIcon,
-  volces: doubaoIcon,
-  // Moonshot / Kimi
-  moonshot: moonshotIcon,
-  kimi: kimiColorIcon,
-  // Minimax
-  minimax: minimaxColorIcon,
-  // OpenRouter
-  siliconflow: siliconcloudIcon,
-  siliconcloud: siliconcloudIcon,
-  silicon: siliconcloudIcon,
-  openrouter: openrouterIcon,
-  ollama: ollamaIcon,
-  // Github Copilot
-  githubcopilot: githubCopilotIcon,
-  copilot: githubCopilotIcon,
-  // Zhipu / Z.ai
-  zhipu: zhipuIcon,
-  zai: zaiIcon,
-  'z.ai': zaiIcon,
-  // 01.AI
-  zeroone: zerooneIcon,
-  '01ai': zerooneIcon,
-  // Xiaomi MiMo
-  xiaomi: xiaomiMiMoIcon,
-  xiaomimimo: xiaomiMiMoIcon,
-  mimo: xiaomiMiMoIcon,
-  // Qwen / Tongyi
-  qwen: qwenIcon,
-  tongyi: qwenIcon,
+export type ProviderIconAppearance = 'brand' | 'monochrome'
+
+export interface ProviderIconDescriptor {
+  src: string
+  appearance: ProviderIconAppearance
 }
+
+const brandIcon = (src: string): ProviderIconDescriptor => ({ src, appearance: 'brand' })
+const monochromeIcon = (src: string): ProviderIconDescriptor => ({
+  src,
+  appearance: 'monochrome'
+})
+
+const openaiDescriptor = monochromeIcon(openaiIcon)
+const openaiTextDescriptor = monochromeIcon(openaiTextIcon)
+const anthropicDescriptor = monochromeIcon(anthropicIcon)
+const geminiDescriptor = brandIcon(geminiColorIcon)
+const grokDescriptor = monochromeIcon(grokIcon)
+const deepseekDescriptor = monochromeIcon(deepseekIcon)
+const groqDescriptor = monochromeIcon(groqIcon)
+const doubaoDescriptor = brandIcon(doubaoIcon)
+const moonshotDescriptor = monochromeIcon(moonshotIcon)
+const kimiDescriptor = brandIcon(kimiColorIcon)
+const minimaxDescriptor = brandIcon(minimaxColorIcon)
+const siliconcloudDescriptor = monochromeIcon(siliconcloudIcon)
+const openrouterDescriptor = monochromeIcon(openrouterIcon)
+const ollamaDescriptor = monochromeIcon(ollamaIcon)
+const githubCopilotDescriptor = monochromeIcon(githubCopilotIcon)
+const zhipuDescriptor = brandIcon(zhipuIcon)
+const zaiDescriptor = monochromeIcon(zaiIcon)
+const zerooneDescriptor = monochromeIcon(zerooneIcon)
+const xiaomiMiMoDescriptor = monochromeIcon(xiaomiMiMoIcon)
+const qwenDescriptor = brandIcon(qwenIcon)
+
+/**
+ * Provider icon metadata mapping.
+ * Aliases share descriptor objects so each asset has one appearance classification.
+ */
+export const PROVIDER_ICON_DESCRIPTOR_MAP: Record<string, ProviderIconDescriptor> = {
+  // OpenAI + variants
+  openai: openaiDescriptor,
+  'openai-text': openaiTextDescriptor,
+  // Anthropic
+  anthropic: anthropicDescriptor,
+  // Google / Gemini
+  google: geminiDescriptor,
+  gemini: geminiDescriptor,
+  // Grok / xAI
+  grok: grokDescriptor,
+  xai: grokDescriptor,
+  // Groq
+  deepseek: deepseekDescriptor,
+  groq: groqDescriptor,
+  // Doubao / Volcengine
+  doubao: doubaoDescriptor,
+  volcengine: doubaoDescriptor,
+  volces: doubaoDescriptor,
+  // Moonshot / Kimi
+  moonshot: moonshotDescriptor,
+  kimi: kimiDescriptor,
+  // Minimax
+  minimax: minimaxDescriptor,
+  // SiliconCloud / OpenRouter / Ollama
+  siliconflow: siliconcloudDescriptor,
+  siliconcloud: siliconcloudDescriptor,
+  silicon: siliconcloudDescriptor,
+  openrouter: openrouterDescriptor,
+  ollama: ollamaDescriptor,
+  // Github Copilot
+  githubcopilot: githubCopilotDescriptor,
+  copilot: githubCopilotDescriptor,
+  // Zhipu / Z.ai
+  zhipu: zhipuDescriptor,
+  zai: zaiDescriptor,
+  'z.ai': zaiDescriptor,
+  // 01.AI
+  zeroone: zerooneDescriptor,
+  '01ai': zerooneDescriptor,
+  // Xiaomi MiMo
+  xiaomi: xiaomiMiMoDescriptor,
+  xiaomimimo: xiaomiMiMoDescriptor,
+  mimo: xiaomiMiMoDescriptor,
+  // Qwen / Tongyi
+  qwen: qwenDescriptor,
+  tongyi: qwenDescriptor,
+}
+
+/**
+ * Default fallback icon metadata for unknown providers.
+ */
+export const DEFAULT_PROVIDER_ICON_DESCRIPTOR = monochromeIcon(robotIcon)
+
+/**
+ * Get icon metadata for a given provider name.
+ */
+export const getProviderIconDescriptor = (provider?: string): ProviderIconDescriptor => {
+  if (!provider) {
+    return DEFAULT_PROVIDER_ICON_DESCRIPTOR
+  }
+  return PROVIDER_ICON_DESCRIPTOR_MAP[provider.toLowerCase()] ?? DEFAULT_PROVIDER_ICON_DESCRIPTOR
+}
+
+/**
+ * Backward-compatible source URL mapping for non-visual consumers.
+ */
+export const PROVIDER_ICON_MAP: Record<string, string> = Object.fromEntries(
+  Object.entries(PROVIDER_ICON_DESCRIPTOR_MAP).map(([provider, descriptor]) => [
+    provider,
+    descriptor.src
+  ])
+)
 
 /**
  * Get the icon source for a given provider name
@@ -80,10 +139,7 @@ export const PROVIDER_ICON_MAP: Record<string, string> = {
  * @returns The icon source URL, or the default robot icon if not found
  */
 export const getProviderIcon = (provider?: string): string => {
-  if (!provider) {
-    return robotIcon
-  }
-  return PROVIDER_ICON_MAP[provider.toLowerCase()] ?? robotIcon
+  return getProviderIconDescriptor(provider).src
 }
 
 /**

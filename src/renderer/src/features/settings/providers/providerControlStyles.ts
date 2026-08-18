@@ -8,9 +8,9 @@ export const providerConfigInputClassName = cn(
     'hover:bg-gray-100 hover:ring-gray-300/80',
     'focus-visible:border-gray-300 focus-visible:ring-1 focus-visible:ring-gray-400/70 focus-visible:ring-offset-0',
     'disabled:cursor-not-allowed disabled:opacity-50',
-    'dark:bg-gray-950/45 dark:ring-gray-800/80 dark:placeholder:text-gray-600',
-    'dark:hover:bg-gray-950/60 dark:hover:ring-gray-700/90',
-    'dark:focus-visible:border-gray-700 dark:focus-visible:ring-gray-600/80'
+    'dark:bg-(--app-surface-inset) dark:text-(--app-text-body) dark:ring-(--app-border-standard) dark:placeholder:text-(--app-text-muted)',
+    'dark:hover:bg-(--app-surface-inset) dark:hover:ring-(--app-accent)',
+    'dark:focus-visible:border-(--app-accent) dark:focus-visible:ring-(--app-accent)'
 )
 
 export const providerConfigSelectTriggerClassName = cn(
@@ -21,11 +21,11 @@ export const providerConfigSelectTriggerClassName = cn(
     'data-[state=open]:border-gray-400/80 data-[state=open]:bg-white data-[state=open]:shadow-sm',
     'disabled:cursor-not-allowed disabled:opacity-50',
     '[&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:text-gray-400 [&>svg]:opacity-80',
-    'dark:border-gray-800/90 dark:bg-gray-900/70 dark:text-gray-100 dark:shadow-none',
-    'dark:hover:border-gray-700/90 dark:hover:bg-gray-900/90',
-    'dark:focus-visible:border-gray-700 dark:focus-visible:ring-gray-600/80',
-    'dark:data-[state=open]:border-gray-600/90 dark:data-[state=open]:bg-gray-900',
-    'dark:[&>svg]:text-gray-500'
+    'dark:border-(--app-border-standard) dark:bg-(--app-surface-raised) dark:text-(--app-text-body) dark:shadow-none',
+    'dark:hover:border-(--app-accent) dark:hover:bg-(--app-surface-hover)',
+    'dark:focus-visible:border-(--app-accent) dark:focus-visible:ring-(--app-accent)',
+    'dark:data-[state=open]:border-(--app-accent) dark:data-[state=open]:bg-(--app-surface-hover)',
+    'dark:[&>svg]:text-(--app-text-muted)'
 )
 
 export const providerRevealButtonClassName = cn(
@@ -34,10 +34,10 @@ export const providerRevealButtonClassName = cn(
     'hover:bg-gray-200/70 hover:text-gray-700',
     'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-400/70',
     'active:scale-[0.96]',
-    'dark:text-gray-500 dark:hover:bg-gray-800/70 dark:hover:text-gray-200',
-    'dark:focus-visible:ring-gray-600/80'
+    'dark:text-(--app-text-muted) dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-primary)',
+    'dark:focus-visible:ring-(--app-accent)'
 )
 
 export const providerFieldLabelClassName = cn(
-    'text-[10.5px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500'
+    'text-[10.5px] font-medium uppercase tracking-wider text-gray-400 dark:text-(--app-text-muted)'
 )

@@ -246,22 +246,22 @@ const SettingsPanel: React.FC<PreferenceProps> = () => {
     const hasUnsavedChanges = toolsDirty || knowledgebaseDirty || compressionDirty || mcpDirty || pluginsDirty
 
     return (
-        <div className="w-full h-full min-h-0 min-w-0 overflow-hidden">
+        <div className="settings-graphite w-full h-full min-h-0 min-w-0 overflow-hidden dark:bg-(--app-canvas) dark:text-(--app-text-body)">
             <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="provider-list" className="w-full h-full min-w-0 min-h-0 flex flex-col">
-                <div className="w-full h-full min-h-0 min-w-0 overflow-hidden rounded-xl border-none bg-white dark:bg-gray-800 shadow-xs flex flex-col">
+                <div className="w-full h-full min-h-0 min-w-0 overflow-hidden rounded-xl border-none bg-white dark:bg-(--app-surface) shadow-xs dark:shadow-none flex flex-col">
                     <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 p-1">
                         <div id="title" className="min-w-[180px] flex-1 select-none space-y-1.5">
-                            <h4 className="flex min-w-0 items-center gap-2 text-[13.5px] font-semibold leading-none tracking-tight text-gray-900 dark:text-gray-100">
+                            <h4 className="flex min-w-0 items-center gap-2 text-[13.5px] font-semibold leading-none tracking-tight text-gray-900 dark:text-(--app-text-primary)">
                                 <span className="truncate">@i Settings</span>
-                                <Badge variant="secondary" className="h-5 shrink-0 rounded-md bg-gray-100 px-1.5 text-[10.5px] font-medium text-gray-600 dark:bg-gray-900 dark:text-gray-300">
+                                <Badge variant="secondary" className="h-5 shrink-0 rounded-md bg-gray-100 px-1.5 text-[10.5px] font-medium text-gray-600 dark:bg-(--app-surface-inset) dark:text-(--app-text-secondary)">
                                     {appVersion}
                                 </Badge>
                             </h4>
-                            <p className="text-[12px] leading-relaxed text-gray-400 dark:text-gray-500">
+                            <p className="text-[12px] leading-relaxed text-gray-400 dark:text-(--app-text-muted)">
                                 Shape how @i works and connects.
                             </p>
                         </div>
-                        <div id="changes-indicator" className="flex max-w-full min-w-0 flex-wrap items-center justify-end gap-2 rounded-lg bg-white/50 dark:bg-gray-900/35 backdrop-blur-3xl px-2 py-1.5">
+                        <div id="changes-indicator" className="flex max-w-full min-w-0 flex-wrap items-center justify-end gap-2 rounded-lg bg-white/50 dark:bg-(--app-surface-raised) dark:backdrop-blur-none backdrop-blur-3xl px-2 py-1.5">
                             <div className="flex h-7 min-w-0 items-center gap-2 px-1">
                                 <div className="relative flex h-1.5 w-1.5 shrink-0">
                                     {hasUnsavedChanges && (
@@ -272,11 +272,11 @@ const SettingsPanel: React.FC<PreferenceProps> = () => {
                                         : "relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400"
                                     }></span>
                                 </div>
-                                <span className="select-none truncate text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                                <span className="select-none truncate text-[11px] font-medium text-gray-500 dark:text-(--app-text-secondary)">
                                     {hasUnsavedChanges ? 'Unsaved changes' : 'All saved'}
                                 </span>
                             </div>
-                            <div className="hidden h-4 w-px bg-gray-200 dark:bg-gray-700 sm:block"></div>
+                            <div className="hidden h-4 w-px bg-gray-200 dark:bg-(--app-border-standard) sm:block"></div>
                             <Button
                                 size="sm"
                                 onClick={saveConfigurationClick}
@@ -295,8 +295,8 @@ const SettingsPanel: React.FC<PreferenceProps> = () => {
                             scrollable
                             autoScrollActive
                             className="w-full min-w-0"
-                            tabsListClassName="h-9 shadow-none border border-gray-100/70 dark:border-gray-700/70 bg-white/50 dark:bg-gray-800/70"
-                            tabsTriggerClassName="h-7 px-3 text-[11.5px] font-medium"
+                            tabsListClassName="h-9 shadow-none border border-gray-100/70 dark:border-(--app-border-standard) bg-white/50 dark:bg-(--app-surface-inset)"
+                            tabsTriggerClassName="h-7 px-3 text-[11.5px] font-medium dark:text-(--app-text-secondary) dark:data-[state=active]:text-(--app-text-primary)"
                         />
                     </div>
 
