@@ -29,7 +29,7 @@ function getRiskLevelConfig(riskLevel: 'risky' | 'dangerous') {
       icon: ShieldAlert,
       label: 'Dangerous',
       title: 'Command requires explicit approval',
-      shellBg: 'bg-black/5 backdrop-blur-3xl dark:bg-white/5',
+      shellBg: 'border-slate-200/45 bg-white/42 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/55',
       shellBorder: 'border-rose-200/55 dark:border-rose-900/55',
       iconBg: 'bg-rose-50 dark:bg-rose-950',
       iconColor: 'text-rose-500/80 dark:text-rose-300/85',
@@ -47,7 +47,7 @@ function getRiskLevelConfig(riskLevel: 'risky' | 'dangerous') {
     icon: AlertTriangle,
     label: 'Risky',
     title: 'Command may change local state',
-    shellBg: 'bg-black/5 backdrop-blur-3xl dark:bg-white/5',
+    shellBg: 'border-slate-200/45 bg-white/42 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/55',
     shellBorder: 'border-amber-200/55 dark:border-amber-900/55',
     iconBg: 'bg-amber-50 dark:bg-amber-950',
     iconColor: 'text-amber-500/80 dark:text-amber-300/85',
@@ -120,7 +120,7 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
       <div
         data-testid="command-confirmation-shell"
         className={cn(
-          'relative flex max-h-full min-h-0 flex-auto flex-col overflow-hidden rounded-2xl shadow-[0_12px_28px_-24px_rgba(15,23,42,0.24)]',
+          'relative flex max-h-full min-h-0 flex-auto flex-col overflow-hidden rounded-2xl border shadow-[0_10px_30px_-24px_rgba(15,23,42,0.20)] dark:shadow-[0_18px_42px_-28px_rgba(0,0,0,0.58)]',
           config.shellBg
         )}
       >

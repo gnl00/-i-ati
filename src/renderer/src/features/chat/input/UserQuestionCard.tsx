@@ -186,8 +186,8 @@ export const UserQuestionCard: React.FC<UserQuestionCardProps> = ({
       aria-label="Agent question"
       className={cn(
         'flex max-h-full min-h-0 flex-col overflow-hidden rounded-2xl border',
-        'border-white/70 bg-slate-950/[0.035] shadow-[0_14px_32px_-26px_rgba(15,23,42,0.34)] backdrop-blur-3xl',
-        'dark:border-white/8 dark:bg-white/[0.045] dark:shadow-[0_16px_36px_-26px_rgba(0,0,0,0.58)]',
+        'border-slate-200/45 bg-white/42 shadow-[0_10px_30px_-24px_rgba(15,23,42,0.20)] backdrop-blur-xl',
+        'dark:border-white/10 dark:bg-slate-950/55 dark:shadow-[0_18px_42px_-28px_rgba(0,0,0,0.58)]',
         interactionDisabled && 'pointer-events-none',
         className
       )}
@@ -195,7 +195,10 @@ export const UserQuestionCard: React.FC<UserQuestionCardProps> = ({
     >
       <div className="flex min-h-0 flex-1 flex-col p-3">
         <header className="grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-sky-100/80 bg-sky-50/90 text-sky-600 shadow-xs shadow-sky-500/10 dark:border-sky-900/70 dark:bg-sky-950/65 dark:text-sky-300">
+          <div
+            data-testid="user-question-icon"
+            className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200/70 bg-slate-100/85 text-slate-600 shadow-xs shadow-slate-900/5 dark:border-white/10 dark:bg-white/6 dark:text-slate-300"
+          >
             <MessageCircleQuestion className="h-4 w-4" strokeWidth={1.8} />
           </div>
 
@@ -249,7 +252,7 @@ export const UserQuestionCard: React.FC<UserQuestionCardProps> = ({
                   <span className="shrink-0 tabular-nums text-slate-400 dark:text-slate-500">{questionIndex + 1}.</span>
                   <span className="wrap-break-word">{question.prompt}</span>
                   {question.required && (
-                    <span className="text-sky-600 dark:text-sky-400" aria-label="Required">*</span>
+                    <span className="text-slate-500 dark:text-slate-400" aria-label="Required">*</span>
                   )}
                 </legend>
                 {question.header && (
@@ -326,7 +329,10 @@ export const UserQuestionCard: React.FC<UserQuestionCardProps> = ({
                             <span className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold leading-4">
                               {option.label}
                               {option.recommended && (
-                                <span className="inline-flex items-center gap-1 rounded-md bg-sky-100/80 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-sky-700 dark:bg-sky-900/60 dark:text-sky-200">
+                                <span
+                                  data-testid="user-question-recommended-badge"
+                                  className="inline-flex items-center gap-1 rounded-md bg-slate-200/75 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-slate-700 dark:bg-white/8 dark:text-slate-300"
+                                >
                                   <Sparkles className="h-2.5 w-2.5" strokeWidth={1.8} />
                                   Recommended
                                 </span>
