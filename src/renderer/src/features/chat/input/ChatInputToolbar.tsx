@@ -144,13 +144,13 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
                   size="icon"
                   variant="ghost"
                   className={cn(
-                    'shared-prompt-action-button group relative h-8 w-8 shrink-0 overflow-hidden rounded-xl',
-                    'bg-slate-50/50 text-slate-500 dark:bg-slate-800/50 dark:text-slate-400',
-                    'border border-slate-200/50 dark:border-slate-700/50',
-                    'transition-all duration-300 ease-out',
-                    'hover:border-slate-300 hover:bg-slate-100 hover:text-slate-700 hover:shadow-xs',
+                    'shared-prompt-action-button group relative h-8 w-8 shrink-0 overflow-hidden rounded-[10px]',
+                    'border border-slate-200/45 bg-white/35 text-slate-500',
+                    'transition-[background-color,border-color,color,transform] duration-150 ease-out',
+                    'hover:border-slate-300/65 hover:bg-slate-50/80 hover:text-slate-700',
                     'active:scale-95 focus-visible:ring-0 focus-visible:ring-offset-0',
-                    'dark:hover:border-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-300'
+                    'dark:border-(--chat-border-subtle) dark:bg-(--chat-surface) dark:text-(--chat-text-secondary)',
+                    'dark:hover:border-(--chat-border-standard) dark:hover:bg-(--chat-surface-hover) dark:hover:text-(--chat-text-primary)'
                   )}
                   onClick={onNewChat}
                 >
@@ -177,7 +177,8 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
             isOpen={selectModelPopoutState}
             onOpenChange={handleModelPopoverOpenChange}
             onModelSelect={handleModelSelect}
-            variant="baseline"
+            triggerClassName="w-[clamp(136px,16vw,220px)]"
+            variant="surface"
           />
         </div>
 

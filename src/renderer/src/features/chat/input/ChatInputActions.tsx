@@ -149,7 +149,115 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
     }
   }
 
-  if (variant === 'baseline' || variant === 'surface') {
+  if (variant === 'surface') {
+    return (
+      <div className="shared-prompt-action-strip flex min-w-0 items-center justify-end gap-1.5">
+        <TooltipProvider delayDuration={350}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                aria-label="Select workspace"
+                className={cn(
+                  'shared-prompt-action-button flex h-8 max-w-[148px] items-center gap-1.5 overflow-hidden rounded-[10px] border px-2.5',
+                  'transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-[0.98]',
+                  isCustomWorkspace
+                    ? [
+                        'border-blue-200/75 bg-blue-50/65 text-blue-700 hover:border-blue-300/80 hover:bg-blue-100/70',
+                        'dark:border-(--chat-border-standard) dark:bg-(--chat-surface-hover) dark:text-(--chat-accent-strong)',
+                        'dark:hover:border-(--chat-accent) dark:hover:bg-(--chat-surface-hover) dark:hover:text-(--chat-text-primary)'
+                      ]
+                    : [
+                        'border-slate-200/45 bg-white/35 text-slate-500 hover:border-slate-300/65 hover:bg-slate-50/80 hover:text-slate-700',
+                        'dark:border-(--chat-border-subtle) dark:bg-(--chat-surface) dark:text-(--chat-text-secondary)',
+                        'dark:hover:border-(--chat-border-standard) dark:hover:bg-(--chat-surface-hover) dark:hover:text-(--chat-text-primary)'
+                      ]
+                )}
+                onClick={() => { void handleWorkspaceSelect() }}
+              >
+                <FolderOpen className="h-4 w-4 shrink-0" strokeWidth={1.8} />
+                <span className="max-w-[92px] truncate text-[10.5px] font-medium select-none">
+                  {isCustomWorkspace ? getDirectoryName(currentWorkspacePath) : 'Workspace'}
+                </span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="rounded-lg border border-slate-700/50 bg-slate-900/95 px-3 py-1.5 text-xs text-slate-100 shadow-xl shadow-black/20 backdrop-blur-xl dark:border-slate-600/50 dark:bg-slate-800/95">
+              <p className="max-w-72 break-words font-medium">
+                {isCustomWorkspace ? currentWorkspacePath : 'Select Workspace'}
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        {!canCancelRun && !isCancelling ? (
+          <TooltipProvider delayDuration={350}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex h-8 w-[88px] shrink-0">
+                  <Button
+                    onClick={onSubmit}
+                    variant="default"
+                    disabled={submitDisabled}
+                    aria-label="Send message"
+                    className={cn(
+                      'shared-prompt-action-button h-8 w-[88px] min-w-[88px] gap-2 rounded-[10px] border px-3',
+                      'border-slate-600/70 bg-slate-700 text-white shadow-none',
+                      'transition-[background-color,border-color,color,transform] duration-150 ease-out',
+                      'hover:border-slate-500 hover:bg-slate-600 active:scale-[0.97]',
+                      'dark:border-(--chat-border-standard) dark:bg-(--chat-accent) dark:text-(--chat-canvas)',
+                      'dark:hover:border-(--chat-accent-strong) dark:hover:bg-(--chat-accent-strong)',
+                      'disabled:pointer-events-none disabled:border-slate-200/50 disabled:bg-slate-100/65 disabled:text-slate-400 disabled:opacity-100',
+                      'dark:disabled:border-(--chat-border-subtle) dark:disabled:bg-(--chat-surface) dark:disabled:text-(--chat-text-muted)'
+                    )}
+                  >
+                    <PaperPlaneIcon className="h-4 w-4 -rotate-45" />
+                    <span className="text-[11px] font-semibold leading-none select-none">Send</span>
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className="rounded-lg border border-slate-700/50 bg-slate-900/95 px-3 py-1.5 text-xs text-slate-100 shadow-xl shadow-black/20 backdrop-blur-xl dark:border-slate-600/50 dark:bg-slate-800/95">
+                <p className="font-medium">Enter To Send</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : (
+          <TooltipProvider delayDuration={350}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex h-8 w-[88px] shrink-0">
+                  <Button
+                    variant="ghost"
+                    disabled={isCancelling}
+                    aria-label={isCancelling ? 'Stopping response' : 'Stop response'}
+                    className={cn(
+                      'shared-prompt-action-button h-8 w-[88px] min-w-[88px] gap-2 rounded-[10px] border px-3 shadow-none',
+                      'border-red-200/80 bg-red-50/75 text-red-600',
+                      'transition-[background-color,border-color,color,transform] duration-150 ease-out',
+                      !isCancelling && 'hover:border-red-300 hover:bg-red-100/80 hover:text-red-700 active:scale-[0.97]',
+                      'dark:border-red-900/55 dark:bg-red-950/35 dark:text-red-300',
+                      !isCancelling && 'dark:hover:border-red-800/70 dark:hover:bg-red-950/55 dark:hover:text-red-200',
+                      isCancelling && 'cursor-wait opacity-60'
+                    )}
+                    onClick={handleStopClick}
+                  >
+                    <StopIcon className="h-4 w-4" />
+                    <span className="text-[11px] font-semibold leading-none">
+                      {isCancelling ? 'Stopping' : 'Stop'}
+                    </span>
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent className="rounded-lg border border-slate-700/50 bg-slate-900/95 px-3 py-1.5 text-xs text-slate-100 shadow-xl shadow-black/20 backdrop-blur-xl dark:border-slate-600/50 dark:bg-slate-800/95">
+                <p className="font-medium">{isCancelling ? 'Stopping response' : 'Stop response'}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </div>
+    )
+  }
+
+  if (variant === 'baseline') {
     return (
       <div className="shared-prompt-action-strip flex min-w-0 items-center justify-end gap-1">
         <TooltipProvider delayDuration={400}>

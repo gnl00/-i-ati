@@ -114,22 +114,22 @@ const CollapsibleUserMessageContent: React.FC<{
               data-testid={isExpanded ? undefined : 'user-message-collapse-fade'}
               className={cn(
                 "pointer-events-none absolute inset-x-0 bottom-0 h-24",
+                "chat-user-message-collapse-fade",
                 "bg-linear-to-b from-slate-100/0 via-slate-100/72 to-slate-100",
                 "transition-opacity duration-260 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none",
-                isExpanded ? "opacity-0" : "opacity-100",
-                "dark:from-gray-800/0 dark:via-gray-800/72 dark:to-gray-800"
+                isExpanded ? "opacity-0" : "opacity-100"
               )}
             />
             <div
               aria-hidden="true"
               className={cn(
                 "pointer-events-none absolute inset-x-0 bottom-0 h-[72px]",
+                "chat-user-message-collapse-blur",
                 "bg-slate-100/38 backdrop-blur-[3px]",
                 "mask-[linear-gradient(to_bottom,transparent_0%,black_48%)]",
                 "[-webkit-mask-image:linear-gradient(to_bottom,transparent_0%,black_48%)]",
                 "transition-opacity duration-260 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none",
-                isExpanded ? "opacity-0" : "opacity-100",
-                "dark:bg-gray-800/42"
+                isExpanded ? "opacity-0" : "opacity-100"
               )}
             />
           </>
@@ -158,8 +158,8 @@ const CollapsibleUserMessageContent: React.FC<{
               "active:scale-[0.99]",
               "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500/30",
               "motion-reduce:transition-none motion-reduce:hover:scale-100 motion-reduce:active:scale-100",
-              "dark:border-white/10 dark:bg-gray-950/58 dark:text-gray-300 dark:shadow-[0_10px_28px_-18px_rgba(0,0,0,0.9)]",
-              "dark:hover:border-white/16 dark:hover:bg-gray-950/78 dark:hover:text-white"
+              "dark:border-(--chat-border-standard) dark:bg-(--chat-surface) dark:text-(--chat-text-body) dark:shadow-none",
+              "dark:hover:border-(--chat-border-standard) dark:hover:bg-(--chat-surface-hover) dark:hover:text-(--chat-text-primary)"
             )}
           >
             <span className="relative flex h-3.5 w-3.5 items-center justify-center">
@@ -260,7 +260,7 @@ const VLMContentRenderer: React.FC<{
             markdown={vlmContent.text ?? ''}
             animateOnEnter={animateOnEnter}
             className={cn(
-              "prose prose-code:text-gray-400 text-sm text-blue-gray-600 font-medium max-w-full dark:text-white prose-a:text-blue-600 dark:prose-a:text-sky-400 prose-a:underline prose-a:underline-offset-2 prose-a:decoration-blue-400/60 dark:prose-a:decoration-sky-400/60 hover:prose-a:text-blue-700 dark:hover:prose-a:text-sky-300",
+              "chat-user-message-prose prose prose-code:text-gray-400 text-sm text-blue-gray-600 font-medium max-w-full prose-a:text-blue-600 dark:prose-a:text-(--chat-accent-strong) prose-a:underline prose-a:underline-offset-2 prose-a:decoration-blue-400/60 dark:prose-a:decoration-(--chat-accent)/60 hover:prose-a:text-blue-700 dark:hover:prose-a:text-(--chat-text-primary)",
               markdownClassName
             )}
           />
@@ -330,7 +330,7 @@ export const UserMessage: React.FC<UserMessageProps> = memo(({
       <div
         id="usr-msg-content"
         className={cn(
-          "max-w-[85%] rounded-xl py-3 px-3 bg-slate-100 dark:bg-gray-800",
+          "chat-user-message-surface max-w-[85%] rounded-xl py-3 px-3 bg-slate-100",
           isLatest && "animate-shine animate-message-in",
           isPending && "opacity-75 saturate-90 shadow-sm shadow-slate-900/5 transition-[opacity,filter,box-shadow] duration-200 ease-out dark:shadow-black/20"
         )}
@@ -349,7 +349,7 @@ export const UserMessage: React.FC<UserMessageProps> = memo(({
             <AnimatedMarkdown
               markdown={m.content}
               animateOnEnter={shouldAnimateMarkdownEnter}
-              className={cn("prose prose-code:text-gray-400 text-sm text-blue-gray-600 dark:text-gray-300 font-medium max-w-full prose-a:text-blue-600 dark:prose-a:text-sky-400 prose-a:underline prose-a:underline-offset-2 prose-a:decoration-blue-400/60 dark:prose-a:decoration-sky-400/60 hover:prose-a:text-blue-700 dark:hover:prose-a:text-sky-300")}
+              className={cn("chat-user-message-prose prose prose-code:text-gray-400 text-sm text-blue-gray-600 font-medium max-w-full prose-a:text-blue-600 dark:prose-a:text-(--chat-accent-strong) prose-a:underline prose-a:underline-offset-2 prose-a:decoration-blue-400/60 dark:prose-a:decoration-(--chat-accent)/60 hover:prose-a:text-blue-700 dark:hover:prose-a:text-(--chat-text-primary)")}
             />
           )}
         </CollapsibleUserMessageContent>

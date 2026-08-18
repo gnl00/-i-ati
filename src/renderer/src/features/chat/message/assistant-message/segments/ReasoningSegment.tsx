@@ -9,7 +9,10 @@ import { StreamingMarkdownLite } from '@renderer/features/chat/message/typewrite
 import { useReasoningTypewriter } from '@renderer/features/chat/message/typewriter/useReasoningTypewriter'
 import { fixMalformedCodeBlocks } from '../../markdown/markdown-components'
 import { remarkPreserveLineBreaks } from '../../markdown/markdown-plugins'
-import { SupportSegmentHeader } from '../renderers/SupportSegmentHeader'
+import {
+  getSupportDisclosureTriggerClassName,
+  SupportSegmentHeader
+} from '../renderers/SupportSegmentHeader'
 
 interface ReasoningSegmentProps {
   segment: ReasoningSegment
@@ -27,12 +30,12 @@ interface ReasoningSegmentPanelProps {
 const REASONING_PROSE_CLASS_NAME = cn(
   'prose prose-sm max-w-none',
   'prose-slate dark:prose-invert',
-  'text-[12.5px] leading-6 text-slate-500 dark:text-slate-300',
+  'text-[12.5px] leading-6 text-slate-500 dark:text-(--chat-text-body)',
   'prose-p:my-1.5 prose-p:leading-6',
   'prose-code:rounded-sm prose-code:bg-slate-200/38 prose-code:px-1 prose-code:py-0.5 prose-code:text-[10px] prose-code:text-slate-700',
-  'dark:prose-code:bg-slate-800/52 dark:prose-code:text-slate-200',
-  'prose-hr:my-2 prose-hr:border-slate-200 dark:prose-hr:border-slate-700',
-  'prose-strong:font-semibold prose-strong:text-slate-700 dark:prose-strong:text-slate-100'
+  'dark:prose-code:bg-(--chat-surface-raised) dark:prose-code:text-(--chat-text-body)',
+  'prose-hr:my-2 prose-hr:border-slate-200 dark:prose-hr:border-(--chat-border-subtle)',
+  'prose-strong:font-semibold prose-strong:text-slate-700 dark:prose-strong:text-(--chat-text-primary)'
 )
 
 export const ReasoningSegmentPanel: React.FC<ReasoningSegmentPanelProps> = ({
@@ -44,7 +47,7 @@ export const ReasoningSegmentPanel: React.FC<ReasoningSegmentPanelProps> = ({
   return (
     <div
       data-testid="reasoning-think-content"
-      className="relative border-l border-slate-200/70 pl-3 dark:border-white/8"
+      className="relative border-l border-slate-200/70 pl-3 dark:border-(--chat-border-standard)"
     >
       <div
         className="max-h-[min(456px,calc(100vh-160px))] overflow-y-auto overscroll-contain pr-1 custom-scrollbar"
@@ -141,7 +144,7 @@ const ReasoningSegmentComponent: React.FC<ReasoningSegmentProps> = ({
     <div
       data-testid="reasoning-segment"
       className={cn(
-        'my-1.5 max-w-full px-2',
+        'my-1.5 max-w-full',
         fullWidth ? 'w-full' : 'w-[90%]'
       )}
     >
@@ -154,15 +157,7 @@ const ReasoningSegmentComponent: React.FC<ReasoningSegmentProps> = ({
           hasUserChoice.current = true
           setIsOpen(current => !current)
         }}
-        className={cn(
-          'group/support flex w-full cursor-pointer items-center border-b py-1.5 text-left shadow-none outline-hidden',
-          'bg-transparent transition-[background-color,border-color] duration-150 ease-out',
-          'hover:border-slate-200/50 hover:bg-slate-50/55 dark:hover:border-white/8 dark:hover:bg-white/[0.025]',
-          'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-400/65 dark:focus-visible:ring-slate-500/75',
-          isOpen
-            ? 'border-slate-200/50 bg-slate-50/45 dark:border-white/8 dark:bg-white/[0.025]'
-            : 'border-slate-200/30 dark:border-white/5'
-        )}
+        className={getSupportDisclosureTriggerClassName(isOpen)}
       >
         <SupportSegmentHeader
           icon={Lightbulb}

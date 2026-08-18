@@ -24,7 +24,8 @@ const headerActionButtonClassName = [
   'app-undragable pointer-events-auto h-8 w-8 rounded-lg border border-transparent bg-transparent p-0',
   'text-slate-600 transition-[background-color,border-color,box-shadow,color,transform] duration-200',
   'hover:border-black/[0.08] hover:bg-black/[0.045] hover:text-slate-950 active:scale-95',
-  'dark:text-zinc-400 dark:hover:border-white/10 dark:hover:bg-white/[0.07] dark:hover:text-zinc-100'
+  'dark:text-(--chat-text-secondary) dark:hover:border-(--chat-border-standard)',
+  'dark:hover:bg-(--chat-surface-hover) dark:hover:text-(--chat-text-primary)'
 ].join(' ')
 
 export function useHeaderEmotion(): ChatEmotionState | undefined {
@@ -96,7 +97,7 @@ const ChatHeader: React.FC = () => {
       style={{ userSelect: 'none' }}
     >
       <div
-        className="pointer-events-none absolute inset-x-0 top-0 -bottom-2 bg-white/90 dark:bg-zinc-950/50 backdrop-blur-3xl"
+        className="pointer-events-none absolute inset-x-0 top-0 -bottom-2 bg-white/90 dark:bg-(--chat-header-surface) backdrop-blur-3xl"
         style={{
           WebkitMaskImage:
             'linear-gradient(to bottom, black 0%, black 70%, transparent 100%)',
@@ -173,10 +174,10 @@ const ChatHeader: React.FC = () => {
                 </motion.span>
               )}
             </AnimatePresence>
-            <span className="block truncate py-1 text-sm font-semibold text-slate-600 dark:text-zinc-100">
+            <span className="block truncate py-1 text-sm font-semibold text-slate-600 dark:text-(--chat-text-primary)">
               {chatTitle}
             </span>
-            <div className="absolute inset-x-0 bottom-0 h-px origin-center scale-x-75 bg-linear-to-r from-transparent via-blue-400/55 to-transparent opacity-80 transition-transform duration-300 group-hover:scale-x-100 dark:via-sky-300/40" />
+            <div className="absolute inset-x-0 bottom-0 h-px origin-center scale-x-75 bg-linear-to-r from-transparent via-blue-400/55 to-transparent opacity-80 transition-transform duration-300 group-hover:scale-x-100 dark:via-(--chat-accent)/45" />
           </div>
         </div>
 
@@ -188,7 +189,7 @@ const ChatHeader: React.FC = () => {
             className={cn(
               headerActionButtonClassName,
               artifactsPanelOpen
-                && 'border-black/[0.08] bg-black/[0.06] shadow-xs hover:bg-black/[0.08] dark:border-white/10 dark:bg-white/[0.09] dark:hover:bg-white/[0.11]'
+                && 'border-black/[0.08] bg-black/[0.06] shadow-xs hover:bg-black/[0.08] dark:border-(--chat-border-standard) dark:bg-(--chat-surface-hover) dark:hover:bg-(--chat-surface-hover)'
             )}
             variant="ghost"
             onClick={toggleArtifactsPanel}

@@ -112,10 +112,10 @@ const SharedPromptSurface = React.forwardRef<HTMLTextAreaElement, SharedPromptSu
           className={cn(
             'shared-prompt-textarea h-full w-full resize-none border-0 bg-transparent shadow-none',
             'px-5 pb-3 pt-3 text-[15px] font-medium leading-6 text-foreground',
-            'placeholder:text-muted-foreground/56 focus-visible:outline-hidden focus-visible:ring-0 focus-visible:ring-offset-0',
+            'focus-visible:outline-hidden focus-visible:ring-0 focus-visible:ring-offset-0',
             textareaClassName
           )}
-          placeholder={placeholder}
+          aria-label={placeholder}
           value={value}
           disabled={disabled}
           onChange={onChange}
@@ -129,6 +129,12 @@ const SharedPromptSurface = React.forwardRef<HTMLTextAreaElement, SharedPromptSu
           onDragOver={onDragOver}
           onDrop={onDrop}
         />
+
+        {!value && placeholder && (
+          <div className="shared-prompt-placeholder" aria-hidden="true">
+            {placeholder}
+          </div>
+        )}
 
         {bodyOverlay}
       </div>

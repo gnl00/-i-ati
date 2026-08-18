@@ -29,18 +29,28 @@ export interface SupportSegmentHeaderProps {
 }
 
 const iconToneClassNames: Record<SupportSegmentHeaderTone, string> = {
-  neutral: 'text-slate-500 dark:text-slate-400',
+  neutral: 'text-slate-500 dark:text-(--chat-text-secondary)',
   success: 'text-emerald-700 dark:text-emerald-300',
   warning: 'text-amber-700 dark:text-amber-200',
   danger: 'text-red-600 dark:text-red-300'
 }
 
 const iconWellToneClassNames: Record<SupportSegmentHeaderTone, string> = {
-  neutral: 'border-slate-200/60 bg-slate-100/65 dark:border-white/8 dark:bg-white/5',
+  neutral: 'border-slate-200/60 bg-slate-100/65 dark:border-(--chat-border-standard) dark:bg-(--chat-surface-raised)',
   success: 'border-emerald-200/70 bg-emerald-50/85 dark:border-emerald-900/42 dark:bg-emerald-950/24',
   warning: 'border-amber-200/70 bg-amber-50/85 dark:border-amber-900/45 dark:bg-amber-950/26',
   danger: 'border-red-200/70 bg-red-50/85 dark:border-red-900/45 dark:bg-red-950/28'
 }
+
+export const getSupportDisclosureTriggerClassName = (isOpen: boolean): string => cn(
+  'group/support flex w-full cursor-pointer items-center overflow-hidden rounded-[10px] border px-2 py-1.5 text-left shadow-none outline-hidden',
+  'transition-[background-color,border-color] duration-150 ease-out motion-reduce:transition-none',
+  'hover:border-slate-200/60 hover:bg-slate-50/70 dark:hover:border-(--chat-border-standard) dark:hover:bg-(--chat-surface-hover)',
+  'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-400/65 dark:focus-visible:ring-slate-500/75',
+  isOpen
+    ? 'border-slate-200/60 bg-slate-50/65 dark:border-(--chat-border-standard) dark:bg-(--chat-surface-raised)'
+    : 'border-slate-200/35 bg-white/30 dark:border-(--chat-border-subtle) dark:bg-(--chat-surface)'
+)
 
 export const SupportSegmentHeader = React.memo(({
   icon: Icon,
@@ -65,7 +75,7 @@ export const SupportSegmentHeader = React.memo(({
     <span
       data-testid={dataTestId ?? 'support-segment-header'}
       className={cn(
-        'grid w-full max-w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center text-slate-600 dark:text-slate-300',
+        'grid w-full max-w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center text-slate-600 dark:text-(--chat-text-body)',
         isCompact ? 'gap-x-2' : 'gap-x-2.5',
         className
       )}
@@ -94,7 +104,7 @@ export const SupportSegmentHeader = React.memo(({
           className={cn(
             'block shrink-0 truncate font-semibold uppercase leading-none tracking-wide',
             isCompact ? 'text-[10px]' : 'text-[10.5px]',
-            'text-slate-500 dark:text-slate-300',
+            'text-slate-500 dark:text-(--chat-text-body)',
             nameClassName
           )}
         >
@@ -105,7 +115,7 @@ export const SupportSegmentHeader = React.memo(({
             data-testid={testIds?.description}
             title={typeof description === 'string' ? description : undefined}
             className={cn(
-              'block min-w-0 flex-1 truncate whitespace-nowrap font-medium leading-snug text-slate-400 dark:text-slate-500',
+              'block min-w-0 flex-1 truncate whitespace-nowrap font-medium leading-snug text-slate-400 dark:text-(--chat-text-muted)',
               isCompact ? 'text-[10px]' : 'text-[10.5px]',
               descriptionClassName
             )}
@@ -118,7 +128,7 @@ export const SupportSegmentHeader = React.memo(({
         <span
           data-testid={testIds?.duration ?? 'support-segment-header-duration'}
           className={cn(
-            'col-start-3 shrink-0 justify-self-end text-right font-medium tabular-nums leading-none text-slate-400 dark:text-slate-500',
+            'col-start-3 shrink-0 justify-self-end text-right font-medium tabular-nums leading-none text-slate-400 dark:text-(--chat-text-secondary)',
             isCompact ? 'text-[10px]' : 'text-[10.5px]',
             durationClassName
           )}
@@ -129,7 +139,7 @@ export const SupportSegmentHeader = React.memo(({
       {trailing ? (
         <span
           data-testid={testIds?.trailing}
-          className="col-start-4 inline-flex shrink-0 items-center justify-center text-slate-400 dark:text-slate-500"
+          className="col-start-4 inline-flex shrink-0 items-center justify-center text-slate-400 dark:text-(--chat-text-secondary)"
         >
           {trailing}
         </span>

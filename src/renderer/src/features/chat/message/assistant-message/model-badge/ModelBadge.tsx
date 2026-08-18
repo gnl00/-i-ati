@@ -30,14 +30,14 @@ export const ModelBadge: React.FC<ModelBadgeProps> = ({
         'mb-0.5 inline-flex max-w-full items-center gap-2.5 px-2.5 py-1.25 rounded-2xl',
         'select-none tracking-tight',
         'bg-linear-to-r from-slate-100/92 via-white/84 to-slate-100/88',
-        'dark:from-slate-900/64 dark:via-slate-900/48 dark:to-slate-900/60',
+        'dark:bg-(--chat-surface-raised) dark:bg-none dark:ring-1 dark:ring-(--chat-border-subtle)',
         'shadow-[0_12px_30px_-22px_rgba(15,23,42,0.42)]',
-        'backdrop-blur-md'
+        'backdrop-blur-md dark:shadow-none dark:backdrop-blur-none'
       )}
     >
       <ModelBadgeIcon provider={provider} model={model} animate={animate} />
 
-      <span className="shrink-0 text-[10.5px] font-semibold text-slate-700 dark:text-slate-100 uppercase">
+      <span className="shrink-0 text-[10.5px] font-semibold text-slate-700 dark:text-(--chat-text-primary) uppercase">
         {model}
       </span>
     </motion.div>

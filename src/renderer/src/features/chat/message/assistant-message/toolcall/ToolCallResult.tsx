@@ -480,12 +480,12 @@ export function getToolCallTriggerButtonClassName({
     'transition-[background-color,border-color,box-shadow] duration-150 ease-out',
     'border-slate-200/24 bg-white/34 hover:border-slate-200/36 hover:bg-slate-50/82',
     'focus-visible:ring-2 focus-visible:ring-slate-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-    'dark:border-slate-800/48 dark:bg-white/3 dark:hover:border-slate-700/60 dark:hover:bg-white/5 dark:focus-visible:ring-slate-500/80',
+    'dark:border-(--chat-border-subtle) dark:bg-(--chat-surface) dark:hover:border-(--chat-border-standard) dark:hover:bg-(--chat-surface-hover) dark:focus-visible:ring-slate-500/80',
     density === 'compact' ? 'px-1.5 py-1' : 'px-2 py-1.5',
     isError && 'border-red-200/38 hover:border-red-300/52 dark:border-red-900/28 dark:hover:border-red-800/42',
     (isRunning || isPending) && !isError
       && 'border-amber-200/34 hover:border-amber-300/48 dark:border-amber-900/24 dark:hover:border-amber-800/38',
-    isSelected && 'border-slate-400/45 bg-slate-100/88 shadow-xs dark:border-slate-600/60 dark:bg-white/8',
+    isSelected && 'border-slate-400/45 bg-slate-100/88 shadow-xs dark:border-(--chat-accent) dark:bg-(--chat-surface-hover)',
     className
   )
 }

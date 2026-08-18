@@ -109,6 +109,15 @@
     inset 0 1px 0 color-mix(in srgb, white 34%, transparent);
 }
 
+.dark .shared-prompt-surface[data-variant='chat'] {
+  --shared-prompt-border: var(--chat-border-standard);
+  background: var(--chat-surface-raised);
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 0.025) inset,
+    0 14px 36px rgb(0 0 0 / 0.12);
+  backdrop-filter: none;
+}
+
 .shared-prompt-surface[data-variant='chat'][data-expanded='true'] {
   grid-template-rows: 0 minmax(0, 1fr) 44px;
   border-radius: 24px;
@@ -184,6 +193,10 @@
   border-bottom-color: color-mix(in srgb, hsl(var(--border)) 32%, transparent);
 }
 
+.dark .shared-prompt-surface[data-variant='chat'] .shared-prompt-body {
+  border-bottom-color: var(--chat-border-subtle);
+}
+
 .shared-prompt-textarea {
   min-height: 0;
   background: transparent;
@@ -192,6 +205,36 @@
 
 .shared-prompt-textarea::-webkit-scrollbar {
   display: none;
+}
+
+.dark .shared-prompt-surface[data-variant='chat'] .shared-prompt-textarea {
+  color: var(--chat-text-primary);
+}
+
+.shared-prompt-placeholder {
+  position: absolute;
+  inset-inline: 20px;
+  top: 12px;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  color: color-mix(in srgb, hsl(var(--muted-foreground)) 56%, transparent);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 24px;
+}
+
+.dark .shared-prompt-surface[data-variant='chat'] .shared-prompt-placeholder {
+  color: var(--chat-text-muted);
+}
+
+.shared-prompt-gallery ~ .shared-prompt-placeholder {
+  top: 70px;
+}
+
+.shared-prompt-surface[data-variant='chat'] .shared-prompt-gallery ~ .shared-prompt-placeholder {
+  top: 78px;
 }
 
 .shared-prompt-actions {

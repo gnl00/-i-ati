@@ -93,7 +93,7 @@ const ToolCallGroupRow = memo(({
   return (
     <motion.div
       data-testid={`tool-call-group-row-${item.segment.segmentId}`}
-      className="border-t border-slate-200/28 first:border-t-0 dark:border-white/4"
+      className="border-t border-slate-200/28 first:border-t-0 dark:border-(--chat-border-subtle)"
       initial={shouldReduceMotion ? false : { opacity: 0, x: -6, scale: 0.995 }}
       animate={shouldReduceMotion ? undefined : { opacity: 1, x: 0, scale: 1 }}
       transition={shouldReduceMotion
@@ -124,8 +124,8 @@ const ToolCallGroupRow = memo(({
           'group/support flex w-full min-w-0 cursor-pointer items-center px-2 py-1.5 text-left outline-hidden',
           'transition-colors duration-150 hover:bg-slate-50/55',
           'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-400/65',
-          expanded && 'bg-slate-50/45 dark:bg-white/[0.025]',
-          'dark:hover:bg-white/[0.025] dark:focus-visible:ring-slate-500/75'
+          expanded && 'bg-slate-50/45 dark:bg-(--chat-surface)',
+          'dark:hover:bg-(--chat-surface) dark:focus-visible:ring-slate-500/75'
         )}
       >
         <ToolCallTriggerContent
@@ -165,7 +165,7 @@ const ToolCallGroupRow = memo(({
       >
         <div
           data-testid={`tool-call-detail-surface-${item.segment.segmentId}`}
-          className="border-t border-slate-200/35 bg-gray-100/45 px-1 py-1 dark:border-white/5 dark:bg-white/2.5"
+          className="border-t border-slate-200/35 bg-gray-100/45 px-1 py-1 dark:border-(--chat-border-subtle) dark:bg-(--chat-surface)"
         >
           {hasOpened || expanded ? (
             <ToolCallInspectorDetails
@@ -200,7 +200,7 @@ const ToolCallGroupComponent: React.FC<ToolCallGroupProps> = ({
       data-testid="tool-call-group"
       className={cn(
         fullWidth ? 'w-full max-w-full' : TOOL_CALL_RESULT_WIDTH_CLASS_NAME,
-        'my-2 overflow-hidden rounded-lg border border-slate-200/28 bg-white/30 dark:border-white/4 dark:bg-white/1.5'
+        'my-2 overflow-hidden rounded-lg border border-slate-200/28 bg-white/30 dark:border-(--chat-border-subtle) dark:bg-(--chat-surface)'
       )}
     >
       {visible.map(item => (
@@ -218,7 +218,7 @@ const ToolCallGroupComponent: React.FC<ToolCallGroupProps> = ({
       {hiddenCount > 0 ? (
         <button
           type="button"
-          className="w-full cursor-pointer border-t border-slate-200/45 px-3 py-2 text-left text-[10.5px] font-medium text-slate-500 outline-hidden transition-colors hover:bg-slate-50/55 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-400/65 dark:border-white/6 dark:text-slate-400 dark:hover:bg-white/[0.025]"
+          className="w-full cursor-pointer border-t border-slate-200/45 px-3 py-2 text-left text-[10.5px] font-medium text-slate-500 outline-hidden transition-colors hover:bg-slate-50/55 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-400/65 dark:border-(--chat-border-subtle) dark:text-(--chat-text-secondary) dark:hover:bg-(--chat-surface-hover)"
           onClick={() => setShowAll(true)}
         >
           Show {hiddenCount} more tool calls

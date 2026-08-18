@@ -3,7 +3,10 @@ import { cn } from '@renderer/shared/lib/utils'
 import { useReducedMotion } from 'framer-motion'
 import { ChevronDown, ListChecks } from 'lucide-react'
 import React from 'react'
-import { SupportSegmentHeader } from './SupportSegmentHeader'
+import {
+  getSupportDisclosureTriggerClassName,
+  SupportSegmentHeader
+} from './SupportSegmentHeader'
 
 export interface AssistantCompletedWorkGroupProps {
   children: React.ReactNode
@@ -22,7 +25,7 @@ export const AssistantCompletedWorkGroup: React.FC<AssistantCompletedWorkGroupPr
   return (
     <div
       data-testid="assistant-completed-work-group"
-      className="my-1.5 w-full max-w-full px-2"
+      className="my-1.5 w-full max-w-full"
     >
       <button
         type="button"
@@ -30,15 +33,7 @@ export const AssistantCompletedWorkGroup: React.FC<AssistantCompletedWorkGroupPr
         aria-expanded={isOpen}
         aria-controls={panelId}
         onClick={() => setIsOpen(current => !current)}
-        className={cn(
-          'group/support flex w-full cursor-pointer items-center border-b py-1.5 text-left shadow-none outline-hidden',
-          'bg-transparent transition-[background-color,border-color] duration-150 ease-out motion-reduce:transition-none',
-          'hover:border-slate-200/50 hover:bg-slate-50/55 dark:hover:border-white/8 dark:hover:bg-white/[0.025]',
-          'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-400/65 dark:focus-visible:ring-slate-500/75',
-          isOpen
-            ? 'border-slate-200/50 bg-slate-50/45 dark:border-white/8 dark:bg-white/[0.025]'
-            : 'border-slate-200/30 dark:border-white/5'
-        )}
+        className={getSupportDisclosureTriggerClassName(isOpen)}
       >
         <SupportSegmentHeader
           icon={ListChecks}

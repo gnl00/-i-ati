@@ -5,6 +5,7 @@ import {
   groupModelSelectorOptions,
   resolveChatToolbarModelSelection
 } from '../ChatToolbarModelSelector.utils'
+import { getChatToolbarModelSelectorTriggerClassName } from '../ChatToolbarModelSelector'
 
 const plugin: PluginEntity = {
   pluginId: 'openai-chat-compatible-adapter',
@@ -137,5 +138,22 @@ describe('filterModelSelectorGroups', () => {
 
     expect(filteredGroups).toHaveLength(1)
     expect(filteredGroups[0].options.map(option => option.model.id)).toEqual(['claude-sonnet-4-5'])
+  })
+})
+
+describe('getChatToolbarModelSelectorTriggerClassName', () => {
+  it('uses the graphite surface geometry without changing the baseline variant', () => {
+    const surface = getChatToolbarModelSelectorTriggerClassName('surface', true)
+    const baseline = getChatToolbarModelSelectorTriggerClassName('baseline', true)
+
+    expect(surface).toContain('min-w-[136px]')
+    expect(surface).toContain('max-w-[220px]')
+    expect(surface).toContain('rounded-[10px]')
+    expect(surface).toContain('dark:bg-(--chat-surface)')
+    expect(surface).toContain('dark:aria-expanded:bg-(--chat-surface-hover)')
+    expect(baseline).toContain('min-w-[118px]')
+    expect(baseline).toContain('max-w-[184px]')
+    expect(baseline).toContain('rounded-xl')
+    expect(baseline).not.toContain('dark:bg-(--chat-surface)')
   })
 })

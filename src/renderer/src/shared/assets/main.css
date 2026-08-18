@@ -145,10 +145,10 @@
   background-size: 50px 50px;
 }
 @utility bg-chat-dark {
-  background-color: #1a1816;
+  background-color: var(--chat-canvas);
   background-image: radial-gradient(
     circle at 1px 1px,
-    rgba(160, 145, 120, 0.1) 1px,
+    var(--chat-canvas-dot) 1px,
     transparent 0
   );
   background-size: 50px 50px;
@@ -203,6 +203,21 @@
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+    --chat-canvas: #f9f9f9;
+    --chat-canvas-dot: rgb(139 125 102 / 0.15);
+    --chat-header-surface: rgb(255 255 255 / 0.9);
+    --chat-surface: rgb(255 255 255 / 0.78);
+    --chat-surface-raised: rgb(255 255 255 / 0.88);
+    --chat-surface-hover: rgb(248 250 252 / 0.82);
+    --chat-border-subtle: rgb(15 23 42 / 0.07);
+    --chat-border-standard: rgb(15 23 42 / 0.11);
+    --chat-text-primary: #1f2937;
+    --chat-text-body: #475569;
+    --chat-text-secondary: #64748b;
+    --chat-text-muted: #94a3b8;
+    --chat-accent: #64748b;
+    --chat-accent-strong: #475569;
+    --chat-user-bubble: #f1f5f9;
   }
 
   .dark {
@@ -238,6 +253,57 @@
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+    --chat-canvas: oklch(19% 0.006 250);
+    --chat-canvas-dot: rgb(188 197 207 / 0.026);
+    --chat-header-surface: rgb(21 22 23 / 0.78);
+    --chat-surface: oklch(22.5% 0.007 250);
+    --chat-surface-raised: oklch(25% 0.009 250);
+    --chat-surface-hover: oklch(27% 0.011 250);
+    --chat-border-subtle: rgb(218 225 234 / 0.06);
+    --chat-border-standard: rgb(218 225 234 / 0.105);
+    --chat-text-primary: oklch(92.5% 0.006 250);
+    --chat-text-body: oklch(81.5% 0.012 250);
+    --chat-text-secondary: oklch(65% 0.018 250);
+    --chat-text-muted: oklch(55% 0.018 250);
+    --chat-accent: oklch(69% 0.04 250);
+    --chat-accent-strong: oklch(77% 0.045 250);
+    --chat-user-bubble: oklch(25.5% 0.02 250);
+  }
+}
+
+@layer utilities {
+  .dark .chat-assistant-prose {
+    color: var(--chat-text-body);
+  }
+
+  .dark .chat-assistant-prose :where(h1, h2, h3, h4, h5, h6, strong, th) {
+    color: var(--chat-text-primary);
+    font-weight: 600;
+  }
+
+  .dark .chat-assistant-prose :where(blockquote, figcaption) {
+    color: var(--chat-text-secondary);
+  }
+
+  .dark .chat-user-message-surface {
+    background-color: var(--chat-user-bubble);
+  }
+
+  .dark .chat-user-message-prose {
+    color: var(--chat-text-primary);
+  }
+
+  .dark .chat-user-message-collapse-fade {
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      color-mix(in oklab, var(--chat-user-bubble) 72%, transparent),
+      var(--chat-user-bubble)
+    );
+  }
+
+  .dark .chat-user-message-collapse-blur {
+    background-color: color-mix(in oklab, var(--chat-user-bubble) 42%, transparent);
   }
 }
 

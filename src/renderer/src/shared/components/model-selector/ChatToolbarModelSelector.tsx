@@ -6,13 +6,13 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger
 } from '@renderer/shared/components/ui/dropdown-menu'
+import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
 import {
   Tooltip,
   TooltipContent,
@@ -36,7 +36,7 @@ import {
   type ModelSelectorGroup
 } from './ChatToolbarModelSelector.utils'
 
-type ChatToolbarModelSelectorVariant = 'default' | 'baseline'
+type ChatToolbarModelSelectorVariant = 'default' | 'baseline' | 'surface'
 
 interface ChatToolbarModelSelectorProps {
   selectedModel: ModelOption | undefined
@@ -76,11 +76,11 @@ const getSubMenuCollisionProps = () => ({
   sticky: 'always' as const
 })
 
-const getTriggerClassName = (
+export const getChatToolbarModelSelectorTriggerClassName = (
   variant: ChatToolbarModelSelectorVariant,
   selected: boolean,
   triggerClassName?: string
-) => {
+): string => {
   if (variant === 'baseline') {
     return cn(
       'group relative flex h-8 min-w-[118px] max-w-[184px] items-center justify-between gap-1.5 overflow-hidden rounded-xl px-2.5 py-0.5',
@@ -89,6 +89,22 @@ const getTriggerClassName = (
       'hover:border-border/45 hover:bg-foreground/[0.035] hover:text-foreground hover:shadow-[0_8px_18px_color-mix(in_srgb,hsl(var(--foreground))_4%,transparent)]',
       'active:scale-[0.985] focus-visible:ring-0 focus-visible:ring-offset-0',
       selected && 'border-border/35 bg-transparent text-foreground dark:border-border/30',
+      triggerClassName
+    )
+  }
+
+  if (variant === 'surface') {
+    return cn(
+      'group relative flex h-8 min-w-[136px] max-w-[220px] items-center justify-between gap-1.5 overflow-hidden rounded-[10px] px-2.5 py-0.5',
+      'border border-slate-200/45 bg-white/35 text-[11px] font-medium text-slate-600 shadow-none',
+      'transition-[background-color,border-color,color,transform] duration-150 ease-out',
+      'hover:border-slate-300/65 hover:bg-slate-50/80 hover:text-slate-800',
+      'aria-expanded:border-slate-300/75 aria-expanded:bg-slate-100/80 aria-expanded:text-slate-900',
+      'active:scale-[0.985] focus-visible:ring-0 focus-visible:ring-offset-0',
+      'dark:border-(--chat-border-subtle) dark:bg-(--chat-surface) dark:text-(--chat-text-body)',
+      'dark:hover:border-(--chat-border-standard) dark:hover:bg-(--chat-surface-hover) dark:hover:text-(--chat-text-primary)',
+      'dark:aria-expanded:border-(--chat-border-standard) dark:aria-expanded:bg-(--chat-surface-hover) dark:aria-expanded:text-(--chat-text-primary)',
+      selected && 'text-slate-800 dark:text-(--chat-text-primary)',
       triggerClassName
     )
   }
@@ -142,13 +158,19 @@ const ModelSelectorTrigger = React.forwardRef<HTMLButtonElement, ModelSelectorTr
       variant="outline"
       role="combobox"
       aria-expanded={isOpen}
-      className={getTriggerClassName(variant, selected, triggerClassName)}
+      data-variant={variant}
+      className={getChatToolbarModelSelectorTriggerClassName(variant, selected, triggerClassName)}
     >
       {showNeutralHoverSheen && (
         <div className="absolute inset-0 bg-linear-to-r from-white/0 via-white/35 to-white/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 dark:via-white/10" />
       )}
 
-      <span className="relative z-10 flex min-w-0 grow justify-center overflow-x-hidden select-none">
+      <span
+        className={cn(
+          'relative z-10 flex min-w-0 grow overflow-x-hidden select-none',
+          variant === 'surface' ? 'justify-start' : 'justify-center'
+        )}
+      >
         {selectedModel ? (
           <TooltipProvider delayDuration={350}>
             <Tooltip>
@@ -171,7 +193,7 @@ const ModelSelectorTrigger = React.forwardRef<HTMLButtonElement, ModelSelectorTr
                 sideOffset={8}
                 className="max-w-64 rounded-lg border border-slate-700/50 bg-slate-900/95 px-3 py-1.5 text-xs font-medium text-slate-100 shadow-xl shadow-black/20 backdrop-blur-xl dark:border-slate-600/50 dark:bg-slate-800/95"
               >
-                <span className="block truncate">{selectedModel.model.label}</span>
+                <span className="block break-words">{selectedModel.model.label}</span>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -182,7 +204,10 @@ const ModelSelectorTrigger = React.forwardRef<HTMLButtonElement, ModelSelectorTr
 
       <ChevronsUpDown
         className={cn(
-          'relative z-10 flex h-4 w-4 opacity-50 transition-all duration-300 group-hover:opacity-100',
+          'relative z-10 flex opacity-50 transition-[transform,opacity] duration-200 group-hover:opacity-100',
+          variant === 'surface'
+            ? 'h-3.5 w-3.5 text-slate-500 dark:text-(--chat-text-secondary)'
+            : 'h-4 w-4',
           isOpen && 'rotate-180'
         )}
       />
@@ -198,11 +223,13 @@ interface ModelSearchBoxProps {
 
 const ModelSearchBox: React.FC<ModelSearchBoxProps> = ({ value, onChange }) => {
   return (
-    <div className="border-b border-border/55 p-2">
+    <div className="border-b border-border/55 p-2 dark:border-(--chat-border-subtle)">
       <div
         className={cn(
           'flex h-8 items-center gap-2 rounded-xl border border-border/50 bg-muted/45 px-2 text-muted-foreground',
-          'transition-[background-color,border-color,box-shadow] duration-200 focus-within:border-border/80 focus-within:bg-background/80 focus-within:shadow-xs'
+          'transition-[background-color,border-color,box-shadow] duration-200 focus-within:border-border/80 focus-within:bg-background/80 focus-within:shadow-xs',
+          'dark:border-(--chat-border-subtle) dark:bg-(--chat-surface) dark:text-(--chat-text-secondary)',
+          'dark:focus-within:border-(--chat-border-standard) dark:focus-within:bg-(--chat-surface-hover) dark:focus-within:shadow-none'
         )}
         onPointerDown={(event) => event.stopPropagation()}
       >
@@ -223,7 +250,7 @@ const ModelSearchBox: React.FC<ModelSearchBoxProps> = ({ value, onChange }) => {
             }
           }}
           placeholder="Search model"
-          className="h-full min-w-0 flex-1 bg-transparent text-xs font-medium text-foreground outline-hidden placeholder:text-muted-foreground/60"
+          className="h-full min-w-0 flex-1 bg-transparent text-xs font-medium text-foreground outline-hidden placeholder:text-muted-foreground/60 dark:text-(--chat-text-primary) dark:placeholder:text-(--chat-text-muted)"
         />
       </div>
     </div>
@@ -242,8 +269,8 @@ const ProviderGroupSection: React.FC<ProviderGroupSectionProps> = ({ group, inde
 
   return (
     <DropdownMenuGroup>
-      {index > 0 && <DropdownMenuSeparator className="bg-border/55" />}
-      <DropdownMenuLabel className="flex items-center gap-2 px-2 py-1.5 text-[11px] font-semibold text-muted-foreground">
+      {index > 0 && <DropdownMenuSeparator className="bg-border/55 dark:bg-(--chat-border-subtle)" />}
+      <DropdownMenuLabel className="flex items-center gap-2 px-2 py-1.5 text-[11px] font-semibold text-muted-foreground dark:text-(--chat-text-secondary)">
         <img
           src={getProviderIcon(group.definition.iconKey || group.definition.id)}
           alt={displayName}
@@ -252,7 +279,7 @@ const ProviderGroupSection: React.FC<ProviderGroupSectionProps> = ({ group, inde
         <span className="min-w-0 truncate">
           {displayName}
           {showAccountLabel && (
-            <span className="ml-1 text-[10px] font-medium text-muted-foreground/70">
+            <span className="ml-1 text-[10px] font-medium text-muted-foreground/70 dark:text-(--chat-text-muted)">
               {group.account.label}
             </span>
           )}
@@ -281,20 +308,20 @@ const ModelOptionContent: React.FC<ModelOptionContentProps> = ({
       <span className="flex min-w-0 flex-1 items-center gap-2">
         <span className="truncate">{option.model.label}</span>
         {modelHasVision(option) && (
-          <span className="inline-flex h-5 items-center rounded-md bg-muted px-1.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className="inline-flex h-5 items-center rounded-md bg-muted px-1.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground dark:bg-(--chat-surface-hover) dark:text-(--chat-text-secondary)">
             <Eye className="mr-1 size-3!" />
             vision
           </span>
         )}
         {capability && (
-          <span className="inline-flex h-5 items-center rounded-md bg-muted px-1.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className="inline-flex h-5 items-center rounded-md bg-muted px-1.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground dark:bg-(--chat-surface-hover) dark:text-(--chat-text-secondary)">
             <Lightbulb className="mr-1 size-3!" />
             {getThinkingLabel(levelValue) ?? 'think'}
           </span>
         )}
       </span>
       {selected && (
-        <span className="ml-2 grid h-5 w-5 shrink-0 place-items-center rounded-md border border-border/60 bg-background/85 text-foreground shadow-xs">
+        <span className="ml-2 grid h-5 w-5 shrink-0 place-items-center rounded-md border border-border/60 bg-background/85 text-foreground shadow-xs dark:border-(--chat-border-standard) dark:bg-(--chat-surface) dark:text-(--chat-accent-strong) dark:shadow-none">
           <Check className="h-3.5 w-3.5" />
         </span>
       )}
@@ -315,7 +342,8 @@ const ModelOptionItem: React.FC<ModelOptionItemProps> = ({ option, selected, onS
         'my-0.5 rounded-lg border border-transparent px-2 py-2 text-xs font-medium text-foreground cursor-pointer',
         'transition-[background-color,border-color,color,box-shadow] duration-150',
         'focus:border-border/45 focus:bg-foreground/4 focus:text-foreground',
-        selected && 'border-border/60 bg-foreground/4.5 shadow-xs'
+        'dark:text-(--chat-text-body) dark:focus:border-(--chat-border-standard) dark:focus:bg-(--chat-surface-hover) dark:focus:text-(--chat-text-primary)',
+        selected && 'border-border/60 bg-foreground/4.5 shadow-xs dark:border-(--chat-border-standard) dark:bg-(--chat-surface-hover) dark:text-(--chat-text-primary) dark:shadow-none'
       )}
       onSelect={() => onSelect(option)}
     >
@@ -347,7 +375,9 @@ const ThinkingLevelSubMenu: React.FC<ThinkingLevelSubMenuProps> = ({
           'transition-[background-color,border-color,color,box-shadow] duration-150',
           'focus:border-border/45 focus:bg-foreground/4 focus:text-foreground',
           'data-[state=open]:border-border/55 data-[state=open]:bg-foreground/5.5',
-          selected && 'border-border/60 bg-foreground/4.5 shadow-xs'
+          'dark:text-(--chat-text-body) dark:focus:border-(--chat-border-standard) dark:focus:bg-(--chat-surface-hover) dark:focus:text-(--chat-text-primary)',
+          'dark:data-[state=open]:border-(--chat-border-standard) dark:data-[state=open]:bg-(--chat-surface-hover) dark:data-[state=open]:text-(--chat-text-primary)',
+          selected && 'border-border/60 bg-foreground/4.5 shadow-xs dark:border-(--chat-border-standard) dark:bg-(--chat-surface-hover) dark:text-(--chat-text-primary) dark:shadow-none'
         )}
       >
         <ModelOptionContent
@@ -362,14 +392,15 @@ const ThinkingLevelSubMenu: React.FC<ThinkingLevelSubMenuProps> = ({
         alignOffset={-5}
         {...getSubMenuCollisionProps()}
         className={cn(
-          'min-w-40 overflow-visible rounded-2xl border border-border/60 bg-popover/95 p-1.5 text-popover-foreground',
-          'shadow-xl shadow-black/10 backdrop-blur-xl'
+          'w-56 overflow-visible rounded-[14px] border border-border/60 bg-popover/95 p-1.5 text-popover-foreground',
+          'shadow-xl shadow-black/10 backdrop-blur-xl',
+          'dark:border-(--chat-border-standard) dark:bg-(--chat-surface-raised) dark:text-(--chat-text-primary) dark:shadow-black/30 dark:backdrop-blur-none'
         )}
         style={{
           maxWidth: 'var(--radix-dropdown-menu-content-available-width)'
         }}
       >
-        <DropdownMenuLabel className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/75">
+        <DropdownMenuLabel className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/75 dark:text-(--chat-text-muted)">
           Thinking level
         </DropdownMenuLabel>
         <DropdownMenuRadioGroup
@@ -377,17 +408,31 @@ const ThinkingLevelSubMenu: React.FC<ThinkingLevelSubMenuProps> = ({
           onValueChange={(value) => onSelect(option, value as ThinkingLevel)}
         >
           {capability.levels.map(level => (
-            <DropdownMenuRadioItem
+            <DropdownMenuPrimitive.RadioItem
               key={level}
               value={level}
               className={cn(
-                'rounded-lg py-1.5 pl-6 pr-2 text-xs font-medium capitalize cursor-pointer',
-                'transition-[background-color,color] duration-150',
-                'focus:bg-foreground/4 focus:text-foreground'
+                'relative my-0.5 flex cursor-pointer select-none items-center gap-2 rounded-lg border border-transparent px-2 py-2 text-xs font-medium text-foreground outline-hidden',
+                'transition-[background-color,border-color,color] duration-150 focus:bg-accent/70 data-[state=checked]:bg-foreground/[0.035]',
+                'dark:text-(--chat-text-body) dark:focus:border-(--chat-border-standard) dark:focus:bg-(--chat-surface-hover) dark:focus:text-(--chat-text-primary)',
+                'dark:data-[state=checked]:border-(--chat-border-standard) dark:data-[state=checked]:bg-(--chat-surface-hover) dark:data-[state=checked]:text-(--chat-text-primary)'
               )}
             >
-              {level}
-            </DropdownMenuRadioItem>
+              <Lightbulb className="h-3.5 w-3.5 shrink-0 text-muted-foreground dark:text-(--chat-text-muted)" />
+              <span className="min-w-0 flex-1 truncate capitalize select-none">{level}</span>
+              <span
+                className={cn(
+                  'ml-2 grid h-5 w-5 shrink-0 place-items-center rounded-md border text-foreground shadow-xs',
+                  level === levelValue
+                    ? 'border-border/60 bg-background/85 opacity-100 dark:border-(--chat-border-standard) dark:bg-(--chat-surface) dark:text-(--chat-accent-strong) dark:shadow-none'
+                    : 'border-transparent bg-transparent opacity-0'
+                )}
+              >
+                <DropdownMenuPrimitive.ItemIndicator>
+                  <Check className="h-3 w-3" strokeWidth={2.25} />
+                </DropdownMenuPrimitive.ItemIndicator>
+              </span>
+            </DropdownMenuPrimitive.RadioItem>
           ))}
         </DropdownMenuRadioGroup>
       </DropdownMenuSubContent>
@@ -398,7 +443,7 @@ const ThinkingLevelSubMenu: React.FC<ThinkingLevelSubMenuProps> = ({
 const ChatToolbarModelSelector: React.FC<ChatToolbarModelSelectorProps> = (props) => {
   const [searchQuery, setSearchQuery] = useState('')
   const variant = props.variant ?? 'default'
-  const contentSide = variant === 'baseline' ? 'top' : 'bottom'
+  const contentSide = variant === 'default' ? 'bottom' : 'top'
   const contentSideOffset = variant === 'baseline' ? 10 : 8
 
   const groupedOptions = useMemo(() => {
@@ -460,8 +505,9 @@ const ChatToolbarModelSelector: React.FC<ChatToolbarModelSelectorProps> = (props
         sideOffset={contentSideOffset}
         {...getMenuCollisionProps()}
         className={cn(
-          'w-80 overflow-visible rounded-2xl border border-border/60 bg-popover/95 p-0 text-popover-foreground',
-          'shadow-xl shadow-black/10 backdrop-blur-xl'
+          'w-80 overflow-visible rounded-[14px] border border-border/60 bg-popover/95 p-0 text-popover-foreground',
+          'shadow-xl shadow-black/10 backdrop-blur-xl',
+          'dark:border-(--chat-border-standard) dark:bg-(--chat-surface-raised) dark:text-(--chat-text-primary) dark:shadow-black/30 dark:backdrop-blur-none'
         )}
         style={{
           maxWidth: 'min(calc(100vw - 2rem), var(--radix-dropdown-menu-content-available-width))'
@@ -475,13 +521,13 @@ const ChatToolbarModelSelector: React.FC<ChatToolbarModelSelectorProps> = (props
           }}
         >
           {props.modelOptions.length === 0 && (
-            <DropdownMenuItem disabled className="rounded-lg text-xs text-muted-foreground">
+            <DropdownMenuItem disabled className="rounded-lg text-xs text-muted-foreground dark:text-(--chat-text-muted)">
               No model found.
             </DropdownMenuItem>
           )}
 
           {props.modelOptions.length > 0 && filteredGroups.length === 0 && (
-            <DropdownMenuItem disabled className="rounded-lg text-xs text-muted-foreground">
+            <DropdownMenuItem disabled className="rounded-lg text-xs text-muted-foreground dark:text-(--chat-text-muted)">
               No matching model.
             </DropdownMenuItem>
           )}
