@@ -10,6 +10,12 @@ This is an Electron + Vite + TypeScript desktop app.
 
 Tests are colocated with features under `__tests__`, for example `src/main/services/skills/__tests__/SkillService.test.ts` and `src/renderer/src/infrastructure/ipc/__tests__/ipcInvoker.events.test.ts`.
 
+## Design
+
+The application design language and unified Light/Dark Mode direction live in [`DESIGN.md`](./DESIGN.md).
+
+Read it before changing the app shell, Chat, Welcome, sheets, Settings, Artifacts, selectors, overlays, typography, motion, or theme tokens. Keep it synchronized when a shared visual rule or semantic token changes.
+
 ## When to Code
 
 Remember to check code specs if match with these belows:
