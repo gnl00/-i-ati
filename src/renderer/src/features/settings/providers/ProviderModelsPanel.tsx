@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { cn } from '@renderer/shared/lib/utils'
 import { Input } from '@renderer/shared/components/ui/input'
 import { Badge } from '@renderer/shared/components/ui/badge'
-import { Checkbox } from '@renderer/shared/components/ui/checkbox'
 import { Label } from '@renderer/shared/components/ui/label'
 import {
   Drawer,
@@ -18,6 +17,12 @@ import {
   SelectTrigger,
   SelectValue
 } from '@renderer/shared/components/ui/select'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@renderer/shared/components/ui/dropdown-menu'
 import {
   Tooltip,
   TooltipContent,
@@ -68,6 +73,11 @@ const MODEL_TYPE_SELECT_TRIGGER_CLASSNAME = cn(
   'dark:data-[state=open]:border-(--app-accent) dark:data-[state=open]:bg-(--app-surface-hover)',
   'dark:[&>svg]:text-(--app-text-muted)'
 )
+const EDIT_MODEL_TYPE_SELECT_TRIGGER_CLASSNAME = cn(
+  MODEL_TYPE_SELECT_TRIGGER_CLASSNAME,
+  'dark:bg-(--app-surface-inset) dark:ring-1 dark:ring-inset dark:ring-white/5',
+  'dark:[&>svg]:text-(--app-text-secondary)'
+)
 
 const MODALITY_OPTIONS = [
   { value: 'text', label: 'Text' },
@@ -78,6 +88,15 @@ const MODALITY_OPTIONS = [
   { value: 'tool', label: 'Tool' },
   { value: 'reason', label: 'Reason' }
 ] as const
+
+const formatContextWindowTokens = (value: string | number | undefined): string => {
+  const digits = String(value ?? '').replace(/\D/g, '')
+  if (!digits) {
+    return ''
+  }
+
+  return Number.parseInt(digits, 10).toLocaleString('en-US')
+}
 
 const getDefaultModalitiesForType = (type: ModelType): string[] => {
   switch (type) {
@@ -95,20 +114,40 @@ const getDefaultModalitiesForType = (type: ModelType): string[] => {
 const getModalityTagClassName = (modality: string): string => {
   switch (modality) {
     case 'image':
-      return 'bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300'
+      return 'border-sky-200/70 bg-sky-50/70 text-sky-800 dark:border-sky-800/35 dark:bg-sky-950/20 dark:text-sky-300/90'
     case 'audio':
-      return 'bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300'
+      return 'border-violet-200/70 bg-violet-50/70 text-violet-800 dark:border-violet-800/35 dark:bg-violet-950/20 dark:text-violet-300/90'
     case 'video':
-      return 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-950/50 dark:text-fuchsia-300'
+      return 'border-fuchsia-200/65 bg-fuchsia-50/60 text-fuchsia-800 dark:border-fuchsia-800/30 dark:bg-fuchsia-950/15 dark:text-fuchsia-300/90'
     case 'pdf':
-      return 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
+      return 'border-rose-200/65 bg-rose-50/60 text-rose-800 dark:border-rose-800/30 dark:bg-rose-950/15 dark:text-rose-300/90'
     case 'tool':
-      return 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
+      return 'border-amber-200/70 bg-amber-50/70 text-amber-800 dark:border-amber-800/35 dark:bg-amber-950/20 dark:text-amber-300/90'
     case 'reason':
-      return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+      return 'border-emerald-200/70 bg-emerald-50/70 text-emerald-800 dark:border-emerald-800/35 dark:bg-emerald-950/20 dark:text-emerald-300/90'
     case 'text':
     default:
-      return 'bg-gray-100 text-gray-600 dark:bg-(--app-surface-inset) dark:text-(--app-text-secondary)'
+      return 'border-gray-200/80 bg-white/70 text-gray-600 dark:border-(--app-border-standard) dark:bg-white/3 dark:text-(--app-text-secondary)'
+  }
+}
+
+const getModalityMarkerClassName = (modality: string): string => {
+  switch (modality) {
+    case 'image':
+      return 'bg-sky-500 dark:bg-sky-400'
+    case 'audio':
+      return 'bg-violet-500 dark:bg-violet-400'
+    case 'video':
+      return 'bg-fuchsia-500 dark:bg-fuchsia-400'
+    case 'pdf':
+      return 'bg-rose-500 dark:bg-rose-400'
+    case 'tool':
+      return 'bg-amber-500 dark:bg-amber-400'
+    case 'reason':
+      return 'bg-emerald-500 dark:bg-emerald-400'
+    case 'text':
+    default:
+      return 'bg-gray-500 dark:bg-gray-400'
   }
 }
 
@@ -233,12 +272,12 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
         console.warn('Failed to sync model capabilities:', error)
       })
 
-    return () => {
+    return (): void => {
       cancelled = true
     }
   }, [currentAccount?.id, modelCapabilitySyncKey, updateModel])
 
-  const handleAddModel = () => {
+  const handleAddModel = (): void => {
     const payload = {
       label: nextAddModelLabel,
       value: nextAddModelValue,
@@ -263,15 +302,15 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
     setNextAddModelType('llm')
   }
 
-  const openEditModal = (model: AccountModel) => {
+  const openEditModal = (model: AccountModel): void => {
     setEditingModel(model)
     setEditingModelType(model.type)
-    setEditingContextWindowTokens(model.contextWindowTokens ? String(model.contextWindowTokens) : '')
+    setEditingContextWindowTokens(formatContextWindowTokens(model.contextWindowTokens))
     setEditingModalities(model.modalities?.length ? [...model.modalities] : getDefaultModalitiesForType(model.type))
     setEditingModalitiesDirty(false)
   }
 
-  const toggleEditingModality = (modality: string, checked: boolean) => {
+  const toggleEditingModality = (modality: string, checked: boolean): void => {
     setEditingModalitiesDirty(true)
     setEditingModalities((prev) => {
       if (checked) {
@@ -281,12 +320,12 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
     })
   }
 
-  const handleSaveModalities = () => {
+  const handleSaveModalities = (): void => {
     if (!currentAccount || !editingModel) {
       return
     }
 
-    const parsedContextWindowTokens = Number.parseInt(editingContextWindowTokens, 10)
+    const parsedContextWindowTokens = Number.parseInt(editingContextWindowTokens.replace(/,/g, ''), 10)
     updateModel(currentAccount.id, editingModel.id, {
       type: editingModelType,
       modalities: editingModalities,
@@ -310,105 +349,193 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
           setEditingContextWindowTokens('')
         }}
       >
-        <DrawerContent className="max-h-[72vh] border-gray-200 dark:border-(--app-border-standard) bg-white dark:bg-(--app-surface-raised) dark:text-(--app-text-body) overflow-hidden">
+        <DrawerContent className="max-h-[55vh] border-gray-200 bg-white text-gray-900 dark:border-(--app-border-standard) dark:bg-(--app-surface-raised) dark:text-(--app-text-body) overflow-hidden overscroll-contain">
           <DrawerHeaderBar
-            title="Edit Model"
-            description={editingModel ? `${editingModel.label} · ${editingModel.id}` : undefined}
+            title={
+              editingModel && editingModel.label.trim() !== editingModel.id.trim()
+                ? editingModel.label
+                : 'Edit model'
+            }
+            context={editingModel ? (
+              <button
+                type="button"
+                onClick={() => onModelTableCellClick(editingModel.id)}
+                className="inline-flex min-w-0 max-w-full items-center gap-1.5 font-mono text-[10.5px] transition-colors duration-150 hover:text-gray-900 focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-gray-400 dark:hover:text-(--app-text-primary) dark:focus-visible:ring-(--app-accent)"
+                aria-label={`Copy model ID ${editingModel.id}`}
+                title="Copy model ID"
+              >
+                <span className="truncate">{editingModel.id}</span>
+              </button>
+            ) : undefined}
+            className="shrink-0"
           />
 
-          <div className="px-5 py-4 space-y-3">
-            <div className="space-y-1.5">
-              <Label className="text-[12px] font-medium text-gray-700 dark:text-(--app-text-body)">
-                Model Type
-              </Label>
-              <Select
-                value={editingModelType}
-                onValueChange={(value) => {
-                  const nextType = value as ModelType
-                  setEditingModelType(nextType)
-                  if (!editingModalitiesDirty) {
-                    setEditingModalities(getDefaultModalitiesForType(nextType))
-                  }
-                }}
-              >
-                <SelectTrigger className={cn(MODEL_TYPE_SELECT_TRIGGER_CLASSNAME, 'h-9')}>
-                  <SelectValue placeholder="Select model type" />
-                </SelectTrigger>
-                <SelectContent className="bg-white/95 dark:bg-(--app-surface-raised) rounded-lg shadow-lg backdrop-blur dark:backdrop-blur-none font-medium">
-                  <SelectGroup>
-                    <SelectItem value="llm" className='text-[11px] tracking-tight'>LLM</SelectItem>
-                    <SelectItem value="vlm" className='text-[11px] tracking-tight'>VLM</SelectItem>
-                    <SelectItem value="mllm" className='text-[11px] tracking-tight'>MLLM</SelectItem>
-                    <SelectItem value="img_gen" className='text-[11px] tracking-tight'>IMG_GEN</SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[12px] font-medium text-gray-700 dark:text-(--app-text-body)">
-                Context Window Tokens
-              </Label>
-              <Input
-                type="number"
-                min={1}
-                value={editingContextWindowTokens}
-                onChange={(event) => setEditingContextWindowTokens(event.target.value)}
-                placeholder="128000"
-                className={cn(settingsInputClassName, 'h-9 text-[12.5px] bg-white dark:bg-(--app-surface-inset) [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none')}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[12px] font-medium text-gray-700 dark:text-(--app-text-body)">
-                Modalities
-              </Label>
-              <div className="grid grid-cols-2 gap-2">
-              {MODALITY_OPTIONS.map((option) => (
-                <label
-                  key={option.value}
-                  className={cn(
-                    'flex items-center gap-2 rounded-lg border px-3 py-2 cursor-pointer transition-colors',
-                    editingModalities.includes(option.value)
-                      ? 'border-gray-400 dark:border-(--app-accent) bg-gray-50 dark:bg-(--app-surface-hover)'
-                      : 'border-gray-200 dark:border-(--app-border-standard) hover:border-gray-300 dark:hover:border-(--app-accent)'
-                  )}
-                >
-                  <Checkbox
-                    checked={editingModalities.includes(option.value)}
-                    onCheckedChange={(checked) => toggleEditingModality(option.value, checked === true)}
-                  />
-                  <div className="min-w-0">
-                    <Label className="text-[12.5px] font-medium text-gray-800 dark:text-(--app-text-body) cursor-pointer">
-                      {option.label}
-                    </Label>
+          <div className={cn('min-h-0 flex-1 overflow-y-auto px-5 py-4', settingsScrollbarClassName)}>
+            <div className="w-full space-y-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(180px,0.72fr)_minmax(260px,1.28fr)]">
+                <div className="space-y-1.5">
+                  <Label className="text-[12px] font-medium text-gray-700 dark:text-(--app-text-body)">
+                    Model type
+                  </Label>
+                  <Select
+                    value={editingModelType}
+                    onValueChange={(value) => {
+                      const nextType = value as ModelType
+                      setEditingModelType(nextType)
+                      if (!editingModalitiesDirty) {
+                        setEditingModalities(getDefaultModalitiesForType(nextType))
+                      }
+                    }}
+                  >
+                    <SelectTrigger className={cn(EDIT_MODEL_TYPE_SELECT_TRIGGER_CLASSNAME, 'h-9')}>
+                      <SelectValue placeholder="Select model type" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-lg bg-white/95 font-medium shadow-lg backdrop-blur dark:bg-(--app-surface-raised) dark:backdrop-blur-none">
+                      <SelectGroup>
+                        <SelectItem value="llm" className='text-[11px] tracking-tight'>LLM</SelectItem>
+                        <SelectItem value="vlm" className='text-[11px] tracking-tight'>VLM</SelectItem>
+                        <SelectItem value="mllm" className='text-[11px] tracking-tight'>MLLM</SelectItem>
+                        <SelectItem value="img_gen" className='text-[11px] tracking-tight'>IMG_GEN</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="editing-context-window" className="text-[12px] font-medium text-gray-700 dark:text-(--app-text-body)">
+                    Context window
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="editing-context-window"
+                      type="text"
+                      inputMode="numeric"
+                      value={editingContextWindowTokens}
+                      onChange={(event) => setEditingContextWindowTokens(formatContextWindowTokens(event.target.value))}
+                      placeholder="128,000"
+                      className={cn(
+                        settingsInputClassName,
+                        'h-9 bg-white pr-16 font-mono text-[12.5px] tabular-nums dark:bg-(--app-surface-inset)'
+                      )}
+                    />
+                    <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[10.5px] font-medium text-gray-400 dark:text-(--app-text-muted)">
+                      tokens
+                    </span>
                   </div>
-                </label>
-              ))}
+                </div>
               </div>
+
+              <section className="space-y-2" aria-labelledby="modalities-label">
+                <div className="flex min-h-7 flex-wrap items-center gap-x-2 gap-y-1">
+                  <Label id="modalities-label" className="text-[12px] font-medium text-gray-700 dark:text-(--app-text-body)">
+                    Modalities
+                  </Label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingModalities(getDefaultModalitiesForType(editingModelType))
+                      setEditingModalitiesDirty(false)
+                    }}
+                    className="ml-auto rounded-md px-2 py-1 text-[10.5px] font-medium text-gray-500 transition-[background-color,color,transform] duration-150 hover:bg-gray-100 hover:text-gray-800 active:scale-[0.97] focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-gray-400 dark:text-(--app-text-secondary) dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-primary) dark:focus-visible:ring-(--app-accent)"
+                  >
+                    Reset to defaults
+                  </button>
+                </div>
+
+                <div className="flex min-h-12 flex-wrap items-center gap-2 rounded-xl border border-gray-200/80 bg-gray-50/70 p-2.5 shadow-inner dark:border-(--app-border-standard) dark:bg-(--app-surface-inset) dark:shadow-none">
+                  {editingModalities.map((modality) => {
+                    const option = MODALITY_OPTIONS.find(item => item.value === modality)
+                    return (
+                      <span
+                        key={modality}
+                        className={cn(
+                          'inline-flex h-7 items-center gap-1 rounded-md border pl-2.5 pr-1 text-[11px] font-medium',
+                          getModalityTagClassName(modality)
+                        )}
+                      >
+                        {option?.label ?? modality}
+                        <button
+                          type="button"
+                          onClick={() => toggleEditingModality(modality, false)}
+                          className="inline-flex h-5 w-5 items-center justify-center rounded text-current/65 transition-[background-color,color,transform] duration-150 hover:bg-black/10 hover:text-current active:scale-95 focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-current dark:hover:bg-white/10"
+                          aria-label={`Remove ${option?.label ?? modality} modality`}
+                        >
+                          <i className="ri-close-line text-[13px]" aria-hidden="true" />
+                        </button>
+                      </span>
+                    )
+                  })}
+
+                  {editingModalities.length === 0 ? (
+                    <span className="px-1 text-[11px] text-gray-400 dark:text-(--app-text-muted)">
+                      No modalities selected
+                    </span>
+                  ) : null}
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        disabled={editingModalities.length === MODALITY_OPTIONS.length}
+                        className="inline-flex h-7 items-center gap-1.5 rounded-md border border-dashed border-gray-300 bg-white/70 px-2.5 text-[11px] font-medium text-gray-600 transition-[background-color,border-color,color,transform] duration-150 hover:border-gray-400 hover:bg-white hover:text-gray-900 active:scale-[0.97] focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-gray-400 disabled:cursor-not-allowed disabled:opacity-45 dark:border-(--app-border-standard) dark:bg-(--app-surface-raised) dark:text-(--app-text-secondary) dark:hover:border-(--app-accent) dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-primary) dark:focus-visible:ring-(--app-accent)"
+                      >
+                        <i className="ri-add-line text-[12px]" aria-hidden="true" />
+                        Add modality
+                        <i className="ri-arrow-down-s-line text-[12px] opacity-70" aria-hidden="true" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="start"
+                      sideOffset={6}
+                      className="min-w-44 rounded-lg border-gray-200/80 bg-white p-1.5 text-gray-800 shadow-lg dark:border-(--app-border-standard) dark:bg-(--app-surface-raised) dark:text-(--app-text-body)"
+                    >
+                      {MODALITY_OPTIONS.filter(option => !editingModalities.includes(option.value)).map((option) => (
+                        <DropdownMenuItem
+                          key={option.value}
+                          onSelect={() => toggleEditingModality(option.value, true)}
+                          className="h-8 rounded-md px-2 text-[11.5px] focus:bg-gray-100 focus:text-gray-900 dark:focus:bg-(--app-surface-hover) dark:focus:text-(--app-text-primary)"
+                        >
+                          <span className={cn('h-2 w-2 rounded-sm', getModalityMarkerClassName(option.value))} aria-hidden="true" />
+                          {option.label}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                <p className="text-[10.5px] leading-4 text-gray-500 dark:text-(--app-text-secondary)">
+                  Select the input and capability formats this model can handle.
+                </p>
+              </section>
             </div>
-            <p className="text-[11px] text-gray-500 dark:text-(--app-text-secondary)">
-              Use modalities to describe what this model can handle, such as text, image, audio, or video.
-            </p>
           </div>
 
-          <DrawerFooter className="px-5 py-4 border-t border-gray-200/80 dark:border-(--app-border-subtle) bg-gray-50/60 dark:bg-(--app-surface-inset) flex-row gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setEditingModel(undefined)
-                setEditingContextWindowTokens('')
-                setEditingModalitiesDirty(false)
-              }}
-              className={cn(settingsOutlineButtonClassName, 'h-9 flex-1 justify-center text-[12px]')}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleSaveModalities}
-              className={cn(settingsPrimaryButtonClassName, 'h-9 flex-1 justify-center text-[12px]')}
-            >
-              Save
-            </button>
+          <DrawerFooter className="sticky bottom-0 shrink-0 border-t border-gray-200/80 bg-gray-50/80 px-5 py-3 dark:border-(--app-border-subtle) dark:bg-(--app-surface-inset)">
+            <div className="flex w-full flex-wrap items-center justify-end gap-2">
+              {currentAccount ? (
+                <p className="mr-auto min-w-0 truncate text-[10.5px] text-gray-400 dark:text-(--app-text-muted)">
+                  Changes apply to {currentAccount.label}.
+                </p>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingModel(undefined)
+                  setEditingContextWindowTokens('')
+                  setEditingModalitiesDirty(false)
+                }}
+                className={cn(settingsOutlineButtonClassName, 'h-8 min-w-20 justify-center px-3 text-[11px]')}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveModalities}
+                className={cn(settingsPrimaryButtonClassName, 'h-8 min-w-28 justify-center px-3 text-[11px]')}
+              >
+                Save changes
+              </button>
+            </div>
           </DrawerFooter>
         </DrawerContent>
       </Drawer>
@@ -514,7 +641,7 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
                       <TooltipTrigger asChild>
                         <p
                           className='truncate text-[12.5px] font-medium text-gray-700 dark:text-(--app-text-body) cursor-pointer hover:text-gray-900 dark:hover:text-(--app-text-primary) transition-colors duration-150'
-                          onClick={_ => onModelTableCellClick(m.label)}
+                          onClick={() => onModelTableCellClick(m.label)}
                         >
                           {m.label}
                         </p>
@@ -527,7 +654,7 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
                       <TooltipTrigger asChild>
                         <p
                           className='truncate text-[11px] text-gray-500 dark:text-(--app-text-secondary) font-mono cursor-pointer hover:text-gray-700 dark:hover:text-(--app-text-primary) transition-colors duration-150'
-                          onClick={_ => onModelTableCellClick(m.id)}
+                          onClick={() => onModelTableCellClick(m.id)}
                         >
                           {m.id}
                         </p>
