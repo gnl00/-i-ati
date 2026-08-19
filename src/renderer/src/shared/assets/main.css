@@ -136,7 +136,7 @@
 
 /* Chat window background - paper texture */
 @utility bg-chat-light {
-  background-color: #f9f9f9;
+  background-color: var(--chat-canvas);
   background-image: radial-gradient(
     circle at 1px 1px,
     rgba(139, 125, 102, 0.15) 1px,
@@ -219,7 +219,7 @@
     --app-accent-strong: #475569;
     --chat-canvas: var(--app-canvas);
     --chat-canvas-dot: rgb(139 125 102 / 0.15);
-    --chat-header-surface: rgb(255 255 255 / 0.9);
+    --chat-header-surface: color-mix(in srgb, var(--chat-canvas) 82%, transparent);
     --chat-surface: var(--app-surface);
     --chat-surface-raised: var(--app-surface-raised);
     --chat-surface-hover: var(--app-surface-hover);

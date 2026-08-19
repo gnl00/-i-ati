@@ -67,9 +67,12 @@ describe('ChatHeader', () => {
   it('renders the closed state and opens the Artifacts panel', async () => {
     await act(async () => root.render(<ChatHeader />))
 
+    const surface = container.querySelector<HTMLElement>('[data-testid="chat-header-surface"]')
     const toggle = container.querySelector<HTMLButtonElement>(
       'button[aria-label="Open artifacts panel"]'
     )
+    expect(surface?.className).toContain('bg-(--chat-header-surface)')
+    expect(surface?.className).not.toContain('bg-white')
     expect(toggle?.getAttribute('aria-pressed')).toBe('false')
     expect(toggle?.title).toBe('Open artifacts panel')
     expect(toggle?.querySelector('.lucide-panel-right')).toBeTruthy()

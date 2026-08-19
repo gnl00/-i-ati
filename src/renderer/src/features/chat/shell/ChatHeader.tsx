@@ -97,7 +97,8 @@ const ChatHeader: React.FC = () => {
       style={{ userSelect: 'none' }}
     >
       <div
-        className="pointer-events-none absolute inset-x-0 top-0 -bottom-2 bg-white/90 dark:bg-(--chat-header-surface) backdrop-blur-3xl"
+        data-testid="chat-header-surface"
+        className="pointer-events-none absolute inset-x-0 top-0 -bottom-2 bg-(--chat-header-surface) backdrop-blur-3xl"
         style={{
           WebkitMaskImage:
             'linear-gradient(to bottom, black 0%, black 70%, transparent 100%)',

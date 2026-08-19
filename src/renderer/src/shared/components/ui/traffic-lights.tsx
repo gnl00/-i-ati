@@ -14,6 +14,17 @@ const TrafficLights: React.FC<TrafficLightsProps> = ({
   onMaximize
 }) => {
   const [isHovered, setIsHovered] = useState(false)
+  const isMacOS = typeof window !== 'undefined' && window.electron?.process.platform === 'darwin'
+
+  if (isMacOS) {
+    return (
+      <div
+        aria-hidden="true"
+        data-native-traffic-lights="true"
+        className={`h-3 w-[52px] shrink-0 ${className}`}
+      />
+    )
+  }
 
   return (
     <div

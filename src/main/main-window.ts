@@ -40,7 +40,13 @@ function createWindow(onCreated?: (window: BrowserWindow) => void): void {
     height: 925,
     show: false,
     // alwaysOnTop: true,
-    frame: false,
+    ...(process.platform === 'darwin'
+      ? {
+          titleBarStyle: 'hidden' as const,
+          fullscreenable: true,
+          trafficLightPosition: { x: 16, y: 14 }
+        }
+      : { frame: false }),
     autoHideMenuBar: true,
     icon,
     webPreferences: {
