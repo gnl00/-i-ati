@@ -12,7 +12,7 @@ function getStreamingTextRenderMode(): 'markdown' | 'switch' {
 }
 
 const ASSISTANT_TEXT_PROSE_CLASS_NAME =
-  'chat-assistant-prose prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-2 prose-hr:mb-1 prose-p:mb-2 prose-p:mt-2 prose-code:text-blue-400 dark:prose-code:text-(--chat-accent) font-normal max-w-full prose-headings:font-semibold prose-strong:font-semibold prose-th:font-semibold prose-a:text-blue-600 dark:prose-a:text-(--chat-accent-strong) prose-a:underline prose-a:underline-offset-2 prose-a:decoration-blue-400/60 dark:prose-a:decoration-(--chat-accent)/60 hover:prose-a:text-blue-700 dark:hover:prose-a:text-(--chat-text-primary)'
+  'chat-assistant-prose prose px-2 text-sm text-blue-gray-600 dark:prose-invert prose-hr:mt-2 prose-hr:mb-1 prose-p:mb-2 prose-p:mt-2 prose-code:text-blue-400 dark:prose-code:text-(--chat-accent) font-medium max-w-full prose-headings:font-semibold prose-strong:font-semibold prose-th:font-semibold prose-a:text-blue-600 dark:prose-a:text-(--chat-accent-strong) prose-a:underline prose-a:underline-offset-2 prose-a:decoration-blue-400/60 dark:prose-a:decoration-(--chat-accent)/60 hover:prose-a:text-blue-700 dark:hover:prose-a:text-(--chat-text-primary)'
 
 export interface AssistantTextSegmentContentProps {
   segment: TextSegment
