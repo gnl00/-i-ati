@@ -157,7 +157,10 @@ const ReasoningSegmentComponent: React.FC<ReasoningSegmentProps> = ({
           hasUserChoice.current = true
           setIsOpen(current => !current)
         }}
-        className={getSupportDisclosureTriggerClassName(isOpen)}
+        className={cn(
+          getSupportDisclosureTriggerClassName(isOpen),
+          'border-x-0 border-t-0'
+        )}
       >
         <SupportSegmentHeader
           icon={Lightbulb}
