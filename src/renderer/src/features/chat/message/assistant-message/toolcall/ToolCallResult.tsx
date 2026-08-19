@@ -51,6 +51,8 @@ const TOOL_COST_REDUCED_TICK_MS = 250
 const TOOL_COST_SETTLE_MS = 360
 const JSON_LINE_THRESHOLD = 24
 const CONTENT_CHAR_THRESHOLD = 1500
+const PARAMETER_PREVIEW_ENTRY_THRESHOLD = 24
+const PARAMETER_PREVIEW_KEY_CHAR_THRESHOLD = 160
 const TOOL_CALL_ERROR_STATUSES = new Set([
   'failed',
   'error',
@@ -832,10 +834,98 @@ function serializeInspectorValue(value: unknown): string {
   }
 }
 
-function isInspectorComplexValue(value: unknown): boolean {
+function isInspectorComplexValue(value: unknown, serialized: string): boolean {
   if (value !== null && typeof value === 'object') return true
-  const serialized = serializeInspectorValue(value)
-  return serialized.includes('\n') || serialized.length > 160
+  return serialized.length > 160 || serialized.includes('\n')
+}
+
+type SerializedInspectorParamEntry = {
+  key: string
+  valueText: string
+  isComplex: boolean
+}
+
+type VisibleInspectorParamEntry = SerializedInspectorParamEntry & {
+  displayKey: string
+}
+
+function truncateInspectorText(
+  text: string,
+  maxChars: number,
+  maxLines: number
+): { text: string; lineCount: number; isTruncated: boolean } {
+  if (maxChars <= 0 || maxLines <= 0) {
+    return { text: '', lineCount: 0, isTruncated: text.length > 0 }
+  }
+
+  const charEnd = Math.min(text.length, maxChars)
+  let end = charEnd
+  let lineCount = 1
+
+  for (let index = 0; index < charEnd; index += 1) {
+    if (text.charCodeAt(index) !== 10) continue
+    if (lineCount === maxLines) {
+      end = index
+      break
+    }
+    lineCount += 1
+  }
+
+  return {
+    text: text.slice(0, end),
+    lineCount,
+    isTruncated: end < text.length
+  }
+}
+
+function buildParameterPreview(entries: Array<[string, unknown]>): {
+  entries: VisibleInspectorParamEntry[]
+  isTruncated: boolean
+} {
+  const visibleEntries: VisibleInspectorParamEntry[] = []
+  let remainingChars = CONTENT_CHAR_THRESHOLD
+  let remainingLines = JSON_LINE_THRESHOLD
+  let isTruncated = false
+
+  for (const [key, value] of entries) {
+    if (
+      visibleEntries.length >= PARAMETER_PREVIEW_ENTRY_THRESHOLD
+      || remainingChars <= 0
+      || remainingLines <= 0
+    ) {
+      isTruncated = true
+      break
+    }
+
+    const valueText = serializeInspectorValue(value)
+    const isComplex = isInspectorComplexValue(value, valueText)
+    const displayKey = key.length > PARAMETER_PREVIEW_KEY_CHAR_THRESHOLD
+      ? `${key.slice(0, PARAMETER_PREVIEW_KEY_CHAR_THRESHOLD - 1)}…`
+      : key
+    const valuePreview = truncateInspectorText(
+      valueText,
+      remainingChars,
+      remainingLines
+    )
+
+    visibleEntries.push({
+      key,
+      isComplex,
+      displayKey,
+      valueText: valuePreview.text
+    })
+    remainingChars -= valuePreview.text.length
+    remainingLines -= valuePreview.lineCount
+    isTruncated ||= displayKey !== key || valuePreview.isTruncated
+
+    if (valuePreview.isTruncated) break
+  }
+
+  if (visibleEntries.length < entries.length) {
+    isTruncated = true
+  }
+
+  return { entries: visibleEntries, isTruncated }
 }
 
 const InspectorSection: React.FC<{
@@ -904,7 +994,8 @@ export const ToolCallInspectorDetails = React.memo(({
   liveOutput
 }: ToolCallInspectorDetailsProps) => {
   const shouldReduceMotion = Boolean(useReducedMotion())
-  const [isExpanded, setIsExpanded] = useState(false)
+  const [areParametersExpanded, setAreParametersExpanded] = useState(false)
+  const [isResultExpanded, setIsResultExpanded] = useState(false)
   const resultPayload = useMemo(() => getResultPayload(toolResponse), [toolResponse])
   const detailPayload = resultPayload
   const paramEntries = useMemo(
@@ -912,6 +1003,26 @@ export const ToolCallInspectorDetails = React.memo(({
     [toolResponse?.args]
   )
   const areArgsReady = areToolCallArgsReady(toolResponse, toolCall)
+  const parameterPreview = useMemo(
+    () => buildParameterPreview(paramEntries),
+    [paramEntries]
+  )
+  const visibleParamEntries = useMemo<VisibleInspectorParamEntry[]>(() => {
+    if (!areParametersExpanded) return parameterPreview.entries
+    return paramEntries.map(([key, value]) => {
+      const valueText = serializeInspectorValue(value)
+      return {
+        key,
+        displayKey: key,
+        valueText,
+        isComplex: isInspectorComplexValue(value, valueText)
+      }
+    })
+  }, [areParametersExpanded, parameterPreview.entries, paramEntries])
+  const parametersCopyContent = useMemo(
+    () => areArgsReady ? Object.fromEntries(paramEntries) : '',
+    [areArgsReady, paramEntries]
+  )
   const toolName = toolResponse?.toolName ?? toolCall.name
   const webSearchPayload = toolName === 'web_search'
     ? (toolResponse?.result ?? toolResponse?.raw ?? toolResponse)
@@ -931,7 +1042,7 @@ export const ToolCallInspectorDetails = React.memo(({
   const resultText = useMemo(() => serializeInspectorValue(detailPayload), [detailPayload])
   const resultLines = useMemo(() => resultText.split('\n'), [resultText])
   const isResultLong = resultText.length > CONTENT_CHAR_THRESHOLD || resultLines.length > JSON_LINE_THRESHOLD
-  const visibleResult = isResultLong && !isExpanded
+  const visibleResult = isResultLong && !isResultExpanded
     ? resultLines.slice(0, JSON_LINE_THRESHOLD).join('\n').slice(0, CONTENT_CHAR_THRESHOLD)
     : resultText
   const resultViewLabels = hasSpecializedResult
@@ -951,9 +1062,33 @@ export const ToolCallInspectorDetails = React.memo(({
     >
       <InspectorSection
         label="Parameters"
-        copyContent={areArgsReady ? Object.fromEntries(paramEntries) : ''}
+        copyContent={parametersCopyContent}
         copyLabel="Parameters"
         isFirst
+        action={areArgsReady && parameterPreview.isTruncated ? (
+          <div className="flex h-6 items-center rounded-md bg-zinc-100 p-0.5 dark:bg-white/[0.06]">
+            {(['Preview', 'Full'] as const).map((label, index) => {
+              const active = index === 1 ? areParametersExpanded : !areParametersExpanded
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  aria-pressed={active}
+                  className={cn(
+                    'h-5 rounded-sm px-2 text-[9px] font-medium outline-hidden transition-colors',
+                    'focus-visible:ring-2 focus-visible:ring-zinc-400/70 focus-visible:ring-inset dark:focus-visible:ring-zinc-500/80',
+                    active
+                      ? 'bg-white text-zinc-800 shadow-xs dark:bg-zinc-800 dark:text-zinc-100'
+                      : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+                  )}
+                  onClick={() => setAreParametersExpanded(index === 1)}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+        ) : undefined}
       >
         <div
           data-testid="tool-inspector-parameters-content"
@@ -963,25 +1098,30 @@ export const ToolCallInspectorDetails = React.memo(({
             <p className="text-[11px] italic text-zinc-400 dark:text-zinc-500">Preparing parameters...</p>
           ) : paramEntries.length > 0 ? (
             <div className="space-y-2">
-              {paramEntries.map(([key, value]) => {
-                const isComplex = isInspectorComplexValue(value)
-                return (
-                  <div
-                    key={key}
-                    className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))] gap-x-3 gap-y-1.5"
-                  >
-                    <span className="truncate pt-0.5 font-mono text-[9px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                      {key}
-                    </span>
-                    <span className={cn(
+              {visibleParamEntries.map(({ key, displayKey, valueText, isComplex }) => (
+                <div
+                  key={key}
+                  className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))] gap-x-3 gap-y-1.5"
+                >
+                  <span className="truncate pt-0.5 font-mono text-[9px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                    {displayKey}
+                  </span>
+                  <span
+                    data-testid="tool-inspector-parameter-value"
+                    className={cn(
                       'wrap-break-word whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-zinc-700 dark:text-zinc-300',
                       isComplex && 'rounded-md border border-gray-200/45 bg-gray-200/20 px-2 py-1.5 dark:border-white/8 dark:bg-black/20'
-                    )}>
-                      {serializeInspectorValue(value)}
-                    </span>
-                  </div>
-                )
-              })}
+                    )}
+                  >
+                    {valueText}
+                  </span>
+                </div>
+              ))}
+              {parameterPreview.isTruncated && !areParametersExpanded && (
+                <p className="text-[10px] text-zinc-400 dark:text-zinc-500">
+                  Showing a shortened preview. Choose Full for the complete parameters.
+                </p>
+              )}
             </div>
           ) : (
             <p className="text-[11px] italic text-zinc-400 dark:text-zinc-500">No parameters</p>
@@ -1007,7 +1147,7 @@ export const ToolCallInspectorDetails = React.memo(({
         action={isResultLong || hasSpecializedResult ? (
           <div className="flex h-6 items-center rounded-md bg-zinc-100 p-0.5 dark:bg-white/[0.06]">
             {resultViewLabels.map((label, index) => {
-              const active = index === 1 ? isExpanded : !isExpanded
+              const active = index === 1 ? isResultExpanded : !isResultExpanded
               return (
                 <button
                   key={label}
@@ -1020,7 +1160,7 @@ export const ToolCallInspectorDetails = React.memo(({
                       ? 'bg-white text-zinc-800 shadow-xs dark:bg-zinc-800 dark:text-zinc-100'
                       : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
                   )}
-                  onClick={() => setIsExpanded(index === 1)}
+                  onClick={() => setIsResultExpanded(index === 1)}
                 >
                   {label}
                 </button>
@@ -1029,7 +1169,7 @@ export const ToolCallInspectorDetails = React.memo(({
           </div>
         ) : undefined}
       >
-        {hasSpecializedResult && isExpanded ? (
+        {hasSpecializedResult && isResultExpanded ? (
           <div className="relative mb-3 mr-3 max-h-[min(520px,55vh)] overflow-auto overscroll-contain rounded-md border border-black/10 bg-[#09090b] custom-scrollbar dark:border-white/10">
             <SpeedCodeHighlight
               code={resultText}
@@ -1058,7 +1198,7 @@ export const ToolCallInspectorDetails = React.memo(({
               className="min-h-full"
               themeOverride="github-dim"
             />
-            {isResultLong && !isExpanded && (
+            {isResultLong && !isResultExpanded && (
               <div className="sticky bottom-0 border-t border-white/10 bg-zinc-950/92 px-3 py-1.5 text-[10px] text-zinc-400 backdrop-blur-xs">
                 Showing a shortened preview. Choose Full for the complete payload.
               </div>

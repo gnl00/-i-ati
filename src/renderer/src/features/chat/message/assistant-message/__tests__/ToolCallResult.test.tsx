@@ -271,6 +271,95 @@ describe('ToolCallResult', () => {
       Array.from(parametersContent?.classList ?? []).some(className => /^h-/.test(className))
     ).toBe(false)
     expect(parametersContent?.textContent).toContain('latest status')
+    expect(
+      container.querySelector('[data-testid="tool-inspector-parameters"] button[aria-pressed]')
+    ).toBeNull()
+  })
+
+  it('bounds a 1 MB parameter preview until Full while copy keeps the complete value', async () => {
+    const parameterSentinel = 'PARAMETER-END-SENTINEL'
+    const resultSentinel = 'RESULT-END-SENTINEL'
+    const largeParameter = `${'x'.repeat(1024 * 1024)}${parameterSentinel}`
+    const toolCall = createToolCall(
+      'completed',
+      { content: `${'r'.repeat(2_000)}${resultSentinel}` },
+      { content: largeParameter }
+    )
+
+    await act(async () => {
+      root.render(
+        <ToolCallInspectorDetails
+          toolCall={toolCall}
+          toolResponse={toolCall.content}
+        />
+      )
+    })
+
+    const parametersSection = container.querySelector(
+      '[data-testid="tool-inspector-parameters"]'
+    )
+    const resultSection = container.querySelector('[data-testid="tool-inspector-result"]')
+    const parameterValue = parametersSection?.querySelector(
+      '[data-testid="tool-inspector-parameter-value"]'
+    )
+    const fullButton = Array.from(parametersSection?.querySelectorAll('button') ?? [])
+      .find(button => button.textContent === 'Full')
+
+    expect(parameterValue?.textContent?.length).toBeLessThanOrEqual(1_500)
+    expect(parametersSection?.textContent).not.toContain(parameterSentinel)
+    expect(parametersSection?.textContent).toContain('Showing a shortened preview')
+    expect(resultSection?.textContent).not.toContain(resultSentinel)
+    expect(fullButton?.getAttribute('aria-pressed')).toBe('false')
+
+    const copyButton = parametersSection?.querySelector<HTMLButtonElement>(
+      'button[aria-label="Copy parameters"]'
+    )
+    await act(async () => {
+      copyButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+    expect(clipboardWriteText).toHaveBeenLastCalledWith(
+      JSON.stringify({ content: largeParameter }, null, 2)
+    )
+
+    await act(async () => {
+      fullButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(parametersSection?.textContent).toContain(parameterSentinel)
+    expect(resultSection?.textContent).not.toContain(resultSentinel)
+  })
+
+  it('stops serializing later fields after the parameter preview budget is exhausted', async () => {
+    const serializeDeferredField = vi.fn(() => 'deferred value')
+    const toolCall = createToolCall('completed', undefined, {
+      content: 'x'.repeat(1024 * 1024),
+      deferred: { toJSON: serializeDeferredField }
+    })
+
+    await act(async () => {
+      root.render(
+        <ToolCallInspectorDetails
+          toolCall={toolCall}
+          toolResponse={toolCall.content}
+        />
+      )
+    })
+
+    expect(serializeDeferredField).not.toHaveBeenCalled()
+    expect(container.textContent).toContain('Showing a shortened preview')
+
+    const parametersSection = container.querySelector(
+      '[data-testid="tool-inspector-parameters"]'
+    )
+    const fullButton = Array.from(parametersSection?.querySelectorAll('button') ?? [])
+      .find(button => button.textContent === 'Full')
+
+    await act(async () => {
+      fullButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(serializeDeferredField).toHaveBeenCalledTimes(1)
+    expect(parametersSection?.textContent).toContain('deferred value')
   })
 
   it('keeps terminal live output beside the terminal result', async () => {

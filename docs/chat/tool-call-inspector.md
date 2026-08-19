@@ -44,8 +44,10 @@ read-only metadata and connects live output.
 
 A fine execution spine connects three flat, edge-to-edge sections:
 
-1. Parameters shows complete executable arguments and filters
-   `tool_call_reason`.
+1. Parameters filters `tool_call_reason` and defaults long arguments to a
+   1,500-character, 24-line, 24-field preview. Preview and Full controls switch
+   the rendered parameter detail independently from the Result view. Copy
+   parameters always serializes the complete filtered arguments.
 2. Execution output shows retained stdout and stderr with pinned-tail behavior.
 3. Result shows the terminal payload.
 
@@ -55,9 +57,12 @@ of 280px and 35% of the viewport height, then scrolls within its content area.
 Its title and copy action stay above that viewport, and reaching a scroll
 boundary continues the surrounding scroll chain. Live output and raw payloads
 use terminal surfaces while formatted results stay on the panel canvas. Long
-payloads use 1,500-character and 24-line preview budgets with Preview and Full
-views. Specialized web search, wiki, and subagent results use Formatted and Raw
-views.
+parameter previews also cap rendered field names at 160 characters. Short
+parameters keep their natural height and omit the view controls. Preview
+serialization stops when a budget is exhausted; following fields materialize
+when Full is selected. Long result payloads use 1,500-character and 24-line
+preview budgets with Preview and Full views. Specialized web search, wiki, and
+subagent results use Formatted and Raw views.
 
 See [Assistant Think and Tool Call Presentation](./assistant-think-tool-call-presentation.md)
 for transcript grouping, inline disclosure, accessibility, and motion rules.
