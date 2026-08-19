@@ -1,5 +1,5 @@
 import { ActivityLogIcon, GearIcon } from '@radix-ui/react-icons'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { getEmotionAssetUrl } from '@renderer/shared/assets/emotions/emotionAssetUrls'
 import { ModeToggleSlide } from '@renderer/shared/components/ModeToggleSlide'
 import { SettingsPanel } from '@renderer/features/settings'
@@ -11,8 +11,10 @@ import { useAppConfigStore } from '@renderer/infrastructure/config/appConfig'
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
 import {
   invokeWindowClose,
+  invokeWindowFullScreenState,
   invokeWindowMaximize,
-  invokeWindowMinimize
+  invokeWindowMinimize,
+  subscribeWindowFullScreenState
 } from '@renderer/infrastructure/ipc'
 import { getEmotionState } from '@renderer/infrastructure/persistence/EmotionStateRepository'
 import { normalizeEmotionLabel, pickEmotionEmoji } from '@shared/emotion/emotionAssetCatalog'
@@ -27,6 +29,11 @@ const headerActionButtonClassName = [
   'dark:text-(--chat-text-secondary) dark:hover:border-(--chat-border-standard)',
   'dark:hover:bg-(--chat-surface-hover) dark:hover:text-(--chat-text-primary)'
 ].join(' ')
+
+export const HEADER_LEFT_LAYOUT_TRANSITION = {
+  duration: 0.16,
+  ease: [0.23, 1, 0.32, 1]
+} as const
 
 export function useHeaderEmotion(): ChatEmotionState | undefined {
   const currentChatId = useChatStore(state => state.currentChatId)
@@ -73,6 +80,10 @@ export function useHeaderEmotion(): ChatEmotionState | undefined {
 }
 
 const ChatHeader: React.FC = () => {
+  const isMacOS = typeof window !== 'undefined' && window.electron?.process.platform === 'darwin'
+  const [isFullScreen, setIsFullScreen] = useState(false)
+  const [receivedFullScreenEvent, setReceivedFullScreenEvent] = useState(false)
+  const shouldReduceMotion = useReducedMotion()
   const chatTitle = useChatStore(state => state.chatTitle)
   const artifactsPanelOpen = useChatStore(state => state.artifactsPanelOpen)
   const toggleArtifactsPanel = useChatStore(state => state.toggleArtifactsPanel)
@@ -90,6 +101,39 @@ const ChatHeader: React.FC = () => {
   React.useEffect(() => {
     setAssetFailed(false)
   }, [emotionAssetUrl, emotion?.intensity, emotion?.emoji])
+
+  useEffect(() => {
+    if (!isMacOS) {
+      return
+    }
+
+    let disposed = false
+    let receivedFullScreenEvent = false
+    const unsubscribe = subscribeWindowFullScreenState(nextIsFullScreen => {
+      if (disposed) return
+      receivedFullScreenEvent = true
+      setReceivedFullScreenEvent(true)
+      setIsFullScreen(nextIsFullScreen)
+    })
+
+    invokeWindowFullScreenState().then(initialIsFullScreen => {
+      if (disposed || receivedFullScreenEvent) return
+      setIsFullScreen(initialIsFullScreen)
+    }).catch(() => {
+      // Keep the windowed layout until Electron reports a state transition.
+    })
+
+    return () => {
+      disposed = true
+      unsubscribe()
+    }
+  }, [isMacOS])
+
+  const headerLeftLayoutAnimation = shouldReduceMotion
+    ? 'reduced'
+    : receivedFullScreenEvent
+      ? 'position'
+      : 'instant'
 
   return (
     <header
@@ -109,14 +153,30 @@ const ChatHeader: React.FC = () => {
 
       <div className="pointer-events-none relative z-10 grid h-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center px-4">
         <div className="flex min-w-0 items-center gap-4 justify-self-start">
-          <div className="app-undragable pointer-events-auto">
-            <TrafficLights
-              onClose={invokeWindowClose}
-              onMinimize={invokeWindowMinimize}
-              onMaximize={invokeWindowMaximize}
-            />
-          </div>
-          <div className="flex items-center gap-1.5">
+          {(!isMacOS || !isFullScreen) && (
+            <div
+              className="app-undragable pointer-events-auto"
+              data-testid="traffic-lights-slot"
+            >
+              <TrafficLights
+                onClose={invokeWindowClose}
+                onMinimize={invokeWindowMinimize}
+                onMaximize={invokeWindowMaximize}
+              />
+            </div>
+          )}
+          <motion.div
+            className="flex items-center gap-1.5"
+            data-testid="header-left-actions"
+            data-layout-animation={headerLeftLayoutAnimation}
+            layout={isMacOS && !shouldReduceMotion ? 'position' : false}
+            layoutDependency={isFullScreen}
+            transition={{
+              layout: receivedFullScreenEvent
+                ? HEADER_LEFT_LAYOUT_TRANSITION
+                : { duration: 0 }
+            }}
+          >
             <Button
               className={headerActionButtonClassName}
               variant="ghost"
@@ -139,7 +199,7 @@ const ChatHeader: React.FC = () => {
                 <SettingsPanel />
               </PopoverContent>
             </Popover>
-          </div>
+          </motion.div>
         </div>
 
         <div className="min-w-0 justify-self-center px-3">

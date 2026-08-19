@@ -5,6 +5,16 @@ import type { ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+const motionPreference = vi.hoisted(() => ({ reduced: false }))
+
+vi.mock('framer-motion', async importOriginal => {
+  const actual = await importOriginal<typeof import('framer-motion')>()
+  return {
+    ...actual,
+    useReducedMotion: (): boolean => motionPreference.reduced
+  }
+})
+
 vi.mock('@renderer/features/settings', () => ({
   SettingsPanel: (): ReactNode => <div>Settings</div>
 }))
@@ -23,11 +33,15 @@ vi.mock('@renderer/shared/components/ui/popover', () => ({
   PopoverTrigger: ({ children }: { children: ReactNode }): ReactNode => <>{children}</>
 }))
 
-vi.mock('@renderer/infrastructure/ipc', () => ({
+const ipcMocks = vi.hoisted(() => ({
   invokeWindowClose: vi.fn(),
   invokeWindowMaximize: vi.fn(),
-  invokeWindowMinimize: vi.fn()
+  invokeWindowMinimize: vi.fn(),
+  invokeWindowFullScreenState: vi.fn(),
+  subscribeWindowFullScreenState: vi.fn()
 }))
+
+vi.mock('@renderer/infrastructure/ipc', () => ipcMocks)
 
 const { getEmotionStateMock } = vi.hoisted(() => ({
   getEmotionStateMock: vi.fn()
@@ -38,17 +52,37 @@ vi.mock('@renderer/infrastructure/persistence/EmotionStateRepository', () => ({
 }))
 
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
-import ChatHeader, { useHeaderEmotion } from '../ChatHeader'
+import ChatHeader, { HEADER_LEFT_LAYOUT_TRANSITION, useHeaderEmotion } from '../ChatHeader'
 
 describe('ChatHeader', () => {
   let container: HTMLDivElement
   let root: Root
+  let electronDescriptor: PropertyDescriptor | undefined
+  let fullScreenListener: ((isFullScreen: boolean) => void) | undefined
+
+  const setPlatform = (platform: NodeJS.Platform): void => {
+    Object.defineProperty(window, 'electron', {
+      configurable: true,
+      value: {
+        process: { platform }
+      }
+    })
+  }
 
   beforeEach(() => {
     ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
+    electronDescriptor = Object.getOwnPropertyDescriptor(window, 'electron')
+    setPlatform('darwin')
+    motionPreference.reduced = false
+    fullScreenListener = undefined
+    ipcMocks.invokeWindowFullScreenState.mockReset().mockResolvedValue(false)
+    ipcMocks.subscribeWindowFullScreenState.mockReset().mockImplementation(listener => {
+      fullScreenListener = listener
+      return vi.fn()
+    })
     getEmotionStateMock.mockResolvedValue(undefined)
     useChatStore.setState({
       chatTitle: 'New chat',
@@ -62,6 +96,89 @@ describe('ChatHeader', () => {
   afterEach(async () => {
     await act(async () => root.unmount())
     container.remove()
+
+    if (electronDescriptor) {
+      Object.defineProperty(window, 'electron', electronDescriptor)
+    } else {
+      delete (window as unknown as { electron?: Window['electron'] }).electron
+    }
+  })
+
+  it('removes the whole native traffic-light slot while macOS is fullscreen and restores it on leave', async () => {
+    await act(async () => root.render(<ChatHeader />))
+    await act(async () => Promise.resolve())
+
+    const headerActions = container.querySelector('[data-testid="header-left-actions"]')
+    expect(container.querySelector('[data-testid="traffic-lights-slot"]')).not.toBeNull()
+    expect(headerActions?.getAttribute('data-layout-animation')).toBe('instant')
+
+    await act(async () => fullScreenListener?.(true))
+    expect(container.querySelector('[data-testid="traffic-lights-slot"]')).toBeNull()
+    expect(container.querySelector('[data-testid="header-left-actions"]')).toBe(headerActions)
+    expect(headerActions?.getAttribute('data-layout-animation')).toBe('position')
+
+    await act(async () => fullScreenListener?.(false))
+    expect(container.querySelector('[data-testid="traffic-lights-slot"]')).not.toBeNull()
+    expect(container.querySelector('[data-testid="header-left-actions"]')).toBe(headerActions)
+    expect(headerActions?.getAttribute('data-layout-animation')).toBe('position')
+  })
+
+  it('starts without the native traffic-light slot when the current macOS window is fullscreen', async () => {
+    ipcMocks.invokeWindowFullScreenState.mockResolvedValue(true)
+
+    await act(async () => root.render(<ChatHeader />))
+    await act(async () => Promise.resolve())
+
+    expect(container.querySelector('[data-testid="traffic-lights-slot"]')).toBeNull()
+    expect(
+      container.querySelector('[data-testid="header-left-actions"]')?.getAttribute('data-layout-animation')
+    ).toBe('instant')
+  })
+
+  it('uses a crisp transform-only layout transition for fullscreen events', () => {
+    expect(HEADER_LEFT_LAYOUT_TRANSITION).toEqual({
+      duration: 0.16,
+      ease: [0.23, 1, 0.32, 1]
+    })
+  })
+
+  it('keeps fullscreen layout changes instant when reduced motion is preferred', async () => {
+    motionPreference.reduced = true
+
+    await act(async () => root.render(<ChatHeader />))
+    await act(async () => Promise.resolve())
+
+    const headerActions = container.querySelector('[data-testid="header-left-actions"]')
+    await act(async () => fullScreenListener?.(true))
+
+    expect(container.querySelector('[data-testid="traffic-lights-slot"]')).toBeNull()
+    expect(container.querySelector('[data-testid="header-left-actions"]')).toBe(headerActions)
+    expect(headerActions?.getAttribute('data-layout-animation')).toBe('reduced')
+  })
+
+  it('keeps the newest fullscreen event when the initial query resolves later', async () => {
+    let resolveInitialState: ((value: boolean) => void) | undefined
+    ipcMocks.invokeWindowFullScreenState.mockReturnValue(
+      new Promise(resolve => {
+        resolveInitialState = resolve
+      })
+    )
+
+    await act(async () => root.render(<ChatHeader />))
+    await act(async () => fullScreenListener?.(true))
+    await act(async () => resolveInitialState?.(false))
+
+    expect(container.querySelector('[data-testid="traffic-lights-slot"]')).toBeNull()
+  })
+
+  it('keeps custom window controls in the header layout on Windows', async () => {
+    setPlatform('win32')
+    ipcMocks.invokeWindowFullScreenState.mockResolvedValue(true)
+
+    await act(async () => root.render(<ChatHeader />))
+    await act(async () => Promise.resolve())
+
+    expect(container.querySelector('[data-testid="traffic-lights-slot"]')).not.toBeNull()
   })
 
   it('renders the closed state and opens the Artifacts panel', async () => {

@@ -10,10 +10,18 @@ import {
   SELECT_DIRECTORY,
   SET_WIN_POSITION,
   WIN_CLOSE,
+  WIN_FULLSCREEN_STATE_GET,
   WIN_MAXIMIZE,
   WIN_MINIMIZE
 } from '@shared/constants'
-import { getWinPosition, setWinPosition, windowsClose, windowsMaximize, windowsMinimize } from '@main/main-window'
+import {
+  getWinPosition,
+  isMainWindowFullScreen,
+  setWinPosition,
+  windowsClose,
+  windowsMaximize,
+  windowsMinimize
+} from '@main/main-window'
 
 export function registerSystemHandlers(): void {
   ipcMain.handle(GET_WIN_POSITION, (): number[] => getWinPosition())
@@ -21,6 +29,7 @@ export function registerSystemHandlers(): void {
   ipcMain.handle(WIN_MINIMIZE, () => windowsMinimize())
   ipcMain.handle(WIN_MAXIMIZE, () => windowsMaximize())
   ipcMain.handle(WIN_CLOSE, () => windowsClose())
+  ipcMain.handle(WIN_FULLSCREEN_STATE_GET, () => isMainWindowFullScreen())
   ipcMain.handle(OPEN_EXTERNAL, (_, url) => {
     // console.log('main received url', url)
     shell.openExternal(url)

@@ -4,14 +4,16 @@ import {
   DB_PROVIDER_DEFINITIONS_GET_ALL,
   MCP_DISCONNECT,
   OPEN_EXTERNAL,
-  RUN_CANCEL
+  RUN_CANCEL,
+  WIN_FULLSCREEN_STATE_GET
 } from '@shared/constants'
 import {
   invokeDbChatGetById,
   invokeDbProviderDefinitionsGetAll,
   invokeMcpDisconnect,
   invokeOpenExternal,
-  invokeRunCancel
+  invokeRunCancel,
+  invokeWindowFullScreenState
 } from '..'
 
 describe('renderer IPC domain contracts', () => {
@@ -61,5 +63,12 @@ describe('renderer IPC domain contracts', () => {
 
     await expect(invokeOpenExternal('https://example.com')).resolves.toBeUndefined()
     expect(ipcRenderer.invoke).toHaveBeenCalledWith(OPEN_EXTERNAL, 'https://example.com')
+  })
+
+  it('queries the current window fullscreen state through the system channel', async () => {
+    ipcRenderer.invoke.mockResolvedValue(true)
+
+    await expect(invokeWindowFullScreenState()).resolves.toBe(true)
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith(WIN_FULLSCREEN_STATE_GET)
   })
 })

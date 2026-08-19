@@ -2,6 +2,7 @@ import { app, shell, BrowserWindow } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import { join } from 'path'
 import icon from '../../build/icon.png?asset'
+import { WIN_FULLSCREEN_STATE_CHANGED } from '@shared/constants'
 
 let mainWindow: BrowserWindow | null = null
 let onWindowCreatedCallback: ((window: BrowserWindow) => void) | null = null
@@ -77,6 +78,16 @@ function createWindow(onCreated?: (window: BrowserWindow) => void): void {
       mainWindow = null
     }
   })
+
+  const publishFullScreenState = (isFullScreen: boolean): void => {
+    if (window.isDestroyed() || window.webContents.isDestroyed()) {
+      return
+    }
+    window.webContents.send(WIN_FULLSCREEN_STATE_CHANGED, isFullScreen)
+  }
+
+  window.on('enter-full-screen', () => publishFullScreenState(true))
+  window.on('leave-full-screen', () => publishFullScreenState(false))
 
   // 监听 new-window 事件
   // mainWindow.webContents.on('new-window', (event, url) => {
@@ -154,6 +165,8 @@ const windowsClose = () => {
   getMainWindow()?.close()
 }
 
+const isMainWindowFullScreen = (): boolean => getMainWindow()?.isFullScreen() ?? false
+
 function showMainWindow(): void {
   const win = getMainWindow()
   if (!win) return
@@ -189,6 +202,7 @@ export {
   windowsMinimize,
   windowsMaximize,
   windowsClose,
+  isMainWindowFullScreen,
   showMainWindow,
   isMainWindowForeground
 }

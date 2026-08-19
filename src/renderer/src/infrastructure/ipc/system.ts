@@ -7,14 +7,26 @@ import {
   OPEN_PATH,
   SELECT_DIRECTORY,
   WIN_CLOSE,
+  WIN_FULLSCREEN_STATE_CHANGED,
+  WIN_FULLSCREEN_STATE_GET,
   WIN_MAXIMIZE,
   WIN_MINIMIZE
 } from '@shared/constants/index'
-import { invokeIpc } from './client'
+import { getRendererIpc, invokeIpc } from './client'
 
 export const invokeWindowClose = (): Promise<void> => invokeIpc(WIN_CLOSE)
 export const invokeWindowMinimize = (): Promise<void> => invokeIpc(WIN_MINIMIZE)
 export const invokeWindowMaximize = (): Promise<void> => invokeIpc(WIN_MAXIMIZE)
+export const invokeWindowFullScreenState = (): Promise<boolean> =>
+  invokeIpc(WIN_FULLSCREEN_STATE_GET)
+export const subscribeWindowFullScreenState = (
+  handler: (isFullScreen: boolean) => void
+): (() => void) => {
+  const ipc = getRendererIpc()
+  const listener = (_event: unknown, data: unknown): void => handler(data === true)
+  ipc.on(WIN_FULLSCREEN_STATE_CHANGED, listener)
+  return () => ipc.removeListener(WIN_FULLSCREEN_STATE_CHANGED, listener)
+}
 export const invokeOpenExternal = (url: string): Promise<void> => invokeIpc(OPEN_EXTERNAL, url)
 export const invokeOpenPath = (targetPath: string): Promise<{ success: boolean; error?: string; path?: string }> =>
   invokeIpc(OPEN_PATH, targetPath)

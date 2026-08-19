@@ -27,6 +27,8 @@ export const SKILL_REVEAL_ACTION = 'skill:reveal-in-folder'
 export const WIN_CLOSE = 'win-close'
 export const WIN_MINIMIZE = 'win-minimize'
 export const WIN_MAXIMIZE = 'win-maximize'
+export const WIN_FULLSCREEN_STATE_GET = 'win-fullscreen-state:get'
+export const WIN_FULLSCREEN_STATE_CHANGED = 'win-fullscreen-state:changed'
 
 // MCP Operations Actions
 export const MCP_CONNECT = 'mcp-connect'

@@ -1,10 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { RUN_EVENT, CONFIG_EVENT, PLUGIN_EVENT, SCHEDULE_EVENT } from '@shared/constants/index'
+import {
+  CONFIG_EVENT,
+  PLUGIN_EVENT,
+  RUN_EVENT,
+  SCHEDULE_EVENT,
+  WIN_FULLSCREEN_STATE_CHANGED
+} from '@shared/constants/index'
 import { RUN_EVENTS } from '@shared/run/events'
 import { CONFIG_EVENTS } from '@shared/config/events'
 import { PLUGIN_EVENTS } from '@shared/plugins/events'
 import { SCHEDULE_EVENTS } from '@shared/schedule/events'
-import { subscribeRunEvents, subscribeConfigEvents, subscribePluginEvents, subscribeScheduleEvents } from '..'
+import {
+  subscribeConfigEvents,
+  subscribePluginEvents,
+  subscribeRunEvents,
+  subscribeScheduleEvents,
+  subscribeWindowFullScreenState
+} from '..'
 
 type Listener = (event: any, data: any) => void
 
@@ -36,6 +48,27 @@ describe('ipcInvoker event channel separation', () => {
     ipcRenderer.on.mockClear()
     ipcRenderer.removeListener.mockClear()
     ;(globalThis as any).window = { electron: { ipcRenderer } }
+  })
+
+  it('subscribes to fullscreen state changes and removes the exact listener on cleanup', () => {
+    const handler = vi.fn()
+    const unsubscribe = subscribeWindowFullScreenState(handler)
+
+    expect(ipcRenderer.on).toHaveBeenCalledWith(
+      WIN_FULLSCREEN_STATE_CHANGED,
+      expect.any(Function)
+    )
+
+    emit(WIN_FULLSCREEN_STATE_CHANGED, true)
+    emit(WIN_FULLSCREEN_STATE_CHANGED, false)
+    expect(handler).toHaveBeenNthCalledWith(1, true)
+    expect(handler).toHaveBeenNthCalledWith(2, false)
+
+    unsubscribe()
+    expect(ipcRenderer.removeListener).toHaveBeenCalledWith(
+      WIN_FULLSCREEN_STATE_CHANGED,
+      expect.any(Function)
+    )
   })
 
   it('shares one Electron listener until the final same-channel subscriber leaves', () => {

@@ -122,7 +122,7 @@ Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif
 ### 4.1 应用外壳与 Header
 
 - Header 高度保持 40px，窗口拖拽区域使用 `app-dragable`，交互元素使用 `app-undragable`。
-- macOS 使用系统原生交通灯：绿色按钮默认切换全屏，按住 Option 时切换为 Zoom；Renderer 为原生控件保留 52px 布局宽度。Windows 与 Linux 使用自绘窗口控制。
+- macOS 使用系统原生交通灯：绿色按钮默认切换全屏，按住 Option 时切换为 Zoom；窗口态下 Renderer 为原生控件保留 52px 布局宽度，进入全屏后移除整段占位并在退出全屏时恢复。左侧业务按钮组保持持久挂载，通过 160ms strong ease-out position FLIP 衔接全屏事件引发的水平位移；初始状态查询与 reduced-motion 使用即时落位。Windows 与 Linux 使用自绘窗口控制。
 - 标题居中，左右操作保持固定方形尺寸和稳定间距。
 - Light 与 Dark Header 共用半透明 `--chat-header-surface`；浅色 token 从 `--chat-canvas` 混合 82% 画布色，让顶部磨砂层与 Chat 纸面连续。
 - 图标按钮使用透明默认态、轻 surface hover、standard border hover 和 `active:scale-95`。
