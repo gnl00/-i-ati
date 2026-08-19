@@ -1,5 +1,6 @@
 import { cn } from '@renderer/shared/lib/utils'
 import { invokeDbScheduledTaskUpdateStatus } from '@renderer/infrastructure/ipc'
+import { Badge } from '@renderer/shared/components/ui/badge'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@renderer/shared/components/ui/tooltip'
 import type { ScheduleTask } from '@shared/tools/schedule'
 import { AlertCircle, CalendarClock, Check, CheckCircle2, Clock3, Loader2, Square, X, XCircle } from 'lucide-react'
@@ -478,85 +479,93 @@ const ChatScheduleBoard: React.FC<ChatScheduleBoardProps> = ({
                         )}
                         style={getCardStyle(task.id)}
                       >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 space-y-1">
-                            <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-(--app-text-muted)">
-                              <span className={cn('inline-flex items-center gap-1 font-medium', meta.tone)}>
+                        <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3">
+                          <div className="flex min-h-14 min-w-0 flex-col gap-1">
+                            <div className="flex min-w-0 items-center gap-1.5 text-[10px] text-slate-500 dark:text-(--app-text-muted)">
+                              <span className={cn('inline-flex shrink-0 items-center gap-1 font-medium', meta.tone)}>
                                 {meta.icon}
                                 {meta.label}
                               </span>
-                              <span className="text-slate-300 dark:text-(--app-border-standard)">·</span>
-                              <span>{formatRunAt(task.run_at)}</span>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge
+                                    variant="outline"
+                                    className="h-4 shrink-0 select-none rounded-md border-slate-200/70 bg-slate-50/60 px-1.5 py-0 text-[9px] font-medium leading-none text-slate-500 dark:border-(--app-border-subtle) dark:bg-(--app-surface-inset) dark:text-(--app-text-muted)"
+                                  >
+                                    {task.schedule_type === 'cron' ? 'Recurring' : 'One time'}
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent align="start" className={GOAL_TOOLTIP_CONTENT_CLASS_NAME}>
+                                  {scheduleDescription(task)}
+                                </TooltipContent>
+                              </Tooltip>
                             </div>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="inline-flex max-w-full truncate rounded-md border border-slate-200/70 px-1.5 py-0.5 text-[9px] font-medium text-slate-500 dark:border-(--app-border-subtle) dark:text-(--app-text-muted)/80">
-                                  {task.schedule_type === 'cron' ? 'Recurring' : 'One time'}
-                                  {task.last_run_status ? ` · Last ${task.last_run_status}` : ''}
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent align="start" className={GOAL_TOOLTIP_CONTENT_CLASS_NAME}>
-                                {scheduleDescription(task)}
-                              </TooltipContent>
-                            </Tooltip>
-                            {/** task.goal **/}
-                            <GoalTooltip goal={task.goal}>
-                              <p className="line-clamp-2 wrap-break-word text-[10px] font-medium leading-3 text-slate-600 dark:text-(--app-text-body)">
-                                {task.goal}
-                              </p>
-                            </GoalTooltip>
-                            {task.last_error && (
-                              <p className="truncate text-[10px] leading-4 text-rose-600 dark:text-rose-300">
-                                {task.last_error}
-                              </p>
-                            )}
+                            <div className="mt-auto min-w-0 space-y-1">
+                              {/** task.goal **/}
+                              <GoalTooltip goal={task.goal}>
+                                <p className="line-clamp-2 wrap-break-word text-[10px] font-medium leading-3 text-slate-600 dark:text-(--app-text-body)">
+                                  {task.goal}
+                                </p>
+                              </GoalTooltip>
+                              {task.last_error && (
+                                <p className="truncate text-[10px] leading-4 text-rose-600 dark:text-rose-300">
+                                  {task.last_error}
+                                </p>
+                              )}
+                            </div>
                           </div>
 
-                          {requiresConfirm && isConfirming ? (
-                            <div
-                              className="mt-0.5 inline-flex shrink-0 items-center gap-1"
-                              style={{ animation: '_csb_confirm_in 170ms cubic-bezier(0.34, 1.4, 0.64, 1) both' }}
-                            >
-                            <button
-                              type="button"
-                              onClick={() => setConfirmingTaskId(null)}
-                              disabled={isPendingAction}
-                              className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 transition-all hover:bg-black/5 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 dark:text-(--app-text-muted) dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-primary) dark:focus-visible:ring-(--app-border-standard)"
-                              aria-label="Keep task"
-                              title="Keep task"
+                          <div className="flex min-h-14 flex-col items-end justify-between gap-1">
+                            <span className="whitespace-nowrap text-[10px] tabular-nums text-slate-500 dark:text-(--app-text-muted)">
+                              {formatRunAt(task.run_at)}
+                            </span>
+
+                            {requiresConfirm && isConfirming ? (
+                              <div
+                                className="inline-flex shrink-0 items-center gap-1"
+                                style={{ animation: '_csb_confirm_in 170ms cubic-bezier(0.34, 1.4, 0.64, 1) both' }}
                               >
-                                <X className="h-3.5 w-3.5" />
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmingTaskId(null)}
+                                  disabled={isPendingAction}
+                                  className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-400 transition-all hover:bg-black/5 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 dark:text-(--app-text-muted) dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-primary) dark:focus-visible:ring-(--app-border-standard)"
+                                  aria-label="Keep task"
+                                  title="Keep task"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => void handleTaskAction(task)}
+                                  disabled={isPendingAction}
+                                  className="inline-flex h-6 w-6 items-center justify-center rounded-md text-rose-500 transition-all hover:bg-rose-500/10 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 disabled:pointer-events-none disabled:opacity-50 dark:text-rose-400 dark:hover:bg-rose-500/12 dark:hover:text-rose-300 dark:focus-visible:ring-rose-900"
+                                  aria-label={actionMeta.label}
+                                  title={actionMeta.label}
+                                >
+                                  <Check className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (isPendingAction) return
+                                  if (requiresConfirm) {
+                                    setConfirmingTaskId(task.id)
+                                    return
+                                  }
+                                  void handleTaskAction(task)
+                                }}
+                                disabled={isPendingAction}
+                                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 opacity-0 transition-all hover:bg-black/5 hover:text-slate-700 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 disabled:pointer-events-none disabled:opacity-50 group-hover:opacity-100 dark:text-(--app-text-muted) dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-primary) dark:focus-visible:ring-(--app-border-standard)"
+                                aria-label={actionMeta.label}
+                                title={actionMeta.label}
+                              >
+                                <actionMeta.Icon className="h-3.5 w-3.5" />
                               </button>
-                            <button
-                              type="button"
-                              onClick={() => void handleTaskAction(task)}
-                              disabled={isPendingAction}
-                              className="inline-flex h-6 w-6 items-center justify-center rounded-md text-rose-500 transition-all hover:bg-rose-500/10 hover:text-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 disabled:pointer-events-none disabled:opacity-50 dark:text-rose-400 dark:hover:bg-rose-500/12 dark:hover:text-rose-300 dark:focus-visible:ring-rose-900"
-                              aria-label={actionMeta.label}
-                              title={actionMeta.label}
-                            >
-                                <Check className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (isPendingAction) return
-                              if (requiresConfirm) {
-                                setConfirmingTaskId(task.id)
-                                return
-                              }
-                              void handleTaskAction(task)
-                            }}
-                            disabled={isPendingAction}
-                            className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 opacity-0 transition-all hover:bg-black/5 hover:text-slate-700 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 disabled:pointer-events-none disabled:opacity-50 group-hover:opacity-100 dark:text-(--app-text-muted) dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-primary) dark:focus-visible:ring-(--app-border-standard)"
-                            aria-label={actionMeta.label}
-                            title={actionMeta.label}
-                          >
-                              <actionMeta.Icon className="h-3.5 w-3.5" />
-                            </button>
-                          )}
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
