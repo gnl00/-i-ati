@@ -6,7 +6,7 @@ import remarkMath from 'remark-math'
 import { cn } from '@renderer/shared/lib/utils'
 import { markdownCodeComponents } from '../markdown/markdown-components'
 import { remarkPreserveLineBreaks } from '../markdown/markdown-plugins'
-import { MessageOperations } from '../message-operations'
+import { MessageOperations, type CopyActionResult } from '../message-operations'
 import { useEnterTransition } from '../typewriter/use-enter-transition'
 import { loadKatexStyles } from '@renderer/shared/lib/styleLoaders'
 import { ChevronDown, ChevronUp, Send } from 'lucide-react'
@@ -18,7 +18,7 @@ export interface UserMessageProps {
   isPending?: boolean
   isHovered: boolean
   onHover: (idx: number) => void
-  onCopyClick: (content: string) => void
+  onCopyClick: (content: string) => CopyActionResult | Promise<CopyActionResult>
 }
 
 const COLLAPSED_USER_MESSAGE_HEIGHT = 140
@@ -291,16 +291,16 @@ export const UserMessage: React.FC<UserMessageProps> = memo(({
     setIsExpanded(false)
   }, [contentSignature])
 
-  const onCopy = () => {
+  const onCopy = (): CopyActionResult | Promise<CopyActionResult> => {
     if (typeof m.content === 'string') {
-      onCopyClick(m.content)
+      return onCopyClick(m.content)
     } else {
       // VLM content: only copy text part
       const textContent = m.content
         .filter((item: VLMContent) => item.text)
         .map((item: VLMContent) => item.text)
         .join('\n')
-      onCopyClick(textContent)
+      return onCopyClick(textContent)
     }
   }
 

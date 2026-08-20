@@ -421,13 +421,15 @@ describe('ToolCallResult', () => {
       )
       expect(copyButton?.className).toContain('h-6')
       expect(copyButton?.className).toContain('w-6')
-      expect(copyButton?.className).toContain('transition-all')
-      expect(copyButton?.className).toContain('hover:scale-110')
+      expect(copyButton?.className).toContain('duration-[160ms]')
+      expect(copyButton?.className).toContain('active:scale-[0.97]')
       expect(copyButton?.title).toBe(label)
 
       await act(async () => {
         copyButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
       })
+      expect(copyButton?.getAttribute('aria-label')).toBe('Copied')
+      expect(copyButton?.title).toBe('Copied')
     }
 
     expect(clipboardWriteText).toHaveBeenNthCalledWith(1, JSON.stringify(args, null, 2))

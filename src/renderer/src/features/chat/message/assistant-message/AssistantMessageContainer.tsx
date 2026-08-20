@@ -21,6 +21,7 @@ import {
   buildAssistantMessageHeaderModel,
   buildAssistantMessageShellModel
 } from './model/assistantMessageLayoutModels'
+import type { CopyActionResult } from '../message-operations'
 
 export interface AssistantMessageProps {
   index: number
@@ -34,7 +35,7 @@ export interface AssistantMessageProps {
   isLatest: boolean
   isHovered: boolean
   onHover: (hovered: boolean) => void
-  onCopyClick: (content: string) => void
+  onCopyClick: (content: string) => CopyActionResult | Promise<CopyActionResult>
   onTypingChange?: () => void
 }
 
@@ -148,8 +149,8 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
     void handleChatSubmit(payload.text, payload.images, {})
   }, [handleChatSubmit, isRunBusy, messages, selectedModelRef])
 
-  const handleCopy = useCallback(() => {
-    onCopyClick(copyContentRef.current)
+  const handleCopy = useCallback((): CopyActionResult | Promise<CopyActionResult> => {
+    return onCopyClick(copyContentRef.current)
   }, [onCopyClick])
 
   const handleEdit = useCallback(() => {

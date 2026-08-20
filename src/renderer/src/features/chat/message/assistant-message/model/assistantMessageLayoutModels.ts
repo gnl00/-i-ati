@@ -6,6 +6,7 @@ import type { AssistantMessageFooterState } from './assistantMessageFooterState'
 import type { AssistantMessageHeaderProjection, AssistantMessageTranscriptProjection } from './assistantMessageMapper'
 import type { AssistantMessageTextPlaybackModel } from './assistantMessageTextPlayback'
 import { buildAssistantMessageTokenUsageDisplay } from './assistantMessageTokenUsage'
+import type { CopyActionHandler } from '../../message-operations'
 
 export interface BuildAssistantMessageLayoutModelsInput {
   index: number
@@ -19,7 +20,7 @@ export interface BuildAssistantMessageLayoutModelsInput {
   textPlayback: AssistantMessageTextPlaybackModel
   footerState: AssistantMessageFooterState
   badgeAnimate: boolean
-  onCopyClick: () => void
+  onCopyClick: CopyActionHandler
   onRegenerateClick: () => void
   onEditClick: () => void
   tokenUsage?: ITokenUsage

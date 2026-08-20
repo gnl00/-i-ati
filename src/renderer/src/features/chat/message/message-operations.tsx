@@ -1,6 +1,7 @@
-import { CopyIcon, Pencil2Icon, ReloadIcon } from '@radix-ui/react-icons'
+import { CheckIcon, CopyIcon, Pencil2Icon, ReloadIcon } from '@radix-ui/react-icons'
 import { cn } from '@renderer/shared/lib/utils'
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
 
 const formatDateTime24h = (timestamp: number): string => {
   const date = new Date(timestamp)
@@ -23,7 +24,7 @@ export interface MessageOperationButtonsProps {
     ariaLabel: string
   }
   isHovered: boolean
-  onCopyClick: () => void
+  onCopyClick: CopyActionHandler
   onEditClick?: () => void
   onRegenerateClick?: () => void
   showRegenerate?: boolean
@@ -40,21 +41,14 @@ const operationTooltipArrowClassName = cn(
   'dark:border-t-(--app-surface-raised)'
 )
 const operationButtonMotionClassName = cn(
-  'transition-all duration-300 ease-out hover:scale-110 active:scale-95',
-  'motion-reduce:scale-none! motion-reduce:transition-colors',
-  'motion-reduce:hover:scale-none motion-reduce:active:scale-none'
-)
-const operationIconMotionClassName = cn(
-  'transition-transform duration-200 group-hover:rotate-12 group-active:rotate-0',
-  'motion-reduce:transition-none',
-  'motion-reduce:group-hover:rotate-none motion-reduce:group-active:rotate-none'
+  'transition-[color,background-color,box-shadow,transform] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97]',
+  'motion-reduce:transition-colors motion-reduce:duration-0 motion-reduce:active:scale-none'
 )
 
 interface OperationButtonProps {
   icon: React.ReactNode
   onClick?: () => void
   label: string
-  delay?: number
   variant?: 'default' | 'compact'
 }
 
@@ -62,32 +56,18 @@ const OperationButton: React.FC<OperationButtonProps> = ({
   icon,
   onClick,
   label,
-  delay = 0,
   variant = 'default'
 }) => {
-  const [isPressed, setIsPressed] = useState(false)
   const [showTooltip, setShowTooltip] = useState(false)
   const isCompact = variant === 'compact'
-
-  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    setIsPressed(true)
-    onClick?.()
-
-    // Remove focus after click to prevent persistent focus ring
-    const target = e.currentTarget
-    setTimeout(() => {
-      setIsPressed(false)
-      target?.blur()
-    }, 300)
-  }
 
   return (
     <div className="relative group">
       <button
         type="button"
-        onClick={handleClick}
-        onMouseEnter={isCompact ? undefined : () => setShowTooltip(true)}
-        onMouseLeave={isCompact ? undefined : () => setShowTooltip(false)}
+        onClick={onClick}
+        onMouseEnter={isCompact ? undefined : (): void => setShowTooltip(true)}
+        onMouseLeave={isCompact ? undefined : (): void => setShowTooltip(false)}
         className={cn(
           'flex items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2',
           operationButtonMotionClassName,
@@ -95,30 +75,19 @@ const OperationButton: React.FC<OperationButtonProps> = ({
             ? [
               'h-6 w-6 text-zinc-400',
               'hover:bg-black/5 hover:text-zinc-700 dark:text-zinc-500 dark:hover:bg-white/6 dark:hover:text-zinc-200',
-              'focus-visible:ring-zinc-400/40 dark:focus-visible:ring-zinc-500/60',
-              isPressed && 'bg-black/[0.07] text-zinc-700 dark:bg-white/10 dark:text-zinc-200'
+              'focus-visible:ring-zinc-400/40 dark:focus-visible:ring-zinc-500/60'
             ]
             : [
               'h-7 w-7',
               'hover:bg-gray-100 dark:hover:bg-gray-800',
               'focus-visible:ring-blue-500/30',
-              'backdrop-blur-sm',
-              'message-operation-button',
-              isPressed && 'ring-2 ring-blue-500/20'
-            ],
-          isPressed && 'scale-95!'
+              'backdrop-blur-sm'
+            ]
         )}
-        style={isCompact
-          ? undefined
-          : {
-            '--op-delay': `${delay}ms`
-          } as React.CSSProperties}
         aria-label={label}
         title={isCompact ? label : undefined}
       >
-        <div className={operationIconMotionClassName}>
-          {icon}
-        </div>
+        {icon}
       </button>
 
       {!isCompact && (
@@ -128,7 +97,7 @@ const OperationButton: React.FC<OperationButtonProps> = ({
             'absolute bottom-full left-1/2 -translate-x-1/2 mb-2',
             'px-2 py-1 rounded text-xs font-medium whitespace-nowrap',
             operationTooltipSurfaceClassName,
-            'transition-all duration-200 pointer-events-none',
+            'pointer-events-none transition-[opacity,transform] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none',
             showTooltip
               ? 'opacity-100 translate-y-0'
               : 'opacity-0 translate-y-1'
@@ -142,27 +111,115 @@ const OperationButton: React.FC<OperationButtonProps> = ({
   )
 }
 
+export type CopyActionResult = void | false
+export type CopyActionHandler = () => CopyActionResult | Promise<CopyActionResult>
+
 export interface CopyButtonProps {
-  onClick: () => void
+  onClick: CopyActionHandler
   label?: string
-  delay?: number
   variant?: 'default' | 'compact'
 }
 
 export const CopyButton: React.FC<CopyButtonProps> = ({
   onClick,
   label = 'Copy',
-  delay = 0,
   variant = 'default'
-}) => (
-  <OperationButton
-    icon={<CopyIcon className={variant === 'compact' ? 'h-3 w-3' : 'h-4 w-4'} />}
-    onClick={onClick}
-    label={label}
-    delay={delay}
-    variant={variant}
-  />
-)
+}) => {
+  const [copied, setCopied] = useState(false)
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const mountedRef = useRef(true)
+  const attemptRef = useRef(0)
+  const currentLabel = copied ? 'Copied' : label
+  const iconSizeClassName = variant === 'compact' ? 'h-3 w-3' : 'h-4 w-4'
+
+  const clearResetTimer = (): void => {
+    if (resetTimerRef.current !== null) {
+      clearTimeout(resetTimerRef.current)
+      resetTimerRef.current = null
+    }
+  }
+
+  useEffect(() => {
+    mountedRef.current = true
+    return (): void => {
+      mountedRef.current = false
+      if (resetTimerRef.current !== null) {
+        clearTimeout(resetTimerRef.current)
+        resetTimerRef.current = null
+      }
+    }
+  }, [])
+
+  const handleCopy = async (): Promise<void> => {
+    const attempt = ++attemptRef.current
+
+    try {
+      const result = await onClick()
+      if (!mountedRef.current || attempt !== attemptRef.current) return
+      if (result === false) {
+        clearResetTimer()
+        setCopied(false)
+        return
+      }
+
+      clearResetTimer()
+      setCopied(true)
+      resetTimerRef.current = setTimeout(() => {
+        setCopied(false)
+        resetTimerRef.current = null
+      }, 1200)
+    } catch {
+      if (!mountedRef.current || attempt !== attemptRef.current) return
+
+      clearResetTimer()
+      setCopied(false)
+      toast.error('Copy failed')
+    }
+  }
+
+  return (
+    <>
+      <OperationButton
+        icon={(
+          <span
+            className={cn('relative block shrink-0', iconSizeClassName)}
+            data-testid="copy-icon-slot"
+          >
+            <CopyIcon
+              aria-hidden="true"
+              data-testid="copy-icon"
+              className={cn(
+                'absolute inset-0 h-full w-full transition-[opacity,transform] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none',
+                copied ? 'scale-[0.92] opacity-0' : 'scale-100 opacity-100'
+              )}
+            />
+            <CheckIcon
+              aria-hidden="true"
+              data-testid="copy-success-icon"
+              className={cn(
+                'absolute inset-0 h-full w-full text-emerald-600 transition-[opacity,transform] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] dark:text-emerald-400 motion-reduce:transition-none',
+                copied ? 'scale-100 opacity-100' : 'scale-[0.92] opacity-0'
+              )}
+            />
+          </span>
+        )}
+        onClick={(): void => {
+          void handleCopy()
+        }}
+        label={currentLabel}
+        variant={variant}
+      />
+      <span
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {copied ? 'Copied' : ''}
+      </span>
+    </>
+  )
+}
 
 const TokenUsageInfo: React.FC<{
   display: NonNullable<MessageOperationButtonsProps['tokenUsageDisplay']>
@@ -189,7 +246,7 @@ const TokenUsageInfo: React.FC<{
             "absolute bottom-full left-1/2 -translate-x-1/2 mb-2",
             "rounded-md px-2.5 py-2 text-left text-[11px] font-medium leading-4",
             operationTooltipSurfaceClassName,
-            "transition-all duration-200 pointer-events-none whitespace-nowrap z-10",
+            'pointer-events-none whitespace-nowrap z-10 transition-[opacity,transform] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none',
             "opacity-100 translate-y-0"
           )}
         >
@@ -222,10 +279,10 @@ export const MessageOperations: React.FC<MessageOperationButtonsProps> = ({
     ? formatDateTime24h(message.createdAt)
     : null
   const assistantHoverVisibilityClassName = cn(
-    "transition-all duration-300 ease-out",
+    'transition-[opacity,transform] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none motion-reduce:translate-y-0',
     isHovered
-      ? "opacity-100 translate-y-0"
-      : "opacity-0 translate-y-2 pointer-events-none"
+      ? 'opacity-100 translate-y-0'
+      : 'opacity-0 translate-y-1 pointer-events-none'
   )
   const actionControls = (
     <>
@@ -236,7 +293,6 @@ export const MessageOperations: React.FC<MessageOperationButtonsProps> = ({
           icon={<ReloadIcon className="w-4 h-4" />}
           onClick={onRegenerateClick}
           label="Regenerate"
-          delay={50}
         />
       )}
 
@@ -244,7 +300,6 @@ export const MessageOperations: React.FC<MessageOperationButtonsProps> = ({
         icon={<Pencil2Icon className="w-4 h-4" />}
         onClick={onEditClick}
         label="Edit"
-        delay={!isUser && showRegenerate ? 100 : 50}
       />
     </>
   )
@@ -296,11 +351,11 @@ export const MessageOperations: React.FC<MessageOperationButtonsProps> = ({
     <div
       id="usr-msg-operation"
       className={cn(
-        "min-h-6 transition-all duration-300 ease-out",
+        'min-h-6 transition-[opacity,transform] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none motion-reduce:translate-y-0',
         "mt-0.5 pr-2 gap-1 flex text-gray-500 dark:text-gray-400",
         isHovered
-          ? "opacity-100 translate-y-0"
-          : "opacity-0 translate-y-2 pointer-events-none"
+          ? 'opacity-100 translate-y-0'
+          : 'opacity-0 translate-y-1 pointer-events-none'
       )}
     >
       {actionControls}

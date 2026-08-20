@@ -1,5 +1,5 @@
 import React, { memo } from 'react'
-import { MessageOperations } from '../message-operations'
+import { MessageOperations, type CopyActionHandler } from '../message-operations'
 import type { AssistantMessageTokenUsageDisplay } from './model/assistantMessageTokenUsage'
 
 export interface AssistantMessageFooterActionsModel {
@@ -8,7 +8,7 @@ export interface AssistantMessageFooterActionsModel {
   isHovered: boolean
   showOperations: boolean
   showRegenerate: boolean
-  onCopyClick: () => void
+  onCopyClick: CopyActionHandler
   onRegenerateClick: () => void
   onEditClick: () => void
 }

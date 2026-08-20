@@ -1,11 +1,36 @@
 // @vitest-environment happy-dom
 
-import { act } from 'react'
+import { act, StrictMode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { CopyButton, MessageOperations } from '../message-operations'
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
+
+const toastError = vi.hoisted(() => vi.fn())
+
+vi.mock('sonner', () => ({
+  toast: {
+    error: toastError
+  }
+}))
+
+interface Deferred {
+  promise: Promise<void>
+  resolve: () => void
+  reject: (reason?: unknown) => void
+}
+
+const createDeferred = (): Deferred => {
+  let resolve: () => void = () => {}
+  let reject: (reason?: unknown) => void = () => {}
+  const promise = new Promise<void>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+
+  return { promise, resolve, reject }
+}
 
 describe('MessageOperations', () => {
   let root: Root | undefined
@@ -20,13 +45,17 @@ describe('MessageOperations', () => {
     root = undefined
     container?.remove()
     container = undefined
+    toastError.mockReset()
+    vi.useRealTimers()
   })
 
-  it('exposes the shared copy control with consistent interaction styling', () => {
+  it('waits for clipboard completion before showing success, then restores the copy state', async () => {
+    vi.useFakeTimers()
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
-    const onClick = vi.fn()
+    const deferred = createDeferred()
+    const onClick = vi.fn(() => deferred.promise)
 
     act(() => {
       root?.render(<CopyButton label="Copy result" onClick={onClick} />)
@@ -34,10 +63,14 @@ describe('MessageOperations', () => {
 
     const button = container.querySelector<HTMLButtonElement>('button[aria-label="Copy result"]')
     expect(button?.type).toBe('button')
-    expect(button?.className).toContain('message-operation-button')
+    expect(button?.getAttribute('aria-label')).toBe('Copy result')
+    expect(container.querySelector('[data-testid="copy-icon"]')?.getAttribute('class')).toContain('opacity-100')
+    expect(container.querySelector('[data-testid="copy-success-icon"]')?.getAttribute('class')).toContain('opacity-0')
+    expect(container.querySelector('[role="status"]')?.textContent).toBe('')
 
-    act(() => {
+    await act(async () => {
       button?.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
+      button?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
     const tooltip = container.querySelector('[role="tooltip"]')
@@ -45,15 +78,30 @@ describe('MessageOperations', () => {
     expect(tooltip?.className).toContain('dark:border-(--app-border-standard)')
     expect(tooltip?.className).toContain('dark:text-(--app-text-primary)')
     expect(tooltip?.firstElementChild?.className).toContain('dark:border-t-(--app-surface-raised)')
+    expect(onClick).toHaveBeenCalledOnce()
+    expect(button?.getAttribute('aria-label')).toBe('Copy result')
+    expect(container.querySelector('[role="status"]')?.textContent).toBe('')
 
-    act(() => {
-      button?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await act(async () => {
+      deferred.resolve()
+      await deferred.promise
     })
 
-    expect(onClick).toHaveBeenCalledOnce()
+    expect(button?.getAttribute('aria-label')).toBe('Copied')
+    expect(tooltip?.textContent).toContain('Copied')
+    expect(container.querySelector('[role="status"]')?.textContent).toBe('Copied')
+    expect(container.querySelector('[data-testid="copy-icon"]')?.getAttribute('class')).toContain('opacity-0')
+    expect(container.querySelector('[data-testid="copy-success-icon"]')?.getAttribute('class')).toContain('opacity-100')
+
+    act(() => vi.advanceTimersByTime(1199))
+    expect(button?.getAttribute('aria-label')).toBe('Copied')
+
+    act(() => vi.advanceTimersByTime(1))
+    expect(button?.getAttribute('aria-label')).toBe('Copy result')
+    expect(container.querySelector('[role="status"]')?.textContent).toBe('')
   })
 
-  it('keeps the footer copy treatment and offers a quiet compact treatment', () => {
+  it('keeps fixed icon slots and reduced-motion fallbacks in default and compact variants', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -79,38 +127,184 @@ describe('MessageOperations', () => {
     )
     const footerIcon = footerButton?.querySelector('svg')
     const compactIcon = compactButton?.querySelector('svg')
+    const footerSlot = footerButton?.querySelector('[data-testid="copy-icon-slot"]')
+    const compactSlot = compactButton?.querySelector('[data-testid="copy-icon-slot"]')
 
     expect(footerButton?.className).toContain('w-7')
-    expect(footerButton?.className).toContain('hover:scale-110')
+    expect(footerButton?.className).toContain('duration-[160ms]')
+    expect(footerButton?.className).toContain('active:scale-[0.97]')
     expect(footerButton?.className).toContain('backdrop-blur-sm')
-    expect(footerButton?.className).toContain('message-operation-button')
-    expect(footerIcon?.getAttribute('class')).toContain('w-4')
+    expect(footerSlot?.className).toContain('h-4')
+    expect(footerSlot?.className).toContain('w-4')
+    expect(footerIcon?.getAttribute('class')).toContain('h-full')
 
     expect(compactButton?.className).toContain('h-6')
     expect(compactButton?.className).toContain('w-6')
-    expect(compactButton?.className).toContain('transition-all')
-    expect(compactButton?.className).toContain('duration-300')
-    expect(compactButton?.className).toContain('ease-out')
+    expect(compactButton?.className).toContain('transition-[color,background-color,box-shadow,transform]')
+    expect(compactButton?.className).toContain('duration-[160ms]')
     expect(compactButton?.className).toContain('hover:bg-black/5')
-    expect(compactButton?.className).toContain('hover:scale-110')
-    expect(compactButton?.className).toContain('active:scale-95')
+    expect(compactButton?.className).toContain('active:scale-[0.97]')
     expect(compactButton?.className).not.toContain('backdrop-blur-sm')
-    expect(compactButton?.className).not.toContain('message-operation-button')
-    expect(compactIcon?.getAttribute('class')).toContain('w-3')
-    expect(compactIcon?.parentElement?.className).toContain('group-hover:rotate-12')
-    expect(compactIcon?.parentElement?.className).toContain('group-active:rotate-0')
+    expect(compactSlot?.className).toContain('h-3')
+    expect(compactSlot?.className).toContain('w-3')
+    expect(compactIcon?.getAttribute('class')).toContain('w-full')
     expect(compactButton?.title).toBe('Copy inspector')
 
     for (const button of [footerButton, compactButton]) {
       expect(button?.className).toContain('motion-reduce:transition-colors')
-      expect(button?.className).toContain('motion-reduce:hover:scale-none')
       expect(button?.className).toContain('motion-reduce:active:scale-none')
     }
     for (const icon of [footerIcon, compactIcon]) {
-      expect(icon?.parentElement?.className).toContain('motion-reduce:transition-none')
-      expect(icon?.parentElement?.className).toContain('motion-reduce:group-hover:rotate-none')
-      expect(icon?.parentElement?.className).toContain('motion-reduce:group-active:rotate-none')
+      expect(icon?.getAttribute('class')).toContain('motion-reduce:transition-none')
     }
+  })
+
+  it('keeps the copy state on failure and reports one error toast', async () => {
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    act(() => {
+      root?.render(
+        <CopyButton
+          variant="compact"
+          label="Copy inspector"
+          onClick={() => Promise.reject(new Error('clipboard denied'))}
+        />
+      )
+    })
+
+    const button = container.querySelector<HTMLButtonElement>('button')
+    await act(async () => {
+      button?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(button?.getAttribute('aria-label')).toBe('Copy inspector')
+    expect(button?.title).toBe('Copy inspector')
+    expect(container.querySelector('[role="status"]')?.textContent).toBe('')
+    expect(container.querySelector('[data-testid="copy-icon"]')?.getAttribute('class')).toContain('opacity-100')
+    expect(toastError).toHaveBeenCalledOnce()
+    expect(toastError).toHaveBeenCalledWith('Copy failed')
+  })
+
+  it('keeps an explicit quiet no-op in the idle state', async () => {
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    act(() => {
+      root?.render(<CopyButton onClick={() => false} />)
+    })
+
+    const button = container.querySelector<HTMLButtonElement>('button')
+    await act(async () => {
+      button?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(button?.getAttribute('aria-label')).toBe('Copy')
+    expect(container.querySelector('[role="status"]')?.textContent).toBe('')
+    expect(toastError).not.toHaveBeenCalled()
+  })
+
+  it('restarts the success timeout after a repeated copy', async () => {
+    vi.useFakeTimers()
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+    const secondAttempt = createDeferred()
+    const onClick = vi.fn()
+      .mockResolvedValueOnce(undefined)
+      .mockReturnValueOnce(secondAttempt.promise)
+
+    act(() => {
+      root?.render(<CopyButton onClick={onClick} />)
+    })
+
+    const button = container.querySelector<HTMLButtonElement>('button')
+    await act(async () => {
+      button?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+    expect(button?.getAttribute('aria-label')).toBe('Copied')
+
+    act(() => vi.advanceTimersByTime(800))
+    await act(async () => {
+      button?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    act(() => vi.advanceTimersByTime(400))
+    expect(button?.getAttribute('aria-label')).toBe('Copy')
+    expect(onClick).toHaveBeenCalledTimes(2)
+
+    await act(async () => {
+      secondAttempt.resolve()
+      await secondAttempt.promise
+    })
+    expect(button?.getAttribute('aria-label')).toBe('Copied')
+
+    act(() => vi.advanceTimersByTime(1199))
+    expect(button?.getAttribute('aria-label')).toBe('Copied')
+
+    act(() => vi.advanceTimersByTime(1))
+    expect(button?.getAttribute('aria-label')).toBe('Copy')
+  })
+
+  it('keeps copy feedback active through the StrictMode effect cycle', async () => {
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    act(() => {
+      root?.render(
+        <StrictMode>
+          <CopyButton onClick={() => Promise.resolve()} />
+        </StrictMode>
+      )
+    })
+
+    const button = container.querySelector<HTMLButtonElement>('button')
+    await act(async () => {
+      button?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(button?.getAttribute('aria-label')).toBe('Copied')
+    expect(container.querySelector('[role="status"]')?.textContent).toBe('Copied')
+  })
+
+  it('lets only the latest concurrent copy attempt update feedback', async () => {
+    vi.useFakeTimers()
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+    const firstAttempt = createDeferred()
+    const secondAttempt = createDeferred()
+    const onClick = vi.fn()
+      .mockReturnValueOnce(firstAttempt.promise)
+      .mockReturnValueOnce(secondAttempt.promise)
+
+    act(() => {
+      root?.render(<CopyButton onClick={onClick} />)
+    })
+
+    const button = container.querySelector<HTMLButtonElement>('button')
+    await act(async () => {
+      button?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      button?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      secondAttempt.resolve()
+      await secondAttempt.promise
+    })
+    expect(button?.getAttribute('aria-label')).toBe('Copied')
+
+    act(() => vi.advanceTimersByTime(800))
+    await act(async () => {
+      firstAttempt.reject(new Error('stale failure'))
+      await expect(firstAttempt.promise).rejects.toThrow('stale failure')
+    })
+
+    expect(button?.getAttribute('aria-label')).toBe('Copied')
+    expect(toastError).not.toHaveBeenCalled()
+
+    act(() => vi.advanceTimersByTime(400))
+    expect(button?.getAttribute('aria-label')).toBe('Copy')
   })
 
   it('keeps assistant actions and meta hidden until the message is hovered', () => {
@@ -152,12 +346,14 @@ describe('MessageOperations', () => {
     expect(actionsGroup?.textContent).toContain('Edit')
     expect(actionsGroup?.textContent).not.toContain('Usage 165.2k')
     expect(metaGroup?.textContent).toContain('Usage 165.2k')
-    const pad = (value: number) => String(value).padStart(2, '0')
+    const pad = (value: number): string => String(value).padStart(2, '0')
     const createdAtDate = new Date(1)
     const expectedDateLabel = `${createdAtDate.getFullYear()}-${pad(createdAtDate.getMonth() + 1)}-${pad(createdAtDate.getDate())} ${pad(createdAtDate.getHours())}:${pad(createdAtDate.getMinutes())}:${pad(createdAtDate.getSeconds())}`
     expect(metaGroup?.textContent).toContain(expectedDateLabel)
     expect(actionsGroup?.className).toContain('opacity-0')
     expect(actionsGroup?.className).toContain('pointer-events-none')
+    expect(actionsGroup?.className).toContain('duration-[160ms]')
+    expect(actionsGroup?.className).toContain('translate-y-1')
     expect(metaGroup?.className).toContain('opacity-0')
     expect(metaGroup?.className).toContain('pointer-events-none')
   })

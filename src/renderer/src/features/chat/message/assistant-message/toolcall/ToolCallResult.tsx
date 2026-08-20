@@ -5,7 +5,6 @@ import { motion, useReducedMotion } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
 import { Check, FileText, List, Loader2, PanelRightOpen, PencilLine, Search, Trash2, X } from 'lucide-react'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { toast } from 'sonner'
 import { WebSearchResults, type WebSearchResult } from './WebSearchResults'
 import { SubagentResults } from './SubagentResults'
 import { CopyButton } from '../../message-operations'
@@ -931,7 +930,6 @@ function buildParameterPreview(entries: Array<[string, unknown]>): {
 const InspectorSection: React.FC<{
   label: string
   copyContent: unknown
-  copyLabel: string
   children: React.ReactNode
   action?: React.ReactNode
   isFirst?: boolean
@@ -939,7 +937,6 @@ const InspectorSection: React.FC<{
 }> = ({
   label,
   copyContent,
-  copyLabel,
   children,
   action,
   isFirst = false,
@@ -976,10 +973,7 @@ const InspectorSection: React.FC<{
           <CopyButton
             variant="compact"
             label={`Copy ${label.toLowerCase()}`}
-            onClick={() => {
-              void navigator.clipboard.writeText(serializeInspectorValue(copyContent))
-              toast.success(`${copyLabel} copied`)
-            }}
+            onClick={() => navigator.clipboard.writeText(serializeInspectorValue(copyContent))}
           />
         </div>
       </div>
@@ -1063,7 +1057,6 @@ export const ToolCallInspectorDetails = React.memo(({
       <InspectorSection
         label="Parameters"
         copyContent={parametersCopyContent}
-        copyLabel="Parameters"
         isFirst
         action={areArgsReady && parameterPreview.isTruncated ? (
           <div className="flex h-6 items-center rounded-md bg-zinc-100 p-0.5 dark:bg-white/[0.06]">
@@ -1133,7 +1126,6 @@ export const ToolCallInspectorDetails = React.memo(({
         <InspectorSection
           label="Execution output"
           copyContent={liveText}
-          copyLabel="Output"
         >
           <LiveToolOutput output={liveOutput} />
         </InspectorSection>
@@ -1142,7 +1134,6 @@ export const ToolCallInspectorDetails = React.memo(({
       <InspectorSection
         label="Result"
         copyContent={resultText}
-        copyLabel="Result"
         isLast
         action={isResultLong || hasSpecializedResult ? (
           <div className="flex h-6 items-center rounded-md bg-zinc-100 p-0.5 dark:bg-white/[0.06]">

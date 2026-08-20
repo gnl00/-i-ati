@@ -1,10 +1,10 @@
 import React, { memo } from 'react'
-import { toast } from 'sonner'
 import { UserMessage } from './user-message'
 import { AssistantMessage } from './assistant-message'
 import { useMessageHover } from './user-message/use-message-hover'
 import { Send, Timer } from 'lucide-react'
 import { MESSAGE_SOURCE, HIDDEN_MESSAGE_SOURCES } from '@shared/messages/messageSources'
+import type { CopyActionResult } from './message-operations'
 
 interface ChatMessageComponentProps {
   index: number
@@ -36,11 +36,10 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({
 }) => {
   const hoverState = useMessageHover()
 
-  const onCopyClick = (content: string) => {
-    if (content) {
-      navigator.clipboard.writeText(content)
-      toast.success('Copied', { duration: 800 })
-    }
+  const onCopyClick = async (content: string): Promise<CopyActionResult> => {
+    if (!content) return false
+
+    await navigator.clipboard.writeText(content)
   }
 
   if (!message && pendingAssistantModel) {
