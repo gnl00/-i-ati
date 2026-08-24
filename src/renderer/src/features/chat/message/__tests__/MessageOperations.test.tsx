@@ -388,6 +388,36 @@ describe('MessageOperations', () => {
     expect(onBranchClick).toHaveBeenCalledOnce()
   })
 
+  it('keeps edit disabled while the operation is unavailable', () => {
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+    const onEditClick = vi.fn()
+
+    act(() => {
+      root?.render(
+        <MessageOperations
+          type="user"
+          message={{ createdAt: 1 }}
+          isHovered
+          onCopyClick={vi.fn()}
+          onEditClick={onEditClick}
+        />
+      )
+    })
+
+    const editButton = container.querySelector<HTMLButtonElement>('[aria-label="Edit"]')
+    expect(editButton?.disabled).toBe(true)
+    expect(editButton?.className).toContain('disabled:cursor-not-allowed')
+    expect(editButton?.className).toContain('dark:disabled:text-(--app-text-muted)')
+
+    act(() => {
+      editButton?.click()
+    })
+
+    expect(onEditClick).not.toHaveBeenCalled()
+  })
+
   it('shows detailed token usage when the usage label is hovered', () => {
     container = document.createElement('div')
     document.body.appendChild(container)

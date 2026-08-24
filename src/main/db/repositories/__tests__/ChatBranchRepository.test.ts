@@ -252,6 +252,23 @@ describe('ChatBranchRepository', () => {
     expect(harness.transaction).not.toHaveBeenCalled()
   })
 
+  it('returns typed errors for missing source chats and foreign message boundaries', () => {
+    const harness = createHarness()
+
+    expect(() => harness.repository.forkChat({
+      sourceChatId: 99,
+      sourceChatUuid: 'missing-chat',
+      forkedFromMessageId: 1
+    })).toThrowError(expect.objectContaining({ code: 'CHAT_NOT_FOUND' }))
+    expect(() => harness.repository.forkChat({
+      sourceChatId: 1,
+      sourceChatUuid: 'source-chat',
+      forkedFromMessageId: 999
+    })).toThrowError(expect.objectContaining({ code: 'MESSAGE_NOT_FOUND' }))
+    expect(harness.state.chats).toHaveLength(1)
+    expect(harness.state.messages).toEqual([])
+  })
+
   it('accepts a historical terminal assistant without renderer completion metadata', () => {
     const harness = createHarness()
     harness.addMessage(userMessage('hello', 100))

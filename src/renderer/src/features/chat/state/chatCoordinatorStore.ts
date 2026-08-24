@@ -141,20 +141,28 @@ export function createChatCoordinatorActions<T extends ChatCoordinatorSliceState
       if (!state.currentChatId || !state.currentChatUuid) {
         throw new Error('Current chat is unavailable')
       }
+      const sourceChatId = state.currentChatId
+      const sourceChatUuid = state.currentChatUuid
 
       isForkInProgress = true
       try {
         const result = await forkChat({
-          sourceChatId: state.currentChatId,
-          sourceChatUuid: state.currentChatUuid,
+          sourceChatId,
+          sourceChatUuid,
           forkedFromMessageId
         })
         if (!result.chat.id || !result.chat.uuid) {
           throw new Error('Forked chat identity is incomplete')
         }
 
-        get().applyReadyChat(result.chat)
-        get().restoreTranscriptForChat(result.chat.uuid, result.messages)
+        const sourceStillSelected = get().currentChatId === sourceChatId
+          && get().currentChatUuid === sourceChatUuid
+        get().applyReadyChat(result.chat, { selectShell: sourceStillSelected })
+        get().setMessagesForChat(result.chat.uuid, result.messages)
+        if (!sourceStillSelected) {
+          return result
+        }
+
         get().syncSelectedModelRefForChat(result.chat, result.messages)
         get().setScrollHint({
           type: 'conversation-switch',

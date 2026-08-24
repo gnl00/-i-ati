@@ -1,7 +1,12 @@
 # Assistant Message Chat Branch Fork Plan
 
+Archived: 2026-08-24<br>
+Reason: Physical branch snapshots, renderer switching, tests, and durable architecture records completed<br>
+Original path: `docs/work/plans/chat/chat-branch-fork-plan.md`<br>
+Replaced by: [ADR-0016](../../../decisions/0016-physical-chat-branch-snapshots.md), [Chat runtime architecture](../../../architecture/chat-runtime-architecture-current.md)<br>
+
 Owner: Chat runtime maintainers<br>
-Status: Implemented<br>
+Status: Done<br>
 Started: 2026-08-20<br>
 Completed: 2026-08-20<br>
 Target: Create a self-contained chat branch from a completed assistant message<br>
@@ -268,13 +273,15 @@ Automated coverage:
     exclusion of summaries and tool compactions that extend past the boundary.
 12. Verify first, consecutive, nested, and maximum lineage title suffixes plus
     rollback without a consumed suffix.
+13. Verify one coordinator-wide branch request at a time and keep a newly
+    selected Chat active when an earlier branch request resolves late.
 
 Commands:
 
 ```bash
 pnpm exec vitest run src/main/db/repositories/__tests__/ChatBranchRepository.test.ts
 pnpm exec vitest run src/main/ipc/__tests__/chat.test.ts
-pnpm exec vitest run src/renderer/src/features/chat/state/__tests__/chatPerChatState.test.ts
+pnpm exec vitest run src/renderer/src/features/chat/state/__tests__/chatBranchCoordinator.test.ts
 pnpm exec vitest run src/renderer/src/features/chat/message/__tests__/MessageOperations.test.tsx
 pnpm run check:main-boundaries
 pnpm run check:main-doc-paths
@@ -295,7 +302,7 @@ Manual Electron acceptance:
 - Confirm a prior ready tool-result compact is selected in the destination run.
 - Check Light and Dark footer operation states at full and narrow widths.
 
-Implementation verification on 2026-08-20 passed the focused 44-test suite,
+Implementation verification on 2026-08-24 passed the focused 56-test suite,
 Node and Web type checks, Main and Renderer boundary/doc-path/architecture
 checks, `git diff --check`, and the production build. Electron completed Main,
 preload, renderer, database migration, and window initialization. Window-level

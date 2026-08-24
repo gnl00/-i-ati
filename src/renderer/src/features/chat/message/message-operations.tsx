@@ -53,13 +53,15 @@ interface OperationButtonProps {
   onClick?: () => void
   label: string
   variant?: 'default' | 'compact'
+  disabled?: boolean
 }
 
 const OperationButton: React.FC<OperationButtonProps> = ({
   icon,
   onClick,
   label,
-  variant = 'default'
+  variant = 'default',
+  disabled = false
 }) => {
   const [showTooltip, setShowTooltip] = useState(false)
   const isCompact = variant === 'compact'
@@ -69,11 +71,13 @@ const OperationButton: React.FC<OperationButtonProps> = ({
       <button
         type="button"
         onClick={onClick}
-        onMouseEnter={isCompact ? undefined : (): void => setShowTooltip(true)}
-        onMouseLeave={isCompact ? undefined : (): void => setShowTooltip(false)}
+        disabled={disabled}
+        onMouseEnter={isCompact || disabled ? undefined : (): void => setShowTooltip(true)}
+        onMouseLeave={isCompact || disabled ? undefined : (): void => setShowTooltip(false)}
         className={cn(
           'flex items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2',
           operationButtonMotionClassName,
+          'disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent disabled:active:scale-100 dark:disabled:text-(--app-text-muted) dark:disabled:hover:bg-transparent',
           isCompact
             ? [
               'h-6 w-6 text-zinc-400',
@@ -313,6 +317,7 @@ export const MessageOperations: React.FC<MessageOperationButtonsProps> = ({
         icon={<Pencil2Icon className="w-4 h-4" />}
         onClick={onEditClick}
         label="Edit"
+        disabled
       />
     </>
   )

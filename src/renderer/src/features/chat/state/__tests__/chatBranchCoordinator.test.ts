@@ -46,14 +46,14 @@ describe('chat branch coordinator', () => {
     })
 
     const applyReadyChat = vi.fn()
-    const restoreTranscriptForChat = vi.fn()
+    const setMessagesForChat = vi.fn()
     const syncSelectedModelRefForChat = vi.fn()
     const setScrollHint = vi.fn()
     const state = {
       currentChatId: 1,
       currentChatUuid: 'source-chat',
       applyReadyChat,
-      restoreTranscriptForChat,
+      setMessagesForChat,
       syncSelectedModelRefForChat,
       setScrollHint
     }
@@ -68,8 +68,8 @@ describe('chat branch coordinator', () => {
       sourceChatUuid: 'source-chat',
       forkedFromMessageId: 42
     })
-    expect(applyReadyChat).toHaveBeenCalledWith(branchChat)
-    expect(restoreTranscriptForChat).toHaveBeenCalledWith('branch-chat', branchMessages)
+    expect(applyReadyChat).toHaveBeenCalledWith(branchChat, { selectShell: true })
+    expect(setMessagesForChat).toHaveBeenCalledWith('branch-chat', branchMessages)
     expect(syncSelectedModelRefForChat).toHaveBeenCalledWith(branchChat, branchMessages)
     expect(setScrollHint).toHaveBeenCalledWith({
       type: 'conversation-switch',
@@ -102,7 +102,7 @@ describe('chat branch coordinator', () => {
       currentChatId: 1,
       currentChatUuid: 'source-chat',
       applyReadyChat: vi.fn(),
-      restoreTranscriptForChat: vi.fn(),
+      setMessagesForChat: vi.fn(),
       syncSelectedModelRefForChat: vi.fn(),
       setScrollHint: vi.fn()
     }
@@ -129,5 +129,52 @@ describe('chat branch coordinator', () => {
       }]
     })
     await firstFork
+  })
+
+  it('keeps a newly selected chat active when a branch request resolves late', async () => {
+    let resolveFork: ((result: ChatForkResult) => void) | undefined
+    persistenceMocks.forkChat.mockImplementationOnce(() => new Promise<ChatForkResult>((resolve) => {
+      resolveFork = resolve
+    }))
+
+    const applyReadyChat = vi.fn()
+    const setMessagesForChat = vi.fn()
+    const syncSelectedModelRefForChat = vi.fn()
+    const setScrollHint = vi.fn()
+    const state = {
+      currentChatId: 1,
+      currentChatUuid: 'source-chat',
+      applyReadyChat,
+      setMessagesForChat,
+      syncSelectedModelRefForChat,
+      setScrollHint
+    }
+    const actions = createChatCoordinatorActions(vi.fn() as never, (() => state) as never)
+    const pendingFork = actions.forkCurrentChatFromMessage(42)
+
+    state.currentChatId = 9
+    state.currentChatUuid = 'other-chat'
+    const result: ChatForkResult = {
+      chat: {
+        id: 2,
+        uuid: 'branch-chat',
+        title: 'Source chat (1)',
+        messages: [101],
+        createTime: 1_000,
+        updateTime: 1_000
+      },
+      messages: [{
+        id: 101,
+        chatUuid: 'branch-chat',
+        body: { role: 'assistant', content: 'answer', segments: [] }
+      }]
+    }
+    resolveFork?.(result)
+
+    await expect(pendingFork).resolves.toEqual(result)
+    expect(applyReadyChat).toHaveBeenCalledWith(result.chat, { selectShell: false })
+    expect(setMessagesForChat).toHaveBeenCalledWith('branch-chat', result.messages)
+    expect(syncSelectedModelRefForChat).not.toHaveBeenCalled()
+    expect(setScrollHint).not.toHaveBeenCalled()
   })
 })

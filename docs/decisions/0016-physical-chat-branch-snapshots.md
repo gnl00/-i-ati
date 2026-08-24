@@ -3,7 +3,7 @@
 **Status:** Accepted<br>
 **Date:** 2026-08-20<br>
 **Related architecture:** [Chat runtime architecture](../architecture/chat-runtime-architecture-current.md), [Renderer architecture](../architecture/renderer-architecture.md)<br>
-**Related work:** [Assistant message chat branch fork plan](../work/plans/chat/chat-branch-fork-plan.md)
+**Related work:** [Assistant message chat branch fork plan](../archive/2026/chat/chat-branch-fork-plan.md)
 
 ## Context
 
