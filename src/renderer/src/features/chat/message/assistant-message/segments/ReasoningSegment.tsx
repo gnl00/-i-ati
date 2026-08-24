@@ -169,7 +169,7 @@ const ReasoningSegmentComponent: React.FC<ReasoningSegmentProps> = ({
           duration={durationText}
           durationClassName={nestedDisclosure
             ? cn(
-                'transition-opacity duration-200 group-hover/support:opacity-80 group-focus-visible/support:opacity-80 motion-reduce:transition-none',
+                'transition-opacity duration-200 group-hover/support:opacity-80 group-focus-visible/support:opacity-80 motion-reduce:transition-none select-none',
                 isOpen ? 'opacity-80' : 'opacity-[0.45]'
               )
             : undefined}
