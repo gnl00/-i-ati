@@ -3,7 +3,34 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+const clipboardWriteText = vi.hoisted(() => vi.fn())
+const toastError = vi.hoisted(() => vi.fn())
+
+vi.mock('sonner', () => ({
+  toast: {
+    error: toastError
+  }
+}))
+
 import { CommandConfirmation } from '../CommandConfirmation'
+
+interface Deferred {
+  promise: Promise<void>
+  resolve: () => void
+  reject: (reason?: unknown) => void
+}
+
+const createDeferred = (): Deferred => {
+  let resolve: () => void = () => {}
+  let reject: (reason?: unknown) => void = () => {}
+  const promise = new Promise<void>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+
+  return { promise, resolve, reject }
+}
 
 function getClassNames(container: HTMLElement): string {
   return Array.from(container.querySelectorAll<HTMLElement>('[class]'))
@@ -21,6 +48,12 @@ describe('CommandConfirmation', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
+    clipboardWriteText.mockReset()
+    toastError.mockReset()
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: clipboardWriteText }
+    })
   })
 
   afterEach(async () => {
@@ -131,5 +164,122 @@ describe('CommandConfirmation', () => {
     expect(shell?.className).toContain('dark:border-white/10')
     expect(shell?.className).toContain('dark:bg-slate-950/55')
     expect(shell?.className).toContain('dark:shadow-[0_18px_42px_-28px_rgba(0,0,0,0.58)]')
+  })
+
+  it('shows command copy success after resolution and restores after 1200ms', async () => {
+    clipboardWriteText.mockResolvedValue(undefined)
+
+    await act(async () => {
+      root.render(
+        <CommandConfirmation
+          request={{
+            command: 'pnpm test',
+            risk_level: 'risky',
+            execution_reason: 'Confirm command',
+            possible_risk: 'Runs local tests'
+          }}
+          onConfirm={() => {}}
+          onCancel={() => {}}
+          animateOnMount={false}
+        />
+      )
+    })
+
+    const button = container.querySelector<HTMLButtonElement>('button[aria-label="Copy command"]')
+    const iconSlot = container.querySelector('[data-testid="command-copy-icon-slot"]')
+
+    expect(button?.title).toBe('Copy command')
+    expect(button?.className).toContain('duration-[160ms]')
+    expect(button?.className).toContain('active:scale-[0.97]')
+    expect(iconSlot?.className).toContain('h-3')
+
+    await act(async () => {
+      button?.click()
+    })
+
+    expect(clipboardWriteText).toHaveBeenCalledWith('pnpm test')
+    expect(button?.getAttribute('aria-label')).toBe('Copied')
+    expect(button?.title).toBe('Copied')
+    expect(container.querySelector('[role="status"]')?.textContent).toBe('Copied')
+    expect(container.querySelector('[data-testid="command-copy-icon"]')?.getAttribute('class')).toContain('opacity-0')
+    expect(container.querySelector('[data-testid="command-copy-success-icon"]')?.getAttribute('class')).toContain('opacity-100')
+
+    act(() => vi.advanceTimersByTime(1199))
+    expect(button?.getAttribute('aria-label')).toBe('Copied')
+
+    act(() => vi.advanceTimersByTime(1))
+    expect(button?.getAttribute('aria-label')).toBe('Copy command')
+    expect(container.querySelector('[role="status"]')?.textContent).toBe('')
+  })
+
+  it('keeps command copy idle and reports a clipboard failure', async () => {
+    clipboardWriteText.mockRejectedValue(new Error('clipboard denied'))
+
+    await act(async () => {
+      root.render(
+        <CommandConfirmation
+          request={{
+            command: 'pnpm test',
+            risk_level: 'risky',
+            execution_reason: 'Confirm command',
+            possible_risk: 'Runs local tests'
+          }}
+          onConfirm={() => {}}
+          onCancel={() => {}}
+          animateOnMount={false}
+        />
+      )
+    })
+
+    const button = container.querySelector<HTMLButtonElement>('button[aria-label="Copy command"]')
+    await act(async () => {
+      button?.click()
+    })
+
+    expect(button?.getAttribute('aria-label')).toBe('Copy command')
+    expect(container.querySelector('[role="status"]')?.textContent).toBe('')
+    expect(toastError).toHaveBeenCalledOnce()
+    expect(toastError).toHaveBeenCalledWith('Copy failed')
+  })
+
+  it('lets only the latest command copy attempt update feedback', async () => {
+    const firstAttempt = createDeferred()
+    const secondAttempt = createDeferred()
+    clipboardWriteText
+      .mockReturnValueOnce(firstAttempt.promise)
+      .mockReturnValueOnce(secondAttempt.promise)
+
+    await act(async () => {
+      root.render(
+        <CommandConfirmation
+          request={{
+            command: 'pnpm test',
+            risk_level: 'risky',
+            execution_reason: 'Confirm command',
+            possible_risk: 'Runs local tests'
+          }}
+          onConfirm={() => {}}
+          onCancel={() => {}}
+          animateOnMount={false}
+        />
+      )
+    })
+
+    const button = container.querySelector<HTMLButtonElement>('button[aria-label="Copy command"]')
+    await act(async () => {
+      button?.click()
+      button?.click()
+      secondAttempt.resolve()
+      await secondAttempt.promise
+    })
+    expect(button?.getAttribute('aria-label')).toBe('Copied')
+
+    await act(async () => {
+      firstAttempt.reject(new Error('stale failure'))
+      await expect(firstAttempt.promise).rejects.toThrow('stale failure')
+    })
+
+    expect(button?.getAttribute('aria-label')).toBe('Copied')
+    expect(toastError).not.toHaveBeenCalled()
   })
 })

@@ -973,6 +973,7 @@ const InspectorSection: React.FC<{
           <CopyButton
             variant="compact"
             label={`Copy ${label.toLowerCase()}`}
+            feedbackKey={copyContent}
             onClick={() => navigator.clipboard.writeText(serializeInspectorValue(copyContent))}
           />
         </div>

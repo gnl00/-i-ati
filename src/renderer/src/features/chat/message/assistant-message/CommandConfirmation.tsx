@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import { AlertTriangle, Bot, Check, Copy, ShieldAlert, Terminal } from 'lucide-react'
 import { Button } from '@renderer/shared/components/ui/button'
+import { useCopyFeedback } from '@renderer/shared/hooks/useCopyFeedback'
 import { cn } from '@renderer/shared/lib/utils'
 import type { AgentConfirmationSource } from '@shared/tools/approval'
+import { toast } from 'sonner'
 
 export interface CommandConfirmationRequest {
   command: string
@@ -81,7 +83,11 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
   const Icon = config.icon
   const agentLabel = getAgentLabel(request.agent)
   const [isVisible, setIsVisible] = useState(!animateOnMount)
-  const [copied, setCopied] = useState(false)
+  const { copied, successCount, triggerCopy } = useCopyFeedback(
+    () => navigator.clipboard.writeText(request.command),
+    { resetKey: request.command, onError: () => toast.error('Copy failed') }
+  )
+  const copyLabel = copied ? 'Copied' : 'Copy command'
 
   useEffect(() => {
     if (!animateOnMount) {
@@ -93,17 +99,6 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
     const timer = setTimeout(() => setIsVisible(true), 50)
     return () => clearTimeout(timer)
   }, [animateOnMount])
-
-  useEffect(() => {
-    if (!copied) return
-    const timer = setTimeout(() => setCopied(false), 1200)
-    return () => clearTimeout(timer)
-  }, [copied])
-
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(request.command)
-    setCopied(true)
-  }
 
   return (
     <div
@@ -219,12 +214,38 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
                   </div>
                   <button
                     type="button"
-                    onClick={handleCopy}
-                    aria-label="Copy command"
-                    className="shrink-0 rounded-full p-1 text-slate-400 transition-colors hover:bg-white/70 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-900/70 dark:hover:text-slate-200"
+                    onClick={(): void => {
+                      void triggerCopy()
+                    }}
+                    aria-label={copyLabel}
+                    title={copyLabel}
+                    className="shrink-0 rounded-full p-1 text-slate-400 transition-[color,background-color,transform] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-white/70 hover:text-slate-700 active:scale-[0.97] dark:text-slate-500 dark:hover:bg-slate-900/70 dark:hover:text-slate-200 motion-reduce:transition-colors motion-reduce:duration-0 motion-reduce:active:scale-none"
                   >
-                    {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                    <span
+                      data-testid="command-copy-icon-slot"
+                      className="relative block h-3 w-3 shrink-0"
+                    >
+                      <Copy
+                        aria-hidden="true"
+                        data-testid="command-copy-icon"
+                        className={cn(
+                          'absolute inset-0 h-full w-full transition-[opacity,transform] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none',
+                          copied ? 'scale-[0.92] opacity-0' : 'scale-100 opacity-100'
+                        )}
+                      />
+                      <Check
+                        aria-hidden="true"
+                        data-testid="command-copy-success-icon"
+                        className={cn(
+                          'absolute inset-0 h-full w-full text-emerald-600 transition-[opacity,transform] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] dark:text-emerald-400 motion-reduce:transition-none',
+                          copied ? 'scale-100 opacity-100' : 'scale-[0.92] opacity-0'
+                        )}
+                      />
+                    </span>
                   </button>
+                  <span role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+                    {copied ? <span key={successCount}>Copied</span> : ''}
+                  </span>
                 </div>
               </div>
 

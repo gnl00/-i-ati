@@ -437,6 +437,48 @@ describe('ToolCallResult', () => {
     expect(clipboardWriteText).toHaveBeenNthCalledWith(3, '{\n  "success": true\n}')
   })
 
+  it('clears execution copy feedback when live output changes', async () => {
+    const toolCall = createToolCall('completed', { success: true })
+    const renderInspector = async (stdout: string): Promise<void> => {
+      await act(async () => {
+        root.render(
+          <ToolCallInspectorDetails
+            toolCall={toolCall}
+            toolResponse={toolCall.content}
+            liveOutput={{
+              submissionId: 'submission-1',
+              sequence: 2,
+              stdout,
+              stderr: '',
+              stdoutBytes: stdout.length,
+              stderrBytes: 0,
+              stdoutPendingCarriageReturn: false,
+              stderrPendingCarriageReturn: false
+            }}
+          />
+        )
+      })
+    }
+
+    await renderInspector('partial output')
+    const copyButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Copy execution output"]'
+    )
+    await act(async () => {
+      copyButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+    expect(copyButton?.getAttribute('aria-label')).toBe('Copied')
+
+    await renderInspector('complete output')
+    expect(copyButton?.getAttribute('aria-label')).toBe('Copy execution output')
+
+    await act(async () => {
+      copyButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+    expect(clipboardWriteText).toHaveBeenLastCalledWith('complete output')
+    expect(copyButton?.getAttribute('aria-label')).toBe('Copied')
+  })
+
   it('uses Preview and Full controls for long results', async () => {
     const toolCall = createToolCall('completed', {
       content: Array.from({ length: 240 }, (_, index) => `line ${index}`).join('\n')

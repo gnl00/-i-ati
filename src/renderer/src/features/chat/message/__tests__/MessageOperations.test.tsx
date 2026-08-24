@@ -248,6 +248,36 @@ describe('MessageOperations', () => {
     expect(button?.getAttribute('aria-label')).toBe('Copy')
   })
 
+  it('publishes a new live-region event for each successful copy', async () => {
+    vi.useFakeTimers()
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+    const onClick = vi.fn().mockResolvedValue(undefined)
+
+    act(() => {
+      root?.render(<CopyButton onClick={onClick} />)
+    })
+
+    const button = container.querySelector<HTMLButtonElement>('button')
+    await act(async () => {
+      button?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    const status = container.querySelector('[role="status"]')
+    const firstAnnouncement = status?.firstElementChild
+    expect(firstAnnouncement?.textContent).toBe('Copied')
+
+    await act(async () => {
+      button?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+
+    expect(onClick).toHaveBeenCalledTimes(2)
+    expect(button?.getAttribute('aria-label')).toBe('Copied')
+    expect(status?.firstElementChild?.textContent).toBe('Copied')
+    expect(status?.firstElementChild).not.toBe(firstAnnouncement)
+  })
+
   it('keeps copy feedback active through the StrictMode effect cycle', async () => {
     container = document.createElement('div')
     document.body.appendChild(container)

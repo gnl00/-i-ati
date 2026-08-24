@@ -1,7 +1,9 @@
 import React, { memo, useState } from 'react'
-import { AlertCircle, ChevronDown, ChevronUp, Copy } from 'lucide-react'
+import { AlertCircle, Check, ChevronDown, ChevronUp, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@renderer/shared/components/ui/button'
+import { useCopyFeedback } from '@renderer/shared/hooks/useCopyFeedback'
+import { cn } from '@renderer/shared/lib/utils'
 
 interface ErrorMessageProps {
   error: {
@@ -34,15 +36,19 @@ export const ErrorMessage: React.FC<ErrorMessageProps> = memo(({ error }) => {
       }
     : error
 
-  const handleCopyError = () => {
+  const getErrorText = (): string => {
     const wrapper =
       error.cause && error.cause.message
         ? `\nWrapped By: ${error.name}: ${error.message}\n`
         : ''
-    const errorText = `Error: ${displayError.name}\nMessage: ${displayError.message}\n${displayError.code ? `Code: ${displayError.code}\n` : ''}${wrapper}${displayError.stack ? `\nStack:\n${displayError.stack}` : ''}`
-    navigator.clipboard.writeText(errorText)
-    toast.success('Error details copied', { duration: 800 })
+    return `Error: ${displayError.name}\nMessage: ${displayError.message}\n${displayError.code ? `Code: ${displayError.code}\n` : ''}${wrapper}${displayError.stack ? `\nStack:\n${displayError.stack}` : ''}`
   }
+  const errorText = getErrorText()
+  const { copied, successCount, triggerCopy } = useCopyFeedback(
+    () => navigator.clipboard.writeText(errorText),
+    { resetKey: errorText, onError: () => toast.error('Copy failed') }
+  )
+  const copyLabel = copied ? 'Copied' : 'Copy Error'
 
   const formatTimestamp = (timestamp: number) => {
     return new Date(timestamp).toLocaleTimeString()
@@ -75,12 +81,63 @@ export const ErrorMessage: React.FC<ErrorMessageProps> = memo(({ error }) => {
         <Button
           variant="ghost"
           size="sm"
-          onClick={handleCopyError}
-          className="h-7 px-2 text-xs text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30"
+          onClick={(): void => {
+            void triggerCopy()
+          }}
+          aria-label={copyLabel}
+          title={copyLabel}
+          className="h-7 justify-start px-2 text-xs text-red-600 transition-[color,background-color,transform] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-red-100 active:scale-[0.97] dark:text-red-400 dark:hover:bg-red-900/30 motion-reduce:transition-colors motion-reduce:duration-0 motion-reduce:active:scale-none"
         >
-          <Copy className="w-3 h-3 mr-1" />
-          Copy Error
+          <span
+            data-testid="error-copy-icon-slot"
+            className="relative mr-1 block h-3 w-3 shrink-0"
+          >
+            <Copy
+              aria-hidden="true"
+              data-testid="error-copy-icon"
+              className={cn(
+                'absolute inset-0 h-full w-full transition-[opacity,transform] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none',
+                copied ? 'scale-[0.92] opacity-0' : 'scale-100 opacity-100'
+              )}
+            />
+            <Check
+              aria-hidden="true"
+              data-testid="error-copy-success-icon"
+              className={cn(
+                'absolute inset-0 h-full w-full text-emerald-600 transition-[opacity,transform] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] dark:text-emerald-400 motion-reduce:transition-none',
+                copied ? 'scale-100 opacity-100' : 'scale-[0.92] opacity-0'
+              )}
+            />
+          </span>
+          <span
+            aria-hidden="true"
+            data-testid="error-copy-label-slot"
+            className="relative block text-left"
+          >
+            <span className="invisible">Copy Error</span>
+            <span
+              data-testid="error-copy-label"
+              className={cn(
+                'absolute inset-0 transition-[opacity,transform] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none',
+                copied ? 'scale-[0.96] opacity-0' : 'scale-100 opacity-100'
+              )}
+            >
+              Copy Error
+            </span>
+            <span
+              data-testid="error-copy-success-label"
+              className={cn(
+                'absolute inset-0 text-emerald-600 transition-[opacity,transform] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] dark:text-emerald-400 motion-reduce:transition-none',
+                copied ? 'scale-100 opacity-100' : 'scale-[0.96] opacity-0'
+              )}
+            >
+              Copied
+            </span>
+          </span>
         </Button>
+        <span role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+          {copied ? <span key={successCount}>Copied</span> : ''}
+        </span>
 
         {(displayError.name || displayError.code || displayError.stack || error.name || error.message) && (
           <Button

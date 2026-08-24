@@ -1,9 +1,10 @@
 import { SpeedCodeHighlight } from '@renderer/features/chat/common/SpeedCodeHighlight'
 import { invokeOpenExternal } from '@renderer/infrastructure/ipc'
-import { CopyIcon } from '@radix-ui/react-icons'
+import { CheckIcon, CopyIcon } from '@radix-ui/react-icons'
 import React from 'react'
 import { toast } from 'sonner'
 import { Button } from '@renderer/shared/components/ui/button'
+import { useCopyFeedback } from '@renderer/shared/hooks/useCopyFeedback'
 import { cn } from '@renderer/shared/lib/utils'
 import { normalizeLanguage } from './markdown-normalization'
 
@@ -109,14 +110,11 @@ const SpeedCodeBlock: React.FC<{
   themeOverride?: 'atom-dark' | 'default'
   containerClassName?: string
 }> = React.memo(({ code, language, themeOverride, containerClassName }) => {
-  const copyToClipboard = async () => {
-    try {
-      await navigator.clipboard.writeText(String(code))
-      toast.success('Copied')
-    } catch (err) {
-      toast.error('Copy failed')
-    }
-  }
+  const { copied, successCount, triggerCopy } = useCopyFeedback(
+    () => navigator.clipboard.writeText(String(code)),
+    { resetKey: code, onError: () => toast.error('Copy failed') }
+  )
+  const copyLabel = copied ? 'Copied' : 'Copy code'
 
   return (
     <div
@@ -136,11 +134,38 @@ const SpeedCodeBlock: React.FC<{
           <Button
             size="sm"
             variant="ghost"
-            onClick={copyToClipboard}
-            className="h-7 px-2 hover:bg-white/[0.08] rounded-md transition-all duration-200"
+            onClick={(): void => {
+              void triggerCopy()
+            }}
+            aria-label={copyLabel}
+            title={copyLabel}
+            className="h-7 rounded-md px-2 transition-[color,background-color,transform] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-white/[0.08] active:scale-[0.97] motion-reduce:transition-colors motion-reduce:duration-0 motion-reduce:active:scale-none"
           >
-            <CopyIcon className="w-3.5 h-3.5 text-slate-400" />
+            <span
+              data-testid="code-copy-icon-slot"
+              className="relative block h-3.5 w-3.5 shrink-0"
+            >
+              <CopyIcon
+                aria-hidden="true"
+                data-testid="code-copy-icon"
+                className={cn(
+                  'absolute inset-0 h-full w-full text-slate-400 transition-[opacity,transform] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none',
+                  copied ? 'scale-[0.92] opacity-0' : 'scale-100 opacity-100'
+                )}
+              />
+              <CheckIcon
+                aria-hidden="true"
+                data-testid="code-copy-success-icon"
+                className={cn(
+                  'absolute inset-0 h-full w-full text-emerald-400 transition-[opacity,transform] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none',
+                  copied ? 'scale-100 opacity-100' : 'scale-[0.92] opacity-0'
+                )}
+              />
+            </span>
           </Button>
+          <span role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+            {copied ? <span key={successCount}>Copied</span> : ''}
+          </span>
         </div>
       </div>
       <SpeedCodeHighlight
