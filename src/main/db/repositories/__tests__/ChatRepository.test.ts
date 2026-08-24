@@ -59,6 +59,55 @@ describe('ChatRepository', () => {
     expect(skillRepo.insertSkill).toHaveBeenCalledTimes(0)
   })
 
+  it('preserves persisted branch lineage during a generic chat update', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(1710000000000)
+
+    const chatRepo = {
+      getChatById: vi.fn().mockReturnValue({
+        id: 7,
+        uuid: 'branch-chat',
+        title: 'Original title',
+        msg_count: 2,
+        model_account_id: null,
+        model_model_id: null,
+        workspace_path: null,
+        user_instruction: null,
+        permission_approval_mode: 'default',
+        parent_chat_uuid: 'source-chat',
+        forked_from_message_id: 42,
+        forked_at: 1700000000000,
+        create_time: 1690000000000,
+        update_time: 1700000000000
+      }),
+      updateChat: vi.fn()
+    }
+    const repository = new ChatRepository({
+      hasDb: () => true,
+      getChatRepo: () => chatRepo as any,
+      getSkillRepo: () => ({}) as any,
+      getMessageSearchRepo: () => ({}) as any
+    })
+
+    repository.updateChat({
+      id: 7,
+      uuid: 'branch-chat',
+      title: 'Renamed branch',
+      messages: [],
+      parentChatUuid: 'renderer-overwrite',
+      forkedFromMessageId: 999,
+      forkedAt: 1800000000000,
+      createTime: 1690000000000,
+      updateTime: 1700000000000
+    })
+
+    expect(chatRepo.updateChat).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Renamed branch',
+      parent_chat_uuid: 'source-chat',
+      forked_from_message_id: 42,
+      forked_at: 1700000000000
+    }))
+  })
+
   it('removes message search rows in the same transaction before deleting a chat', () => {
     const callOrder: string[] = []
     const chatRepo = {

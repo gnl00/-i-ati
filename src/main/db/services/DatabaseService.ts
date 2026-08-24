@@ -134,6 +134,10 @@ class DatabaseService {
     this.requireChatService().deleteChat(id)
   }
 
+  public forkChat(request: ChatForkRequest): ChatForkResult {
+    return this.requireChatService().forkChat(request)
+  }
+
   public getSkills(chatId: number): string[] {
     return this.requireChatService().getSkills(chatId)
   }

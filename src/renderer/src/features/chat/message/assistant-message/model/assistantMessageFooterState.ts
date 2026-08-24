@@ -2,6 +2,7 @@ import { shouldShowAssistantMessageOperations } from '../assistant-message-visib
 
 export interface AssistantMessageFooterStateInput {
   committedMessage: ChatMessage
+  messageId?: number
   isLatest: boolean
   isOverlayPreview: boolean
 }
@@ -9,6 +10,7 @@ export interface AssistantMessageFooterStateInput {
 export interface AssistantMessageFooterState {
   showOperations: boolean
   showRegenerate: boolean
+  showBranch: boolean
 }
 
 export function buildAssistantMessageFooterState(
@@ -19,6 +21,8 @@ export function buildAssistantMessageFooterState(
       messageSource: input.committedMessage.source,
       hasPreviewMessage: input.isOverlayPreview
     }),
-    showRegenerate: input.isLatest
+    showRegenerate: input.isLatest,
+    showBranch: typeof input.messageId === 'number'
+      && input.committedMessage.typewriterCompleted !== false
   }
 }

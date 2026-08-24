@@ -358,6 +358,36 @@ describe('MessageOperations', () => {
     expect(metaGroup?.className).toContain('pointer-events-none')
   })
 
+  it('invokes the assistant branch action when the branch operation is enabled', () => {
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+    const onBranchClick = vi.fn()
+
+    act(() => {
+      root?.render(
+        <MessageOperations
+          type="assistant"
+          message={{ createdAt: 1 }}
+          isHovered
+          showBranch
+          onCopyClick={vi.fn()}
+          onBranchClick={onBranchClick}
+          onEditClick={vi.fn()}
+        />
+      )
+    })
+
+    const branchButton = container.querySelector<HTMLButtonElement>('[aria-label="Branch chat"]')
+    expect(branchButton).not.toBeNull()
+
+    act(() => {
+      branchButton?.click()
+    })
+
+    expect(onBranchClick).toHaveBeenCalledOnce()
+  })
+
   it('shows detailed token usage when the usage label is hovered', () => {
     container = document.createElement('div')
     document.body.appendChild(container)

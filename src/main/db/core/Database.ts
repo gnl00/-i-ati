@@ -658,6 +658,9 @@ class AppDatabase {
         workspace_path TEXT,
         user_instruction TEXT,
         permission_approval_mode TEXT DEFAULT 'manual',
+        parent_chat_uuid TEXT,
+        forked_from_message_id INTEGER,
+        forked_at INTEGER,
         create_time INTEGER NOT NULL,
         update_time INTEGER NOT NULL
       )
@@ -673,6 +676,10 @@ class AppDatabase {
     const hasModelAccountId = columnNames.has('model_account_id')
     const hasModelModelId = columnNames.has('model_model_id')
     const hasPermissionApprovalMode = columnNames.has('permission_approval_mode')
+
+    this.ensureColumn('chats', 'parent_chat_uuid', 'TEXT')
+    this.ensureColumn('chats', 'forked_from_message_id', 'INTEGER')
+    this.ensureColumn('chats', 'forked_at', 'INTEGER')
 
     if (!hasPermissionApprovalMode) {
       this.ensureColumn('chats', 'permission_approval_mode', "TEXT DEFAULT 'manual'")

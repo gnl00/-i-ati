@@ -4,11 +4,26 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
+import { ChatForkInProgressError } from '@renderer/features/chat/state/chatCoordinatorStore'
 import { useToolConfirmationStore } from '@renderer/features/chat/state/toolConfirmationStore'
 
 const toolCallRenderCounts = new Map<string, number>()
 let headerRenderCount = 0
 let latestModelBadgeProps: Record<string, unknown> | null = null
+type BranchOperationCapture = {
+  showBranch?: boolean
+  onBranchClick?: () => void
+}
+const branchOperationCapture = vi.hoisted(() => ({
+  props: null as BranchOperationCapture | null
+}))
+const toastMocks = vi.hoisted(() => ({
+  success: vi.fn(),
+  warning: vi.fn(),
+  error: vi.fn()
+}))
+
+vi.mock('sonner', () => ({ toast: toastMocks }))
 
 vi.mock('@renderer/features/chat/runtime/useChatRun', () => ({
   default: () => ({
@@ -29,8 +44,11 @@ vi.mock('@renderer/infrastructure/config/appConfig', async () => {
   }
 })
 
-vi.mock('../message-operations', () => ({
-  MessageOperations: () => null
+vi.mock('../../message-operations', () => ({
+  MessageOperations: (props: BranchOperationCapture) => {
+    branchOperationCapture.props = props
+    return null
+  }
 }))
 
 vi.mock('../error-message', () => ({
@@ -168,6 +186,10 @@ beforeEach(() => {
   toolCallRenderCounts.clear()
   headerRenderCount = 0
   latestModelBadgeProps = null
+  branchOperationCapture.props = null
+  toastMocks.success.mockReset()
+  toastMocks.warning.mockReset()
+  toastMocks.error.mockReset()
   ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
   container = document.createElement('div')
   document.body.appendChild(container)
@@ -233,6 +255,126 @@ beforeEach(() => {
     ], 'hello world again'))
 
     expect(toolCallRenderCounts.get('committed:step-1:tool:tool-1')).toBe(1)
+  })
+
+  it('forks from the persisted assistant message and reports success', async () => {
+    const forkCurrentChatFromMessage = vi.fn().mockResolvedValue({})
+    useChatStore.setState({
+      runPhase: 'idle',
+      forkCurrentChatFromMessage
+    })
+
+    await act(async () => {
+      root.render(
+        <AssistantMessage
+          index={0}
+          messageId={42}
+          committedMessage={{
+            ...createAssistantMessage([
+              textSegment('committed:step-1:text:0', 'answer')
+            ], 'answer'),
+            typewriterCompleted: true
+          }}
+          isLatest
+          isHovered
+          onHover={() => {}}
+          onCopyClick={() => {}}
+        />
+      )
+    })
+
+    expect(branchOperationCapture.props?.showBranch).toBe(true)
+    act(() => {
+      branchOperationCapture.props?.onBranchClick?.()
+    })
+
+    await vi.waitFor(() => {
+      expect(forkCurrentChatFromMessage).toHaveBeenCalledWith(42)
+      expect(toastMocks.success).toHaveBeenCalledWith('Chat branch created')
+    })
+  })
+
+  it('keeps the source selected when branch creation fails or a run is active', async () => {
+    const forkCurrentChatFromMessage = vi.fn().mockRejectedValue(new Error('fork failed'))
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    useChatStore.setState({
+      runPhase: 'idle',
+      forkCurrentChatFromMessage
+    })
+
+    await act(async () => {
+      root.render(
+        <AssistantMessage
+          index={0}
+          messageId={42}
+          committedMessage={{
+            ...createAssistantMessage([
+              textSegment('committed:step-1:text:0', 'answer')
+            ], 'answer'),
+            typewriterCompleted: true
+          }}
+          isLatest
+          isHovered
+          onHover={() => {}}
+          onCopyClick={() => {}}
+        />
+      )
+    })
+
+    act(() => {
+      branchOperationCapture.props?.onBranchClick?.()
+    })
+    await vi.waitFor(() => {
+      expect(toastMocks.error).toHaveBeenCalledWith('Failed to create chat branch')
+    })
+
+    forkCurrentChatFromMessage.mockClear()
+    await act(async () => {
+      useChatStore.setState({ runPhase: 'streaming' })
+    })
+    act(() => {
+      branchOperationCapture.props?.onBranchClick?.()
+    })
+
+    expect(forkCurrentChatFromMessage).not.toHaveBeenCalled()
+    expect(toastMocks.warning).toHaveBeenCalledWith('Please wait for current response to finish')
+    consoleError.mockRestore()
+  })
+
+  it('reports a concurrent branch request as pending work', async () => {
+    const forkCurrentChatFromMessage = vi.fn().mockRejectedValue(new ChatForkInProgressError())
+    useChatStore.setState({
+      runPhase: 'idle',
+      forkCurrentChatFromMessage
+    })
+
+    await act(async () => {
+      root.render(
+        <AssistantMessage
+          index={0}
+          messageId={42}
+          committedMessage={{
+            ...createAssistantMessage([
+              textSegment('committed:step-1:text:0', 'answer')
+            ], 'answer'),
+            typewriterCompleted: true
+          }}
+          isLatest
+          isHovered
+          onHover={() => {}}
+          onCopyClick={() => {}}
+        />
+      )
+    })
+
+    act(() => {
+      branchOperationCapture.props?.onBranchClick?.()
+    })
+
+    await vi.waitFor(() => {
+      expect(toastMocks.warning).toHaveBeenCalledWith('Chat branch creation is already in progress')
+      expect(toastMocks.error).not.toHaveBeenCalled()
+    })
   })
 
   it('does not rerender the header subtree when only text changes', async () => {

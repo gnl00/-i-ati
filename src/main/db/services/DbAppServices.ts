@@ -29,7 +29,8 @@ export class DbAppServices {
       messageRepository: () => runtime.messageRepository,
       emotionStateRepository: () => runtime.emotionStateRepository,
       workContextRepository: () => runtime.workContextRepository,
-      toolResultCompactionRepository: () => runtime.toolResultCompactionRepository
+      toolResultCompactionRepository: () => runtime.toolResultCompactionRepository,
+      chatBranchRepository: () => runtime.chatBranchRepository
     })
     this.configService = new ConfigService({
       configRepository: () => runtime.configRepository,

@@ -1,5 +1,6 @@
 import { CheckIcon, CopyIcon, Pencil2Icon, ReloadIcon } from '@radix-ui/react-icons'
 import { cn } from '@renderer/shared/lib/utils'
+import { GitFork } from 'lucide-react'
 import React, { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -27,7 +28,9 @@ export interface MessageOperationButtonsProps {
   onCopyClick: CopyActionHandler
   onEditClick?: () => void
   onRegenerateClick?: () => void
+  onBranchClick?: () => void
   showRegenerate?: boolean
+  showBranch?: boolean
 }
 
 const operationMetaTextClassName = "min-w-0 truncate text-[11px] font-medium leading-none text-gray-400 tabular-nums dark:text-gray-500"
@@ -261,7 +264,7 @@ const TokenUsageInfo: React.FC<{
 }
 
 /**
- * Message operation buttons (Copy, Edit, Regenerate).
+ * Message operation buttons (Copy, Edit, Regenerate, Branch).
  * Displays different button sets based on message type and hover state.
  */
 export const MessageOperations: React.FC<MessageOperationButtonsProps> = ({
@@ -272,7 +275,9 @@ export const MessageOperations: React.FC<MessageOperationButtonsProps> = ({
   onCopyClick,
   onEditClick,
   onRegenerateClick,
-  showRegenerate = false
+  onBranchClick,
+  showRegenerate = false,
+  showBranch = false
 }) => {
   const isUser = type === 'user'
   const assistantDateLabel = !isUser && typeof message?.createdAt === 'number'
@@ -293,6 +298,14 @@ export const MessageOperations: React.FC<MessageOperationButtonsProps> = ({
           icon={<ReloadIcon className="w-4 h-4" />}
           onClick={onRegenerateClick}
           label="Regenerate"
+        />
+      )}
+
+      {!isUser && showBranch && onBranchClick && (
+        <OperationButton
+          icon={<GitFork className="h-4 w-4" />}
+          onClick={onBranchClick}
+          label="Branch chat"
         />
       )}
 

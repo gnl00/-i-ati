@@ -1,4 +1,4 @@
-import { getChatById } from '@renderer/infrastructure/persistence/ChatRepository'
+import { forkChat, getChatById } from '@renderer/infrastructure/persistence/ChatRepository'
 import type { StateCreator } from 'zustand'
 import type { ChatSessionActions, ChatSessionState } from './chatSessionStore'
 import type { ChatTranscriptActions, ChatTranscriptState } from './chatTranscriptStore'
@@ -10,9 +10,17 @@ import {
 
 export type ChatCoordinatorActions = {
   hydrateChat: (chatId: number) => Promise<void>
+  forkCurrentChatFromMessage: (forkedFromMessageId: number) => Promise<ChatForkResult>
   selectChatShell: (chatId: number | null, chatUuid: string | null, chat?: ChatEntity | null) => void
   resetChatContext: () => void
   applyReadyChat: (chatEntity: ChatEntity, options?: { selectShell?: boolean }) => void
+}
+
+export class ChatForkInProgressError extends Error {
+  constructor() {
+    super('Chat branch creation is already in progress')
+    this.name = 'ChatForkInProgressError'
+  }
 }
 
 type ChatCoordinatorSliceState =
@@ -22,6 +30,7 @@ type ChatCoordinatorSliceState =
   & ChatSessionActions
   & ChatTranscriptActions
   & ChatRunUiActions
+  & ChatCoordinatorActions
 
 function buildConversationScrollHint(chatUuid: string, messageCount: number): ChatRunUiState['scrollHint'] {
   if (messageCount <= 0) {
@@ -88,6 +97,8 @@ export function createChatCoordinatorActions<T extends ChatCoordinatorSliceState
   set: Parameters<StateCreator<T>>[0],
   get: Parameters<StateCreator<T>>[1]
 ): ChatCoordinatorActions {
+  let isForkInProgress = false
+
   return {
     hydrateChat: async (chatId) => {
       const chat = await getChatById(chatId)
@@ -119,6 +130,42 @@ export function createChatCoordinatorActions<T extends ChatCoordinatorSliceState
       } as Partial<T>)
 
       get().syncSelectedModelRefForChat(chat, messages)
+    },
+
+    forkCurrentChatFromMessage: async (forkedFromMessageId) => {
+      if (isForkInProgress) {
+        throw new ChatForkInProgressError()
+      }
+
+      const state = get()
+      if (!state.currentChatId || !state.currentChatUuid) {
+        throw new Error('Current chat is unavailable')
+      }
+
+      isForkInProgress = true
+      try {
+        const result = await forkChat({
+          sourceChatId: state.currentChatId,
+          sourceChatUuid: state.currentChatUuid,
+          forkedFromMessageId
+        })
+        if (!result.chat.id || !result.chat.uuid) {
+          throw new Error('Forked chat identity is incomplete')
+        }
+
+        get().applyReadyChat(result.chat)
+        get().restoreTranscriptForChat(result.chat.uuid, result.messages)
+        get().syncSelectedModelRefForChat(result.chat, result.messages)
+        get().setScrollHint({
+          type: 'conversation-switch',
+          chatUuid: result.chat.uuid,
+          index: Math.max(0, result.messages.length - 1),
+          align: 'end'
+        })
+        return result
+      } finally {
+        isForkInProgress = false
+      }
     },
 
     selectChatShell: (chatId, chatUuid, chat) => {

@@ -17,6 +17,7 @@ import {
   DB_CHAT_SEARCH,
   DB_CHAT_UPDATE,
   DB_CHAT_DELETE,
+  CHAT_FORK,
   DB_CHAT_SKILL_ADD,
   DB_CHAT_SKILL_REMOVE,
   DB_CHAT_SKILLS_GET,
@@ -169,6 +170,14 @@ export function registerChatHandlers(): void {
   ipcMain.handle(DB_CHAT_DELETE, async (_event, id) => {
     logger.info('chat.delete', { id })
     return chatDb.deleteChat(id)
+  })
+
+  ipcMain.handle(CHAT_FORK, async (_event, request: ChatForkRequest) => {
+    logger.info('chat.fork', {
+      sourceChatId: request?.sourceChatId,
+      forkedFromMessageId: request?.forkedFromMessageId
+    })
+    return chatDb.forkChat(request)
   })
 
   ipcMain.handle(DB_CHAT_SKILL_ADD, async (_event, { chatId, skillName }) => {

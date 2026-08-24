@@ -118,6 +118,29 @@ Asynchronous completion jobs live in `src/main/orchestration/chat/postRun/`:
 The main run emits `run.completed` before title and compression jobs continue.
 These jobs preserve the main run completion boundary.
 
+## Chat branch snapshots
+
+The `chat:fork` IPC operation creates an independent Chat from a persisted
+terminal assistant message. `ChatBranchRepository` owns one immediate SQLite
+transaction that validates the source identity and boundary, creates the
+destination Chat, and physically copies the selected message prefix with fresh
+autoincrement IDs. The transaction also syncs message search, copies loaded
+skills and work context, and stores `parentChatUuid`,
+`forkedFromMessageId`, and `forkedAt` lineage on the destination.
+
+The largest compressed summary fully contained in the selected prefix becomes
+one fresh active summary whose membership references destination message IDs.
+Prefixes without a compatible summary retain raw copied history. Ready
+tool-result compactions whose raw SHA-256 hash still matches are copied to the
+fresh destination tool-message IDs. Message bodies retain provider protocol
+identity such as `toolCallId`.
+
+Renderer receives the new Chat and copied messages as one snapshot. The chat
+coordinator adds it to the ordinary Chat list, restores its transcript buffer,
+selects its saved model, and moves the shell to the branch. Subsequent request
+preparation uses the existing summary and compact-result lookup paths. See
+[ADR-0016](../decisions/0016-physical-chat-branch-snapshots.md).
+
 ## Tool-result compaction
 
 Embedded tool metadata can declare `resultCompaction` with an enabled flag,

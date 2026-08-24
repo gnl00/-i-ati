@@ -10,6 +10,9 @@ interface ChatRow {
   workspace_path: string | null
   user_instruction: string | null
   permission_approval_mode: PermissionApprovalMode | null
+  parent_chat_uuid: string | null
+  forked_from_message_id: number | null
+  forked_at: number | null
   create_time: number
   update_time: number
 }
@@ -30,9 +33,10 @@ class ChatDao {
     this.stmts = {
       insertChat: db.prepare(`
         INSERT INTO chats (
-          uuid, title, model_account_id, model_model_id, workspace_path, user_instruction, permission_approval_mode, create_time, update_time
+          uuid, title, model_account_id, model_model_id, workspace_path, user_instruction, permission_approval_mode,
+          parent_chat_uuid, forked_from_message_id, forked_at, create_time, update_time
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `),
       getAllChats: db.prepare(`
         SELECT * FROM chats ORDER BY update_time DESC
@@ -49,6 +53,7 @@ class ChatDao {
       updateChat: db.prepare(`
         UPDATE chats SET
           uuid = ?, title = ?, model_account_id = ?, model_model_id = ?, workspace_path = ?, user_instruction = ?, permission_approval_mode = ?,
+          parent_chat_uuid = ?, forked_from_message_id = ?, forked_at = ?,
           create_time = ?, update_time = ?
         WHERE id = ?
       `),
@@ -70,6 +75,9 @@ class ChatDao {
       row.workspace_path,
       row.user_instruction,
       row.permission_approval_mode,
+      row.parent_chat_uuid,
+      row.forked_from_message_id,
+      row.forked_at,
       row.create_time,
       row.update_time
     )
@@ -102,6 +110,9 @@ class ChatDao {
       row.workspace_path,
       row.user_instruction,
       row.permission_approval_mode,
+      row.parent_chat_uuid,
+      row.forked_from_message_id,
+      row.forked_at,
       row.create_time,
       row.update_time,
       row.id

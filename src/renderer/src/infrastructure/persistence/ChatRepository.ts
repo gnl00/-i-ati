@@ -3,7 +3,8 @@ import {
   invokeDbChatGetAll,
   invokeDbChatGetById,
   invokeDbChatUpdate,
-  invokeDbChatDelete
+  invokeDbChatDelete,
+  invokeChatFork
 } from '@renderer/infrastructure/ipc'
 
 // 添加数据
@@ -32,4 +33,8 @@ const deleteChat = async (id: number): Promise<boolean> => {
   return true
 }
 
-export { saveChat, getAllChat, getChatById, updateChat, deleteChat }
+const forkChat = async (request: ChatForkRequest): Promise<ChatForkResult> => {
+  return await invokeChatFork(request)
+}
+
+export { saveChat, getAllChat, getChatById, updateChat, deleteChat, forkChat }

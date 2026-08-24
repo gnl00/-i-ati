@@ -135,6 +135,7 @@ const ChatMessageRow: React.FC<{
 
   return (
     <ChatMessageComponent
+      messageId={message.id}
       message={message.body}
       tokenUsage={message.tokenUsage}
       previewMessage={previewMessage}

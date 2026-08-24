@@ -11,6 +11,7 @@ import type {
   ToolResultCompactionExecution
 } from '../mappers/ToolResultCompactionMapper'
 import type { ToolResultCompactionRepository } from '../repositories/ToolResultCompactionRepository'
+import type { ChatBranchRepository } from '../repositories/ChatBranchRepository'
 
 type ChatServiceDeps = {
   chatRepository: () => ChatRepository | undefined
@@ -19,6 +20,7 @@ type ChatServiceDeps = {
   emotionStateRepository: () => EmotionStateRepository | undefined
   workContextRepository: () => WorkContextRepository | undefined
   toolResultCompactionRepository: () => ToolResultCompactionRepository | undefined
+  chatBranchRepository: () => ChatBranchRepository | undefined
 }
 
 export class ChatService {
@@ -50,6 +52,10 @@ export class ChatService {
 
   deleteChat(id: number): void {
     this.requireChatRepository().deleteChat(id)
+  }
+
+  forkChat(request: ChatForkRequest): ChatForkResult {
+    return this.requireChatBranchRepository().forkChat(request)
   }
 
   getSkills(chatId: number): string[] {
@@ -254,6 +260,12 @@ export class ChatService {
   private requireToolResultCompactionRepository(): ToolResultCompactionRepository {
     const repository = this.deps.toolResultCompactionRepository()
     if (!repository) throw new Error('Tool result compaction repository not initialized')
+    return repository
+  }
+
+  private requireChatBranchRepository(): ChatBranchRepository {
+    const repository = this.deps.chatBranchRepository()
+    if (!repository) throw new Error('Chat branch repository not initialized')
     return repository
   }
 }

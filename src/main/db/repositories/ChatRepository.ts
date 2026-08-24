@@ -46,7 +46,13 @@ export class ChatRepository {
     if (!data.id) return
 
     const existing = chatRepo.getChatById(data.id)
-    chatRepo.updateChat(toChatRow(data, Date.now(), {
+    const dataWithPersistedLineage: ChatEntity = {
+      ...data,
+      parentChatUuid: existing?.parent_chat_uuid ?? undefined,
+      forkedFromMessageId: existing?.forked_from_message_id ?? undefined,
+      forkedAt: existing?.forked_at ?? undefined
+    }
+    chatRepo.updateChat(toChatRow(dataWithPersistedLineage, Date.now(), {
       id: data.id,
       user_instruction: data.userInstruction ?? existing?.user_instruction ?? null,
       permission_approval_mode: data.permissionApprovalMode ?? existing?.permission_approval_mode ?? null

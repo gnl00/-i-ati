@@ -14,6 +14,9 @@ describe('chatMapper', () => {
       workspacePath: '/tmp/workspace',
       userInstruction: 'be concise',
       permissionApprovalMode: 'auto',
+      parentChatUuid: 'parent-chat',
+      forkedFromMessageId: 41,
+      forkedAt: 120,
       createTime: 100,
       updateTime: 200,
       messages: []
@@ -27,6 +30,9 @@ describe('chatMapper', () => {
       workspace_path: '/tmp/workspace',
       user_instruction: 'be concise',
       permission_approval_mode: 'auto',
+      parent_chat_uuid: 'parent-chat',
+      forked_from_message_id: 41,
+      forked_at: 120,
       create_time: 100,
       update_time: 200
     })
@@ -43,6 +49,9 @@ describe('chatMapper', () => {
       workspace_path: '/tmp/workspace',
       user_instruction: 'be concise',
       permission_approval_mode: 'auto',
+      parent_chat_uuid: 'parent-chat',
+      forked_from_message_id: 41,
+      forked_at: 120,
       create_time: 100,
       update_time: 200
     })).toEqual({
@@ -57,6 +66,9 @@ describe('chatMapper', () => {
       workspacePath: '/tmp/workspace',
       userInstruction: 'be concise',
       permissionApprovalMode: 'auto',
+      parentChatUuid: 'parent-chat',
+      forkedFromMessageId: 41,
+      forkedAt: 120,
       createTime: 100,
       updateTime: 200,
       messages: []
@@ -74,6 +86,9 @@ describe('chatMapper', () => {
       workspace_path: null,
       user_instruction: null,
       permission_approval_mode: null,
+      parent_chat_uuid: null,
+      forked_from_message_id: null,
+      forked_at: null,
       create_time: 300,
       update_time: 400
     })).toEqual({
@@ -85,6 +100,9 @@ describe('chatMapper', () => {
       workspacePath: undefined,
       userInstruction: undefined,
       permissionApprovalMode: 'manual',
+      parentChatUuid: undefined,
+      forkedFromMessageId: undefined,
+      forkedAt: undefined,
       createTime: 300,
       updateTime: 400,
       messages: []

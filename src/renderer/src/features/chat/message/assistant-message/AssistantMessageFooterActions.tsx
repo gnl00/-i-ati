@@ -8,8 +8,10 @@ export interface AssistantMessageFooterActionsModel {
   isHovered: boolean
   showOperations: boolean
   showRegenerate: boolean
+  showBranch: boolean
   onCopyClick: CopyActionHandler
   onRegenerateClick: () => void
+  onBranchClick: () => void
   onEditClick: () => void
 }
 
@@ -26,8 +28,10 @@ export const AssistantMessageFooterActions: React.FC<AssistantMessageFooterActio
     isHovered,
     showOperations,
     showRegenerate,
+    showBranch,
     onCopyClick,
     onRegenerateClick,
+    onBranchClick,
     onEditClick
   } = model
 
@@ -42,8 +46,10 @@ export const AssistantMessageFooterActions: React.FC<AssistantMessageFooterActio
       type="assistant"
       isHovered={isHovered}
       showRegenerate={showRegenerate}
+      showBranch={showBranch}
       onCopyClick={onCopyClick}
       onRegenerateClick={onRegenerateClick}
+      onBranchClick={onBranchClick}
       onEditClick={onEditClick}
     />
   )

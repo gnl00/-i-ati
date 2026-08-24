@@ -15,6 +15,7 @@ export const chatDb = {
   getWorkspacePathByUuid: (uuid: string): string | undefined => DatabaseService.getWorkspacePathByUuid(uuid),
   updateChat: (data: ChatEntity): void => DatabaseService.updateChat(data),
   deleteChat: (id: number): void => DatabaseService.deleteChat(id),
+  forkChat: (request: ChatForkRequest): ChatForkResult => DatabaseService.forkChat(request),
   searchChats: (args: ChatSearchRequest): ChatSearchResult[] => DatabaseService.searchChats(args),
   searchHistory: (args: HistorySearchArgs): HistorySearchItem[] => DatabaseService.searchHistory(args),
   getSkills: (chatId: number): string[] => DatabaseService.getSkills(chatId),

@@ -2,6 +2,7 @@ import type { RemotePluginCatalogItem } from '@shared/plugins/remoteRegistry'
 import type { Plan, PlanStatus, PlanStep } from '@shared/task-planner/schemas'
 import type { ScheduleTask, ScheduleTaskStatus } from '@shared/tools/schedule'
 import {
+  CHAT_FORK,
   DB_CHAT_DELETE,
   DB_CHAT_GET_ALL,
   DB_CHAT_GET_BY_ID,
@@ -54,6 +55,8 @@ export const invokeDbChatGetById = (id: number): Promise<ChatEntity | undefined>
 export const invokeDbChatSearch = (args: ChatSearchRequest): Promise<ChatSearchResult[]> => invokeIpc(DB_CHAT_SEARCH, args)
 export const invokeDbChatUpdate = (data: ChatEntity): Promise<void> => invokeIpc(DB_CHAT_UPDATE, data)
 export const invokeDbChatDelete = (id: number): Promise<void> => invokeIpc(DB_CHAT_DELETE, id)
+export const invokeChatFork = (request: ChatForkRequest): Promise<ChatForkResult> =>
+  invokeIpc(CHAT_FORK, request)
 export const invokeDbChatSkillAdd = (args: { chatId: number; skillName: string }): Promise<void> => invokeIpc(DB_CHAT_SKILL_ADD, args)
 export const invokeDbChatSkillRemove = (args: { chatId: number; skillName: string }): Promise<void> => invokeIpc(DB_CHAT_SKILL_REMOVE, args)
 export const invokeDbChatSkillsGet = (chatId: number): Promise<string[]> => invokeIpc(DB_CHAT_SKILLS_GET, chatId)

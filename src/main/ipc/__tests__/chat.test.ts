@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  CHAT_FORK,
   DB_CHAT_SEARCH,
   RUN_CANCEL,
   RUN_COMPRESSION_EXECUTE,
@@ -16,12 +17,14 @@ const {
   ipcMainHandleMock,
   runServiceSteerMock,
   runServiceSubmitQuestionMock,
-  runServiceListQuestionsMock
+  runServiceListQuestionsMock,
+  forkChatMock
 } = vi.hoisted(() => ({
   ipcMainHandleMock: vi.fn(),
   runServiceSteerMock: vi.fn(),
   runServiceSubmitQuestionMock: vi.fn(),
-  runServiceListQuestionsMock: vi.fn()
+  runServiceListQuestionsMock: vi.fn(),
+  forkChatMock: vi.fn()
 }))
 
 vi.mock('electron', () => ({
@@ -53,6 +56,7 @@ vi.mock('@main/db/DatabaseService', () => ({
     searchChats: vi.fn(),
     updateChat: vi.fn(),
     deleteChat: vi.fn(),
+    forkChat: forkChatMock,
     addSkill: vi.fn(),
     removeSkill: vi.fn(),
     getSkills: vi.fn()
@@ -74,6 +78,7 @@ describe('registerChatHandlers', () => {
     runServiceSteerMock.mockReset()
     runServiceSubmitQuestionMock.mockReset()
     runServiceListQuestionsMock.mockReset()
+    forkChatMock.mockReset()
   })
 
   it('routes user-question submit and hydration requests through RunService', async () => {
@@ -112,6 +117,7 @@ describe('registerChatHandlers', () => {
 
     expect(registeredChannels).toContain(RUN_START)
     expect(registeredChannels).toContain(DB_CHAT_SEARCH)
+    expect(registeredChannels).toContain(CHAT_FORK)
     expect(registeredChannels).toContain('chat-run:start')
     expect(registeredChannels).toContain(RUN_CANCEL)
     expect(registeredChannels).toContain('chat-run:cancel')
@@ -126,6 +132,43 @@ describe('registerChatHandlers', () => {
     expect(registeredChannels).toContain(RUN_TITLE_GENERATE)
     expect(registeredChannels).toContain('chat-title:generate')
     expect(registeredChannels).not.toContain('chat-run:event')
+  })
+
+  it('routes chat fork requests through the database facade', async () => {
+    const request: ChatForkRequest = {
+      sourceChatId: 7,
+      sourceChatUuid: 'source-chat',
+      forkedFromMessageId: 42
+    }
+    const result: ChatForkResult = {
+      chat: {
+        id: 8,
+        uuid: 'branch-chat',
+        title: 'Branch',
+        messages: [101],
+        createTime: 1,
+        updateTime: 1
+      },
+      messages: [{
+        id: 101,
+        chatId: 8,
+        chatUuid: 'branch-chat',
+        body: {
+          role: 'assistant',
+          content: 'answer',
+          segments: [],
+          typewriterCompleted: true
+        }
+      }]
+    }
+    forkChatMock.mockReturnValue(result)
+    const { registerChatHandlers } = await import('../chat')
+
+    registerChatHandlers()
+    const handler = ipcMainHandleMock.mock.calls.find(([channel]) => channel === CHAT_FORK)?.[1]
+
+    await expect(handler({}, request)).resolves.toEqual(result)
+    expect(forkChatMock).toHaveBeenCalledWith(request)
   })
 
   it('rejects malformed run steering input before it reaches the run service', async () => {

@@ -107,4 +107,44 @@ describe('ToolResultCompactionDao', () => {
     expect(all.mock.calls.map(call => call.length - 1)).toEqual([500, 500, 1])
     expect(all.mock.calls.flatMap(call => call.slice(1))).toEqual(messageIds)
   })
+
+  it('inserts a ready snapshot directly for a copied tool message', () => {
+    const { database, run } = createDatabase(vi.fn(() => ({ lastInsertRowid: 19 })))
+    const dao = new ToolResultCompactionDao(database)
+
+    const id = dao.insertReadySnapshot({
+      message_id: 202,
+      tool_name: 'web_fetch',
+      tool_call_id: 'call-1',
+      level: 'balanced',
+      status: 'ready',
+      content: 'compact',
+      original_hash: 'hash-1',
+      original_characters: 100,
+      compacted_characters: 20,
+      estimated_tokens: 5,
+      execution_type: 'model',
+      model_id: 'compact-model',
+      prompt_version: 'v1',
+      prompt_tokens: 10,
+      completion_tokens: 5,
+      latency_ms: 50,
+      input_characters: 100,
+      sent_characters: 100,
+      input_truncated: 0,
+      redaction_count: 0,
+      compactor_id: 'web-document',
+      compactor_version: 1,
+      attempts: 1,
+      last_error_code: null,
+      created_at: 300,
+      updated_at: 300
+    })
+
+    expect(id).toBe(19)
+    expect(run.mock.calls[0][0]).toContain("'ready'")
+    expect(run.mock.calls[0]).toContain(202)
+    expect(run.mock.calls[0]).toContain('call-1')
+    expect(run.mock.calls[0]).toContain('compact')
+  })
 })

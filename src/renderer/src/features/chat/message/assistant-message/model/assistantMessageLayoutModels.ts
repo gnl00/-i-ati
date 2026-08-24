@@ -22,6 +22,7 @@ export interface BuildAssistantMessageLayoutModelsInput {
   badgeAnimate: boolean
   onCopyClick: CopyActionHandler
   onRegenerateClick: () => void
+  onBranchClick: () => void
   onEditClick: () => void
   tokenUsage?: ITokenUsage
 }
@@ -79,6 +80,7 @@ export function buildAssistantMessageFooterModel(
     | 'footerState'
     | 'onCopyClick'
     | 'onRegenerateClick'
+    | 'onBranchClick'
     | 'onEditClick'
     | 'tokenUsage'
   >
@@ -91,8 +93,10 @@ export function buildAssistantMessageFooterModel(
     isHovered: input.isHovered,
     showOperations: input.footerState.showOperations,
     showRegenerate: input.footerState.showRegenerate,
+    showBranch: input.footerState.showBranch,
     onCopyClick: input.onCopyClick,
     onRegenerateClick: input.onRegenerateClick,
+    onBranchClick: input.onBranchClick,
     onEditClick: input.onEditClick
   }
 }

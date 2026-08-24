@@ -363,8 +363,22 @@ declare interface ChatEntity {
   userInstruction?: string // Chat-level user instruction
   permissionApprovalMode?: PermissionApprovalMode // Session-level app confirmation mode
   hostBindings?: ChatHostBindingSummary[] // Optional host metadata for renderer list display
+  parentChatUuid?: string // Immediate source Chat UUID for a physical branch snapshot
+  forkedFromMessageId?: number // Source assistant message boundary
+  forkedAt?: number // Branch snapshot creation time
   updateTime: number // 更新时间
   createTime: number // 创建时间
+}
+
+declare interface ChatForkRequest {
+  sourceChatId: number
+  sourceChatUuid: string
+  forkedFromMessageId: number
+}
+
+declare interface ChatForkResult {
+  chat: ChatEntity
+  messages: MessageEntity[]
 }
 
 declare interface ChatSearchRequest {

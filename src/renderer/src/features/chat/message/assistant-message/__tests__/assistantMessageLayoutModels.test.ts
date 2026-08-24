@@ -7,6 +7,7 @@ describe('buildAssistantMessageLayoutModels', () => {
     const onTypingChange = vi.fn()
     const onCopyClick = vi.fn()
     const onRegenerateClick = vi.fn()
+    const onBranchClick = vi.fn()
     const onEditClick = vi.fn()
 
     const models = buildAssistantMessageLayoutModels({
@@ -49,11 +50,13 @@ describe('buildAssistantMessageLayoutModels', () => {
       },
       footerState: {
         showOperations: true,
-        showRegenerate: true
+        showRegenerate: true,
+        showBranch: true
       },
       badgeAnimate: true,
       onCopyClick,
       onRegenerateClick,
+      onBranchClick,
       onEditClick
     })
 
@@ -86,8 +89,10 @@ describe('buildAssistantMessageLayoutModels', () => {
       isHovered: true,
       showOperations: true,
       showRegenerate: true,
+      showBranch: true,
       onCopyClick,
       onRegenerateClick,
+      onBranchClick,
       onEditClick
     })
   })

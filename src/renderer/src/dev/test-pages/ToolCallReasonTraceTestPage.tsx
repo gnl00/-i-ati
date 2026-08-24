@@ -211,8 +211,10 @@ function buildAssistantModel(args: {
       isHovered: true,
       showOperations: false,
       showRegenerate: true,
+      showBranch: false,
       onCopyClick: noop,
       onRegenerateClick: noop,
+      onBranchClick: noop,
       onEditClick: noop
     }
   }

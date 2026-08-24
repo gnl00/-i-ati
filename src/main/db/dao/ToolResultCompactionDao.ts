@@ -189,4 +189,52 @@ export class ToolResultCompactionDao {
       left.message_id - right.message_id || right.updated_at - left.updated_at
     )
   }
+
+  insertReadySnapshot(row: ToolResultCompactionInsertRow): number {
+    if (row.status !== 'ready' || row.content == null) {
+      throw new Error('Ready tool result snapshot requires compact content')
+    }
+
+    const result = this.db.prepare(`
+      INSERT INTO tool_result_compactions (
+        message_id, tool_name, tool_call_id, level, status, content,
+        original_hash, original_characters, compacted_characters, estimated_tokens,
+        execution_type, model_id, prompt_version, prompt_tokens, completion_tokens, latency_ms,
+        input_characters, sent_characters, input_truncated, redaction_count,
+        compactor_id, compactor_version, attempts, last_error_code, created_at, updated_at
+      ) VALUES (
+        ?, ?, ?, ?, 'ready', ?,
+        ?, ?, ?, ?,
+        ?, ?, ?, ?, ?, ?,
+        ?, ?, ?, ?,
+        ?, ?, ?, NULL, ?, ?
+      )
+    `).run(
+      row.message_id,
+      row.tool_name,
+      row.tool_call_id,
+      row.level,
+      row.content,
+      row.original_hash,
+      row.original_characters,
+      row.compacted_characters,
+      row.estimated_tokens,
+      row.execution_type,
+      row.model_id,
+      row.prompt_version,
+      row.prompt_tokens,
+      row.completion_tokens,
+      row.latency_ms,
+      row.input_characters,
+      row.sent_characters,
+      row.input_truncated,
+      row.redaction_count,
+      row.compactor_id,
+      row.compactor_version,
+      row.attempts,
+      row.created_at,
+      row.updated_at
+    )
+    return Number(result.lastInsertRowid)
+  }
 }

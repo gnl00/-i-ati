@@ -8,6 +8,7 @@ import type { CopyActionResult } from './message-operations'
 
 interface ChatMessageComponentProps {
   index: number
+  messageId?: number
   message?: ChatMessage
   pendingAssistantModel?: {
     model?: string
@@ -26,6 +27,7 @@ interface ChatMessageComponentProps {
  */
 const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({
   index,
+  messageId,
   message,
   pendingAssistantModel,
   tokenUsage,
@@ -105,6 +107,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({
         </div>
       <AssistantMessage
         index={index}
+        messageId={messageId}
         committedMessage={message}
         tokenUsage={tokenUsage}
         previewMessage={previewMessage}
@@ -135,6 +138,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(({
   return (
     <AssistantMessage
       index={index}
+      messageId={messageId}
       committedMessage={message}
       tokenUsage={tokenUsage}
       previewMessage={previewMessage}

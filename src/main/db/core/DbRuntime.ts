@@ -35,6 +35,7 @@ import { RunEventRepository } from '../repositories/RunEventRepository'
 import { SmartMessageRepository } from '../repositories/SmartMessageRepository'
 import { TodoRepository } from '../repositories/TodoRepository'
 import { ToolResultCompactionRepository } from '../repositories/ToolResultCompactionRepository'
+import { ChatBranchRepository } from '../repositories/ChatBranchRepository'
 import { PluginBootstrapService } from '../services/PluginBootstrapService'
 import { McpServerMigrationService } from '../services/McpServerMigrationService'
 import { PluginManifestSyncService } from '../services/PluginManifestSyncService'
@@ -89,6 +90,7 @@ export class DbRuntime {
   private _smartMessageRepository?: SmartMessageRepository
   private _pluginManifestSyncService?: PluginManifestSyncService
   private _toolResultCompactionRepository?: ToolResultCompactionRepository
+  private _chatBranchRepository?: ChatBranchRepository
 
   initialize(): DbRuntimeInitializationStats {
     if (this.initialized && this.db) {
@@ -208,6 +210,16 @@ export class DbRuntime {
       hasDb: () => Boolean(this.db),
       getToolResultCompactionDao: () => this.toolResultCompactionDao
     })
+    this._chatBranchRepository = new ChatBranchRepository({
+      db: this.db,
+      chatDao: this.chatRepo,
+      messageDao: this.messageRepo,
+      messageSearchDao: this.messageSearchRepo,
+      skillDao: this.skillRepo,
+      workContextDao: this.workContextRepo,
+      compressedSummaryDao: this.summaryRepo,
+      toolResultCompactionDao: this.toolResultCompactionDao
+    })
 
     new McpServerMigrationService({
       configDao: () => this.configRepo,
@@ -275,6 +287,7 @@ export class DbRuntime {
     this._runEventRepository = undefined
     this._smartMessageRepository = undefined
     this._toolResultCompactionRepository = undefined
+    this._chatBranchRepository = undefined
     this.initialized = false
   }
 
@@ -344,6 +357,10 @@ export class DbRuntime {
 
   get toolResultCompactionRepository(): ToolResultCompactionRepository {
     return this.requireService(this._toolResultCompactionRepository, 'Tool result compaction repository')
+  }
+
+  get chatBranchRepository(): ChatBranchRepository {
+    return this.requireService(this._chatBranchRepository, 'Chat branch repository')
   }
 
   private collectStats(): DbRuntimeInitializationStats {

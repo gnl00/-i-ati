@@ -1,7 +1,17 @@
 import type { ChatRow } from '@main/db/dao/ChatDao'
 import { normalizePermissionApprovalMode } from '@tools/approval'
 
-type ChatRowOverrides = Partial<Pick<ChatRow, 'id' | 'create_time' | 'update_time' | 'user_instruction' | 'permission_approval_mode'>>
+type ChatRowOverrides = Partial<Pick<
+  ChatRow,
+  | 'id'
+  | 'create_time'
+  | 'update_time'
+  | 'user_instruction'
+  | 'permission_approval_mode'
+  | 'parent_chat_uuid'
+  | 'forked_from_message_id'
+  | 'forked_at'
+>>
 
 export const toChatRow = (
   chat: ChatEntity,
@@ -19,6 +29,9 @@ export const toChatRow = (
   permission_approval_mode: normalizePermissionApprovalMode(
     overrides.permission_approval_mode ?? chat.permissionApprovalMode
   ),
+  parent_chat_uuid: overrides.parent_chat_uuid ?? chat.parentChatUuid ?? null,
+  forked_from_message_id: overrides.forked_from_message_id ?? chat.forkedFromMessageId ?? null,
+  forked_at: overrides.forked_at ?? chat.forkedAt ?? null,
   create_time: overrides.create_time ?? chat.createTime ?? now,
   update_time: overrides.update_time ?? chat.updateTime ?? now
 })
@@ -37,6 +50,9 @@ export const toChatEntity = (row: ChatRow): ChatEntity => ({
   workspacePath: row.workspace_path ?? undefined,
   userInstruction: row.user_instruction ?? undefined,
   permissionApprovalMode: normalizePermissionApprovalMode(row.permission_approval_mode),
+  parentChatUuid: row.parent_chat_uuid ?? undefined,
+  forkedFromMessageId: row.forked_from_message_id ?? undefined,
+  forkedAt: row.forked_at ?? undefined,
   createTime: row.create_time,
   updateTime: row.update_time,
   messages: []
