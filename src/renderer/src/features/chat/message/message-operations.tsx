@@ -4,7 +4,7 @@ import {
   type CopyActionHandler
 } from '@renderer/shared/hooks/useCopyFeedback'
 import { cn } from '@renderer/shared/lib/utils'
-import { GitFork } from 'lucide-react'
+import { Split } from 'lucide-react'
 import React, { useState } from 'react'
 import { toast } from 'sonner'
 
@@ -267,7 +267,7 @@ export const MessageOperations: React.FC<MessageOperationButtonsProps> = ({
 
       {!isUser && showBranch && onBranchClick && (
         <OperationButton
-          icon={<GitFork className="h-4 w-4" />}
+          icon={<Split className="h-4 w-4" />}
           onClick={onBranchClick}
           label="Branch chat"
         />
