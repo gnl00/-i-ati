@@ -1,6 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { RUN_EVENTS } from '@shared/run/events'
+import { RUN_EVENTS, type RunEventPayloads, type RunEventType } from '@shared/run/events'
 import { RUN_EVENT } from '@shared/constants'
+import { CHAT_HOST_EVENTS } from '@shared/chat/host-events'
+import { CHAT_RENDER_EVENTS } from '@shared/chat/render-events'
 
 const {
   saveRunEventMock,
@@ -18,7 +20,7 @@ vi.mock('@main/db/DatabaseService', () => ({
 
 vi.mock('@main/main-window', () => ({
   mainWindow: {
-    isDestroyed: () => false,
+    isDestroyed: (): boolean => false,
     webContents: {
       send: webContentsSendMock
     }
@@ -65,7 +67,7 @@ describe('RunEventEmitter', () => {
     )
   })
 
-  it('delivers live tool output to ipc and sinks without persisting trace rows', () => {
+  it('delivers transport-only events to ipc and sinks without persisting trace rows', () => {
     const sink = {
       handleEvent: vi.fn()
     }
@@ -79,30 +81,28 @@ describe('RunEventEmitter', () => {
       accepted: true,
       submissionId: 'submission-output'
     })
-    emitter.emit(RUN_EVENTS.TOOL_EXECUTION_OUTPUT, {
-      toolCallId: 'tool-1',
-      sequence: 1,
-      chunks: [{ stream: 'stdout', text: 'building...' }],
-      stdoutBytes: 11,
-      stderrBytes: 0
-    })
+    const transportOnlyEvents: RunEventType[] = [
+      ...Object.values(CHAT_RENDER_EVENTS),
+      CHAT_HOST_EVENTS.MESSAGES_LOADED,
+      RUN_EVENTS.TOOL_EXECUTION_OUTPUT
+    ]
+    for (const type of transportOnlyEvents) {
+      emitter.emit(type, {} as RunEventPayloads[typeof type])
+    }
     emitter.emit(RUN_EVENTS.RUN_STATE_CHANGED, {
       state: 'streaming'
     })
 
     expect(saveRunEventMock).toHaveBeenCalledTimes(2)
-    expect(saveRunEventMock.mock.calls.map(([event]) => event.sequence)).toEqual([1, 3])
-    expect(webContentsSendMock).toHaveBeenCalledWith(
-      RUN_EVENT,
-      expect.objectContaining({
-        type: RUN_EVENTS.TOOL_EXECUTION_OUTPUT,
-        sequence: 2,
-        payload: expect.objectContaining({
-          toolCallId: 'tool-1',
-          sequence: 1
-        })
-      })
-    )
-    expect(sink.handleEvent).toHaveBeenCalledTimes(3)
+    expect(saveRunEventMock.mock.calls.map(([event]) => event.sequence)).toEqual([
+      1,
+      transportOnlyEvents.length + 2
+    ])
+    expect(webContentsSendMock.mock.calls.map(([, event]) => event.type)).toEqual([
+      RUN_EVENTS.RUN_ACCEPTED,
+      ...transportOnlyEvents,
+      RUN_EVENTS.RUN_STATE_CHANGED
+    ])
+    expect(sink.handleEvent).toHaveBeenCalledTimes(transportOnlyEvents.length + 2)
   })
 })

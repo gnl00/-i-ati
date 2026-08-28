@@ -16,7 +16,7 @@ Make main process the only runtime truth for chat execution. Renderer only submi
 - `RunEventEmitter`
   - sends `RUN_EVENT` to renderer
   - persists durable trace events for debugging
-  - sends `tool.execution.output` as an ephemeral IPC/sink event
+  - sends renderer projections, loaded message history, and live tool output only to IPC/sinks
 - `useChatRun`
   - submits a run
   - subscribes to run events
@@ -46,6 +46,8 @@ run.accepted
 - Main owns lifecycle, persistence, tool execution and post-run jobs.
 - Renderer never rebuilds assistant delta or tool-call state.
 - Live command output stays in bounded renderer run state keyed by chat and tool call.
+- All `CHAT_RENDER_EVENTS`, `messages.loaded`, and `tool.execution.output` are transport-only. Their payloads are transient UI projections or copies of state already stored in domain tables, and `RunEventEmitter` routes them exclusively to IPC/sinks.
+- Lifecycle, tool state, steering, maintenance, remaining host state, and subagent events remain durable diagnostic traces.
 - `run.completed` is the boundary for restoring input state.
 - title generation and compression are post-run jobs and must not block run completion.
 

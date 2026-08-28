@@ -11,7 +11,15 @@ import type {
   RunEventPayloads,
   RunEventType
 } from '@shared/run/events'
+import { CHAT_HOST_EVENTS } from '@shared/chat/host-events'
+import { CHAT_RENDER_EVENTS } from '@shared/chat/render-events'
 import { RUN_TOOL_EVENTS } from '@shared/run/tool-events'
+
+const TRANSPORT_ONLY_RUN_EVENTS = new Set<RunEventType>([
+  ...Object.values(CHAT_RENDER_EVENTS),
+  CHAT_HOST_EVENTS.MESSAGES_LOADED,
+  RUN_TOOL_EVENTS.TOOL_EXECUTION_OUTPUT
+])
 
 export class RunEventEmitter implements RunEventEmitterContract {
   private sequence = 0
@@ -42,7 +50,7 @@ export class RunEventEmitter implements RunEventEmitterContract {
     }
     this.sequence += 1
 
-    if (type !== RUN_TOOL_EVENTS.TOOL_EXECUTION_OUTPUT) {
+    if (!TRANSPORT_ONLY_RUN_EVENTS.has(type)) {
       try {
         runEventDb.saveRunEvent({
           submissionId: envelope.submissionId,
