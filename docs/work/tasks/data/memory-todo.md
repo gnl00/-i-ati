@@ -1329,17 +1329,7 @@ interface IAppConfig {
 }
 ```
 
-### B. 添加 Slider 组件（如果缺失）
-
-如果项目中没有 Slider 组件，需要从 shadcn/ui 添加：
-
-```bash
-npx shadcn-ui@latest add slider
-```
-
-或手动创建 `/Volumes/devdata/workspace/code/-i-ati/src/renderer/src/shared/components/ui/slider.tsx`。
-
-### C. 测试清单
+### B. 测试清单
 
 完成所有任务后，建议进行以下测试：
 
@@ -1352,7 +1342,7 @@ npx shadcn-ui@latest add slider
 - [ ] 在多个聊天中测试记忆隔离（chatId 过滤）
 - [ ] 测试错误情况（如 Memory 服务不可用）
 
-### D. 性能监控
+### C. 性能监控
 
 建议在开发过程中监控以下性能指标：
 

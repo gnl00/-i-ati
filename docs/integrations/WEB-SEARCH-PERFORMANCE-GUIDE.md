@@ -119,24 +119,17 @@
 
 ### 问题 3：搜索数量硬编码
 
-#### 症状
+#### 当前实现
 
-```typescript
-// src/renderer/src/infrastructure/tools/webTools/renderer/WebToolsInvoker.ts
-const searchResponse = await window.electron?.ipcRenderer.invoke(
-  WEB_SEARCH_ACTION,
-  {
-    fetchCounts: 3,  // ❌ 硬编码，用户无法修改
-    param: args.query
-  }
-)
-```
+Renderer IPC 能力由 `src/renderer/src/infrastructure/ipc/integrations.ts` 提供，
+其中的 `invokeWebSearchIPC` 将请求转发到 `WEB_SEARCH_ACTION`。Main 在
+`src/main/ipc/tools.ts` 注册该通道，并交给
+`src/main/tools/webTools/WebToolsProcessor.ts` 处理；处理器通过
+`resolveConfiguredFetchCounts()` 合并请求参数与配置值，并限制结果数量上限。
 
-#### 影响
-
-- 用户无法根据需求调整搜索结果数量
-- 无法在速度和上下文质量之间平衡
-- 不同场景（快速查询 vs 深度研究）无法灵活配置
+搜索数量配置由 Main 的 `ConfigRepository` 持久化，Renderer 配置 store 通过
+持久化 IPC 读取和保存。模型侧 `web_search` 调用直接进入 Main 的
+`embeddedToolsRegistry`，沿用同一个 `WebToolsProcessor`。
 
 ### 问题 4：配置系统缺陷
 
@@ -361,9 +354,14 @@ const saveConfig = (configData: AppConfigType): void => {
 ```
 src/main/tools/webTools/
 ├── BrowserWindowPool.ts       # 窗口池核心实现
-├── webSearchProcessor.ts      # 搜索处理器（使用窗口池）
-├── webSearchInvoker.ts        # IPC 调用层
-└── index.d.ts                 # 类型定义
+├── WebToolsProcessor.ts       # 搜索与抓取处理器
+├── artifacts/                 # 大内容物化与工作区 artifact
+├── extract/                   # HTML 与正文抽取
+├── http/                      # 直连 HTTP 抓取
+├── search-engine/             # Bing/Google 搜索适配
+└── util/                      # 并发与等待工具
+
+src/renderer/src/infrastructure/ipc/integrations.ts  # Renderer IPC 能力入口
 ```
 
 #### 核心类设计
@@ -576,23 +574,23 @@ const saveConfigurationClick = () => {
 
 #### 后端配置读取
 
-**文件：** `src/main/main-ipc.ts`
+**文件：** `src/main/ipc/tools.ts`
 
 ```typescript
-ipcMain.handle(WEB_SEARCH_ACTION, (_event, { param }) => {
-  // 从配置读取，使用 ?? 确保默认值
-  const fetchCounts = appConfig?.tools?.maxWebSearchItems ?? 3
-  console.log(`[WebSearch IPC] Using fetchCounts: ${fetchCounts}`)
-  return processWebSearch({ fetchCounts, param })
+ipcMain.handle(WEB_SEARCH_ACTION, (_event, { param, engine, fetchCounts, snippetsOnly }) => {
+  return processWebSearch({ engine, fetchCounts, param, snippetsOnly, interactive: true })
 })
 ```
 
+`WebToolsProcessor` 内部的 `resolveConfiguredFetchCounts()` 负责读取
+`ConfigRepository` 的 `tools.maxWebSearchItems` 并应用默认值与上限。
+
 #### 默认配置
 
-**文件：** `src/config/index.ts`
+**文件：** `src/main/db/repositories/ConfigRepository.ts`
 
 ```typescript
-export const defaultConfig: IAppConfig = {
+const defaultConfig: IAppConfig = {
   providers: [],
   version: configVersion,
   tools: {
@@ -728,10 +726,10 @@ export function getWindowPool(): BrowserWindowPool {
 
 #### 修改默认搜索数量
 
-**文件：** `src/config/index.ts`
+**文件：** `src/main/db/repositories/ConfigRepository.ts`
 
 ```typescript
-export const defaultConfig: IAppConfig = {
+const defaultConfig: IAppConfig = {
   tools: {
     maxWebSearchItems: 3  // 修改此处（1-10）
   }
@@ -743,7 +741,7 @@ export const defaultConfig: IAppConfig = {
 **添加性能日志：**
 
 ```typescript
-// 在 webSearchProcessor.ts 中已包含详细日志
+// 在 src/main/tools/webTools/WebToolsProcessor.ts 中已包含详细日志
 [SEARCH START] Query: "...", Count: 3
 [WINDOW ACQUIRE] Search window acquired in 0ms
 [PAGE LOAD] Bing search page loaded in 750ms
@@ -962,16 +960,16 @@ export const defaultConfig: IAppConfig = {
 **排查步骤：**
 
 ```bash
-# 1. 检查配置
-[WebSearch IPC] appConfig.tools: undefined  ← 配置未加载
+# 1. 检查配置读取
+const configured = configDb.getConfig()?.tools?.maxWebSearchItems
 
 # 2. 检查默认值
-const fetchCounts = appConfig?.tools?.maxWebSearchItems ?? 3
+const fetchCounts = configured ?? 3
 ```
 
 **解决方案：**
 - 检查 `loadConfig()` 是否被调用
-- 验证 `src/config/index.ts` 的默认配置
+- 验证 `src/main/db/repositories/ConfigRepository.ts` 的默认配置
 - 使用 `??` 而不是 `||` 确保默认值
 
 #### 问题 4：窗口池耗尽
@@ -1327,10 +1325,10 @@ async function summarizeResults(results: WebSearchResultV2[]): Promise<string> {
 |---------|---------|---------|
 | `src/main/tools/webTools/BrowserWindowPool.ts` | 窗口池核心实现 | ~250 |
 | `src/main/tools/webTools/WebToolsProcessor.ts` | 搜索处理器 | ~250 |
-| `src/renderer/src/infrastructure/tools/webTools/renderer/WebToolsInvoker.ts` | IPC 调用层 | ~30 |
+| `src/renderer/src/infrastructure/ipc/integrations.ts` | Renderer IPC 能力入口 | ~112 |
 | `src/main/main-ipc.ts` | IPC 处理器 | ~60 |
 | `src/main/db/config.ts` | 配置管理 | ~70 |
-| `src/config/index.ts` | 默认配置 | ~15 |
+| `src/main/db/repositories/ConfigRepository.ts` | 配置读取与默认值 | ~140 |
 
 #### UI 相关文件
 

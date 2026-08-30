@@ -117,7 +117,7 @@ The tool metadata marks `install_skill`, `import_skills`, `load_skill`, `unload_
 - `skill:import-folder`
 - `skill:delete`
 
-Renderer helpers live in [src/renderer/src/features/settings/skills/SkillService.ts](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/features/settings/skills/SkillService.ts:1), [src/renderer/src/infrastructure/tools/skills/renderer/SkillToolsInvoker.ts](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/infrastructure/tools/skills/renderer/SkillToolsInvoker.ts:1), and [src/renderer/src/infrastructure/ipc/index.ts](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/infrastructure/ipc/index.ts:1).
+Renderer settings helpers live in [src/renderer/src/features/settings/skills/SkillService.ts](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/features/settings/skills/SkillService.ts:1) and [src/renderer/src/infrastructure/ipc/integrations.ts](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/infrastructure/ipc/integrations.ts:1). The IPC capability module delegates to [src/main/ipc/skills.ts](/Users/gnl/Workspace/code/-i-ati/src/main/ipc/skills.ts:1); model-facing skill tools are registered in [src/main/tools/index.ts](/Users/gnl/Workspace/code/-i-ati/src/main/tools/index.ts:1) and implemented by [SkillToolsProcessor](/Users/gnl/Workspace/code/-i-ati/src/main/tools/skills/SkillToolsProcessor.ts:1).
 
 [SkillsManager](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/features/settings/skills/SkillsManager.tsx:1) is the Settings UI for skills. It:
 

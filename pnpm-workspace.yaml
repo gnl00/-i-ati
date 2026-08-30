@@ -6,4 +6,3 @@ allowBuilds:
   esbuild: true
   protobufjs: true
   sharp: true
-  streaming-json: true

@@ -17,7 +17,7 @@
 | `CommandConfirmation` | `src/renderer/src/features/chat/message/assistant-message/CommandConfirmation.tsx` | 呈现命令、风险说明和操作按钮 |
 | `invokeRunToolConfirm` | `src/renderer/src/infrastructure/ipc/run.ts` | 调用 `run:tool-confirm` IPC 通道 |
 
-`src/renderer/src/infrastructure/tools/command/renderer/CommandInvoker.ts` 负责普通命令执行 IPC。Agent run 中的工具确认由上述 run event 流程承担。
+`src/main/ipc/tools.ts` 注册 `COMMAND_EXECUTE_ACTION`，由 `src/main/tools/command/CommandProcessor.ts` 执行命令。Agent run 中的工具确认由上述 run event 流程承担，Renderer 通过 `src/renderer/src/infrastructure/ipc/run.ts` 的 `invokeRunToolConfirm` 回传决策。
 
 ## 运行流程
 
