@@ -38,8 +38,8 @@
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "pnpm run build && electron-builder --dir",
     "build:win": "pnpm run build && electron-builder --win",
-    "build:mac": "electron-vite build && electron-builder --mac",
-    "build:mac:ci": "electron-vite build && electron-builder --mac --config electron-builder.mac-ci.yml",
+    "build:mac": "pnpm run native:kwwk:build && electron-vite build && electron-builder --mac",
+    "build:mac:ci": "pnpm run native:kwwk:build && electron-vite build && electron-builder --mac --config electron-builder.mac-ci.yml",
     "build:linux": "electron-vite build && electron-builder --linux"
   },
   "dependencies": {
