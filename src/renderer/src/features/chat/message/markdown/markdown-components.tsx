@@ -77,9 +77,19 @@ export const markdownCodeComponents = {
 
     // For math or inline code, use default rendering
     return (
-      <code {...rest} className={className}>
+      <code {...rest} className={cn(className, isInline && 'wrap-anywhere')}>
         {children}
       </code>
+    )
+  },
+
+  table(props: any) {
+    const { children, node, ...rest } = props
+
+    return (
+      <div className="w-full max-w-full overflow-x-auto">
+        <table {...rest}>{children}</table>
+      </div>
     )
   },
 

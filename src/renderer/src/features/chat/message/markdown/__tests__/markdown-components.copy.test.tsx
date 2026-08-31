@@ -2,6 +2,8 @@
 
 import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const clipboardWriteText = vi.hoisted(() => vi.fn())
@@ -194,5 +196,42 @@ describe('markdown code copy feedback', () => {
     })
     expect(clipboardWriteText).toHaveBeenLastCalledWith('const answer = 42')
     expect(button?.getAttribute('aria-label')).toBe('Copied')
+  })
+
+  it('allows continuous inline code to wrap inside a markdown list item', async () => {
+    await act(async () => {
+      root.render(
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownCodeComponents}>
+          {'- `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`'}
+        </ReactMarkdown>
+      )
+    })
+
+    const listItem = container.querySelector('li')
+    const inlineCode = listItem?.querySelector('code')
+
+    expect(listItem).not.toBeNull()
+    expect(inlineCode?.textContent).toBe('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+    expect(inlineCode?.classList.contains('wrap-anywhere')).toBe(true)
+  })
+
+  it('keeps wide GFM tables semantic inside a local horizontal scroll container', async () => {
+    await act(async () => {
+      root.render(
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownCodeComponents}>
+          {'| Name | Details |\n| --- | --- |\n| item | a very wide value that should remain available to horizontal scrolling |'}
+        </ReactMarkdown>
+      )
+    })
+
+    const table = container.querySelector('table')
+    const scrollContainer = table?.parentElement
+
+    expect(table).not.toBeNull()
+    expect(table?.querySelector('thead')).not.toBeNull()
+    expect(table?.querySelector('tbody')).not.toBeNull()
+    expect(scrollContainer?.classList.contains('w-full')).toBe(true)
+    expect(scrollContainer?.classList.contains('max-w-full')).toBe(true)
+    expect(scrollContainer?.classList.contains('overflow-x-auto')).toBe(true)
   })
 })
