@@ -28,6 +28,8 @@ const testState = vi.hoisted(() => ({
       type: string
       chatUuid?: string
       messageId?: number
+      index?: number
+      align?: 'start' | 'end'
     },
     setArtifactsPanel: vi.fn(),
     clearScrollHint: vi.fn(),
@@ -217,8 +219,21 @@ describe('ChatWindow virtual list', () => {
       .IS_REACT_ACT_ENVIRONMENT = true
     vi.useFakeTimers()
     testState.virtualizerOptions = undefined
+    testState.chat.messages = [{
+      id: 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: 'assistant',
+        content: 'Measured transcript row',
+        segments: [],
+        createdAt: 1,
+        typewriterCompleted: true
+      }
+    }]
     testState.chat.runPhase = 'idle'
     testState.chat.scrollHint = { type: 'none' }
+    testState.chat.clearScrollHint.mockReset()
+    testState.scrollManager.scrollParentRef.current = null
     testState.scrollManager.showJumpToLatest = false
     testState.scrollManager.isButtonFadingOut = false
     testState.scrollManager.showJumpToLatestButton.mockClear()
@@ -276,21 +291,86 @@ describe('ChatWindow virtual list', () => {
     expect(row?.style.transform).toBe('translate3d(0, 48px, 0)')
   })
 
-  it('renders the tail-follow re-entry button after a search-result jump', async () => {
+  it('defers a search-result jump until the transcript viewport mounts', async () => {
     testState.chat.scrollHint = {
       type: 'search-result',
       chatUuid: 'chat-1',
       messageId: 1
     }
+    testState.chat.clearScrollHint.mockImplementation(() => {
+      testState.chat.scrollHint = { type: 'none' }
+    })
+
     await act(async () => root.render(<ChatWindow />))
+
+    expect(testState.scrollManager.scrollParentRef.current).toBeNull()
+    expect(testState.chat.clearScrollHint).not.toHaveBeenCalled()
+    expect(testState.scrollManager.showJumpToLatestButton).not.toHaveBeenCalled()
+    expect(testState.scrollManager.scrollToMessageIndex).not.toHaveBeenCalled()
+
     await act(async () => vi.advanceTimersByTime(220))
 
+    expect(testState.scrollManager.scrollParentRef.current).toBeTruthy()
+    expect(testState.chat.clearScrollHint).toHaveBeenCalledTimes(1)
     expect(testState.scrollManager.showJumpToLatestButton).toHaveBeenCalledTimes(1)
+    expect(testState.scrollManager.scrollToMessageIndex).not.toHaveBeenCalled()
+
+    await flushAnimationFrame()
+
+    expect(testState.scrollManager.scrollToMessageIndex).toHaveBeenCalledTimes(1)
+    expect(testState.scrollManager.scrollToMessageIndex).toHaveBeenCalledWith(0, false, 'start')
 
     testState.scrollManager.showJumpToLatest = true
     await act(async () => root.render(<ChatWindow />))
 
     expect(container.querySelector('#jumpToLatest')).toBeTruthy()
+  })
+
+  it('defers conversation positioning until the transcript viewport mounts', async () => {
+    const messages = Array.from({ length: 4 }, (_, index) => ({
+      id: index + 1,
+      chatUuid: 'chat-1',
+      body: {
+        role: index % 2 === 0 ? 'user' : 'assistant',
+        content: `Historical transcript row ${index + 1}`,
+        segments: [],
+        createdAt: index + 1,
+        typewriterCompleted: true
+      }
+    }))
+    testState.chat.messages = messages
+    testState.chat.scrollHint = {
+      type: 'conversation-switch',
+      chatUuid: 'chat-1',
+      index: messages.length - 1,
+      align: 'end'
+    }
+    testState.chat.clearScrollHint.mockImplementation(() => {
+      testState.chat.scrollHint = { type: 'none' }
+    })
+
+    await act(async () => root.render(<ChatWindow />))
+
+    expect(testState.scrollManager.scrollParentRef.current).toBeNull()
+    expect(testState.chat.clearScrollHint).not.toHaveBeenCalled()
+    expect(testState.scrollManager.hideJumpToLatestButton).not.toHaveBeenCalled()
+    expect(testState.scrollManager.scrollToMessageIndex).not.toHaveBeenCalled()
+
+    await act(async () => vi.advanceTimersByTime(220))
+
+    expect(testState.scrollManager.scrollParentRef.current).toBeTruthy()
+    expect(testState.chat.clearScrollHint).toHaveBeenCalledTimes(1)
+    expect(testState.scrollManager.hideJumpToLatestButton).toHaveBeenCalledTimes(1)
+    expect(testState.scrollManager.scrollToMessageIndex).not.toHaveBeenCalled()
+
+    await flushAnimationFrame()
+
+    expect(testState.scrollManager.scrollToMessageIndex).toHaveBeenCalledTimes(1)
+    expect(testState.scrollManager.scrollToMessageIndex).toHaveBeenCalledWith(
+      messages.length - 1,
+      false,
+      'end'
+    )
   })
 
   it('uses smooth motion only for a short static jump-to-latest request', async () => {

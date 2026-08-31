@@ -700,6 +700,8 @@ const ChatWindow: React.FC = () => {
     anchorMessageId?: number | null
     clearHint?: boolean
   }) => {
+    if (!scrollParentRef.current) return
+
     const targetItem = virtualListItems[targetIndex]
     if (!targetItem) return
 
@@ -764,7 +766,7 @@ const ChatWindow: React.FC = () => {
       showJumpButton: false,
       clearHint: false
     })
-  }, [chatUuid, latestVirtualIndex, runScrollHint, scrollHint, virtualListItems.length])
+  }, [chatUuid, latestVirtualIndex, runScrollHint, scrollHint, showWelcome, virtualListItems.length])
 
   useLayoutEffect(() => {
     if (scrollHint.type !== 'conversation-switch') return
@@ -786,6 +788,7 @@ const ChatWindow: React.FC = () => {
     clearScrollHint,
     runScrollHint,
     scrollHint,
+    showWelcome,
     virtualListItems.length
   ])
 
@@ -810,6 +813,7 @@ const ChatWindow: React.FC = () => {
     chatUuid,
     runScrollHint,
     scrollHint,
+    showWelcome,
     virtualListItems
   ])
 
@@ -832,6 +836,7 @@ const ChatWindow: React.FC = () => {
     chatUuid,
     runScrollHint,
     scrollHint,
+    showWelcome,
     virtualListItems
   ])
 
