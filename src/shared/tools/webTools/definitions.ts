@@ -15,8 +15,8 @@ export const webTools = [
           },
           engine: {
             type: 'string',
-            description: 'Search engine to use. Defaults to bing. Use google when you need Google search result jump URLs.',
-            enum: ['bing', 'google']
+            description: 'Search engine to use. Defaults to bing. Use duckduckgo as an independent alternative when another engine is degraded or blocked.',
+            enum: ['bing', 'google', 'duckduckgo']
           },
           snippetsOnly: {
             type: 'boolean',

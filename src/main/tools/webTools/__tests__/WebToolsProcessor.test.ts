@@ -14,7 +14,9 @@ const mocks = vi.hoisted(() => {
       info: vi.fn(),
       warn: vi.fn(),
       error: vi.fn()
-    }
+    },
+    acquireSearchWindow: vi.fn(),
+    releaseSearchWindow: vi.fn()
   }
 })
 
@@ -44,6 +46,8 @@ vi.mock('@main/db/DatabaseService', () => ({
 
 vi.mock('../BrowserWindowPool', () => ({
   getWindowPool: vi.fn(() => ({
+    acquireSearchWindow: mocks.acquireSearchWindow,
+    releaseSearchWindow: mocks.releaseSearchWindow,
     acquireContentWindow: mocks.acquireContentWindow,
     releaseContentWindow: mocks.releaseContentWindow
   }))
@@ -53,11 +57,15 @@ import DatabaseService from '@main/db/DatabaseService'
 import {
   applySearchAggregateInlineBudget,
   processWebFetch,
+  processWebSearch,
   SearchArtifactBudget,
   _withTimeout,
   _WEB_FETCH_TIMEOUT,
   _resolveConfiguredFetchCounts,
-  _MAX_FETCH_COUNTS
+  _MAX_FETCH_COUNTS,
+  _classifyBingSearchPage,
+  _classifyGoogleSearchPage,
+  _assessSearchResultQuality
 } from '../WebToolsProcessor'
 import { WorkspaceWebFetchArtifactService } from '../artifacts/WorkspaceWebFetchArtifactService'
 import { createHash } from 'crypto'
@@ -84,6 +92,54 @@ function createSimplePdf(text: string): Uint8Array {
   }
   body += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`
   return new TextEncoder().encode(body)
+}
+
+const degradedBingSnapshot = {
+  currentUrl: 'https://www.bing.com/search?q=Time%20Machine',
+  title: 'Time Machine - 搜索',
+  bodyPreview: '跳至内容 辅助功能反馈 全部搜索图片视频地图资讯 更多 隐私 条款',
+  bodyTextLength: 44
+}
+
+const normalBingSnapshot = {
+  currentUrl: 'https://www.bing.com/search?q=Time%20Machine%20backup%20disk%20Apple%20support',
+  title: 'Time Machine backup disk Apple support - 搜索',
+  bodyPreview: '跳至内容 辅助功能反馈 全部搜索图片视频地图资讯 更多 约 10,000 个结果 Apple Support Time Machine',
+  bodyTextLength: 500
+}
+
+const irrelevantTimeResults = [
+  {
+    link: 'https://www.timeanddate.com/',
+    title: 'timeanddate.com',
+    snippet: 'Current local time around the world and time zone information.'
+  },
+  {
+    link: 'https://time.is/_',
+    title: 'Time.is - 所有时区的精确时间',
+    snippet: 'Your time is exact. Current local time and time zone information.'
+  },
+  {
+    link: 'https://time.gov/?x=1',
+    title: 'Time.gov',
+    snippet: 'Official United States time with clocks and time zones.'
+  }
+]
+
+function createSearchWindow(snapshot: object, items: object[]): object {
+  return {
+    loadURL: vi.fn().mockResolvedValue(undefined),
+    isDestroyed: vi.fn(() => false),
+    webContents: {
+      executeJavaScript: vi.fn(async (script: string) => {
+        if (script.includes('bodyPreview')) return snapshot
+        if (script.includes('const results = []')) return items
+        return true
+      }),
+      getURL: vi.fn(() => (snapshot as { currentUrl?: string }).currentUrl || ''),
+      stop: vi.fn()
+    }
+  }
 }
 
 describe('WebToolsProcessor', () => {
@@ -331,6 +387,135 @@ describe('WebToolsProcessor', () => {
       join(userDataDir, 'workspaces', 'same-sha', '.tmp', 'web-fetch')
     )
     expect(spoolEntries).toEqual([])
+  })
+})
+
+describe('web search quality gate', () => {
+  const timeMachineQueries = [
+    'Time Machine 备份磁盘 必须比 内置硬盘 大吗 要求 官方',
+    'Time Machine backup disk must be at least as large as startup disk Apple requirement'
+  ]
+
+  it.each(timeMachineQueries)('rejects a Bing navigation-only page for query: %s', async query => {
+    const searchWindow = createSearchWindow(degradedBingSnapshot, irrelevantTimeResults)
+    mocks.acquireSearchWindow.mockResolvedValueOnce(searchWindow)
+
+    const result = await processWebSearch({
+      engine: 'bing',
+      fetchCounts: 5,
+      query,
+      snippetsOnly: true
+    })
+
+    expect(result).toMatchObject({
+      success: false,
+      results: [],
+      error: 'BING_SEARCH_DEGRADED_PAGE'
+    })
+    expect(mocks.releaseSearchWindow).toHaveBeenCalledWith(searchWindow)
+    expect(mocks.logger.warn).toHaveBeenCalledWith(
+      'web_search.quality_gate_rejected',
+      expect.objectContaining({ reason: 'bing_degraded_page', query })
+    )
+  })
+
+  it.each(timeMachineQueries)('rejects irrelevant Bing results for query: %s', query => {
+    expect(_assessSearchResultQuality(
+      'bing',
+      query,
+      normalBingSnapshot,
+      irrelevantTimeResults
+    )).toMatchObject({
+      accepted: false,
+      error: 'SEARCH_RESULTS_LOW_RELEVANCE',
+      reason: 'low_relevance',
+      matchedResultCount: 0
+    })
+  })
+
+  it('releases the search window when the post-extraction quality gate rejects results', async () => {
+    const searchWindow = createSearchWindow(normalBingSnapshot, irrelevantTimeResults)
+    mocks.acquireSearchWindow.mockResolvedValueOnce(searchWindow)
+
+    const result = await processWebSearch({
+      engine: 'bing',
+      fetchCounts: 5,
+      query: 'Time Machine backup disk Apple support',
+      snippetsOnly: true
+    })
+
+    expect(result).toMatchObject({
+      success: false,
+      results: [],
+      error: 'SEARCH_RESULTS_LOW_RELEVANCE'
+    })
+    expect(mocks.releaseSearchWindow).toHaveBeenCalledWith(searchWindow)
+  })
+
+  it('accepts a normal Bing result when a reliable query signal matches', async () => {
+    expect(_classifyBingSearchPage(degradedBingSnapshot)).toBe('degraded')
+    expect(_classifyBingSearchPage(normalBingSnapshot)).toBe('result')
+
+    const items = [{
+      link: 'https://support.apple.com/en-us/104984',
+      title: 'Back up your Mac with Time Machine - Apple Support',
+      snippet: 'Use Time Machine to back up your Mac.'
+    }]
+    const searchWindow = createSearchWindow(normalBingSnapshot, items)
+    mocks.acquireSearchWindow.mockResolvedValueOnce(searchWindow)
+
+    const result = await processWebSearch({
+      engine: 'bing',
+      fetchCounts: 5,
+      query: 'Time Machine backup disk Apple support',
+      snippetsOnly: true
+    })
+
+    expect(result).toMatchObject({ success: true, results: items })
+    expect(mocks.releaseSearchWindow).toHaveBeenCalledWith(searchWindow)
+  })
+
+  it('allows a result when a reliable signal appears only in the hostname', () => {
+    expect(_assessSearchResultQuality(
+      'bing',
+      'Time Machine',
+      normalBingSnapshot,
+      [{
+        link: 'https://machine.example.com/support',
+        title: 'Support article',
+        snippet: 'A general support article.'
+      }]
+    )).toMatchObject({ accepted: true, matchedResultCount: 1 })
+  })
+
+  it('keeps Google result and anti-bot classification unchanged', () => {
+    expect(_classifyGoogleSearchPage({
+      currentUrl: 'https://www.google.com/sorry/index?continue=%2Fsearch',
+      title: 'Before you continue',
+      bodyPreview: 'Our systems have detected unusual traffic from your computer network.',
+      bodyTextLength: 100
+    })).toBe('anti_bot')
+    expect(_classifyGoogleSearchPage({
+      currentUrl: 'https://www.google.com/search?q=Time%20Machine',
+      title: 'Time Machine - Google Search',
+      bodyPreview: 'Time Machine results Apple Support',
+      bodyTextLength: 300
+    })).toBe('result')
+    expect(_assessSearchResultQuality(
+      'google',
+      'Apple Time Machine',
+      {
+        currentUrl: 'https://www.google.com/search?q=Apple%20Time%20Machine',
+        title: 'Apple Time Machine - Google Search',
+        bodyPreview: 'Apple Support Time Machine results',
+        bodyTextLength: 300
+      },
+      [{
+        link: 'https://support.apple.com/en-us/104984',
+        title: 'Back up your Mac with Time Machine - Apple Support',
+        snippet: 'Use Time Machine to back up your Mac.'
+      }]
+    )).toMatchObject({ accepted: true, matchedResultCount: 1 })
   })
 })
 

@@ -15,6 +15,9 @@ import { WEB_FETCH_DOWNLOAD_MAX_BYTES } from '../artifacts/constants'
 import { postCleanLite, postCleanFull } from '../extract/postClean'
 import { extractMainHtml } from '../extract/ContentExtractor'
 import { bingSearchEngine } from '../search-engine/bing'
+import { duckDuckGoSearchEngine } from '../search-engine/duckduckgo'
+import { resolveSearchEngine } from '../search-engine'
+import webTools from '@shared/tools/webTools/definitions'
 
 // 构造带 ReadableStream body 的 Response mock（避免依赖真实 fetch）
 function makeStreamResponse(chunks: Uint8Array[], headers = new Headers()): Response {
@@ -336,6 +339,26 @@ describe('bing extraction script', () => {
     // 抽取脚本在页面上下文执行，应包含跳过 google.com 结果链接的 host 判断（回归 #6）
     expect(script).toContain("=== 'google.com'")
     expect(script).toContain(".endsWith('.google.com')")
+  })
+})
+
+describe('DuckDuckGo search engine', () => {
+  it('registers the explicit engine and builds a web search URL', () => {
+    expect(resolveSearchEngine('duckduckgo')).toBe(duckDuckGoSearchEngine)
+    expect(duckDuckGoSearchEngine.buildSearchUrl('Time Machine backup')).toBe(
+      'https://duckduckgo.com/?q=Time%20Machine%20backup&ia=web'
+    )
+    const searchDefinition = webTools.find(tool => tool.function.name === 'web_search')
+    expect(searchDefinition?.function.parameters.properties.engine.enum).toContain('duckduckgo')
+  })
+
+  it('extracts result cards and decodes DuckDuckGo redirect URLs', () => {
+    const script = duckDuckGoSearchEngine.buildExtractResultsScript(5)
+    expect(duckDuckGoSearchEngine.waitForResultsScript).toContain('result-title-a')
+    expect(script).toContain('article[data-testid="result"]')
+    expect(script).toContain('result-title-a')
+    expect(script).toContain('result-snippet')
+    expect(script).toContain("searchParams.get('uddg')")
   })
 })
 

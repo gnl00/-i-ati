@@ -1,4 +1,4 @@
-export type SearchEngineId = 'bing' | 'google'
+export type SearchEngineId = 'bing' | 'google' | 'duckduckgo'
 
 export interface SearchResultItem {
   link: string

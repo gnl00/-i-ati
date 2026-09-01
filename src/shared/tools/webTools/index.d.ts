@@ -1,6 +1,6 @@
 export interface WebSearchArgs {
   query: string
-  engine?: 'bing' | 'google'
+  engine?: 'bing' | 'google' | 'duckduckgo'
   snippetsOnly?: boolean
   chat_uuid?: string
 }

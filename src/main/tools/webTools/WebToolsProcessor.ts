@@ -4,7 +4,11 @@ import type { WebSearchResponse, WebSearchResultV2, WebFetchResponse } from '@to
 import { getWindowPool } from './BrowserWindowPool'
 import { configDb } from '@main/db/config'
 import { createLogger } from '@main/logging/LogService'
-import { resolveSearchEngine, type SearchResultItem } from './search-engine'
+import {
+  resolveSearchEngine,
+  type SearchEngineId,
+  type SearchResultItem
+} from './search-engine'
 import { waitForCondition } from './util/waitForCondition'
 import { Semaphore } from './util/Semaphore'
 import { extractCleanContent } from './extract/ContentExtractor'
@@ -24,7 +28,7 @@ import {
 } from './artifacts/WebFetchContentMaterializer'
 
 interface WebSearchProcessArgs {
-  engine?: 'bing' | 'google'
+  engine?: SearchEngineId
   fetchCounts?: number
   param?: string
   query?: string
@@ -140,9 +144,32 @@ interface PageSnapshot {
   currentUrl: string
   title: string
   bodyPreview: string
+  bodyTextLength: number
 }
 
 type GooglePageKind = 'result' | 'anti_bot' | 'consent' | 'unknown'
+type BingPageKind = 'result' | 'degraded' | 'unknown'
+
+type SearchQualityAssessment = {
+  accepted: boolean
+  error?: string
+  reason?: 'bing_degraded_page' | 'unexpected_page' | 'no_results' | 'low_relevance'
+  matchedResultCount: number
+  querySignalCount: number
+}
+
+const BING_SEARCH_DEGRADED_ERROR = 'BING_SEARCH_DEGRADED_PAGE'
+const SEARCH_UNEXPECTED_PAGE_ERROR = 'SEARCH_UNEXPECTED_PAGE'
+const SEARCH_NO_RESULTS_ERROR = 'SEARCH_NO_RESULTS'
+const SEARCH_RESULTS_LOW_RELEVANCE_ERROR = 'SEARCH_RESULTS_LOW_RELEVANCE'
+
+const searchQueryStopWords = new Set([
+  'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'can', 'do', 'does', 'for',
+  'from', 'how', 'in', 'is', 'it', 'least', 'local', 'latest', 'must', 'need',
+  'needs', 'news', 'of', 'on', 'online', 'or', 'official', 'officially',
+  'search', 'should', 'that', 'the', 'time', 'to', 'today', 'was', 'what',
+  'when', 'where', 'which', 'who', 'with'
+])
 
 const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0'
 const directHttpExtensions = new Set([
@@ -276,12 +303,15 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-function isExpectedSearchResultUrl(engine: 'bing' | 'google', currentUrl: string): boolean {
+function isExpectedSearchResultUrl(engine: SearchEngineId, currentUrl: string): boolean {
   try {
     const parsed = new URL(currentUrl)
     const hostname = parsed.hostname.replace(/^www\./, '')
     if (engine === 'google') {
       return hostname.endsWith('google.com') && parsed.pathname === '/search'
+    }
+    if (engine === 'duckduckgo') {
+      return hostname.endsWith('duckduckgo.com') && parsed.pathname === '/'
     }
     return hostname.endsWith('bing.com') && parsed.pathname === '/search'
   } catch {
@@ -295,20 +325,23 @@ async function capturePageSnapshot(window: BrowserWindow): Promise<PageSnapshot>
       ({
         currentUrl: window.location.href,
         title: document.title || '',
-        bodyPreview: (document.body?.innerText || '').replace(/\\s+/g, ' ').trim().slice(0, 300)
+        bodyPreview: (document.body?.innerText || '').replace(/\\s+/g, ' ').trim().slice(0, 300),
+        bodyTextLength: (document.body?.innerText || '').trim().length
       })
     `)
 
     return {
       currentUrl: typeof snapshot?.currentUrl === 'string' ? snapshot.currentUrl : '',
       title: typeof snapshot?.title === 'string' ? snapshot.title : '',
-      bodyPreview: typeof snapshot?.bodyPreview === 'string' ? snapshot.bodyPreview : ''
+      bodyPreview: typeof snapshot?.bodyPreview === 'string' ? snapshot.bodyPreview : '',
+      bodyTextLength: typeof snapshot?.bodyTextLength === 'number' ? snapshot.bodyTextLength : 0
     }
   } catch {
     return {
       currentUrl: window.webContents.getURL() || '',
       title: '',
-      bodyPreview: ''
+      bodyPreview: '',
+      bodyTextLength: 0
     }
   }
 }
@@ -362,6 +395,181 @@ function classifyGoogleSearchPage(snapshot: PageSnapshot): GooglePageKind {
   return 'unknown'
 }
 
+const bingDegradedSignals = [
+  'unusual traffic',
+  'verify you are human',
+  'not a robot',
+  'captcha',
+  'access denied',
+  'robot check',
+  '检测到异常流量',
+  '验证您是否是真人',
+  '验证您不是机器人',
+  '不是机器人'
+]
+
+const bingShellLabels = [
+  'skip to content',
+  'accessibility feedback',
+  'feedback',
+  'all',
+  'images',
+  'videos',
+  'maps',
+  'news',
+  'more',
+  'privacy',
+  'terms',
+  '跳至内容',
+  '辅助功能反馈',
+  '反馈',
+  '全部',
+  '搜索',
+  '图片',
+  '视频',
+  '地图',
+  '资讯',
+  '更多',
+  '隐私',
+  '条款'
+]
+
+function classifyBingSearchPage(snapshot: PageSnapshot): BingPageKind {
+  if (snapshot.currentUrl && !isExpectedSearchResultUrl('bing', snapshot.currentUrl)) {
+    return 'unknown'
+  }
+
+  const body = snapshot.bodyPreview.toLowerCase().replace(/\s+/g, ' ').trim()
+  const bodyTextLength = snapshot.bodyTextLength || body.length
+  if (
+    bodyTextLength <= 800
+    && bingDegradedSignals.some(signal => body.includes(signal))
+  ) return 'degraded'
+
+  let residual = body
+  for (const label of bingShellLabels) {
+    residual = residual.split(label).join(' ')
+  }
+  residual = residual.replace(/[^\p{L}\p{N}]+/gu, '')
+
+  if (bodyTextLength > 0 && bodyTextLength <= 160 && residual.length <= 12) {
+    return 'degraded'
+  }
+
+  return 'result'
+}
+
+function escapeSearchPattern(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function extractSearchQuerySignals(query: string): string[] {
+  const segments = query.toLowerCase().match(/[a-z0-9]+|[\u3400-\u9fff]+/g) ?? []
+  const signals: string[] = []
+
+  for (const segment of segments) {
+    if (/^[a-z0-9]/.test(segment)) {
+      if (segment.length >= 2 && !searchQueryStopWords.has(segment)) {
+        signals.push(segment)
+      }
+      continue
+    }
+
+    const characters = Array.from(segment)
+    if (characters.length <= 2) {
+      signals.push(segment)
+      continue
+    }
+    for (let index = 0; index < characters.length - 1; index++) {
+      signals.push(characters.slice(index, index + 2).join(''))
+    }
+  }
+
+  return [...new Set(signals)]
+}
+
+function searchTextContainsSignal(text: string, signal: string): boolean {
+  if (/^[a-z0-9]/.test(signal)) {
+    return new RegExp(
+      `(?:^|[^a-z0-9])${escapeSearchPattern(signal)}(?:$|[^a-z0-9])`,
+      'i'
+    ).test(text)
+  }
+  return text.includes(signal)
+}
+
+function assessSearchResultQuality(
+  engine: SearchEngineId,
+  query: string,
+  pageSnapshot: PageSnapshot,
+  searchItems: SearchResultItem[]
+): SearchQualityAssessment {
+  const pageKind = engine === 'bing' ? classifyBingSearchPage(pageSnapshot) : 'result'
+  if (pageKind === 'degraded') {
+    return {
+      accepted: false,
+      error: BING_SEARCH_DEGRADED_ERROR,
+      reason: 'bing_degraded_page',
+      matchedResultCount: 0,
+      querySignalCount: 0
+    }
+  }
+  if (pageKind === 'unknown') {
+    return {
+      accepted: false,
+      error: SEARCH_UNEXPECTED_PAGE_ERROR,
+      reason: 'unexpected_page',
+      matchedResultCount: 0,
+      querySignalCount: 0
+    }
+  }
+  if (searchItems.length === 0) {
+    return {
+      accepted: false,
+      error: SEARCH_NO_RESULTS_ERROR,
+      reason: 'no_results',
+      matchedResultCount: 0,
+      querySignalCount: 0
+    }
+  }
+
+  const querySignals = extractSearchQuerySignals(query)
+  if (querySignals.length === 0) {
+    return {
+      accepted: true,
+      matchedResultCount: searchItems.length,
+      querySignalCount: 0
+    }
+  }
+
+  const matchedResultCount = searchItems.filter(item => {
+    let hostname = ''
+    try {
+      hostname = new URL(item.link).hostname
+    } catch {
+      // Keep title/snippet matching when a result link is malformed.
+    }
+    const text = `${item.title || ''}\n${item.snippet || ''}\n${hostname}`.toLowerCase()
+    return querySignals.some(signal => searchTextContainsSignal(text, signal))
+  }).length
+
+  if (matchedResultCount === 0) {
+    return {
+      accepted: false,
+      error: SEARCH_RESULTS_LOW_RELEVANCE_ERROR,
+      reason: 'low_relevance',
+      matchedResultCount,
+      querySignalCount: querySignals.length
+    }
+  }
+
+  return {
+    accepted: true,
+    matchedResultCount,
+    querySignalCount: querySignals.length
+  }
+}
+
 async function waitForManualGoogleVerification(window: BrowserWindow): Promise<PageSnapshot> {
   logger.warn('search_verification.manual_required')
   window.show()
@@ -394,7 +602,7 @@ async function waitForManualGoogleVerification(window: BrowserWindow): Promise<P
 async function loadSearchPage(
   window: BrowserWindow,
   searchUrl: string,
-  engine: 'bing' | 'google'
+  engine: SearchEngineId
 ): Promise<PageSnapshot> {
   try {
     await window.loadURL(searchUrl, { userAgent })
@@ -693,8 +901,33 @@ const processWebSearch = async ({
       engine: searchEngine.displayName,
       currentUrl: pageSnapshot.currentUrl,
       title: pageSnapshot.title,
-      bodyPreview: pageSnapshot.bodyPreview
+      bodyPreview: pageSnapshot.bodyPreview,
+      bodyTextLength: pageSnapshot.bodyTextLength
     })
+
+    if (searchEngine.id === 'bing') {
+      const pageKind = classifyBingSearchPage(pageSnapshot)
+      logger.info('web_search.bing_page_classified', {
+        engine: searchEngine.displayName,
+        kind: pageKind,
+        currentUrl: pageSnapshot.currentUrl,
+        bodyTextLength: pageSnapshot.bodyTextLength
+      })
+      if (pageKind === 'degraded') {
+        logger.warn('web_search.quality_gate_rejected', {
+          engine: searchEngine.displayName,
+          query: resolvedQuery,
+          reason: 'bing_degraded_page',
+          currentUrl: pageSnapshot.currentUrl,
+          bodyTextLength: pageSnapshot.bodyTextLength
+        })
+        return {
+          success: false,
+          results: [],
+          error: BING_SEARCH_DEGRADED_ERROR
+        }
+      }
+    }
 
     if (searchEngine.id === 'google') {
       const pageKind = classifyGoogleSearchPage(pageSnapshot)
@@ -772,6 +1005,40 @@ const processWebSearch = async ({
       count: searchItems.length,
       durationMs: extractTime
     })
+
+    const quality = assessSearchResultQuality(
+      searchEngine.id,
+      resolvedQuery,
+      pageSnapshot,
+      searchItems
+    )
+    logger.info('web_search.results_quality_checked', {
+      engine: searchEngine.displayName,
+      query: resolvedQuery,
+      accepted: quality.accepted,
+      reason: quality.reason,
+      itemCount: searchItems.length,
+      matchedResultCount: quality.matchedResultCount,
+      querySignalCount: quality.querySignalCount
+    })
+    if (!quality.accepted) {
+      logger.warn('web_search.quality_gate_rejected', {
+        engine: searchEngine.displayName,
+        query: resolvedQuery,
+        reason: quality.reason,
+        error: quality.error,
+        itemCount: searchItems.length,
+        matchedResultCount: quality.matchedResultCount,
+        querySignalCount: quality.querySignalCount,
+        currentUrl: pageSnapshot.currentUrl,
+        bodyTextLength: pageSnapshot.bodyTextLength
+      })
+      return {
+        success: false,
+        results: [],
+        error: quality.error
+      }
+    }
 
     // Release search window back to pool
     if (searchWindow) {
@@ -980,5 +1247,8 @@ export {
   WEB_FETCH_TIMEOUT as _WEB_FETCH_TIMEOUT,
   resolveConfiguredFetchCounts as _resolveConfiguredFetchCounts,
   MAX_SCRAPE_CONCURRENCY as _MAX_SCRAPE_CONCURRENCY,
-  MAX_FETCH_COUNTS as _MAX_FETCH_COUNTS
+  MAX_FETCH_COUNTS as _MAX_FETCH_COUNTS,
+  classifyBingSearchPage as _classifyBingSearchPage,
+  classifyGoogleSearchPage as _classifyGoogleSearchPage,
+  assessSearchResultQuality as _assessSearchResultQuality
 }

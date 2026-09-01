@@ -4,7 +4,7 @@ export const bingSearchEngine: SearchEngineDefinition = {
   id: 'bing',
   displayName: 'Bing',
   buildSearchUrl: (query: string) => `https://www.bing.com/search?q=${encodeURIComponent(query)}`,
-  waitForResultsScript: `document.querySelectorAll('ol#b_results').length > 0`,
+  waitForResultsScript: `document.querySelectorAll('ol#b_results li.b_algo h2 a[href^="http"]').length > 0`,
   buildExtractResultsScript: (count: number) => `
     (() => {
       const results = []
