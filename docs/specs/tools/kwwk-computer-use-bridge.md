@@ -53,6 +53,27 @@ border follow the existing action lifecycle.
 | Type text and key press | Target-window border while keyboard delivery runs. |
 | `finish` | Core session cleanup detaches the border and tears down the daemon cursor. |
 
+Window-targeted pointer actions also render a bridge-owned cursor trail. The
+trail consumes the AppKit screen points emitted by `DaemonCursor.onPoseApplied`,
+so it follows the same sampled Bezier approach and drag route as the native
+cursor. A transparent, click-through AppKit panel covers the current union of
+display frames, orders immediately above the target CG window, and preserves
+the AppKit y-up coordinate space, including negative monitor origins.
+
+The route keeps at most 96 points, skips consecutive samples under one point
+apart, and draws a 2-point round-capped system teal stroke at up to 0.42
+opacity. Each action clears the previous route; the completed route fades for
+240ms before the panel orders out and releases its path. The trail applies to
+window `targetWindow`, `click`, `scroll`, `drag`, and
+`accessibilityAction` events. Keyboard, status-surface, and menu-surface
+events retain their existing core visual behavior. macOS Reduce Motion keeps
+the core cursor and border behavior while the bridge trail remains inactive.
+
+The trail is bridge-local visual state. JSON-RPC payloads, the TypeScript
+contract, renderer state, cursor input, focus policy, and core animation timing
+retain their current contracts. `finish` clears the pose callback, removes the
+trail panel, and then runs the existing core visual cleanup.
+
 Animation timing, cursor artwork, border styling, and cleanup remain owned by
 `KWWKComputerUseCore`. The bridge protocol and TypeScript backend contract stay
 unchanged.
