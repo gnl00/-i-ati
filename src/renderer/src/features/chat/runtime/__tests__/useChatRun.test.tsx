@@ -3,6 +3,8 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { toast } from 'sonner'
+import type { RunCancelResult } from '@shared/run/cancellation'
 
 const {
   baseModelRef,
@@ -10,12 +12,15 @@ const {
   invokeRunStart,
   invokeRunCancel,
   invokeRunSteer,
+  subscribeRunEvents,
   unsubscribeRunEvents
 } = vi.hoisted(() => {
   const modelRef = {
     accountId: 'account-chat',
     modelId: 'chat-model'
   }
+  const unsubscribeRunEvents = vi.fn()
+  const subscribeRunEvents = vi.fn(() => unsubscribeRunEvents)
   return {
     baseModelRef: modelRef,
     chatStore: {
@@ -34,6 +39,10 @@ const {
       setRunPhaseForChat: vi.fn(),
       setRunPhase: vi.fn(),
       clearToolLiveOutputs: vi.fn(),
+      resetPreviewForChat: vi.fn(),
+      resetPreview: vi.fn(),
+      settleLatestAssistantAfterAbortForChat: vi.fn(async () => undefined),
+      settleLatestAssistantAfterAbort: vi.fn(async () => undefined),
       getRunStatusForChat: vi.fn(() => ({
         runPhase: 'idle',
         postRunJobs: {
@@ -43,9 +52,13 @@ const {
       }))
     },
     invokeRunStart: vi.fn(async () => undefined),
-    invokeRunCancel: vi.fn(async () => undefined),
+    invokeRunCancel: vi.fn(async (): Promise<RunCancelResult> => ({
+      cancelled: true,
+      submissionId: 'submission-1'
+    })),
     invokeRunSteer: vi.fn(async () => ({ accepted: true })),
-    unsubscribeRunEvents: vi.fn()
+    subscribeRunEvents,
+    unsubscribeRunEvents
   }
 })
 
@@ -62,7 +75,7 @@ vi.mock('@renderer/infrastructure/ipc', () => ({
   invokeRunStart,
   invokeRunCancel,
   invokeRunSteer,
-  subscribeRunEvents: vi.fn(() => unsubscribeRunEvents)
+  subscribeRunEvents
 }))
 
 vi.mock('../collectRunTools', () => ({
@@ -104,6 +117,9 @@ describe('useChatRun', () => {
     invokeRunStart.mockClear()
     invokeRunCancel.mockClear()
     invokeRunSteer.mockClear()
+    subscribeRunEvents.mockClear()
+    subscribeRunEvents.mockImplementation(() => unsubscribeRunEvents)
+    ;(toast.warning as ReturnType<typeof vi.fn>).mockClear()
     unsubscribeRunEvents.mockClear()
     for (const mock of [
       chatStore.ensureSelectedModelRef,
@@ -116,10 +132,21 @@ describe('useChatRun', () => {
       chatStore.setRunPhaseForChat,
       chatStore.setRunPhase,
       chatStore.clearToolLiveOutputs,
+      chatStore.resetPreviewForChat,
+      chatStore.resetPreview,
+      chatStore.settleLatestAssistantAfterAbortForChat,
+      chatStore.settleLatestAssistantAfterAbort,
       chatStore.getRunStatusForChat
     ]) {
       mock.mockClear()
     }
+    chatStore.getRunStatusForChat.mockReset().mockReturnValue({
+      runPhase: 'idle',
+      postRunJobs: {
+        title: 'idle',
+        compression: 'idle'
+      }
+    })
     chatStore.currentChatId = 1
     chatStore.currentChatUuid = 'chat-1'
     chatStore.selectedModelRef = baseModelRef
@@ -274,5 +301,107 @@ describe('useChatRun', () => {
       text: 'keep this direction',
       images: []
     })
+  })
+
+  it('cancels by chatUuid after the renderer registry is cleared', async () => {
+    await act(async () => {
+      root.render(<Probe />)
+    })
+    await act(async () => {
+      await hookResult?.onSubmit('hello', [], { stream: true })
+    })
+
+    resetChatRunRegistryForTests()
+
+    await act(async () => {
+      await getHookResult().cancel()
+    })
+
+    expect(invokeRunCancel).toHaveBeenCalledWith({
+      chatUuid: 'chat-1',
+      reason: 'user_cancelled'
+    })
+  })
+
+  it('sends both active identities on the normal cancellation path', async () => {
+    await act(async () => {
+      root.render(<Probe />)
+    })
+    await act(async () => {
+      await hookResult?.onSubmit('hello', [], { stream: true })
+    })
+
+    await act(async () => {
+      await getHookResult().cancel()
+    })
+
+    expect(invokeRunCancel).toHaveBeenCalledWith({
+      submissionId: 'submission-1',
+      chatUuid: 'chat-1',
+      reason: 'user_cancelled'
+    })
+  })
+
+  it('settles idle and clears the stale handle when main reports run_not_found', async () => {
+    chatStore.getRunStatusForChat.mockReturnValue({
+      runPhase: 'streaming',
+      postRunJobs: {
+        title: 'idle',
+        compression: 'idle'
+      }
+    })
+    invokeRunCancel.mockResolvedValueOnce({
+      cancelled: false,
+      reason: 'run_not_found'
+    })
+
+    await act(async () => {
+      root.render(<Probe />)
+    })
+    await act(async () => {
+      await hookResult?.onSubmit('hello', [], { stream: true })
+    })
+
+    await act(async () => {
+      await getHookResult().cancel()
+    })
+
+    expect(chatStore.setRunPhaseForChat).toHaveBeenLastCalledWith('chat-1', 'idle')
+    expect(chatStore.clearToolLiveOutputs).toHaveBeenCalledWith('submission-1')
+    expect(toast.warning).toHaveBeenCalledWith('The current run has already finished')
+  })
+
+  it('keeps cancellation pending until run.aborted performs terminal cleanup', async () => {
+    await act(async () => {
+      root.render(<Probe />)
+    })
+    await act(async () => {
+      await hookResult?.onSubmit('hello', [], { stream: true })
+    })
+
+    await act(async () => {
+      await getHookResult().cancel()
+    })
+
+    expect(chatStore.clearToolLiveOutputs).not.toHaveBeenCalled()
+    expect(chatStore.setRunPhaseForChat).toHaveBeenLastCalledWith('chat-1', 'cancelling')
+
+    const onRunEvent = (
+      subscribeRunEvents.mock.calls as unknown as Array<[(event: unknown) => void]>
+    )[0]?.[0]
+    await act(async () => {
+      onRunEvent({
+        type: 'run.aborted',
+        submissionId: 'submission-1',
+        sequence: 1,
+        chatUuid: 'chat-1',
+        payload: { reason: 'user_cancelled' }
+      })
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(chatStore.clearToolLiveOutputs).toHaveBeenCalledWith('submission-1')
+    expect(chatStore.setLastRunOutcomeForChat).toHaveBeenCalledWith('chat-1', 'aborted')
   })
 })

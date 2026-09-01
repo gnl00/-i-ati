@@ -44,7 +44,11 @@ run.accepted
 
 ## Design Rules
 - Main owns lifecycle, persistence, tool execution and post-run jobs.
+- Main owns active-run identity and live cancellation through `RunRegistry`.
 - Renderer never rebuilds assistant delta or tool-call state.
+- Renderer `activeRuns` stores transient event subscriptions and queue metadata. Stop sends
+  `RUN_CANCEL` with the selected `chatUuid`, allowing main to resolve the active run after
+  renderer lifecycle loss.
 - Live command output stays in bounded renderer run state keyed by chat and tool call.
 - All `CHAT_RENDER_EVENTS`, `messages.loaded`, and `tool.execution.output` are transport-only. Their payloads are transient UI projections or copies of state already stored in domain tables, and `RunEventEmitter` routes them exclusively to IPC/sinks.
 - Lifecycle, tool state, steering, maintenance, remaining host state, and subagent events remain durable diagnostic traces.

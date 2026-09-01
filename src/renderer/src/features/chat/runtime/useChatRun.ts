@@ -1,6 +1,7 @@
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
 import { invokeRunCancel, invokeRunStart, invokeRunSteer, subscribeRunEvents } from '@renderer/infrastructure/ipc'
 import type { RunSteerImage, RunSteerResult } from '@shared/run/steering-events'
+import type { RunCancelRequest, RunCancelResult } from '@shared/run/cancellation'
 import { v4 as uuidv4 } from 'uuid'
 import { toast } from 'sonner'
 import { bindChatRunEvents } from './chatRunEvent'
@@ -24,7 +25,6 @@ type RunPhaseBeforeCancel = 'submitting' | 'streaming' | 'post_run'
 type ActiveRunHandle = {
   submissionId: string
   runChatUuidRef: { current: string | null }
-  abortController: AbortController
   unsubscribe: (() => void) | null
   runCompletedRef: { current: boolean }
   lastErrorMessageRef: { current: LastRunErrorMessage | null }
@@ -198,7 +198,6 @@ export default function useChatRun() {
     const chatModelRef = baseModelRef
 
     const submissionId = uuidv4()
-    const controller = new AbortController()
     const runChatUuidRef = { current: state.currentChatUuid ?? null }
     const runCompletedRef = { current: false }
     const lastErrorMessageRef = { current: null as LastRunErrorMessage | null }
@@ -206,7 +205,6 @@ export default function useChatRun() {
     const handle: ActiveRunHandle = {
       submissionId,
       runChatUuidRef,
-      abortController: controller,
       unsubscribe: null,
       runCompletedRef,
       lastErrorMessageRef,
@@ -214,9 +212,6 @@ export default function useChatRun() {
       preCancelRunPhase: null,
       abortFallbackTimer: null
     }
-    controller.signal.addEventListener('abort', () => {
-      void invokeRunCancel({ submissionId, reason: 'abort' })
-    })
     const cleanupActiveRun = () => {
       cleanupRunHandle(handle)
     }
@@ -281,13 +276,73 @@ export default function useChatRun() {
     }
   }
 
-  const cancel = () => {
+  const setRunPhase = (
+    chatUuid: string | null,
+    phase: RunPhaseBeforeCancel | 'idle' | 'cancelling'
+  ) => {
+    if (chatUuid) {
+      useChatStore.getState().setRunPhaseForChat(chatUuid, phase)
+    } else {
+      useChatStore.getState().setRunPhase(phase)
+    }
+  }
+
+  const getCancelReasonMessage = (reason: RunCancelResult['reason']): string => {
+    switch (reason) {
+      case 'chat_mismatch':
+        return 'The active run belongs to another chat'
+      case 'invalid_request':
+        return 'The current run cancellation request is invalid'
+      case 'run_not_found':
+      default:
+        return 'The current run has already finished'
+    }
+  }
+
+  const scheduleCancelFallback = (
+    chatUuid: string | null,
+    previousPhase: RunPhaseBeforeCancel | null,
+    handle: ActiveRunHandle | null
+  ) => {
+    if (handle?.abortFallbackTimer) {
+      clearTimeout(handle.abortFallbackTimer)
+    }
+
+    const timer = setTimeout(() => {
+      if (handle) {
+        handle.abortFallbackTimer = null
+      }
+      const latestStatus = chatUuid
+        ? useChatStore.getState().getRunStatusForChat(chatUuid)
+        : useChatStore.getState()
+      if (latestStatus.runPhase === 'cancelling') {
+        setRunPhase(chatUuid, previousPhase ?? 'idle')
+      }
+      toast.warning('Cancellation is taking longer than expected')
+    }, ABORT_FALLBACK_TIMEOUT_MS)
+
+    if (handle) {
+      handle.abortFallbackTimer = timer
+    }
+  }
+
+  const settleMissingRun = (
+    chatUuid: string | null,
+    handle: ActiveRunHandle | null
+  ) => {
+    if (handle?.abortFallbackTimer) {
+      clearTimeout(handle.abortFallbackTimer)
+      handle.abortFallbackTimer = null
+    }
+    setRunPhase(chatUuid, 'idle')
+    if (handle) {
+      cleanupRunHandle(handle)
+    }
+  }
+
+  const cancel = async (): Promise<void> => {
     const currentChatUuid = useChatStore.getState().currentChatUuid
     const handle = findActiveRunForChat(currentChatUuid)
-    if (!handle) {
-      resetRunLifecycle('idle', currentChatUuid)
-      return
-    }
 
     const latestStore = useChatStore.getState()
     const runStatus = currentChatUuid ? latestStore.getRunStatusForChat(currentChatUuid) : latestStore
@@ -296,39 +351,42 @@ export default function useChatRun() {
     }
 
     const currentPhase = runStatus.runPhase
-    handle.preCancelRunPhase =
+    const previousPhase: RunPhaseBeforeCancel | null =
       currentPhase === 'submitting' || currentPhase === 'streaming' || currentPhase === 'post_run'
         ? currentPhase
         : null
+    if (handle) {
+      handle.preCancelRunPhase = previousPhase
+    }
 
-    if (!handle.abortController.signal.aborted) {
-      handle.abortController.abort()
-    } else {
-      void invokeRunCancel({ submissionId: handle.submissionId, reason: 'user_cancelled' })
+    setRunPhase(currentChatUuid, 'cancelling')
+
+    const request: RunCancelRequest = {
+      ...(handle ? { submissionId: handle.submissionId } : {}),
+      ...(currentChatUuid ? { chatUuid: currentChatUuid } : {}),
+      reason: 'user_cancelled'
     }
-    if (currentChatUuid) {
-      chatStore.setRunPhaseForChat(currentChatUuid, 'cancelling')
-    } else {
-      chatStore.setRunPhase('cancelling')
+    scheduleCancelFallback(currentChatUuid, previousPhase, handle)
+
+    let result: RunCancelResult | undefined
+    try {
+      result = await invokeRunCancel(request)
+    } catch {
+      toast.warning('Unable to cancel the current run')
+      return
     }
-    if (handle.abortFallbackTimer) {
-      clearTimeout(handle.abortFallbackTimer)
+
+    if (result?.cancelled) {
+      return
     }
-    handle.abortFallbackTimer = setTimeout(() => {
-      handle.abortFallbackTimer = null
-      const fallbackPhase = handle.preCancelRunPhase
-      const latestStatus = currentChatUuid
-        ? useChatStore.getState().getRunStatusForChat(currentChatUuid)
-        : useChatStore.getState()
-      if (fallbackPhase && latestStatus.runPhase === 'cancelling') {
-        if (currentChatUuid) {
-          chatStore.setRunPhaseForChat(currentChatUuid, fallbackPhase)
-        } else {
-          chatStore.setRunPhase(fallbackPhase)
-        }
-      }
-      toast.warning('Cancellation is taking longer than expected')
-    }, ABORT_FALLBACK_TIMEOUT_MS)
+
+    if (result?.reason === 'run_not_found') {
+      toast.warning(getCancelReasonMessage(result.reason))
+      settleMissingRun(currentChatUuid, handle)
+      return
+    }
+
+    toast.warning(getCancelReasonMessage(result?.reason))
   }
 
   const steer = async (payload: {

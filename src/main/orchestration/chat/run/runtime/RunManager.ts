@@ -16,6 +16,11 @@ import type {
 import { RunRegistry } from './RunRegistry'
 import type { MainAgentRuntimeRunner } from './MainAgentRuntimeRunner'
 import type { RunSteerRequest, RunSteerResult } from '@shared/run/steering-events'
+import type {
+  ActiveChatRunIdentity,
+  RunCancelRequest,
+  RunCancelResult
+} from '@shared/run/cancellation'
 
 type StartRunResult = {
   accepted: true
@@ -83,16 +88,47 @@ export class RunManager {
     }
   }
 
-  cancel(submissionId: string): void {
-    const run = this.registry.get(submissionId)
-    if (!run) {
-      this.deps.toolConfirmationManager.cancelForSubmission(submissionId)
-      this.deps.toolQuestionManager?.cancelForSubmission(submissionId)
-      return
+  cancel(submissionId: string): RunCancelResult
+  cancel(request: RunCancelRequest): RunCancelResult
+  cancel(target: string | RunCancelRequest): RunCancelResult
+  cancel(target: string | RunCancelRequest): RunCancelResult {
+    const request: RunCancelRequest = typeof target === 'string'
+      ? { submissionId: target }
+      : target
+    const submissionId = request.submissionId?.trim()
+    const chatUuid = request.chatUuid?.trim()
+
+    if (!submissionId && !chatUuid) {
+      return { cancelled: false, reason: 'invalid_request' }
     }
+
+    const run = submissionId
+      ? this.registry.get(submissionId)
+      : this.registry.getActiveRunForChat(chatUuid as string)
+    if (!run) {
+      if (submissionId) {
+        this.cancelPendingInteractions(submissionId)
+      }
+      return { cancelled: false, reason: 'run_not_found' }
+    }
+    if (chatUuid && run.chatUuid !== chatUuid) {
+      return { cancelled: false, reason: 'chat_mismatch' }
+    }
+
     run.cancel()
-    this.deps.toolConfirmationManager.cancelForSubmission(submissionId)
-    this.deps.toolQuestionManager?.cancelForSubmission(submissionId)
+    this.cancelPendingInteractions(run.submissionId)
+    return { cancelled: true, submissionId: run.submissionId }
+  }
+
+  getActiveRunIdentityForChat(chatUuid: string): ActiveChatRunIdentity | null {
+    const run = this.registry.getActiveRunForChat(chatUuid)
+    if (!run || !run.chatUuid) {
+      return null
+    }
+    return {
+      submissionId: run.submissionId,
+      chatUuid: run.chatUuid
+    }
   }
 
   steer(input: RunSteerRequest): RunSteerResult {
@@ -159,5 +195,10 @@ export class RunManager {
     })
     this.registry.add(input.submissionId, run)
     return run
+  }
+
+  private cancelPendingInteractions(submissionId: string): void {
+    this.deps.toolConfirmationManager.cancelForSubmission(submissionId)
+    this.deps.toolQuestionManager?.cancelForSubmission(submissionId)
   }
 }

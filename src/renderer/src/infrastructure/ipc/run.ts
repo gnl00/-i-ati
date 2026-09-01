@@ -10,6 +10,7 @@ import {
   RUN_TOOL_USER_QUESTION_SUBMIT
 } from '@shared/constants/index'
 import type { RunSteerRequest, RunSteerResult } from '@shared/run/steering-events'
+import type { RunCancelRequest, RunCancelResult } from '@shared/run/cancellation'
 import type {
   PendingToolQuestion,
   ToolUserQuestionSubmitRequest,
@@ -34,7 +35,7 @@ export const invokeRunStart = (data: {
   chatUuid?: string
 }): Promise<{ accepted: boolean; submissionId: string }> => invokeIpc(RUN_START, data)
 
-export const invokeRunCancel = (data: { submissionId: string; reason?: string }): Promise<{ cancelled: boolean }> =>
+export const invokeRunCancel = (data: RunCancelRequest): Promise<RunCancelResult> =>
   invokeIpc(RUN_CANCEL, data)
 export const invokeRunSteer = (data: RunSteerRequest): Promise<RunSteerResult> =>
   invokeIpc(RUN_STEER, data)

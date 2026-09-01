@@ -109,6 +109,30 @@ the visible user message is persisted, cancellation settles that item as
 consumed and moves directly into loop abort cleanup. Raw image parts remain
 outside the provider request transcript.
 
+### Active-run cancellation
+
+Interactive Stop uses the main-owned `RunRegistry` as the live-control boundary:
+
+```text
+run:cancel ({ submissionId?, chatUuid? })
+  -> request validation
+  -> RunService
+  -> RunManager
+  -> exact submission or active chatUuid lookup
+  -> AgentRun.cancel()
+  -> run.aborted
+  -> renderer terminal-state projection
+```
+
+`RunManager` returns a structured cancellation result with the resolved
+submission identity. Exact submission requests require a matching `chatUuid`
+when both identifiers are present. Chat-keyed requests resolve the current
+active run for that chat, which keeps Stop effective across renderer remounts,
+HMR updates, and window reloads. Pending tool confirmations and user questions
+are released for every resolved submission. `RunRegistry` remains in memory
+because it owns live `AgentRun` objects and their abort signals; durable
+accepted, state, tool, and terminal facts continue through `chat_run_events`.
+
 ## Service and tool direction
 
 Service modules provide reusable application behavior. Tool processors adapt

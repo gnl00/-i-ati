@@ -15,12 +15,14 @@ import {
 
 const {
   ipcMainHandleMock,
+  runServiceCancelMock,
   runServiceSteerMock,
   runServiceSubmitQuestionMock,
   runServiceListQuestionsMock,
   forkChatMock
 } = vi.hoisted(() => ({
   ipcMainHandleMock: vi.fn(),
+  runServiceCancelMock: vi.fn(),
   runServiceSteerMock: vi.fn(),
   runServiceSubmitQuestionMock: vi.fn(),
   runServiceListQuestionsMock: vi.fn(),
@@ -36,7 +38,7 @@ vi.mock('electron', () => ({
 vi.mock('@main/orchestration/chat/run', () => ({
   RunService: class {
     start = vi.fn()
-    cancel = vi.fn()
+    cancel = runServiceCancelMock
     resolveToolConfirmation = vi.fn()
     submitToolUserQuestion = runServiceSubmitQuestionMock
     listPendingToolUserQuestions = runServiceListQuestionsMock
@@ -75,6 +77,7 @@ vi.mock('@main/logging/LogService', () => ({
 describe('registerChatHandlers', () => {
   beforeEach(() => {
     ipcMainHandleMock.mockReset()
+    runServiceCancelMock.mockReset()
     runServiceSteerMock.mockReset()
     runServiceSubmitQuestionMock.mockReset()
     runServiceListQuestionsMock.mockReset()
@@ -106,6 +109,52 @@ describe('registerChatHandlers', () => {
     })
     expect(runServiceListQuestionsMock).toHaveBeenCalledWith('chat-1')
     await expect(listHandler({}, undefined)).resolves.toEqual({ questions: [] })
+  })
+
+  it('routes chat-keyed cancellation through RunService and returns its result', async () => {
+    const { registerChatHandlers } = await import('../chat')
+    registerChatHandlers()
+    const handler = ipcMainHandleMock.mock.calls.find(([channel]) => channel === RUN_CANCEL)?.[1]
+    const request = {
+      chatUuid: 'chat-1',
+      reason: 'user_cancelled'
+    }
+    const result = {
+      cancelled: true,
+      submissionId: 'submission-1'
+    }
+    runServiceCancelMock.mockReturnValue(result)
+
+    await expect(handler({}, request)).resolves.toEqual(result)
+    expect(runServiceCancelMock).toHaveBeenCalledWith(request)
+  })
+
+  it('forwards exact submission and chat identities for cancellation', async () => {
+    const { registerChatHandlers } = await import('../chat')
+    registerChatHandlers()
+    const handler = ipcMainHandleMock.mock.calls.find(([channel]) => channel === RUN_CANCEL)?.[1]
+    const request = {
+      submissionId: 'submission-1',
+      chatUuid: 'chat-1',
+      reason: 'user_cancelled'
+    }
+    runServiceCancelMock.mockReturnValue({ cancelled: true, submissionId: 'submission-1' })
+
+    await handler({}, request)
+
+    expect(runServiceCancelMock).toHaveBeenCalledWith(request)
+  })
+
+  it('rejects an empty cancellation payload before reaching RunService', async () => {
+    const { registerChatHandlers } = await import('../chat')
+    registerChatHandlers()
+    const handler = ipcMainHandleMock.mock.calls.find(([channel]) => channel === RUN_CANCEL)?.[1]
+
+    await expect(handler({}, {})).resolves.toEqual({
+      cancelled: false,
+      reason: 'invalid_request'
+    })
+    expect(runServiceCancelMock).not.toHaveBeenCalled()
   })
 
   it('registers run handlers on new run:* channels while keeping legacy request aliases', async () => {

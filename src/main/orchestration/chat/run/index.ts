@@ -12,6 +12,11 @@ import type {
   ToolUserQuestionSubmitResult
 } from '@shared/tools/userQuestion'
 import type { RunSteerRequest, RunSteerResult } from '@shared/run/steering-events'
+import type {
+  ActiveChatRunIdentity,
+  RunCancelRequest,
+  RunCancelResult
+} from '@shared/run/cancellation'
 import { RunRuntimeFactory, type RunRuntimeDeps } from './runtime/RunRuntimeFactory'
 
 type RunExecutionOptions = {
@@ -60,8 +65,15 @@ export class RunService {
     return this.runtime.toolQuestionManager.listPending(chatUuid)
   }
 
-  cancel(submissionId: string): void {
-    this.runtime.runManager.cancel(submissionId)
+  cancel(submissionId: string): RunCancelResult
+  cancel(request: RunCancelRequest): RunCancelResult
+  cancel(target: string | RunCancelRequest): RunCancelResult
+  cancel(target: string | RunCancelRequest): RunCancelResult {
+    return this.runtime.runManager.cancel(target)
+  }
+
+  getActiveRunIdentityForChat(chatUuid: string): ActiveChatRunIdentity | null {
+    return this.runtime.runManager.getActiveRunIdentityForChat(chatUuid)
   }
 
   steer(input: RunSteerRequest): RunSteerResult {
@@ -82,3 +94,8 @@ export class RunService {
 
 export type { MainAgentRunInput } from '@main/hosts/chat/preparation/types'
 export type { ToolConfirmationDecision } from './infrastructure'
+export type {
+  ActiveChatRunIdentity,
+  RunCancelRequest,
+  RunCancelResult
+} from '@shared/run/cancellation'

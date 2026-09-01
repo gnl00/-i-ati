@@ -66,8 +66,12 @@ const createManagerWithDeps = () => {
     cancelForSubmission = vi.fn()
     approvePendingForSubmission = vi.fn()
   })()
+  const toolQuestionManager = new (class {
+    cancelForSubmission = vi.fn()
+  })()
   const manager = new RunManager({
     toolConfirmationManager: toolConfirmationManager as any,
+    toolQuestionManager: toolQuestionManager as any,
     eventEmitterFactory: new (class {
       create() {
         return {}
@@ -83,7 +87,7 @@ const createManagerWithDeps = () => {
     chatAgentAdapter: new (class {})() as any,
     postRunJobService: new (class {})() as any
   })
-  return { manager, toolConfirmationManager }
+  return { manager, toolConfirmationManager, toolQuestionManager }
 }
 
 const createManager = () => createManagerWithDeps().manager
@@ -137,18 +141,77 @@ describe('RunManager', () => {
     await deferred.promise
   })
 
-  it('delegates cancel to the active run', async () => {
+  it('cancels by exact active submission and returns its identity', async () => {
     const deferred = createDeferred<{ assistantMessageId?: number; state: 'completed' }>()
     runMock.mockReturnValueOnce(deferred.promise as any)
 
     const manager = createManager()
     await manager.start(input)
-    manager.cancel(input.submissionId)
+    const result = manager.cancel(input.submissionId)
 
+    expect(cancelMock).toHaveBeenCalledTimes(1)
+    expect(result).toEqual({
+      cancelled: true,
+      submissionId: input.submissionId
+    })
+
+    deferred.resolve({ assistantMessageId: 11, state: 'completed' })
+    await deferred.promise
+  })
+
+  it('cancels the active run by chatUuid', async () => {
+    const deferred = createDeferred<{ assistantMessageId?: number; state: 'completed' }>()
+    runMock.mockReturnValueOnce(deferred.promise as any)
+
+    const manager = createManager()
+    await manager.start({ ...input, chatUuid: 'chat-1' })
+
+    expect(manager.cancel({ chatUuid: 'chat-1' })).toEqual({
+      cancelled: true,
+      submissionId: input.submissionId
+    })
     expect(cancelMock).toHaveBeenCalledTimes(1)
 
     deferred.resolve({ assistantMessageId: 11, state: 'completed' })
     await deferred.promise
+  })
+
+  it('rejects a submission and chat mismatch while keeping the run active', async () => {
+    const deferred = createDeferred<{ assistantMessageId?: number; state: 'completed' }>()
+    runMock.mockReturnValueOnce(deferred.promise as any)
+
+    const manager = createManager()
+    await manager.start({ ...input, chatUuid: 'chat-1' })
+
+    expect(manager.cancel({
+      submissionId: input.submissionId,
+      chatUuid: 'chat-2'
+    })).toEqual({ cancelled: false, reason: 'chat_mismatch' })
+    expect(cancelMock).not.toHaveBeenCalled()
+    expect(manager.hasActiveRunForChat('chat-1')).toBe(true)
+
+    deferred.resolve({ assistantMessageId: 11, state: 'completed' })
+    await deferred.promise
+  })
+
+  it('returns run_not_found when cancelling an inactive chat', () => {
+    const manager = createManager()
+
+    expect(manager.cancel({ chatUuid: 'chat-missing' })).toEqual({
+      cancelled: false,
+      reason: 'run_not_found'
+    })
+  })
+
+  it('preserves pending-interaction cleanup for a missing exact submission', () => {
+    const { manager, toolConfirmationManager, toolQuestionManager } = createManagerWithDeps()
+
+    expect(manager.cancel('submission-missing')).toEqual({
+      cancelled: false,
+      reason: 'run_not_found'
+    })
+    expect(toolConfirmationManager.cancelForSubmission).toHaveBeenCalledWith('submission-missing')
+    expect(toolQuestionManager.cancelForSubmission).toHaveBeenCalledWith('submission-missing')
   })
 
   it('routes steer only when submission and chat identities both match', async () => {
@@ -187,11 +250,15 @@ describe('RunManager', () => {
     const deferred = createDeferred<{ assistantMessageId?: number; state: 'completed' }>()
     runMock.mockReturnValueOnce(deferred.promise as any)
 
-    const { manager, toolConfirmationManager } = createManagerWithDeps()
+    const { manager, toolConfirmationManager, toolQuestionManager } = createManagerWithDeps()
     await manager.start(input)
-    manager.cancel(input.submissionId)
+    expect(manager.cancel(input.submissionId)).toEqual({
+      cancelled: true,
+      submissionId: input.submissionId
+    })
 
     expect(toolConfirmationManager.cancelForSubmission).toHaveBeenCalledWith(input.submissionId)
+    expect(toolQuestionManager.cancelForSubmission).toHaveBeenCalledWith(input.submissionId)
 
     deferred.resolve({ assistantMessageId: 11, state: 'completed' })
     await deferred.promise
@@ -235,6 +302,25 @@ describe('RunManager', () => {
     await Promise.resolve()
 
     expect(manager.hasActiveRunForChat('chat-1')).toBe(false)
+  })
+
+  it('returns active chat identity and clears it after run completion', async () => {
+    const deferred = createDeferred<{ assistantMessageId?: number; state: 'completed' }>()
+    runMock.mockReturnValueOnce(deferred.promise as any)
+
+    const manager = createManager()
+    await manager.start({ ...input, chatUuid: 'chat-1' })
+
+    expect(manager.getActiveRunIdentityForChat('chat-1')).toEqual({
+      submissionId: input.submissionId,
+      chatUuid: 'chat-1'
+    })
+
+    deferred.resolve({ assistantMessageId: 11, state: 'completed' })
+    await deferred.promise
+    await Promise.resolve()
+
+    expect(manager.getActiveRunIdentityForChat('chat-1')).toBeNull()
   })
 
   it('returns the run result from execute', async () => {

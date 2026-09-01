@@ -33,6 +33,7 @@ import {
 } from '@shared/constants'
 import { normalizePermissionApprovalMode, type PermissionApprovalMode } from '@tools/approval'
 import { validateRunSteerRequest } from './runSteerValidation'
+import type { RunCancelRequest } from '@shared/run/cancellation'
 
 const runService = new RunService()
 const logger = createLogger('DatabaseIPC')
@@ -74,6 +75,25 @@ function attachSearchHostBindingSummaries(result: ChatSearchResult): ChatSearchR
   }
 }
 
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0
+}
+
+function validateRunCancelRequest(data: unknown): data is RunCancelRequest {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return false
+  }
+
+  const request = data as Partial<RunCancelRequest>
+  const hasSubmissionId = request.submissionId !== undefined
+  const hasChatUuid = request.chatUuid !== undefined
+  const validSubmissionId = !hasSubmissionId || isNonEmptyString(request.submissionId)
+  const validChatUuid = !hasChatUuid || isNonEmptyString(request.chatUuid)
+  const validReason = request.reason === undefined || typeof request.reason === 'string'
+
+  return validSubmissionId && validChatUuid && validReason && (hasSubmissionId || hasChatUuid)
+}
+
 export function registerChatHandlers(): void {
   const handleRunStart = async (_event: Electron.IpcMainInvokeEvent, data: MainAgentRunInput) => {
     console.log(`[ChatSubmit IPC] Submit: ${data.submissionId}`)
@@ -82,11 +102,13 @@ export function registerChatHandlers(): void {
 
   const handleRunCancel = async (
     _event: Electron.IpcMainInvokeEvent,
-    data: { submissionId: string; reason?: string }
+    data: unknown
   ) => {
-    console.log(`[ChatSubmit IPC] Cancel: ${data.submissionId}`)
-    runService.cancel(data.submissionId)
-    return { cancelled: true }
+    if (!validateRunCancelRequest(data)) {
+      return { cancelled: false, reason: 'invalid_request' as const }
+    }
+    console.log(`[ChatSubmit IPC] Cancel: ${data.submissionId ?? data.chatUuid}`)
+    return runService.cancel(data)
   }
 
   const handleRunToolConfirm = async (
