@@ -36,6 +36,27 @@ Agent tool call
 
 The Swift helper owns the native session. The Electron main process owns tool policy, result normalization, request replay, and artifact handling.
 
+## Visual Effect Lifecycle
+
+`BridgeServer` attaches `AppKitComputerUseVisualEffects` to the injected
+`ComputerUseClient` session during initialization. Core action methods pass
+visual effect events through `ComputerUseSession.performWithBackgroundActivation`
+while the hook is attached, so the native overlay cursor and target-window
+border follow the existing action lifecycle.
+
+| Action | Visual behavior |
+| --- | --- |
+| Element or coordinate click | Target-window border, cursor approach, click effect, and post-action hold. |
+| Scroll | Target-window border, cursor approach, scroll effect, and post-action hold. |
+| Drag | Target-window border, cursor approach, and visual drag path. |
+| Accessibility action and value change | Target-window border, cursor approach, action effect, and post-action hold. |
+| Type text and key press | Target-window border while keyboard delivery runs. |
+| `finish` | Core session cleanup detaches the border and tears down the daemon cursor. |
+
+Animation timing, cursor artwork, border styling, and cleanup remain owned by
+`KWWKComputerUseCore`. The bridge protocol and TypeScript backend contract stay
+unchanged.
+
 ## Backend Contract
 
 `src/main/services/computerUse/ComputerUseBackend.ts` defines the product-facing boundary:

@@ -28,6 +28,7 @@ public final class BridgeServer {
     self.client = client
     self.encoder = encoder
     self.decoder = decoder
+    self.client.session.visualEffectHook = AppKitComputerUseVisualEffects()
   }
 
   public func handle(line: String) async -> String {
