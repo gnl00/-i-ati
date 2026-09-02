@@ -43,6 +43,7 @@ capability is reviewed.
 - [Plugin system architecture](architecture/plugin-system-design.md)
 - [Tool definition workflow](guides/development/tool-definition-workflow.md)
 - [Tailwind CSS v4 syntax rules](guides/development/tailwindcss-v4-syntax-rules.md)
+- [Chat Sheet performance optimization](guides/development/chat-sheet-performance-optimization.md)
 - [Documentation decisions](decisions/README.md)
 - [Active work](work/README.md)
 - [Migration inventory](archive/migration-inventory.md)

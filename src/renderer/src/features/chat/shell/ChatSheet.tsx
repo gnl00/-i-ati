@@ -79,19 +79,18 @@ const areChatListsEquivalent = (current: ChatEntity[], next: ChatEntity[]): bool
 
 const ChatSheet: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
     const logger = React.useMemo(() => createRendererLogger('ChatSheet'), [])
-    const { sheetOpenState, setSheetOpenState } = useSheetStore()
-    const { appVersion } = useAppConfigStore()
-    const {
-        upsertMessage,
-        patchMessageUiState,
-        toggleWebSearch,
-        setScrollHint,
-        currentChatId: chatId,
-        currentChatUuid: chatUuid,
-        replaceChatList,
-        hydrateChat,
-        resetChatContext,
-    } = useChatStore()
+    const sheetOpenState = useSheetStore(state => state.sheetOpenState)
+    const setSheetOpenState = useSheetStore(state => state.setSheetOpenState)
+    const appVersion = useAppConfigStore(state => state.appVersion)
+    const upsertMessage = useChatStore(state => state.upsertMessage)
+    const patchMessageUiState = useChatStore(state => state.patchMessageUiState)
+    const toggleWebSearch = useChatStore(state => state.toggleWebSearch)
+    const setScrollHint = useChatStore(state => state.setScrollHint)
+    const chatId = useChatStore(state => state.currentChatId)
+    const chatUuid = useChatStore(state => state.currentChatUuid)
+    const replaceChatList = useChatStore(state => state.replaceChatList)
+    const hydrateChat = useChatStore(state => state.hydrateChat)
+    const resetChatContext = useChatStore(state => state.resetChatContext)
 
     /**
      * 批量完成当前 chat 的所有消息的打字机效果

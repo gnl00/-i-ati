@@ -243,8 +243,6 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
   const updateChatList = useChatStore(state => state.updateChatList)
   const chatId = useChatStore(state => state.currentChatId)
 
-  const [sheetChatItemHover, setSheetChatItemHover] = useState(false)
-  const [sheetChatItemHoverChatId, setSheetChatItemHoverChatId] = useState<number>()
   const [showChatItemEditConform, setShowChatItemEditConform] = useState<boolean | undefined>(false)
   const [chatItemEditId, setChatItemEditId] = useState<number | undefined>()
   const [searchOpen, setSearchOpen] = useState(false)
@@ -351,16 +349,6 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
     chat.title = event.target.value
     updateChat(chat)
     updateChatList(chat)
-  }
-
-  const onMouseOverSheetChat = (nextChatId: number) => {
-    setSheetChatItemHover(true)
-    setSheetChatItemHoverChatId(nextChatId)
-  }
-
-  const onMouseLeaveSheetChat = () => {
-    setSheetChatItemHover(false)
-    setSheetChatItemHoverChatId(-1)
   }
 
   const onSheetChatItemDeleteUndo = (chat: ChatEntity) => {
@@ -487,7 +475,6 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
           <div className={cn('space-y-0.5 px-1', listTopPaddingClass)}>
             {displayResults.map(result => {
               const item = result.chat
-              const isHovered = sheetChatItemHover && sheetChatItemHoverChatId === item.id
               const isActive = item.id === chatId
               const hitCount = getSearchResultHitCount(result)
               const telegramMeta = getTelegramBadgeMeta(item)
@@ -495,12 +482,11 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
               return (
                 <div
                   key={`${item.id}-${result.matchedMessageId ?? 'title'}`}
+                  data-chat-title-row
                   id="chat-item"
-                  onMouseOver={() => onMouseOverSheetChat(item.id as number)}
-                  onMouseLeave={onMouseLeaveSheetChat}
                   onClick={event => onChatClick(event, result)}
                   className={cn(
-                    'group relative flex cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5',
+                    'group relative flex cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5 [content-visibility:auto] [contain-intrinsic-size:auto_88px]',
                     'transition-all duration-200 ease-out',
                     isActive
                       ? "bg-linear-to-r from-blue-50/80 via-blue-50/30 to-transparent after:absolute after:bottom-0.5 after:left-3 after:h-0.5 after:w-48 after:rounded-full after:bg-linear-to-r after:from-blue-500 after:via-blue-400/60 after:to-transparent after:content-[''] hover:from-blue-50/90 hover:via-blue-50/40 dark:bg-(--app-surface-hover) dark:bg-none dark:after:bg-(--app-accent) dark:after:opacity-70"
@@ -512,8 +498,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
                       <div className="min-w-0 flex items-center gap-2">
                         <span
                           className={cn(
-                            'line-clamp-1 text-sm font-medium text-gray-700 transition-colors duration-200 dark:text-(--app-text-body)',
-                            isHovered && 'text-gray-900 dark:text-(--app-text-primary)'
+                            'line-clamp-1 text-sm font-medium text-gray-700 transition-colors duration-200 dark:text-(--app-text-body) group-hover:text-gray-900 dark:group-hover:text-(--app-text-primary)'
                           )}
                         >
                           {renderHighlightedTitle(item.title, searchQuery)}
@@ -562,19 +547,17 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
             <div className="space-y-0.5 px-1 pt-1">
               {items.map(result => {
                 const item = result.chat
-                const isHovered = sheetChatItemHover && sheetChatItemHoverChatId === item.id
                 const isActive = item.id === chatId
                 const telegramMeta = getTelegramBadgeMeta(item)
 
                 return (
                   <div
                     key={item.id}
+                    data-chat-title-row
                     id="chat-item"
-                    onMouseOver={() => onMouseOverSheetChat(item.id as number)}
-                    onMouseLeave={onMouseLeaveSheetChat}
                     onClick={event => onChatClick(event, result)}
                     className={cn(
-                      'group relative flex cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5',
+                      'group relative flex cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5 [content-visibility:auto] [contain-intrinsic-size:auto_44px]',
                       'transition-all duration-200 ease-out',
                       isActive
                         ? "bg-linear-to-r from-blue-50/80 via-blue-50/30 to-transparent after:absolute after:bottom-0.5 after:left-3 after:h-0.5 after:w-48 after:rounded-full after:bg-linear-to-r after:from-blue-500 after:via-blue-400/60 after:to-transparent after:content-[''] hover:from-blue-50/90 hover:via-blue-50/40 dark:bg-(--app-surface-hover) dark:bg-none dark:after:bg-(--app-accent) dark:after:opacity-70"
@@ -593,8 +576,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
                       ) : (
                         <span
                           className={cn(
-                            'line-clamp-1 text-sm font-medium text-gray-700 transition-colors duration-200 dark:text-(--app-text-body)',
-                            isHovered && 'text-gray-900 dark:text-(--app-text-primary)'
+                            'line-clamp-1 text-sm font-medium text-gray-700 transition-colors duration-200 dark:text-(--app-text-body) group-hover:text-gray-900 dark:group-hover:text-(--app-text-primary)'
                           )}
                         >
                           {item.title}
@@ -610,10 +592,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
                     <div className="relative flex h-7 w-16 shrink-0 items-center gap-1 pt-0.5">
                       <span
                         className={cn(
-                          'absolute inset-0 flex items-center justify-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-500 transition-all duration-200 ease-out dark:bg-(--app-surface-inset) dark:text-(--app-text-muted)',
-                          isHovered
-                            ? 'pointer-events-none translate-x-2 scale-75 opacity-0'
-                            : 'translate-x-0 scale-100 opacity-100'
+                          'absolute inset-0 flex items-center justify-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-500 transition-all duration-200 ease-out dark:bg-(--app-surface-inset) dark:text-(--app-text-muted) translate-x-0 scale-100 opacity-100 group-hover:pointer-events-none group-hover:translate-x-2 group-hover:scale-75 group-hover:opacity-0'
                         )}
                       >
                         {item.msgCount ?? 0}
@@ -621,10 +600,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
 
                       <div
                         className={cn(
-                          'absolute inset-0 flex items-center gap-1 transition-all duration-200 ease-out',
-                          isHovered
-                            ? 'translate-x-0 scale-100 opacity-100'
-                            : 'pointer-events-none -translate-x-2 scale-75 opacity-0'
+                          'absolute inset-0 flex items-center gap-1 transition-all duration-200 ease-out pointer-events-none -translate-x-2 scale-75 opacity-0 group-hover:pointer-events-auto group-hover:translate-x-0 group-hover:scale-100 group-hover:opacity-100'
                         )}
                       >
                         {showChatItemEditConform && chatItemEditId === item.id ? (
