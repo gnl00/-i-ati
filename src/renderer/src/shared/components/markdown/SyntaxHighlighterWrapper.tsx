@@ -77,7 +77,7 @@ export const CodeWrapper = React.memo(({ children, language, showHeader = true }
       {
         !showCodeRender ?
           (
-            <div className='max-h-[500px] overflow-auto custom-scrollbar'>
+            <div className='max-h-[500px] overflow-auto'>
               <MemoSyntaxHighlighter
                 customStyle={{
                   paddingTop: '0.5rem',

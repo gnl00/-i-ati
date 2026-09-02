@@ -266,7 +266,6 @@ describe('ToolCallResult', () => {
     )
     expect(parametersContent?.classList.contains('max-h-[min(280px,35vh)]')).toBe(true)
     expect(parametersContent?.classList.contains('overflow-y-auto')).toBe(true)
-    expect(parametersContent?.classList.contains('custom-scrollbar')).toBe(true)
     expect(
       Array.from(parametersContent?.classList ?? []).some(className => /^h-/.test(className))
     ).toBe(false)

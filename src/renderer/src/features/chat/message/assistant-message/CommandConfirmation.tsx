@@ -190,7 +190,7 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
 
           <div
             data-testid="command-confirmation-review"
-            className="mt-2.5 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:thin]"
+            className="mt-2.5 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1"
           >
             <div className="space-y-1.5">
               <div className={cn(
@@ -201,7 +201,7 @@ export const CommandConfirmation: React.FC<CommandConfirmationProps> = ({
                   <Terminal className="mt-0.5 h-3 w-3 shrink-0 text-slate-500 dark:text-slate-400" />
                   <div
                     data-testid="command-confirmation-command"
-                    className="max-h-16 min-w-0 flex-1 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:thin]"
+                    className="max-h-16 min-w-0 flex-1 overflow-y-auto overscroll-contain pr-1"
                   >
                     <code
                       className={cn(

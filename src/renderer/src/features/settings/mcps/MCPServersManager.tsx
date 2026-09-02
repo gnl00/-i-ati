@@ -37,8 +37,7 @@ import {
   SettingsSectionHeader,
   SettingsToolbar,
   settingsOutlineButtonClassName,
-  settingsPrimaryButtonClassName,
-  settingsScrollbarClassName
+  settingsPrimaryButtonClassName
 } from '../common/SettingsLayout'
 
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
@@ -77,7 +76,7 @@ const MCPServersTabContent: React.FC<MCPServersTabContentProps> = ({
       <div
         className={cn(
           'flex-1 min-h-0 overflow-x-hidden',
-          scrollable ? ['overflow-y-auto', settingsScrollbarClassName] : 'overflow-hidden'
+          scrollable ? 'overflow-y-auto' : 'overflow-hidden'
         )}
       >
         {loading ? (

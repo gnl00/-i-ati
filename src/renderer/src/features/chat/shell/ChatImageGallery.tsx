@@ -13,7 +13,7 @@ const ImageGalleryComponent: React.FC<ImageGalleryProps> = () => {
     }
     return (
         imageSrcBase64List.length > 0 ? (
-            <div className="max-w-full h-full flex overflow-x-scroll scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
+            <div className="max-w-full h-full flex overflow-x-scroll">
                 {imageSrcBase64List.map((imgItem, index) => (
                     <div
                         key={index}

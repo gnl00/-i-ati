@@ -170,6 +170,7 @@
 
 @layer base {
   :root {
+    color-scheme: light;
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
@@ -209,6 +210,11 @@
     --app-text-muted: #94a3b8;
     --app-accent: #64748b;
     --app-accent-strong: #475569;
+    --app-scrollbar-size: 10px;
+    --app-scrollbar-track: transparent;
+    --app-scrollbar-thumb: rgb(71 85 105 / 0.32);
+    --app-scrollbar-thumb-hover: rgb(71 85 105 / 0.56);
+    --app-scrollbar-thumb-active: rgb(51 65 85 / 0.68);
     --chat-canvas: var(--app-canvas);
     --chat-canvas-dot: rgb(139 125 102 / 0.15);
     --chat-header-surface: color-mix(in srgb, var(--chat-canvas) 82%, transparent);
@@ -227,6 +233,7 @@
   }
 
   .dark {
+    color-scheme: dark;
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
     --card: 222.2 84% 4.9%;
@@ -265,6 +272,9 @@
     --app-text-muted: oklch(55% 0.018 250);
     --app-accent: oklch(69% 0.04 250);
     --app-accent-strong: oklch(77% 0.045 250);
+    --app-scrollbar-thumb: rgb(203 213 225 / 0.22);
+    --app-scrollbar-thumb-hover: rgb(203 213 225 / 0.42);
+    --app-scrollbar-thumb-active: rgb(226 232 240 / 0.52);
     --chat-canvas: var(--app-canvas);
     --chat-canvas-dot: rgb(188 197 207 / 0.026);
     --chat-header-surface: rgb(21 22 23 / 0.78);
@@ -283,7 +293,44 @@
   }
 }
 
+@layer base {
+  *::-webkit-scrollbar {
+    width: var(--app-scrollbar-size);
+    height: var(--app-scrollbar-size);
+  }
+
+  *::-webkit-scrollbar-track,
+  *::-webkit-scrollbar-corner {
+    background: var(--app-scrollbar-track);
+  }
+
+  *::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background: var(--app-scrollbar-thumb);
+    background-clip: content-box;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    border-width: 2px;
+    background: var(--app-scrollbar-thumb-hover);
+    background-clip: content-box;
+  }
+
+  *::-webkit-scrollbar-thumb:active {
+    border-width: 2px;
+    background: var(--app-scrollbar-thumb-active);
+    background-clip: content-box;
+  }
+}
+
 @layer utilities {
+  .scrollbar-code-surface {
+    --app-scrollbar-thumb: rgb(226 232 240 / 0.28);
+    --app-scrollbar-thumb-hover: rgb(226 232 240 / 0.52);
+    --app-scrollbar-thumb-active: rgb(248 250 252 / 0.64);
+  }
+
   .dark .chat-assistant-prose {
     color: var(--chat-text-body);
   }

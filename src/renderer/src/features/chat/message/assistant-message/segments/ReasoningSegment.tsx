@@ -50,7 +50,7 @@ export const ReasoningSegmentPanel: React.FC<ReasoningSegmentPanelProps> = ({
       className="relative border-l border-slate-200/70 pl-3 dark:border-(--chat-border-standard)"
     >
       <div
-        className="max-h-[min(456px,calc(100vh-160px))] overflow-y-auto overscroll-contain pr-1 custom-scrollbar"
+        className="max-h-[min(456px,calc(100vh-160px))] overflow-y-auto overscroll-contain pr-1"
         onWheel={(event) => event.stopPropagation()}
         onTouchMove={(event) => event.stopPropagation()}
       >

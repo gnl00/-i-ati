@@ -796,7 +796,7 @@ const LiveToolOutput = React.memo(({ output }: { output: ToolLiveOutput }) => {
     <div
       ref={viewportRef}
       data-testid="tool-live-output"
-      className="mb-3 mr-3 h-[176px] overflow-auto overscroll-contain rounded-md border border-black/10 bg-[#09090b] custom-scrollbar dark:border-white/10"
+      className="scrollbar-code-surface mb-3 mr-3 h-[176px] overflow-auto overscroll-contain rounded-md border border-black/10 bg-[#09090b] dark:border-white/10"
       onScroll={(event) => {
         const viewport = event.currentTarget
         isPinnedRef.current = (
@@ -1086,7 +1086,7 @@ export const ToolCallInspectorDetails = React.memo(({
       >
         <div
           data-testid="tool-inspector-parameters-content"
-          className="max-h-[min(280px,35vh)] overflow-y-auto px-3 pb-3 custom-scrollbar"
+          className="max-h-[min(280px,35vh)] overflow-y-auto px-3 pb-3"
         >
           {!areArgsReady ? (
             <p className="text-[11px] italic text-zinc-400 dark:text-zinc-500">Preparing parameters...</p>
@@ -1162,7 +1162,7 @@ export const ToolCallInspectorDetails = React.memo(({
         ) : undefined}
       >
         {hasSpecializedResult && isResultExpanded ? (
-          <div className="relative mb-3 mr-3 max-h-[min(520px,55vh)] overflow-auto overscroll-contain rounded-md border border-black/10 bg-[#09090b] custom-scrollbar dark:border-white/10">
+          <div className="scrollbar-code-surface relative mb-3 mr-3 max-h-[min(520px,55vh)] overflow-auto overscroll-contain rounded-md border border-black/10 bg-[#09090b] dark:border-white/10">
             <SpeedCodeHighlight
               code={resultText}
               language="json"
@@ -1183,7 +1183,7 @@ export const ToolCallInspectorDetails = React.memo(({
             <WikiToolSummary action={wikiAction} payload={resultPayload} />
           </div>
         ) : resultText ? (
-          <div className="relative mb-3 mr-3 max-h-[min(520px,55vh)] overflow-auto overscroll-contain rounded-md border border-black/10 bg-[#09090b] custom-scrollbar dark:border-white/10">
+          <div className="scrollbar-code-surface relative mb-3 mr-3 max-h-[min(520px,55vh)] overflow-auto overscroll-contain rounded-md border border-black/10 bg-[#09090b] dark:border-white/10">
             <SpeedCodeHighlight
               code={visibleResult}
               language="json"

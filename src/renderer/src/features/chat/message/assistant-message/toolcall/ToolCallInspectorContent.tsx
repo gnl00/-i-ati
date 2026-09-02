@@ -170,7 +170,7 @@ export const ToolCallInspectorContent: React.FC = () => {
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 custom-scrollbar">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
         <ToolCallInspectorDetails
           key={toolCall.segmentId}
           toolCall={toolCall}

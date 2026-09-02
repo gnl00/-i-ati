@@ -56,8 +56,6 @@ interface SettingsSubsectionHeaderProps extends Omit<DivProps, 'title'> {
   actions?: React.ReactNode
 }
 
-export const settingsScrollbarClassName = 'scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-(--app-border-standard) scrollbar-track-transparent'
-
 export const settingsPrimaryButtonClassName = cn(
   primaryButtonClassName,
   'dark:bg-(--app-accent) dark:text-(--app-canvas) dark:shadow-none dark:hover:bg-(--app-accent-strong)'
@@ -111,7 +109,6 @@ export const SettingsPageShell: React.FC<SettingsPageShellProps> = ({
         'w-full h-full min-w-0 min-h-0 p-1 pr-2',
         !scrollable && 'flex flex-col min-h-0',
         scrollable && 'overflow-y-auto',
-        scrollable && settingsScrollbarClassName,
         contentClassName
       )}
     >
@@ -452,7 +449,6 @@ export const SettingsList: React.FC<DivProps> = ({
   <div
     className={cn(
       'border-t border-gray-100 dark:border-(--app-border-subtle) bg-gray-50/40 dark:bg-(--app-surface-inset) flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden',
-      settingsScrollbarClassName,
       className
     )}
     {...props}

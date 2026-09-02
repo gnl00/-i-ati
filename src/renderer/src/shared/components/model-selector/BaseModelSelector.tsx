@@ -76,7 +76,7 @@ export const settingsModelSelectorClassNames = {
     'h-8 py-0 text-[12px] font-medium text-slate-800 placeholder:text-slate-400',
     'dark:text-(--app-text-primary) dark:placeholder:text-(--app-text-muted)'
   ),
-  list: 'max-h-[300px] px-1 pb-1 [scrollbar-width:thin]',
+  list: 'max-h-[300px] px-1 pb-1',
   empty: 'py-8 text-[12px] text-slate-400 dark:text-(--app-text-muted)',
   group: cn(
     'scroll-smooth p-0 pb-1',

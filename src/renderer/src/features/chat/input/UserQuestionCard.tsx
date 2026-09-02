@@ -242,7 +242,7 @@ export const UserQuestionCard: React.FC<UserQuestionCardProps> = ({
           </div>
         </header>
 
-        <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:thin]">
+        <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1">
           {request.questions.map((question, questionIndex) => {
             const answer = draft[question.id] ?? { optionIds: [], text: '' }
             const error = errors[question.id]

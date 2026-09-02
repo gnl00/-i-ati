@@ -89,6 +89,15 @@ inset 17.5% < canvas 19% < surface 22.5% < raised 25% < hover 27%
 
 语义色以文字、图标、细边框、浅 tint 或状态点呈现。大面积背景继续使用 graphite 层级。品牌图标保留品牌色，单色图标使用语义文字色和 CSS mask。
 
+### 2.5 全局 scrollbar
+
+可见滚动容器共用 `src/renderer/src/shared/assets/main.css` 的 Chromium WebKit scrollbar 外观。交互通道为 10px，静止 thumb 的视觉宽度约 4px，hover 与 active 状态扩大到约 6px；track 与 corner 保持透明，thumb 使用完整圆角，状态切换保持即时呈现。
+
+- Light 使用 slate 中性色 thumb，Dark 使用低彩度浅灰 thumb，`color-scheme` 跟随当前主题。
+- 固定深色代码与输出容器使用 `scrollbar-code-surface`，通过局部 scrollbar token 保持浅色 thumb 与 `#09090b` 材质的对比度。
+- `no-scrollbar`、composer textarea、横向 toolbar、tabs 与搜索结果 carousel 继续使用隐藏型 scrollbar 规则。
+- 全局规则负责 scrollbar 外观；每个容器继续拥有 `overflow`、`overscroll`、scroll chaining、virtualizer anchoring 与 `scrollbar-gutter` 行为语义。
+
 ## 3. 排版规则
 
 ### 3.1 字体栈
