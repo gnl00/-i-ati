@@ -158,3 +158,98 @@ export function applyMessageSegmentPatchToEntity(
     body: applyMessageSegmentPatchToBody(message.body, patch)
   }
 }
+
+function indexSegmentsByIdentity(
+  segments: MessageSegment[]
+): Map<string, number> {
+  const indexes = new Map<string, number>()
+
+  segments.forEach((segment, index) => {
+    const identity = getSegmentIdentity(segment, index)
+    if (!indexes.has(identity)) indexes.set(identity, index)
+  })
+
+  return indexes
+}
+
+export function applyMessageSegmentPatchesToBody(
+  body: ChatMessage,
+  patches: MessageSegmentPatch[]
+): ChatMessage {
+  if (patches.length === 0) return body
+
+  let segments = body.segments ?? []
+  let segmentsAreMutable = false
+  let indexes = indexSegmentsByIdentity(segments)
+  let content = body.content
+  let toolCalls = body.toolCalls
+  let typewriterCompleted = body.typewriterCompleted
+  let hasContentPatch = false
+  let hasToolCallsPatch = false
+  let hasTypewriterCompletedPatch = false
+
+  const ensureMutableSegments = (): void => {
+    if (segmentsAreMutable) return
+    segments = [...segments]
+    segmentsAreMutable = true
+  }
+
+  for (const patch of patches) {
+    if (patch.replaceSegments) {
+      segments = mergeSegmentsByIdentity(segments, patch.replaceSegments)
+      segmentsAreMutable = false
+      indexes = indexSegmentsByIdentity(segments)
+    } else {
+      ensureMutableSegments()
+      const identity = getSegmentIdentity(patch.segment, segments.length)
+      const existingIndex = indexes.get(identity)
+
+      if (existingIndex === undefined) {
+        const index = segments.length
+        segments.push(patch.segment)
+        indexes.set(identity, index)
+      } else {
+        if (!areSegmentsEquivalent(segments[existingIndex], patch.segment)) {
+          segments[existingIndex] = patch.segment
+        }
+      }
+    }
+
+    if (patch.content !== undefined) {
+      content = patch.content
+      hasContentPatch = true
+    }
+
+    if (patch.toolCalls !== undefined) {
+      toolCalls = areToolCallsEquivalent(toolCalls, patch.toolCalls)
+        ? toolCalls
+        : patch.toolCalls
+      hasToolCallsPatch = true
+    }
+
+    if (patch.typewriterCompleted !== undefined) {
+      typewriterCompleted = patch.typewriterCompleted
+      hasTypewriterCompletedPatch = true
+    }
+  }
+
+  return {
+    ...body,
+    ...(hasContentPatch ? { content } : {}),
+    ...(hasToolCallsPatch ? { toolCalls } : {}),
+    ...(hasTypewriterCompletedPatch ? { typewriterCompleted } : {}),
+    segments
+  }
+}
+
+export function applyMessageSegmentPatchesToEntity(
+  message: MessageEntity,
+  patches: MessageSegmentPatch[]
+): MessageEntity {
+  if (patches.length === 0) return message
+
+  return {
+    ...message,
+    body: applyMessageSegmentPatchesToBody(message.body, patches)
+  }
+}

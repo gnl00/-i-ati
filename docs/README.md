@@ -44,6 +44,7 @@ capability is reviewed.
 - [Tool definition workflow](guides/development/tool-definition-workflow.md)
 - [Tailwind CSS v4 syntax rules](guides/development/tailwindcss-v4-syntax-rules.md)
 - [Chat Sheet performance optimization](guides/development/chat-sheet-performance-optimization.md)
+- [Chat streaming performance P1/P2 optimization](guides/development/chat-streaming-performance-p1-p2-optimization.md)
 - [Documentation decisions](decisions/README.md)
 - [Active work](work/README.md)
 - [Migration inventory](archive/migration-inventory.md)

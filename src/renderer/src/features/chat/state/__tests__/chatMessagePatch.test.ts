@@ -1,9 +1,29 @@
-import { describe, expect, it } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { MessageSegmentPatch } from '@shared/chat/render-events'
 import {
   applyMessageSegmentPatchToEntity,
   areToolCallsEquivalent,
   mergeMessageEntityPreservingSegments
 } from '../chatMessagePatch'
+
+type ChatStoreHook = typeof import('../chatStore')['useChatStore']
+
+const messagePersistenceMocks = vi.hoisted(() => ({
+  updateMessage: vi.fn(),
+  deleteMessage: vi.fn()
+}))
+
+vi.mock('@renderer/features/chat/persistenceService', () => ({
+  messagePersistence: {
+    getMessagesByChatUuid: vi.fn(async () => []),
+    saveMessage: vi.fn(async () => 1),
+    updateMessage: messagePersistenceMocks.updateMessage,
+    patchMessageUiState: vi.fn(),
+    deleteMessage: messagePersistenceMocks.deleteMessage
+  }
+}))
+
+let useChatStore: ChatStoreHook
 
 const textSegment = (args: {
   id: string
@@ -80,6 +100,23 @@ const toolCalls = (args: {
 }]
 
 describe('chatMessagePatch', () => {
+  beforeAll(async () => {
+    vi.stubGlobal('__APP_VERSION__', 'test')
+    useChatStore = (await import('../chatStore')).useChatStore
+  })
+
+  beforeEach(() => {
+    messagePersistenceMocks.updateMessage.mockReset()
+    messagePersistenceMocks.deleteMessage.mockReset()
+    useChatStore.setState({
+      currentChatId: 1,
+      currentChatUuid: 'chat-visible',
+      messages: [],
+      preview: { message: null },
+      transcriptBuffersByChatUuid: {}
+    })
+  })
+
   it('treats structurally equal tool calls as equivalent', () => {
     const previous = toolCalls({
       id: 'tool-1',
@@ -322,5 +359,70 @@ describe('chatMessagePatch', () => {
     const merged = mergeMessageEntityPreservingSegments(previous, next)
 
     expect(merged.body.toolCalls).toBe(existingToolCalls)
+  })
+
+  it('applies a visible preview patch batch with one final message result', () => {
+    const message = createAssistantMessage([
+      textSegment({ id: 'text-1', content: 'hello', timestamp: 1 })
+    ])
+    const patches: MessageSegmentPatch[] = [
+      {
+        segment: reasoningSegment({ id: 'reasoning-1', content: 'thinking', timestamp: 2 })
+      },
+      {
+        segment: textSegment({ id: 'text-1', content: 'hello world', timestamp: 1 }),
+        content: 'hello world'
+      }
+    ]
+    const expected = patches.reduce(
+      (current, patch) => applyMessageSegmentPatchToEntity(current, patch),
+      message
+    )
+
+    useChatStore.setState({ preview: { message } })
+    useChatStore.getState().applyPreviewSegmentPatches(patches)
+
+    const state = useChatStore.getState()
+    expect(state.preview.message).toEqual(expected)
+    expect(state.transcriptBuffersByChatUuid['chat-visible'].preview.message)
+      .toBe(state.preview.message)
+  })
+
+  it('applies a background preview patch batch in its chat buffer', () => {
+    const message = createAssistantMessage([
+      textSegment({ id: 'text-1', content: 'hello', timestamp: 1 })
+    ])
+    message.chatUuid = 'chat-background'
+    const patches: MessageSegmentPatch[] = [
+      {
+        segment: textSegment({ id: 'text-1', content: 'hello background', timestamp: 1 }),
+        content: 'hello background'
+      },
+      {
+        segment: reasoningSegment({ id: 'reasoning-1', content: 'thinking', timestamp: 2 }),
+        typewriterCompleted: true
+      }
+    ]
+    const expected = patches.reduce(
+      (current, patch) => applyMessageSegmentPatchToEntity(current, patch),
+      message
+    )
+
+    useChatStore.setState({
+      currentChatUuid: 'chat-visible',
+      preview: { message: null },
+      transcriptBuffersByChatUuid: {
+        'chat-background': {
+          messages: [],
+          preview: { message }
+        }
+      }
+    })
+    useChatStore.getState().applyPreviewSegmentPatchesForChat('chat-background', patches)
+
+    const state = useChatStore.getState()
+    expect(state.preview.message).toBeNull()
+    expect(state.transcriptBuffersByChatUuid['chat-background'].preview.message)
+      .toEqual(expected)
   })
 })

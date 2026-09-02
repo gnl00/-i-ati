@@ -1,6 +1,7 @@
 import {
   buildAssistantMessageFacts
 } from './assistantMessageFacts'
+import type { AssistantMessageFacts } from './assistantMessageFacts'
 import {
   buildSupportRenderUnits,
   type SupportRenderUnit
@@ -24,7 +25,7 @@ type TextSegmentRenderItem = SegmentRenderItem & {
   segment: TextSegment
 }
 
-type OrderedSegmentRenderItem =
+export type OrderedSegmentRenderItem =
   | { kind: 'text'; item: TextSegmentRenderItem }
   | { kind: 'support'; item: SupportSegmentRenderItem }
 
@@ -84,18 +85,27 @@ function resolveMessageProvider(
   return definition?.iconKey || definition?.id || account.providerId
 }
 
-function buildOrderedSegmentItems(args: {
+export function buildOrderedSegmentItems(args: {
   segments: MessageSegment[]
   layer: SegmentRenderLayer
   orderOffset: number
   isLatest: boolean
   isStreaming: boolean
+  sourceIndexOffset?: number
 }): OrderedSegmentRenderItem[] {
-  const { segments, layer, orderOffset, isLatest, isStreaming } = args
+  const {
+    segments,
+    layer,
+    orderOffset,
+    isLatest,
+    isStreaming,
+    sourceIndexOffset = 0
+  } = args
   const orderedItems: OrderedSegmentRenderItem[] = []
 
   segments.forEach((segment, sourceIndex) => {
-    const key = `${layer}-${getSegmentRenderKey(segment)}-${sourceIndex}`
+    const itemSourceIndex = sourceIndexOffset + sourceIndex
+    const key = `${layer}-${getSegmentRenderKey(segment)}-${itemSourceIndex}`
     const order = orderOffset + orderedItems.length
 
     if (segment.type === 'text') {
@@ -104,7 +114,7 @@ function buildOrderedSegmentItems(args: {
         item: {
           key,
           layer,
-          sourceIndex,
+          sourceIndex: itemSourceIndex,
           order,
           segment
         }
@@ -117,7 +127,7 @@ function buildOrderedSegmentItems(args: {
       item: {
         key,
         layer,
-        sourceIndex,
+        sourceIndex: itemSourceIndex,
         order,
         segment,
         isStreamingTail: layer === 'preview' && isLatest && isStreaming && sourceIndex === segments.length - 1
@@ -128,32 +138,24 @@ function buildOrderedSegmentItems(args: {
   return orderedItems
 }
 
-export function mapAssistantMessage(
-  source: AssistantMessageSource,
-  context: AssistantMessageMapperContext
-): AssistantMessageRenderState {
-  const { isLatest, isStreaming, providerDefinitions, accounts } = context
-  const facts = buildAssistantMessageFacts(source)
+export function buildAssistantMessageHeaderProjection(
+  facts: Pick<AssistantMessageFacts, 'badge'>,
+  context: Pick<AssistantMessageMapperContext, 'providerDefinitions' | 'accounts'>
+): AssistantMessageHeaderProjection {
+  return {
+    badgeModel: facts.badge.model,
+    modelProvider: resolveMessageProvider(
+      facts.badge.modelRef,
+      context.providerDefinitions,
+      context.accounts
+    )
+  }
+}
 
-  const committedOrderedItems = buildOrderedSegmentItems({
-    segments: facts.transcript.committedSegments,
-    layer: 'committed',
-    orderOffset: 0,
-    isLatest,
-    isStreaming
-  })
-
-  const previewOrderedItems = !facts.isOverlayPreview
-    ? []
-    : buildOrderedSegmentItems({
-        segments: facts.transcript.previewSegments,
-        layer: 'preview',
-        orderOffset: committedOrderedItems.length,
-        isLatest,
-        isStreaming
-      })
-
-  const orderedItems = [...committedOrderedItems, ...previewOrderedItems]
+export function buildAssistantMessageTranscriptProjection(
+  orderedItems: OrderedSegmentRenderItem[],
+  isOverlayPreview: boolean
+): AssistantMessageTranscriptProjection {
   const textItems = orderedItems
     .filter((entry): entry is { kind: 'text'; item: TextSegmentRenderItem } => entry.kind === 'text')
     .map(entry => entry.item)
@@ -163,16 +165,52 @@ export function mapAssistantMessage(
   const supportUnits = buildSupportRenderUnits(supportItems, textItems)
 
   return {
-    header: {
-      badgeModel: facts.badge.model,
-      modelProvider: resolveMessageProvider(facts.badge.modelRef, providerDefinitions, accounts)
-    },
-    transcript: {
-      isOverlayPreview: facts.isOverlayPreview,
-      textItems,
-      supportItems,
-      supportUnits
-    }
+    isOverlayPreview,
+    textItems,
+    supportItems,
+    supportUnits
+  }
+}
+
+export function buildAssistantMessageOrderedItems(
+  facts: AssistantMessageFacts,
+  context: Pick<AssistantMessageMapperContext, 'isLatest' | 'isStreaming'>
+): OrderedSegmentRenderItem[] {
+  const committedOrderedItems = buildOrderedSegmentItems({
+    segments: facts.transcript.committedSegments,
+    layer: 'committed',
+    orderOffset: 0,
+    isLatest: context.isLatest,
+    isStreaming: context.isStreaming
+  })
+
+  const previewOrderedItems = !facts.isOverlayPreview
+    ? []
+    : buildOrderedSegmentItems({
+        segments: facts.transcript.previewSegments,
+        layer: 'preview',
+        orderOffset: committedOrderedItems.length,
+        isLatest: context.isLatest,
+        isStreaming: context.isStreaming
+      })
+
+  return [...committedOrderedItems, ...previewOrderedItems]
+}
+
+export function mapAssistantMessage(
+  source: AssistantMessageSource,
+  context: AssistantMessageMapperContext
+): AssistantMessageRenderState {
+  const { providerDefinitions, accounts } = context
+  const facts = buildAssistantMessageFacts(source)
+  const orderedItems = buildAssistantMessageOrderedItems(facts, context)
+
+  return {
+    header: buildAssistantMessageHeaderProjection(facts, {
+      providerDefinitions,
+      accounts
+    }),
+    transcript: buildAssistantMessageTranscriptProjection(orderedItems, facts.isOverlayPreview)
   }
 }
 

@@ -43,14 +43,12 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
   const canCancelRun = runPhase === 'submitting' || runPhase === 'streaming'
   const isCancelling = runPhase === 'cancelling'
   const messages = useChatStore(state => state.messages)
-  const {
-    currentChatId: chatId,
-    currentChatUuid: chatUuid,
-    chatList,
-    prependChatListEntry,
-    selectChatShell,
-    updateWorkspacePath
-  } = useChatStore()
+  const chatId = useChatStore(state => state.currentChatId)
+  const chatUuid = useChatStore(state => state.currentChatUuid)
+  const chatList = useChatStore(state => state.chatList)
+  const prependChatListEntry = useChatStore(state => state.prependChatListEntry)
+  const selectChatShell = useChatStore(state => state.selectChatShell)
+  const updateWorkspacePath = useChatStore(state => state.updateWorkspacePath)
   const currentWorkspacePath = useMemo(() => {
     return getChatWorkspacePath({ chatUuid: chatUuid ?? undefined, chatId: chatId ?? undefined, chatList })
   }, [chatUuid, chatId, chatList])

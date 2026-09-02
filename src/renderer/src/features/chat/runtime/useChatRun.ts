@@ -88,8 +88,6 @@ export const resetChatRunRegistryForTests = (): void => {
 }
 
 export default function useChatRun() {
-  const chatStore = useChatStore()
-
   const resetRunLifecycle = (
     outcome: 'idle' | 'completed' | 'failed' | 'aborted' = 'idle',
     chatUuid?: string | null
@@ -185,11 +183,11 @@ export default function useChatRun() {
     mediaCtx: ClipbordImg[] | string[],
     options: ChatRunSubmitOptions
   ): Promise<void> => {
-    if (findActiveRunForChat(useChatStore.getState().currentChatUuid)) {
+    const state = useChatStore.getState()
+    if (findActiveRunForChat(state.currentChatUuid)) {
       return
     }
 
-    const state = useChatStore.getState()
     const baseModelRef = state.selectedModelRef ?? state.ensureSelectedModelRef()
     if (!baseModelRef) {
       return
@@ -220,7 +218,7 @@ export default function useChatRun() {
     handle.unsubscribe = bindChatRunEvents({
       submissionId,
       runChatUuidRef,
-      chatStore,
+      chatStore: state,
       runCompletedRef,
       lastErrorMessageRef,
       clearedErrorMessageIdsRef,
@@ -233,7 +231,7 @@ export default function useChatRun() {
     const hasPendingUserContent = textCtx.trim().length > 0
       || mediaCtx.some(media => Boolean(media))
     if (hasPendingUserContent) {
-      chatStore.setPendingUserMessage({
+      state.setPendingUserMessage({
         submissionId,
         chatUuid: state.currentChatUuid ?? null,
         text: textCtx,
@@ -241,14 +239,14 @@ export default function useChatRun() {
         createdAt: Date.now()
       })
     }
-    chatStore.resetPostRunJobs()
-    chatStore.setLastRunOutcome('idle')
+    state.resetPostRunJobs()
+    state.setLastRunOutcome('idle')
     if (state.currentChatUuid) {
-      chatStore.resetPostRunJobsForChat(state.currentChatUuid)
-      chatStore.setLastRunOutcomeForChat(state.currentChatUuid, 'idle')
-      chatStore.setRunPhaseForChat(state.currentChatUuid, 'submitting')
+      state.resetPostRunJobsForChat(state.currentChatUuid)
+      state.setLastRunOutcomeForChat(state.currentChatUuid, 'idle')
+      state.setRunPhaseForChat(state.currentChatUuid, 'submitting')
     } else {
-      chatStore.setRunPhase('submitting')
+      state.setRunPhase('submitting')
     }
 
     try {
@@ -269,7 +267,7 @@ export default function useChatRun() {
         chatUuid: state.currentChatUuid ?? undefined
       })
     } catch (error) {
-      chatStore.clearPendingUserMessage(submissionId)
+      state.clearPendingUserMessage(submissionId)
       resetRunLifecycle('idle', runChatUuidRef.current)
       cleanupRunHandle(handle)
       throw error

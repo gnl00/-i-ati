@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo, useRef } from 'react'
+import React, { memo, useCallback, useLayoutEffect, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
 import { ChatForkInProgressError } from '@renderer/features/chat/state/chatCoordinatorStore'
@@ -7,7 +7,11 @@ import { useAppConfigStore } from '@renderer/infrastructure/config/appConfig'
 import {
   AssistantMessageLayout
 } from './AssistantMessageLayout'
-import { mapAssistantMessage } from './model/assistantMessageMapper'
+import {
+  mapAssistantMessageIncrementally,
+  type AssistantMessageProjectionIdentity,
+  type AssistantMessageProjectionCache
+} from './model/assistantMessageProjectionCache'
 import {
   extractAssistantRegeneratePayload,
   findLatestRegeneratableUserMessage,
@@ -62,6 +66,7 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
   const accounts = useAppConfigStore(state => state.accounts)
   const { onSubmit: handleChatSubmit } = useChatRun()
   const isForkingRef = useRef(false)
+  const projectionCacheRef = useRef<AssistantMessageProjectionCache | undefined>(undefined)
 
   const isRunBusy = runPhase !== 'idle'
   const isAssistantResponseActive = runPhase === 'submitting' || runPhase === 'streaming'
@@ -82,15 +87,33 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
     pendingModel?.modelRef
   ])
 
-  const renderState = useMemo(() => mapAssistantMessage({
-    committedMessage: displayCommittedMessage,
-    previewMessage
-  }, {
+  const projectionIdentity: AssistantMessageProjectionIdentity = messageId
+    ?? committedMessage?.createdAt
+    ?? `${index}:${committedMessage ? 'committed' : 'pending'}:${pendingModel?.modelRef?.accountId ?? pendingModel?.model ?? ''}`
+
+  const projectionCache = useMemo(() => {
+    return mapAssistantMessageIncrementally({
+      committedMessage: displayCommittedMessage,
+      previewMessage
+    }, {
+      isLatest,
+      isStreaming,
+      providerDefinitions,
+      accounts
+    }, projectionCacheRef.current, projectionIdentity)
+  }, [
+    displayCommittedMessage,
+    previewMessage,
     isLatest,
     isStreaming,
     providerDefinitions,
-    accounts
-  }), [displayCommittedMessage, previewMessage, isLatest, isStreaming, providerDefinitions, accounts])
+    accounts,
+    projectionIdentity
+  ])
+  useLayoutEffect(() => {
+    projectionCacheRef.current = projectionCache
+  }, [projectionCache])
+  const renderState = projectionCache.renderState
 
   const shellState = useMemo(() => buildAssistantMessageShellState({
     committedMessage: displayCommittedMessage,

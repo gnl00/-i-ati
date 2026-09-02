@@ -1,6 +1,7 @@
 import { messagePersistence } from '@renderer/features/chat/persistenceService'
 import { buildMessageSegmentId } from '@shared/chat/segmentId'
 import type { MessageSegmentPatch } from '@shared/chat/render-events'
+import { applyMessageSegmentPatchesToEntity } from '@shared/run/messagePatch'
 import type { StateCreator } from 'zustand'
 import {
   applyMessageSegmentPatchToEntity,
@@ -952,10 +953,7 @@ export function createChatTranscriptActions<T extends ChatTranscriptSliceState>(
       }
 
       const preview = {
-        message: patches.reduce(
-          (message, patch) => applyMessageSegmentPatchToEntity(message, patch),
-          prevState.preview.message
-        )
+        message: applyMessageSegmentPatchesToEntity(prevState.preview.message, patches)
       }
 
       return {
@@ -988,10 +986,7 @@ export function createChatTranscriptActions<T extends ChatTranscriptSliceState>(
         }
 
         const preview = {
-          message: patches.reduce(
-            (message, patch) => applyMessageSegmentPatchToEntity(message, patch),
-            prevState.preview.message
-          )
+          message: applyMessageSegmentPatchesToEntity(prevState.preview.message, patches)
         }
         return {
           preview,
@@ -1015,10 +1010,7 @@ export function createChatTranscriptActions<T extends ChatTranscriptSliceState>(
           [chatUuid]: {
             ...buffer,
             preview: {
-              message: patches.reduce(
-                (message, patch) => applyMessageSegmentPatchToEntity(message, patch),
-                bufferPreviewMessage
-              )
+              message: applyMessageSegmentPatchesToEntity(bufferPreviewMessage, patches)
             }
           }
         }

@@ -13,7 +13,8 @@ const {
   invokeRunCancel,
   invokeRunSteer,
   subscribeRunEvents,
-  unsubscribeRunEvents
+  unsubscribeRunEvents,
+  useChatStore
 } = vi.hoisted(() => {
   const modelRef = {
     accountId: 'account-chat',
@@ -21,36 +22,38 @@ const {
   }
   const unsubscribeRunEvents = vi.fn()
   const subscribeRunEvents = vi.fn(() => unsubscribeRunEvents)
+  const chatStore = {
+    currentChatId: 1,
+    currentChatUuid: 'chat-1',
+    selectedModelRef: modelRef,
+    userInstruction: 'chat instruction',
+    permissionApprovalMode: 'default',
+    ensureSelectedModelRef: vi.fn(() => modelRef),
+    setPendingUserMessage: vi.fn(),
+    clearPendingUserMessage: vi.fn(),
+    resetPostRunJobs: vi.fn(),
+    setLastRunOutcome: vi.fn(),
+    resetPostRunJobsForChat: vi.fn(),
+    setLastRunOutcomeForChat: vi.fn(),
+    setRunPhaseForChat: vi.fn(),
+    setRunPhase: vi.fn(),
+    clearToolLiveOutputs: vi.fn(),
+    resetPreviewForChat: vi.fn(),
+    resetPreview: vi.fn(),
+    settleLatestAssistantAfterAbortForChat: vi.fn(async () => undefined),
+    settleLatestAssistantAfterAbort: vi.fn(async () => undefined),
+    getRunStatusForChat: vi.fn(() => ({
+      runPhase: 'idle',
+      postRunJobs: {
+        title: 'idle',
+        compression: 'idle'
+      }
+    }))
+  }
+  const useChatStore = vi.fn(() => chatStore)
   return {
     baseModelRef: modelRef,
-    chatStore: {
-      currentChatId: 1,
-      currentChatUuid: 'chat-1',
-      selectedModelRef: modelRef,
-      userInstruction: 'chat instruction',
-      permissionApprovalMode: 'default',
-      ensureSelectedModelRef: vi.fn(() => modelRef),
-      setPendingUserMessage: vi.fn(),
-      clearPendingUserMessage: vi.fn(),
-      resetPostRunJobs: vi.fn(),
-      setLastRunOutcome: vi.fn(),
-      resetPostRunJobsForChat: vi.fn(),
-      setLastRunOutcomeForChat: vi.fn(),
-      setRunPhaseForChat: vi.fn(),
-      setRunPhase: vi.fn(),
-      clearToolLiveOutputs: vi.fn(),
-      resetPreviewForChat: vi.fn(),
-      resetPreview: vi.fn(),
-      settleLatestAssistantAfterAbortForChat: vi.fn(async () => undefined),
-      settleLatestAssistantAfterAbort: vi.fn(async () => undefined),
-      getRunStatusForChat: vi.fn(() => ({
-        runPhase: 'idle',
-        postRunJobs: {
-          title: 'idle',
-          compression: 'idle'
-        }
-      }))
-    },
+    chatStore,
     invokeRunStart: vi.fn(async () => undefined),
     invokeRunCancel: vi.fn(async (): Promise<RunCancelResult> => ({
       cancelled: true,
@@ -58,12 +61,12 @@ const {
     })),
     invokeRunSteer: vi.fn(async () => ({ accepted: true })),
     subscribeRunEvents,
-    unsubscribeRunEvents
+    unsubscribeRunEvents,
+    useChatStore
   }
 })
 
 vi.mock('@renderer/features/chat/state/chatStore', () => {
-  const useChatStore = vi.fn(() => chatStore)
   return {
     useChatStore: Object.assign(useChatStore, {
       getState: vi.fn(() => chatStore)
@@ -118,6 +121,7 @@ describe('useChatRun', () => {
     invokeRunCancel.mockClear()
     invokeRunSteer.mockClear()
     subscribeRunEvents.mockClear()
+    useChatStore.mockClear()
     subscribeRunEvents.mockImplementation(() => unsubscribeRunEvents)
     ;(toast.warning as ReturnType<typeof vi.fn>).mockClear()
     unsubscribeRunEvents.mockClear()
@@ -194,6 +198,45 @@ describe('useChatRun', () => {
       chatUserInstruction: 'chat instruction'
     })
     expect(runInput).not.toHaveProperty('userInstruction')
+  })
+
+  it('does not subscribe to the whole chat store while mounted', async () => {
+    await act(async () => {
+      root.render(<Probe />)
+    })
+
+    expect(useChatStore).not.toHaveBeenCalled()
+  })
+
+  it('reads the latest chat and request settings when submitting after mount', async () => {
+    await act(async () => {
+      root.render(<Probe />)
+    })
+
+    const latestModelRef = {
+      accountId: 'account-latest',
+      modelId: 'latest-model'
+    }
+    chatStore.currentChatId = 42
+    chatStore.currentChatUuid = 'chat-latest'
+    chatStore.selectedModelRef = latestModelRef
+    chatStore.userInstruction = 'latest instruction'
+    chatStore.permissionApprovalMode = 'always'
+
+    await act(async () => {
+      await getHookResult().onSubmit('latest request', [], { stream: true })
+    })
+
+    expect(invokeRunStart).toHaveBeenCalledWith(expect.objectContaining({
+      modelRef: latestModelRef,
+      chatModelRef: latestModelRef,
+      chatId: 42,
+      chatUuid: 'chat-latest',
+      input: expect.objectContaining({
+        chatUserInstruction: 'latest instruction',
+        permissionApprovalMode: 'always'
+      })
+    }))
   })
 
   it('sets pending user message for pure image submissions', async () => {
