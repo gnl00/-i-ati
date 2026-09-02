@@ -17,13 +17,12 @@ export const SizeAnimatedPanel = React.forwardRef<HTMLDivElement, SizeAnimatedPa
   children,
   ...props
 }, ref) => {
-  const inertProps = expanded ? {} : ({ inert: '' } as Record<string, string>)
-
   return (
     <div
       ref={ref}
       data-state={expanded ? 'expanded' : 'collapsed'}
       aria-hidden={expanded ? undefined : true}
+      inert={expanded ? undefined : true}
       className={cn(
         'grid overflow-hidden',
         expanded ? 'grid-rows-[1fr] opacity-100' : 'pointer-events-none grid-rows-[0fr] opacity-0',
@@ -32,7 +31,6 @@ export const SizeAnimatedPanel = React.forwardRef<HTMLDivElement, SizeAnimatedPa
           : 'transition-[grid-template-rows,opacity] duration-[280ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none',
         className
       )}
-      {...inertProps}
       {...props}
     >
       <div className={cn('min-h-0 overflow-hidden', contentClassName)}>
