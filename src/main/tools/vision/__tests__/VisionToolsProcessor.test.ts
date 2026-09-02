@@ -221,6 +221,63 @@ describe('VisionToolsProcessor', () => {
     })
   })
 
+  it('converts workspace image files to base64 data URLs before the vision request', async () => {
+    const analyze = vi.fn(async () => ({
+      text: 'file inspected',
+      model: 'vision-model',
+      imageCount: 1
+    }))
+    const resolveImages = vi.fn((images) => [{
+      ref: 'input:1',
+      success: true as const,
+      images: [{
+        ref: 'input:1',
+        url: images[0].raw_data
+      }]
+    }])
+    const readImageFile = vi.fn(async () => 'data:image/png;base64,ZmlsZQ==')
+    const processor = new VisionToolsProcessor({
+      imageRefResolver: { resolveImages },
+      visionRequestService: { analyze },
+      readImageFile
+    })
+
+    const result = await processor.analyze({
+      chat_uuid: 'chat-1',
+      files: ['screenshots/invoice.png'],
+      prompt: 'read invoice'
+    })
+
+    expect(readImageFile).toHaveBeenCalledWith('screenshots/invoice.png', 'chat-1')
+    expect(resolveImages).toHaveBeenCalledWith([
+      { raw_data: 'data:image/png;base64,ZmlsZQ==' }
+    ], 'chat-1')
+    expect(analyze).toHaveBeenCalledWith(expect.objectContaining({
+      imageUrls: ['data:image/png;base64,ZmlsZQ==']
+    }))
+    expect(JSON.stringify(result)).not.toContain('screenshots/invoice.png')
+    expect(JSON.stringify(result)).not.toContain('ZmlsZQ==')
+  })
+
+  it('returns a path-free error when an image file cannot be read', async () => {
+    const processor = new VisionToolsProcessor({
+      imageRefResolver: { resolveImages: vi.fn() },
+      visionRequestService: { analyze: vi.fn() },
+      readImageFile: vi.fn(async () => {
+        throw new Error('file must be an image: notes/private.txt')
+      })
+    })
+
+    await expect(processor.analyze({
+      images: [{ file: 'notes/private.txt' }],
+      prompt: 'inspect'
+    })).resolves.toMatchObject({
+      success: false,
+      image_count: 0,
+      message: 'unable to read image file input:1'
+    })
+  })
+
   it('omits signed URL tokens from successful direct URL metadata', async () => {
     const analyze = vi.fn(async () => ({
       text: 'signed image inspected',
@@ -303,7 +360,7 @@ describe('VisionToolsProcessor', () => {
       prompt: 'read'
     })).resolves.toMatchObject({
       success: false,
-      message: 'at least one image ref, url, or raw_data item is required'
+      message: 'at least one image ref, url, raw_data, or file item is required'
     })
   })
 

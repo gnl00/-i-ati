@@ -154,6 +154,9 @@ const redactVisionImageInput = (value: unknown): unknown => {
   if (typeof next.raw_data === 'string') {
     next.raw_data = REDACTED_ARGUMENT_VALUE
   }
+  if (typeof next.file === 'string') {
+    next.file = REDACTED_ARGUMENT_VALUE
+  }
   if (Array.isArray(next.url)) {
     next.url = next.url.map(item => typeof item === 'string' ? REDACTED_ARGUMENT_VALUE : item)
   }
@@ -206,6 +209,12 @@ const sanitizeVisionAnalyzeArguments = (rawArguments: string): string => {
   }
   if ('raw_data' in sanitized) {
     sanitized.raw_data = redactStringOrStringArray(sanitized.raw_data)
+  }
+  if ('file' in sanitized) {
+    sanitized.file = redactStringOrStringArray(sanitized.file)
+  }
+  if ('files' in sanitized) {
+    sanitized.files = redactStringOrStringArray(sanitized.files)
   }
 
   return JSON.stringify(sanitized)

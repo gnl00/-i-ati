@@ -27,11 +27,15 @@ export const visionTools = [
                 raw_data: {
                   type: 'string',
                   description: 'Direct raw image data, usually a data URL or base64 payload.'
+                },
+                file: {
+                  type: 'string',
+                  description: 'Workspace-relative image file path. The runtime reads it and sends it to the vision model as a base64 data URL.'
                 }
               },
               additionalProperties: false
             },
-            description: 'Images to analyze. Prefer ref values from <available_images>. Direct url/raw_data is supported for tool-generated image data.'
+            description: 'Images to analyze. Prefer ref values from <available_images>. Direct url/raw_data and workspace-relative file paths are supported.'
           },
           image_refs: {
             type: 'array',
@@ -56,6 +60,14 @@ export const visionTools = [
               type: 'string'
             },
             description: 'Top-level direct raw image data values, usually data URLs or base64 payloads.'
+          },
+          files: {
+            type: 'array',
+            minItems: 1,
+            items: {
+              type: 'string'
+            },
+            description: 'Top-level workspace-relative image file paths. The runtime converts each file to a base64 data URL.'
           },
           chat_uuid: {
             type: 'string',

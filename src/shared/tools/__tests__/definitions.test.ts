@@ -185,6 +185,12 @@ describe('tool definitions', () => {
     expect(tool?.function.parameters.properties.raw_data).toEqual(expect.objectContaining({
       type: 'array'
     }))
+    expect(tool?.function.parameters.properties.files).toEqual(expect.objectContaining({
+      type: 'array'
+    }))
+    expect(tool?.function.parameters.properties.images.items.properties.file).toEqual(expect.objectContaining({
+      type: 'string'
+    }))
     expect(tool?.function.parameters.properties.timeout_seconds).toEqual(expect.objectContaining({
       type: 'number',
       minimum: 5,

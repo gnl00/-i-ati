@@ -162,12 +162,14 @@ describe('DefaultRequestMaterializer', () => {
           url: 'https://cdn.example/image.png?X-Amz-Signature=secret-token'
         },
         {
-          raw_data: 'data:image/png;base64,raw-secret'
+          raw_data: 'data:image/png;base64,raw-secret',
+          file: 'screenshots/private.png'
         }
       ],
       url: 'https://cdn.example/legacy.png?token=legacy-token',
       urls: ['https://cdn.example/top-level.png?signed=top-level-token'],
       raw_data: ['data:image/jpeg;base64,legacy-secret'],
+      files: ['screenshots/top-level-private.png'],
       prompt: 'inspect'
     })
     const nonVisionArguments = JSON.stringify({
@@ -228,6 +230,7 @@ describe('DefaultRequestMaterializer', () => {
     expect(serializedMessages).not.toContain('secret-token')
     expect(serializedMessages).not.toContain('legacy-token')
     expect(serializedMessages).not.toContain('top-level-token')
+    expect(serializedMessages).not.toContain('private.png')
 
     const assistantMessage = request.messages[0]
     expect(assistantMessage.role).toBe('assistant')
@@ -244,12 +247,14 @@ describe('DefaultRequestMaterializer', () => {
           url: '[REDACTED]'
         },
         {
-          raw_data: '[REDACTED]'
+          raw_data: '[REDACTED]',
+          file: '[REDACTED]'
         }
       ],
       url: '[REDACTED]',
       urls: ['[REDACTED]'],
       raw_data: ['[REDACTED]'],
+      files: ['[REDACTED]'],
       prompt: 'inspect'
     })
     expect(nonVisionToolCall.function.arguments).toBe(nonVisionArguments)

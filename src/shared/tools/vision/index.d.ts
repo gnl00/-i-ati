@@ -2,6 +2,7 @@ export interface VisionAnalyzeImageInput {
   ref?: string
   url?: string
   raw_data?: string
+  file?: string
 }
 
 export interface VisionAnalyzeArgs {
@@ -9,6 +10,7 @@ export interface VisionAnalyzeArgs {
   image_refs?: string[]
   urls?: string[]
   raw_data?: string[]
+  files?: string[]
   prompt: string
   chat_uuid?: string
   timeout_seconds?: number

@@ -138,9 +138,9 @@ Ref rules:
 - `message:101#image:1` selects the first `image_url` part in message `101`.
 - `message:101` expands to every `image_url` part in message `101`.
 - Image ordinals are 1-based and count only `image_url` parts.
-- `vision_analyze` accepts `images: [{ ref | url | raw_data }]` and `prompt`.
+- `vision_analyze` accepts `images: [{ ref | url | raw_data | file }]` and `prompt`. `file` is a workspace-relative image path that Main converts to a base64 data URL before the VLM request.
 
-`vision_analyze` returns one plain text result for the requested image set, plus a sanitized image source summary. Explicit tool calls wait up to 60 seconds by default and accept `timeout_seconds`, clamped from 5 to 120 seconds. Sidecar observations keep the shared vision request default of 20 seconds. Errors redact data URLs, long base64 payloads, authorization headers, API keys, bearer tokens, and signed URL credential fields before returning to MainAgent. Provider-facing replay of `vision_analyze` assistant tool-call arguments also redacts direct `url` and `raw_data` values.
+`vision_analyze` returns one plain text result for the requested image set, plus a sanitized image source summary. Explicit tool calls wait up to 60 seconds by default and accept `timeout_seconds`, clamped from 5 to 120 seconds. Sidecar observations keep the shared vision request default of 20 seconds. Errors redact data URLs, long base64 payloads, authorization headers, API keys, bearer tokens, and signed URL credential fields before returning to MainAgent. Provider-facing replay of `vision_analyze` assistant tool-call arguments also redacts direct `url`, `raw_data`, and `file` values.
 
 ## Tests
 
@@ -150,7 +150,7 @@ Ref rules:
 - `RequestMaterializer` strips `input_image` parts and preserves observation text in MainAgent requests.
 - `AvailableImagesContextProvider` rebuilds `<available_images>` from the compressed surviving message window, emits 1-based refs for multi-image messages, and excludes hidden messages.
 - `ImageRefResolver` expands whole-message refs, resolves one-based image refs, checks `chat_uuid`, and reports missing or out-of-range refs.
-- `VisionToolsProcessor` accepts `images` plus a direct prompt, then calls the shared vision request service.
+- `VisionToolsProcessor` accepts `images` plus a direct prompt, converts workspace-relative image files to base64 data URLs, then calls the shared vision request service.
 - `VisionToolsProcessor` sends a 60 second default timeout and clamps `timeout_seconds` from 5 to 120 seconds.
 - `ToolExecutor` forces `vision_analyze` to use the runtime chat UUID even when model-supplied arguments include `chat_uuid`.
 - `RequestMaterializer` redacts direct vision image arguments before provider-facing assistant tool-call replay.

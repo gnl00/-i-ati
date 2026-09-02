@@ -22,6 +22,7 @@ export type VisionImageInput = {
   ref?: string
   url?: string
   raw_data?: string
+  file?: string
 }
 
 export type VisionImageResolveResult = {

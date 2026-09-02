@@ -12,10 +12,14 @@ import type {
   VisionAnalyzeResponse,
   VisionImageSource
 } from '@tools/vision/index.d'
+import { readFile } from 'fs/promises'
+import { lookup as lookupMimeType } from 'mime-types'
+import { resolveWorkspacePath } from '@main/services/filesystem/WorkspacePathResolver'
 
 export type VisionToolsProcessorDeps = {
   imageRefResolver?: Pick<ImageRefResolver, 'resolveImages'>
   visionRequestService?: Pick<VisionRequestService, 'analyze'>
+  readImageFile?: (file: string, chatUuid?: string) => Promise<string>
 }
 
 const VISION_ANALYSIS_SYSTEM_PROMPT = [
@@ -26,6 +30,20 @@ const VISION_ANALYSIS_SYSTEM_PROMPT = [
 const DEFAULT_ANALYZE_TIMEOUT_SECONDS = 60
 const MIN_ANALYZE_TIMEOUT_SECONDS = 5
 const MAX_ANALYZE_TIMEOUT_SECONDS = 120
+
+const readImageFile = async (file: string, chatUuid?: string): Promise<string> => {
+  const resolved = resolveWorkspacePath(file, {
+    chatUuid,
+    intent: 'existing',
+    mode: 'embedded-relative'
+  })
+  const mimeType = lookupMimeType(resolved.absolutePath)
+  if (typeof mimeType !== 'string' || !mimeType.startsWith('image/')) {
+    throw new Error(`file must be an image: ${file}`)
+  }
+  const content = await readFile(resolved.absolutePath)
+  return `data:${mimeType};base64,${content.toString('base64')}`
+}
 
 const getErrorMessage = (error: unknown): string => {
   if (error instanceof Error && error.message.trim()) {
@@ -48,10 +66,12 @@ const clampTimeoutSeconds = (value?: number): number => {
 export class VisionToolsProcessor {
   private readonly imageRefResolver: Pick<ImageRefResolver, 'resolveImages'>
   private readonly visionRequestService: Pick<VisionRequestService, 'analyze'>
+  private readonly readImageFile: (file: string, chatUuid?: string) => Promise<string>
 
   constructor(deps: VisionToolsProcessorDeps = {}) {
     this.imageRefResolver = deps.imageRefResolver ?? new ImageRefResolver()
     this.visionRequestService = deps.visionRequestService ?? new VisionRequestService()
+    this.readImageFile = deps.readImageFile ?? readImageFile
   }
 
   async analyze(args: VisionAnalyzeArgs): Promise<VisionAnalyzeResponse> {
@@ -71,12 +91,23 @@ export class VisionToolsProcessor {
         success: false,
         image_count: 0,
         images: [],
-        message: 'at least one image ref, url, or raw_data item is required'
+        message: 'at least one image ref, url, raw_data, or file item is required'
       }
     }
 
     try {
-      const resolved = this.imageRefResolver.resolveImages(images, args.chat_uuid)
+      const materializedImages = await Promise.all(images.map(async (image, index) => {
+        const file = image.file?.trim()
+        if (!file || image.ref?.trim() || image.url?.trim() || image.raw_data?.trim()) {
+          return image
+        }
+        try {
+          return { raw_data: await this.readImageFile(file, args.chat_uuid) }
+        } catch {
+          throw new Error(`unable to read image file input:${index + 1}`)
+        }
+      }))
+      const resolved = this.imageRefResolver.resolveImages(materializedImages, args.chat_uuid)
       const failed = resolved.filter(item => !item.success)
       if (failed.length > 0) {
         return {
@@ -95,7 +126,7 @@ export class VisionToolsProcessor {
           success: false,
           image_count: 0,
           images: [],
-          message: 'at least one image ref, url, or raw_data item is required'
+          message: 'at least one image ref, url, raw_data, or file item is required'
         }
       }
 
@@ -129,7 +160,8 @@ export class VisionToolsProcessor {
       ...(Array.isArray(args.images) ? args.images : []),
       ...(Array.isArray(args.image_refs) ? args.image_refs.map(ref => ({ ref })) : []),
       ...(Array.isArray(args.urls) ? args.urls.map(url => ({ url })) : []),
-      ...(Array.isArray(args.raw_data) ? args.raw_data.map(rawData => ({ raw_data: rawData })) : [])
+      ...(Array.isArray(args.raw_data) ? args.raw_data.map(rawData => ({ raw_data: rawData })) : []),
+      ...(Array.isArray(args.files) ? args.files.map(file => ({ file })) : [])
     ]
   }
 
