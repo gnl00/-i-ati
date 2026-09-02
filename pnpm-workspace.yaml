@@ -6,3 +6,5 @@ allowBuilds:
   esbuild: true
   protobufjs: true
   sharp: true
+patchedDependencies:
+  '@shadcn/react@0.3.0': patches/@shadcn__react@0.3.0.patch

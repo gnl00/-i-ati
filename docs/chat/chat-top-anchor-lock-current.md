@@ -1,61 +1,44 @@
-# Chat Top Anchor Lock Current Design
+# Chat 顶部锚定当前设计
 
 ## 目标行为
 
-- 用户发送消息后，该 user message 第一行对齐聊天视口顶部。
-- assistant 流式输出期间保持 user 锚点，内容向下生长。
-- 用户产生有效浏览意图后进入手动浏览；向上滚动时显示“跳回最新消息”。
-- 点击按钮后贴到最新消息底部，并恢复尾部跟随。
-- 切换会话与搜索跳转保留原有目标语义。
+- 用户发送消息后，user row 对齐顶部遮挡区域下方。
+- assistant 流式输出保留本轮阅读上下文，并在 live edge following 状态下持续追尾。
+- 用户滚动进入历史阅读状态，后续内容增长保持当前视口。
+- 跳回最新按钮贴到 transcript 末端并恢复 following。
+- 会话切换与搜索跳转保留各自目标语义。
 
-## 三态模型
+## MessageScroller 模型
 
-- `tail-follow`：初次进入、切换会话和点击跳回最新后的尾部跟随状态。
-- `anchor-lock`：`user-sent` 建立的本轮 user 顶部锚点。追加跟随关闭，assistant resize 只触发 spacer 收敛。
-- `manual`：用户显式滚动或搜索跳转后的浏览状态。手动滚到底部仍保持该状态，按钮承担显式恢复入口。
+每个 user item 设置 `scrollAnchor=true`。Provider 使用 `scrollPreviousItemPeek=24` 保留少量
+上一轮上下文，使用动态 `scrollMargin` 避开 ChatHeader 与计划栏。MessageScroller 内部 tail
+spacer 为短回复提供向下生长空间，ResizeObserver 在内容高度变化时重算布局。
 
-## 锚点与动态尾部填充
+Content 使用同一个动态遮挡值作为 `padding-block-start`，为滚动位置 0 的第一条消息保留
+实际空间。`scrollMargin` 继续负责锚点、搜索结果与显式定位时的顶部对齐。
 
-`user-sent` 优先通过 hint 的 `messageId` 定位 user message；hint 未携带 id 时回退到当前列表最后一条 user message。pending assistant 不参与锚点选择。
+Transcript 在创建 item 前只保留可渲染的 user 与 assistant 消息。独立 tool 记录继续作为
+模型上下文保存，不进入 flex 列表，也不会产生空 item 间距。
 
-首帧先把 `paddingEnd` 预填充到可用视口高度，确保 `align: 'start'` 拥有足够滚动空间。完成虚拟项测量后按下式收敛：
+Provider 以 `chatUuid` 作为 React key，不同会话拥有独立滚动状态。初次挂载使用
+`defaultScrollPosition="end"`；用户发送由新增 anchor 驱动；搜索与显式会话定位通过
+`scrollToMessage()` 执行。
 
-```text
-tailHeight = latestItem.end - anchorItem.start
-availableViewportHeight = viewportHeight - topOcclusionPx
-paddingEnd = max(basePaddingEnd, ceil(availableViewportHeight - tailHeight))
-```
+## 用户意图与恢复
 
-assistant 增长时 `tailHeight` 增加，spacer 单调收缩到基础值 `12px`。容器 resize、顶部计划栏高度变化和 virtual item 测量更新都会复用同一计算。
+Viewport 把 wheel、touch 与滚动键盘输入交给 provider。离开 live edge 后，
+`MessageScrollerButton` 根据 end 状态显示；按钮调用 `scrollToEnd()` 并恢复 following。
+按钮点击同时完成当前静态 assistant 的 typewriter 内容，延续已有快速展开语义。
 
-## 追加与 resize 策略
+## 内容可见性与搜索
 
-- `followOnAppend` 只在 `tail-follow` 开启。
-- render 阶段会结合当前会话的 scroll hint 同步推导有效模式，`user-sent` 首帧即关闭 `followOnAppend`，`search-result` 和 `conversation-switch` 同步进入各自模式。
-- virtualizer 的 `anchorTo` 随有效模式切换：`tail-follow` 使用 `end`，`anchor-lock` 与 `manual` 使用 `start`。
-- `tail-follow` 且位于末尾阈值时，item resize 继续保持底部锚定。
-- `anchor-lock` 与 `manual` 只补偿完全位于视口顶部之前的 item。
-- 初次 `scrollToIndex(..., { align: 'start' })` 完成后武装一次性校正。spacer 实测值稳定后，锚点 DOM 与预期顶部偏差超过 `1px` 时校正一次 `scrollTop`，随后消费校正 gate。
-- 后续 layout 与流式 resize 只更新 spacer，滚动位置交由 start anchor 和用户输入管理。
-
-## 退出与恢复
-
-wheel 和 pointer-active scroll 代表明确用户意图，即使处于程序滚动 suppression 窗口也会派发。wheel 事件会立即派发 generic 意图，供活跃跳回事务释放滚动控制；下一 RAF 仅在 `scrollTop` 真实上移超过 `1px` 时追加派发向上浏览意图并锁存按钮。顶端与短列表保持隐藏。pointer-active scroll 继续以实际 `scrollTop` 下降判定向上浏览。`anchor-lock` 收到浏览意图后进入 `manual`；`tail-follow` 位于末尾时，向下 wheel 或 pointer 意图继续保持追尾。`manual` 回到底部时按钮保持显示，作为显式恢复入口。普通 scroll 事件可能来自虚拟列表测量、spacer 更新或程序滚动，suppression 只过滤这类缺少用户输入来源的事件。
-
-退出锚定时保留当下 spacer 高度，避免缩短滚动范围造成视口跳动；`manual` 期间停止 spacer 自动收敛。点击跳回最新、新 user-sent 或切换会话时再重置或重建 spacer。
-
-“跳回最新消息”按钮由确认式事件锁存：wheel 向上需在 RAF 确认实际位移，pointer-active 向上直接依据实际位移，搜索跳转直接显示。点击按钮、切换会话、空列表和新的 user-sent 时隐藏。待确认 RAF 在卸载和会话切换时取消，用户意图事件与显式按钮操作完整管理模式转换。
-
-## 流式追尾保险链
-
-`anchor-lock` 下的 `handleLatestAssistantTyping()` 只请求锚点布局收敛。`tail-follow` 下保留 `scrollToEnd()` RAF 保险链，用于覆盖 segment 首帧与复杂 Markdown 测量时序。
-
-点击“跳回最新消息”时，ChatWindow 启动独占 scroll transaction。下一帧基于滚动容器的真实末端距离选择行为：`640px` 以内的静态距离使用固定 offset 的平滑滚动，长距离与流式输出使用 `auto`。事务期间关闭 virtualizer 追加追尾、末端 anchor 和 resize 补偿，typewriter 事件只标记内容变化。原始 offset 抵达后，内容变化或末端 offset 变化会执行一次 `auto` 校正，随后恢复尾部跟随保险链。wheel 与 pointer-active 输入会结束事务并进入既有手动浏览流程。
+历史 item 使用 `content-visibility:auto` 和 intrinsic size 降低长 transcript 的渲染成本。
+当前 user、当前 assistant、pending assistant 与显式搜索目标切换为 `content-visibility:visible`。
+搜索先调用 `scrollToMessage()`，下一帧再用目标元素的真实尺寸执行 `scrollIntoView()` 校正。
 
 ## 相关文件
 
 - `src/renderer/src/features/chat/shell/ChatWindow.tsx`
-- `src/renderer/src/features/chat/scroll-anchor.ts`
-- `src/renderer/src/features/chat/useScrollManagerTop.ts`
-- `src/renderer/src/features/chat/__tests__/chatScrollPolicy.test.ts`
-- `src/renderer/src/features/chat/__tests__/useScrollManagerTop.test.tsx`
+- `src/renderer/src/features/chat/shell/ChatTranscriptScroller.tsx`
+- `src/renderer/src/shared/components/ui/message-scroller.tsx`
+- `src/renderer/src/features/chat/shell/__tests__/ChatWindow.message-scroller.test.tsx`

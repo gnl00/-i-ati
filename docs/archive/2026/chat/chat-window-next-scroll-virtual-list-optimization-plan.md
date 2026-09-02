@@ -1,7 +1,7 @@
 # ChatWindow 滚动与虚拟列表优化方案
 
 Owner: Chat UI maintainers<br>
-Status: Active<br>
+Status: Superseded by MessageScroller integration<br>
 Started: 2026-07-11<br>
 Target: Complete real-stream validation for the remaining phase<br>
 Exit criteria: Phase-three stream scenarios pass and current architecture is synchronized<br>

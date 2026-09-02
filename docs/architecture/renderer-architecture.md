@@ -34,6 +34,16 @@ provider, MCP, skill, plugin, memory, and knowledge-base management. Artifacts,
 subagents, task planner, and workspace each own their renderer-side state and
 behavior.
 
+The chat feature composes `Message` rows inside the shared
+`MessageScroller` registry. `ChatTranscriptScroller` is the sole transcript
+scroll owner: it receives chat scroll hints, manages provider identity per
+conversation, and passes top-occlusion and anchor metadata to the scroller.
+Message row components own message content and operations while the shared UI
+wrappers own layout primitives and the self-managed jump button. Feature code
+keeps message identity stable across pending-to-committed assistant updates;
+historical rows can use the registry's content-visibility behavior while the
+active row and search target stay visible.
+
 Paused model questions are owned by `features/chat/toolUserQuestion/`, the
 colocated `toolUserQuestionStore`, and `UserQuestionCard` in the chat input
 surface. The hook hydrates Main-owned pending interactions and consumes their

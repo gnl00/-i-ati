@@ -1,49 +1,44 @@
-# Chat Top Mode Scroll Summary
+# Chat MessageScroller 滚动摘要
 
 ## 当前合同
 
-ChatWindow 使用 `tail-follow`、`anchor-lock`、`manual` 三态滚动模型。新 user 消息建立顶部锚点；assistant 流式内容向下生长；用户浏览历史时保持当前视口；点击“跳回最新消息”后贴底并恢复尾部跟随。
+Chat transcript 由 `ChatTranscriptScroller` 和 MessageScroller provider 维护。新 user
+消息通过 `scrollAnchor` 建立阅读起点；assistant 流式内容由 provider 追踪；用户浏览
+历史时保持当前视口；点击 `MessageScrollerButton` 后回到最新位置并恢复 following。
 
 ## 职责边界
 
-- `ChatWindow` 负责 scroll hint 策略、三态切换、动态 `paddingEnd`、一次性锚点校正、typewriter 完成和跳回最新事务。
-- `useScrollManagerTop` 负责 wheel/pointer 用户意图识别、程序滚动抑制、确认后的按钮事件锁存和当前帧的 index/offset 写入。
-- `scroll-anchor` 负责 user-sent 锚点解析、spacer 计算、首帧模式推导、末尾距离测量与跳回最新行为选择，便于 focused tests 覆盖边界条件。
-- 定制 TanStack Virtual fork 继续承担动态测量、末尾判断和 item resize 补偿。
+- `ChatTranscriptScroller` 负责 scroll hint 目标解析、provider 参数、稳定 row identity、顶部遮挡与搜索校正。
+- MessageScroller provider 负责 following、anchor、manual 浏览、prepend 保持、动态测量与 item resize 补偿。
+- `ChatWindow` 保留计划栏高度测量、welcome、side panel 与输入区布局。
 
 ## Scroll Hint 策略
 
-| Hint | 目标 | 对齐 | 模式 | 按钮 |
-| --- | --- | --- | --- | --- |
-| initial mount | 最后一项 | `end` | `tail-follow` | 隐藏 |
-| conversation-switch | hint index | hint align | `tail-follow` | 隐藏 |
-| user-sent | 精确 user message | `start` | `anchor-lock` | 隐藏 |
-| search-result | 精确 message | `start` | `manual` | 显示 |
+| Hint | 目标 | 对齐 | 实现 |
+| --- | --- | --- | --- |
+| initial mount | 最新消息 | `end` | provider `defaultScrollPosition="end"` |
+| conversation-switch | hint index | hint align | `scrollToMessage` |
+| user-sent | 精确 user message | `start` | user item `scrollAnchor` |
+| search-result | 精确 message | `start` | `scrollToMessage` + 下一帧布局校正 |
 
-四类 hint 通过 `runScrollHint()` 共用状态更新、hint 清理、意图抑制和 RAF 滚动骨架，各 effect 保留自己的目标解析条件。
+hint 在 `ChatTranscriptScroller` 内单次消费，provider 负责具体滚动与用户意图状态。
 
-## 虚拟列表参数
+## MessageScroller 参数
 
-- `paddingStart` 与 `scrollPaddingStart` 使用顶部遮挡高度。
-- `paddingEnd` 使用动态 spacer，基础值为 `12px`。
-- `followOnAppend` 只在 `tail-follow` 开启。
-- “跳回最新”事务存续期间暂时关闭 `followOnAppend`、末端 `anchorTo` 与 item size resize 补偿，滚动写入由该事务统一拥有。
-- `anchorTo` 在 `tail-follow` 使用 `end`，在 `anchor-lock` 与 `manual` 使用 `start`。
-- 有效模式在 render 阶段结合当前 scroll hint 同步推导，确保 virtualizer 当次 `setOptions()` 获得最新追加策略。
-- `anchor-lock` 的初始实测校正最多写入一次 `scrollTop`；后续 resize 只更新 spacer。
-- wheel 先即时派发 generic 用户意图，供活跃跳回事务交还滚动控制；下一 RAF 确认 `scrollTop` 上移超过 `1px` 后，再派发向上浏览意图并锁存按钮。顶端和短列表保持隐藏。
-- pointer-active 向上滚动继续以实际 `scrollTop` 下降为准；`manual` 返回底部时按钮保持显示，作为显式恢复 `tail-follow` 的入口。
-- overscan 当前为 `4`，真实长会话出现空白帧时回调到 `5` 或 `6`。
-- virtual item 使用稳定 message key，并通过 `measureElement` 回填真实高度。
+- provider 使用 `autoScroll`、`defaultScrollPosition="end"`、`scrollEdgeThreshold=80` 和 `scrollPreviousItemPeek=24`。
+- provider `scrollMargin` 使用计划栏/头部的实时遮挡高度，并以 chat UUID 隔离状态。
+- viewport 默认保持 prepend 前的阅读位置；item 使用稳定字符串 `messageId`。
+- 当前 user、当前 assistant、pending assistant 与搜索目标使用真实布局尺寸；历史 item 使用 `content-visibility`。
+- `MessageScrollerButton` 读取 provider 的 end 状态，管理自身可见性和跳回最新操作。
 
-## 跳回最新事务
+## 上游补丁
 
-点击按钮会恢复 `tail-follow`，然后在下一帧读取滚动容器的 `scrollTop`、`scrollHeight`、`clientHeight` 与 virtualizer 末端距离。距离阈值为 `640px`：短距离静态跳转使用固定 `scrollToOffset` 快照的 `smooth`，长距离与流式输出使用 `auto`。
-
-事务运行时，typewriter 事件只记录内容变化，`handleLatestAssistantTyping()` 暂停 RAF `scrollToEnd()` 保险链。原始目标抵达后，内容变化或末端目标变化会触发一次 `auto` 末端校正；随后恢复常规尾部跟随。wheel 与 pointer-active 输入会终止事务，并继续遵循既有 `manual` 浏览判定。
+`@shadcn/react@0.3.0` 的本地 pnpm patch 在首次内容挂载时登记已有 anchor，避免等量
+row 替换把历史 user item 识别为新增 anchor。补丁对应 shadcn/ui issue #11128，依赖升级
+时需重新检查并删除已经进入上游版本的修复。
 
 ## 验证
 
-自动化覆盖 user 锚点解析、pending assistant、spacer 收缩、三态 `anchorTo`、one-shot 校正与 viewport/overlay 变化，以及按钮确认式锁存、切会话和卸载清理、跳回最新的距离选择、流式 typing 并发和 suppression 期间的真实 wheel/pointer 输入。
-
-真实流式验收仍需覆盖纯文本、代码块、reasoning、tool result 与 segment 首帧。完成该验收后再评估 `tail-follow` typing RAF 保险链。
+聚焦测试覆盖 provider 参数、消息 identity、user anchor、pending-to-committed assistant key、
+搜索 hint 单次消费与无头像 Message 行。真实 Electron 验收继续覆盖流式增长、手动浏览、
+长历史搜索、嵌套滚动、Light/Dark Mode 与跨会话切换。

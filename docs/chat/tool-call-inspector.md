@@ -152,7 +152,7 @@ selection remain available when the panel opens again.
 - `src/renderer/src/features/artifacts/__tests__/ArtifactsPanel.test.tsx`
 - `src/renderer/src/features/chat/shell/__tests__/ChatHeader.test.tsx`
 - `src/renderer/src/features/chat/shell/__tests__/ChatSidePanelLayout.test.tsx`
-- `src/renderer/src/features/chat/shell/__tests__/ChatWindow.virtual-list.test.tsx`
+- `src/renderer/src/features/chat/shell/__tests__/ChatWindow.message-scroller.test.tsx`
 - `src/renderer/src/features/chat/state/__tests__/chatViewStore.test.ts`
 
 Manual acceptance covers open, close, rapid open-close-open reversal, pointer
