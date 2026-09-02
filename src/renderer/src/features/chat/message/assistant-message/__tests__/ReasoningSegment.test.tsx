@@ -89,49 +89,41 @@ describe('ReasoningSegment', () => {
     vi.useRealTimers()
   })
 
-  it('renders a collapsed inline Think disclosure for history', async () => {
+  it('renders a quiet collapsed Thought disclosure for history', async () => {
     await act(async () => root.render(<ReasoningSegment segment={createSegment()} />))
-    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Toggle think"]')
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Toggle Thought"]')
     const panel = container.querySelector('[data-testid="reasoning-inline-panel"]')
     const segment = container.querySelector('[data-testid="reasoning-segment"]')
-    const header = container.querySelector('[data-testid="support-segment-header"]')
     const icon = container.querySelector('[data-testid="reasoning-icon"]')
     const label = container.querySelector('[data-testid="reasoning-label"]')
     const description = container.querySelector('[data-testid="reasoning-description"]')
     const chevron = container.querySelector('[data-testid="reasoning-chevron"]')
 
-    expect(trigger?.textContent).toContain('Think')
+    expect(trigger?.textContent).toContain('Thought')
     expect(trigger?.getAttribute('aria-expanded')).toBe('false')
     expect(panel?.getAttribute('data-state')).toBe('collapsed')
     expect(panel?.hasAttribute('inert')).toBe(true)
-    expect(segment?.classList.contains('px-2')).toBe(false)
     expect(segment?.classList.contains('my-1.5')).toBe(true)
-    expect(segment?.classList.contains('w-[90%]')).toBe(true)
+    expect(segment?.classList.contains('w-full')).toBe(true)
     expect(segment?.classList.contains('max-w-full')).toBe(true)
-    expect(trigger?.classList.contains('bg-white/30')).toBe(true)
-    expect(trigger?.classList.contains('border')).toBe(true)
-    expect(trigger?.classList.contains('border-b')).toBe(false)
-    expect(trigger?.classList.contains('border-slate-200/35')).toBe(true)
-    expect(trigger?.classList.contains('rounded-[10px]')).toBe(true)
-    expect(trigger?.classList.contains('overflow-hidden')).toBe(true)
-    expect(trigger?.classList.contains('shadow-none')).toBe(true)
+    expect(trigger?.classList.contains('w-full')).toBe(true)
     expect(trigger?.classList.contains('px-2')).toBe(true)
-    expect(trigger?.classList.contains('hover:border-slate-200/60')).toBe(true)
-    expect(trigger?.classList.contains('hover:bg-slate-50/70')).toBe(true)
-    expect(trigger?.classList.contains('dark:bg-(--chat-surface)')).toBe(true)
-    expect(trigger?.classList.contains('duration-150')).toBe(true)
-    expect(header?.classList.contains('grid-cols-[auto_minmax(0,1fr)_auto_auto]')).toBe(true)
-    expect(icon?.querySelector('svg')?.classList.contains('lucide-lightbulb')).toBe(true)
-    expect(icon?.classList.contains('h-5')).toBe(true)
-    expect(icon?.classList.contains('rounded-md')).toBe(true)
-    expect(icon?.classList.contains('border-slate-200/60')).toBe(true)
-    expect(icon?.classList.contains('bg-slate-100/65')).toBe(true)
-    expect(icon?.querySelector('svg')?.classList.contains('text-slate-500')).toBe(true)
+    expect(panel?.firstElementChild?.firstElementChild?.classList.contains('px-2')).toBe(true)
+    expect(trigger?.className).not.toMatch(/(?:^|\s)(?:border|bg-)/)
+    expect(trigger?.className).not.toContain('hover:border')
+    expect(trigger?.className).not.toContain('hover:bg-')
+    expect(icon).toBeNull()
     expect(label?.classList.contains('font-semibold')).toBe(true)
-    expect(label?.classList.contains('uppercase')).toBe(true)
+    expect(label?.classList.contains('uppercase')).toBe(false)
     expect(description).toBeNull()
-    expect(chevron?.classList.contains('col-start-4')).toBe(true)
-    expect(container.querySelector('[data-testid="reasoning-hairline"]')).toBeNull()
+    expect(container.querySelector('[data-testid="reasoning-duration"]')).toBeNull()
+    expect(chevron?.classList.contains('ml-auto')).toBe(true)
+    const hairline = container.querySelector('[data-testid="reasoning-hairline"]')
+    expect(hairline?.classList.contains('w-full')).toBe(true)
+    expect(hairline?.classList.contains('border-b')).toBe(true)
+    const content = container.querySelector('[data-testid="reasoning-think-content"]')
+    expect(content?.classList.contains('border-l')).toBe(true)
+    expect(content?.classList.contains('pl-3')).toBe(true)
     const chevronIcon = chevron?.querySelector('svg')
     expect(chevronIcon?.classList.contains('h-3.5')).toBe(true)
     expect(chevronIcon?.classList.contains('w-3.5')).toBe(true)
@@ -144,24 +136,53 @@ describe('ReasoningSegment', () => {
     expect(trigger?.getAttribute('aria-expanded')).toBe('true')
     expect(panel?.getAttribute('data-state')).toBe('expanded')
     expect(panel?.hasAttribute('inert')).toBe(false)
-    expect(trigger?.classList.contains('border-slate-200/60')).toBe(true)
-    expect(trigger?.classList.contains('bg-slate-50/65')).toBe(true)
-    expect(trigger?.classList.contains('dark:bg-(--chat-surface-raised)')).toBe(true)
-    expect(icon?.classList.contains('scale-[1.03]')).toBe(true)
+    expect(trigger?.className).not.toMatch(/(?:^|\s)(?:border|bg-)/)
     expect(container.textContent).toContain('preserve details')
   })
 
-  it('opens while streaming and preserves a user collapse after streaming settles', async () => {
+  it('opens while streaming and forces the disclosure closed when streaming settles', async () => {
     const segment = createSegment({ timestamp: Date.now() })
     await act(async () => root.render(<ReasoningSegment segment={segment} isStreaming />))
-    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Toggle think"]')
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Toggle Thinking"]')
     expect(trigger?.getAttribute('aria-expanded')).toBe('true')
-    expect(container.querySelector('[data-testid="reasoning-description"]')?.textContent)
-      .toBe('Reasoning in progress')
+    expect(trigger?.getAttribute('aria-label')).toBe('Toggle Thinking')
+    expect(container.querySelector('[data-testid="reasoning-label"]')?.textContent).toBe('Thinking')
 
     await act(async () => trigger?.click())
+    expect(trigger?.getAttribute('aria-expanded')).toBe('false')
+    await act(async () => trigger?.click())
+    expect(trigger?.getAttribute('aria-expanded')).toBe('true')
     await act(async () => root.render(<ReasoningSegment segment={segment} isStreaming={false} />))
     expect(trigger?.getAttribute('aria-expanded')).toBe('false')
+    expect(trigger?.getAttribute('aria-label')).toBe('Toggle Thought')
+    expect(container.querySelector('[data-testid="reasoning-label"]')?.textContent).toBe('Thought')
+
+    await act(async () => trigger?.click())
+    expect(trigger?.getAttribute('aria-expanded')).toBe('true')
+    await act(async () => root.render(<ReasoningSegment segment={{ ...segment, content: 'Updated' }} />))
+    expect(trigger?.getAttribute('aria-expanded')).toBe('true')
+  })
+
+  it('forces a manually collapsed streaming disclosure closed when streaming settles', async () => {
+    const segment = createSegment({ timestamp: Date.now() })
+    await act(async () => root.render(<ReasoningSegment segment={segment} isStreaming />))
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Toggle Thinking"]')
+
+    await act(async () => trigger?.click())
+    expect(trigger?.getAttribute('aria-expanded')).toBe('false')
+    await act(async () => root.render(<ReasoningSegment segment={segment} isStreaming={false} />))
+    expect(trigger?.getAttribute('aria-expanded')).toBe('false')
+  })
+
+  it('synchronizes a completed disclosure when streaming starts', async () => {
+    const segment = createSegment()
+    await act(async () => root.render(<ReasoningSegment segment={segment} />))
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Toggle Thought"]')
+    expect(trigger?.getAttribute('aria-expanded')).toBe('false')
+
+    await act(async () => root.render(<ReasoningSegment segment={segment} isStreaming />))
+    expect(trigger?.getAttribute('aria-label')).toBe('Toggle Thinking')
+    expect(trigger?.getAttribute('aria-expanded')).toBe('true')
   })
 
   it('uses quiet lite Markdown for partial streaming content and full Markdown after completion', async () => {
@@ -186,7 +207,7 @@ describe('ReasoningSegment', () => {
     await runNextFrame(0)
     expect(container.querySelector('[data-testid="reasoning-streaming-markdown"]')?.textContent).toBe('甲')
 
-    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Toggle think"]')
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Toggle Thinking"]')
     await act(async () => trigger?.click())
     const synchronizedSegment = { ...segment, content: '甲乙丙' }
     await act(async () => root.render(<ReasoningSegment segment={synchronizedSegment} isStreaming />))
@@ -222,25 +243,24 @@ describe('ReasoningSegment', () => {
     const segment = createSegment({ endedAt: BASE_TIME.getTime() + 1250 })
     await act(async () => root.render(<ReasoningSegment segment={segment} />))
 
-    const header = container.querySelector('[data-testid="support-segment-header"]')
-    const childTestIds = Array.from(header?.children ?? []).map(
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Toggle Thought"]')
+    const childTestIds = Array.from(trigger?.children ?? []).map(
       child => child.getAttribute('data-testid')
     )
 
     expect(childTestIds).toEqual([
-      'reasoning-icon',
-      null,
+      'reasoning-label',
       'reasoning-duration',
       'reasoning-chevron'
     ])
-    expect(header?.querySelector('[data-testid="reasoning-label"]')?.textContent).toBe('Think')
-    expect(header?.querySelector('[data-testid="reasoning-description"]')).toBeNull()
-    expect(header?.querySelector('[data-testid="reasoning-duration"]')?.classList.contains('col-start-3'))
+    expect(trigger?.querySelector('[data-testid="reasoning-label"]')?.textContent).toBe('Thought')
+    expect(trigger?.querySelector('[data-testid="reasoning-duration"]')?.textContent).toBe('2s')
+    expect(trigger?.querySelector('[data-testid="reasoning-duration"]')?.classList.contains('ml-auto'))
       .toBe(true)
-    expect(header?.querySelector('[data-testid="reasoning-duration"]')
+    expect(trigger?.querySelector('[data-testid="reasoning-duration"]')
       ?.classList.contains('opacity-[0.45]')).toBe(false)
-    expect(header?.querySelector('[data-testid="reasoning-chevron"]')?.classList.contains('col-start-4'))
-      .toBe(true)
+    expect(trigger?.querySelector('[data-testid="reasoning-chevron"]')?.classList.contains('ml-auto'))
+      .toBe(false)
   })
 
   it('uses the full available width inside a completed-work disclosure', async () => {
@@ -253,7 +273,7 @@ describe('ReasoningSegment', () => {
     ))
 
     const segment = container.querySelector('[data-testid="reasoning-segment"]')
-    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Toggle think"]')
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Toggle Thought"]')
     const duration = container.querySelector('[data-testid="reasoning-duration"]')
     const chevron = container.querySelector('[data-testid="reasoning-chevron"] svg')
     expect(segment?.classList.contains('w-full')).toBe(true)

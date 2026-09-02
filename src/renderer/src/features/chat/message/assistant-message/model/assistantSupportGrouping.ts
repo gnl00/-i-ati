@@ -54,14 +54,55 @@ const toSupportGroupUnit = (items: SupportSegmentRenderItem[]): SupportLeafRende
   items
 })
 
+function mergeConsecutiveReasoningItems(
+  items: SupportSegmentRenderItem[]
+): SupportSegmentRenderItem[] {
+  const mergedItems: SupportSegmentRenderItem[] = []
+  let previousSourceItem: SupportSegmentRenderItem | undefined
+
+  items.forEach((item) => {
+    const previousMergedItem = mergedItems[mergedItems.length - 1]
+    if (
+      previousSourceItem?.segment.type !== 'reasoning'
+      || item.segment.type !== 'reasoning'
+      || previousSourceItem.layer !== item.layer
+      || previousSourceItem.order + 1 !== item.order
+      || previousMergedItem?.segment.type !== 'reasoning'
+    ) {
+      mergedItems.push(item)
+      previousSourceItem = item
+      return
+    }
+
+    const isStreamingTail = previousMergedItem.isStreamingTail || item.isStreamingTail
+    mergedItems[mergedItems.length - 1] = {
+      ...previousMergedItem,
+      isStreamingTail,
+      segment: {
+        ...previousMergedItem.segment,
+        content: [previousMergedItem.segment.content, item.segment.content]
+          .filter(Boolean)
+          .join('\n\n'),
+        endedAt: isStreamingTail
+          ? undefined
+          : item.segment.endedAt ?? previousMergedItem.segment.endedAt
+      }
+    }
+    previousSourceItem = item
+  })
+
+  return mergedItems
+}
+
 function buildLeafSupportRenderUnits(
   items: SupportSegmentRenderItem[]
 ): SupportLeafRenderUnit[] {
+  const displayItems = mergeConsecutiveReasoningItems(items)
   const units: SupportLeafRenderUnit[] = []
   let index = 0
 
-  while (index < items.length) {
-    const first = items[index]
+  while (index < displayItems.length) {
+    const first = displayItems[index]
 
     if (!isGroupableSupportItem(first)) {
       units.push(toSingleUnit(first))
@@ -72,8 +113,11 @@ function buildLeafSupportRenderUnits(
     const groupItems = [first]
     let cursor = index + 1
 
-    while (cursor < items.length && canJoinSupportGroup(groupItems[groupItems.length - 1], items[cursor])) {
-      groupItems.push(items[cursor])
+    while (
+      cursor < displayItems.length
+      && canJoinSupportGroup(groupItems[groupItems.length - 1], displayItems[cursor])
+    ) {
+      groupItems.push(displayItems[cursor])
       cursor += 1
     }
 

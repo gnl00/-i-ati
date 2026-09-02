@@ -204,6 +204,17 @@ describe('mapAssistantMessage', () => {
       { id: 'preview-reasoning-1', isStreamingTail: false },
       { id: 'preview-reasoning-2', isStreamingTail: true }
     ])
+    expect(renderState.transcript.supportUnits).toHaveLength(1)
+    expect(renderState.transcript.supportUnits[0]).toMatchObject({
+      type: 'single',
+      item: {
+        isStreamingTail: true,
+        segment: {
+          segmentId: 'preview-reasoning-1',
+          content: 'one\n\ntwo'
+        }
+      }
+    })
   })
 
   it('groups consecutive tool calls into one support render unit', () => {
@@ -353,15 +364,15 @@ describe('mapAssistantMessage', () => {
     ))).toEqual(['tool-1', 'reasoning-1', 'tool-2'])
   })
 
-  it('keeps consecutive think segments as independent disclosures', () => {
+  it('merges consecutive think segments into the first disclosure as new paragraphs', () => {
     const renderState = mapAssistantMessage({
       committedMessage: {
         role: 'assistant',
         content: '',
         segments: [
-          reasoningSegment('reasoning-1', 'one'),
-          reasoningSegment('reasoning-2', 'two'),
-          reasoningSegment('reasoning-3', 'three')
+          { ...reasoningSegment('reasoning-1', 'one', 1), endedAt: 2 },
+          { ...reasoningSegment('reasoning-2', 'two', 3), endedAt: 4 },
+          { ...reasoningSegment('reasoning-3', 'three', 5), endedAt: 6 }
         ]
       }
     }, {
@@ -371,14 +382,21 @@ describe('mapAssistantMessage', () => {
       accounts: []
     })
 
-    expect(renderState.transcript.supportUnits.map(unit => unit.type)).toEqual([
-      'single',
-      'single',
-      'single'
-    ])
-    expect(renderState.transcript.supportUnits.map(unit => (
-      unit.type === 'single' ? unit.item.segment.segmentId : 'group'
-    ))).toEqual(['reasoning-1', 'reasoning-2', 'reasoning-3'])
+    expect(renderState.transcript.supportItems).toHaveLength(3)
+    expect(renderState.transcript.supportUnits).toHaveLength(1)
+    expect(renderState.transcript.supportUnits[0]).toMatchObject({
+      type: 'single',
+      item: {
+        key: 'committed-reasoning-1-0',
+        isStreamingTail: false,
+        segment: {
+          segmentId: 'reasoning-1',
+          content: 'one\n\ntwo\n\nthree',
+          timestamp: 1,
+          endedAt: 6
+        }
+      }
+    })
   })
 
   it('keeps the answer boundary as a tool-list boundary below the disclosure threshold', () => {
@@ -536,7 +554,7 @@ describe('mapAssistantMessage', () => {
     expect(completedWork.type === 'completedWork'
       ? completedWork.units.map(unit => unit.type)
       : []
-    ).toEqual(['single', 'toolGroup', 'single', 'single'])
+    ).toEqual(['single', 'toolGroup', 'single'])
     expect(renderState.transcript.supportUnits[1]).toMatchObject({
       type: 'toolGroup',
       order: 5
@@ -611,7 +629,7 @@ describe('mapAssistantMessage', () => {
     ])
   })
 
-  it('keeps windows with one to three support segments in their existing presentation', () => {
+  it('keeps singleton support top-level and groups larger completed windows', () => {
     const project = (segments: MessageSegment[]): SupportRenderUnit[] => (
       mapAssistantMessage({
         committedMessage: {
@@ -637,7 +655,7 @@ describe('mapAssistantMessage', () => {
       reasoningSegment('reasoning-1', 'one'),
       toolCallSegment({ id: 'tool-1', name: 'read', toolCallId: 'tool-1' }),
       reasoningSegment('reasoning-2', 'two')
-    ]).map(unit => unit.type)).toEqual(['single', 'toolGroup', 'single'])
+    ]).map(unit => unit.type)).toEqual(['completedWork'])
   })
 
   it('keeps trailing support after the last visible text top-level and live', () => {
@@ -700,7 +718,7 @@ describe('mapAssistantMessage', () => {
     expect(completedWork.type === 'completedWork'
       ? completedWork.units.map(unit => unit.type)
       : []
-    ).toEqual(['single', 'single', 'toolGroup', 'single'])
+    ).toEqual(['single', 'toolGroup', 'single'])
   })
 
   it('applies error visibility per content window', () => {
@@ -730,7 +748,6 @@ describe('mapAssistantMessage', () => {
     })
 
     expect(renderState.transcript.supportUnits.map(unit => unit.type)).toEqual([
-      'single',
       'single',
       'single',
       'toolGroup',
@@ -954,10 +971,10 @@ describe('mapAssistantMessage', () => {
     expect(completedWork.type === 'completedWork'
       ? completedWork.units.map(unit => unit.type)
       : []
-    ).toEqual(['single', 'single', 'single', 'toolGroup'])
+    ).toEqual(['single', 'toolGroup'])
     expect(completedWork.type === 'completedWork'
-      && completedWork.units[3]?.type === 'toolGroup'
-      ? completedWork.units[3].items[0].segment
+      && completedWork.units[1]?.type === 'toolGroup'
+      ? completedWork.units[1].items[0].segment
       : undefined
     ).toMatchObject({
       type: 'toolCall',
