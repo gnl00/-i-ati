@@ -47,24 +47,6 @@ export const fileOperationsTools = [
   {
     type: 'function',
     function: {
-      name: 'read_media',
-      description: 'Read a media file (image, video, audio, etc.) and return its content as a base64 encoded string with MIME type information.',
-      parameters: {
-        type: 'object',
-        properties: {
-          file_path: {
-            type: 'string',
-            description: 'Workspace-relative path to the media file to read.'
-          }
-        },
-        required: ['file_path'],
-        $schema: 'http://json-schema.org/draft-07/schema#'
-      }
-    }
-  },
-  {
-    type: 'function',
-    function: {
       name: 'write',
       description: 'Write content to a file on the local filesystem. Can create parent directories and back up existing files.',
       parameters: {

@@ -12,7 +12,7 @@ describe('tool definitions', () => {
     const toolNames = (tools as ToolDefinition[]).map(tool => tool.function.name)
 
     expect(new Set(toolNames).size).toBe(toolNames.length)
-    expect(toolNames).toHaveLength(64)
+    expect(toolNames).toHaveLength(63)
   })
 
   it('exposes one flat wiki definition with a required action enum', () => {
@@ -199,5 +199,12 @@ describe('tool definitions', () => {
     expect(tool?.function.parameters.required).toContain('prompt')
     expect(tool?.function.parameters.required).not.toContain('images')
     expect(tool?.function.parameters.additionalProperties).toBe(false)
+  })
+
+  it('keeps media inspection on the vision tool contract', () => {
+    const names = (tools as ToolDefinition[]).map(tool => tool.function.name)
+
+    expect(names).not.toContain('read_media')
+    expect(names).toContain('vision_analyze')
   })
 })

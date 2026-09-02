@@ -44,7 +44,6 @@ export const FILE_SEARCH_ACTION = 'file-search-action'
 
 // New File Operations Actions
 export const FILE_READ_TEXT_ACTION = 'file-read-text-action'
-export const FILE_READ_MEDIA_ACTION = 'file-read-media-action'
 export const FILE_READ_MULTIPLE_ACTION = 'file-read-multiple-action'
 export const FILE_LIST_DIR_ACTION = 'file-list-dir-action'
 export const FILE_LIST_DIR_SIZES_ACTION = 'file-list-dir-sizes-action'

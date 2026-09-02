@@ -1,7 +1,6 @@
 import { readFile, writeFile, mkdir, copyFile, readdir, stat, lstat, rename } from 'fs/promises'
 import { dirname, join, basename, isAbsolute, relative, resolve } from 'path'
 import { existsSync, lstatSync, accessSync, constants } from 'fs'
-import { lookup } from 'mime-types'
 import { createLogger } from '@main/logging/LogService'
 import {
   isPathWithin,
@@ -18,10 +17,6 @@ import type {
   ReadTextFileResponse,
   ReadArgs,
   ReadResponse,
-  ReadMediaFileArgs,
-  ReadMediaFileResponse,
-  ReadMediaArgs,
-  ReadMediaResponse,
   ReadMultipleFilesArgs,
   ReadMultipleFilesResponse,
   FileContent,
@@ -413,47 +408,6 @@ export async function processReadTextFile(
 
 export async function processRead(args: ReadArgs): Promise<ReadResponse> {
   return processReadTextFile(args, 'embedded')
-}
-
-/**
- * Read Media File Processor
- * 读取二进制文件并返回 Base64 编码
- */
-export async function processReadMediaFile(
-  args: ReadMediaFileArgs,
-  contract: FileToolPathContract = 'legacy-ipc'
-): Promise<ReadMediaFileResponse> {
-  try {
-    const { file_path, chat_uuid } = args
-    const resolvedPath = resolveFilePath(file_path, chat_uuid, 'existing', contract)
-    const absolutePath = resolvedPath.absolutePath
-    logger.info('read_media_file.start', { filePath: file_path, absolutePath })
-
-    if (!existsSync(absolutePath)) {
-      return { success: false, error: `File not found: ${file_path}` }
-    }
-
-    const buffer = await readFile(absolutePath)
-    const base64Content = buffer.toString('base64')
-    const mimeType = lookup(absolutePath) || 'application/octet-stream'
-    const size = buffer.length
-
-    logger.info('read_media_file.success', { filePath: file_path, size, mimeType })
-    return {
-      success: true,
-      file_path: displayResolvedPath(resolvedPath, file_path, contract),
-      content: base64Content,
-      mime_type: mimeType,
-      size
-    }
-  } catch (error: any) {
-    logger.error('read_media_file.failed', error)
-    return { success: false, error: error.message || 'Failed to read media file' }
-  }
-}
-
-export async function processReadMedia(args: ReadMediaArgs): Promise<ReadMediaResponse> {
-  return processReadMediaFile(args, 'embedded')
 }
 
 /**

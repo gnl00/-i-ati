@@ -7,7 +7,6 @@ import {
 import { embeddedToolMetadata } from '@tools/metadata'
 import {
   processRead,
-  processReadMedia,
   processWrite,
   processEdit,
   processGrep,
@@ -91,7 +90,6 @@ export const toolHandlers: Record<
   web_search: processWebSearch,
   web_fetch: processWebFetch,
   read: processRead,
-  read_media: processReadMedia,
   write: processWrite,
   edit: processEdit,
   grep: processGrep,

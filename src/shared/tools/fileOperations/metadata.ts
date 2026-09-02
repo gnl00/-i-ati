@@ -7,12 +7,6 @@ export const fileOperationsToolMetadata = {
     mutatesWorkspace: false,
     subagent: 'allow'
   },
-  read_media: {
-    capability: 'filesystem_read',
-    riskLevel: 'none',
-    mutatesWorkspace: false,
-    subagent: 'deny'
-  },
   write: {
     capability: 'filesystem_write',
     riskLevel: 'none',

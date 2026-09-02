@@ -1,6 +1,5 @@
 import {
   FILE_READ_TEXT_ACTION,
-  FILE_READ_MEDIA_ACTION,
   FILE_READ_MULTIPLE_ACTION,
   FILE_WRITE_ACTION,
   FILE_EDIT_ACTION,
@@ -18,8 +17,6 @@ import { getRendererToolRuntimeContext } from '@renderer/infrastructure/tools/ru
 import type {
   ReadTextFileArgs,
   ReadTextFileResponse,
-  ReadMediaFileArgs,
-  ReadMediaFileResponse,
   ReadMultipleFilesArgs,
   ReadMultipleFilesResponse,
   WriteFileArgs,
@@ -79,23 +76,6 @@ export async function invokeReadTextFile(args: ReadTextFileArgs): Promise<ReadTe
     return response
   } catch (error: any) {
     console.error('[ReadTextFileInvoker] Error:', error)
-    return { success: false, error: error.message || 'Unknown error occurred' }
-  }
-}
-
-/**
- * Read Media File Invoker
- */
-export async function invokeReadMediaFile(args: ReadMediaFileArgs): Promise<ReadMediaFileResponse> {
-  const argsWithChat = withChatUuid(args)
-  console.log('[ReadMediaFileInvoker] Reading media file:', argsWithChat.file_path)
-  try {
-    const ipc = getElectronIPC()
-    const response: ReadMediaFileResponse = await ipc.invoke(FILE_READ_MEDIA_ACTION, argsWithChat)
-    console.log('[ReadMediaFileInvoker] Response:', response.success ? 'success' : 'failed')
-    return response
-  } catch (error: any) {
-    console.error('[ReadMediaFileInvoker] Error:', error)
     return { success: false, error: error.message || 'Unknown error occurred' }
   }
 }

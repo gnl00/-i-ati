@@ -30,21 +30,6 @@ export interface ReadTextFileResponse {
   error?: string
 }
 
-// ============ Read Media File ============
-export interface ReadMediaFileArgs {
-  file_path: string
-  chat_uuid?: string
-}
-
-export interface ReadMediaFileResponse {
-  success: boolean
-  file_path?: string
-  content?: string  // Base64 encoded
-  mime_type?: string
-  size?: number
-  error?: string
-}
-
 // ============ Read Multiple Files ============
 export interface ReadMultipleFilesArgs {
   file_paths: string[]
@@ -319,9 +304,6 @@ export interface MoveFileResponse {
 // ============ Claude-style Aliases ============
 export interface ReadArgs extends ReadTextFileArgs {}
 export interface ReadResponse extends ReadTextFileResponse {}
-
-export interface ReadMediaArgs extends ReadMediaFileArgs {}
-export interface ReadMediaResponse extends ReadMediaFileResponse {}
 
 export interface WriteArgs extends WriteFileArgs {}
 export interface WriteResponse extends WriteFileResponse {}

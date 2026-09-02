@@ -4,7 +4,6 @@ import { mcpRuntimeService } from '@main/services/mcpRuntime'
 import { processWebSearch, processWebFetch } from '@main/tools/webTools/WebToolsProcessor'
 import {
   processReadTextFile,
-  processReadMediaFile,
   processReadMultipleFiles,
   processWriteFile,
   processEditFile,
@@ -35,7 +34,6 @@ import {
   WEB_SEARCH_ACTION,
   WEB_FETCH_ACTION,
   FILE_READ_TEXT_ACTION,
-  FILE_READ_MEDIA_ACTION,
   FILE_READ_MULTIPLE_ACTION,
   FILE_WRITE_ACTION,
   FILE_EDIT_ACTION,
@@ -96,10 +94,6 @@ export function registerToolHandlers(): void {
   ipcMain.handle(FILE_READ_TEXT_ACTION, (_event, args) => {
     logger.info('file_read_text.invoke', { filePath: args.file_path })
     return processReadTextFile(args)
-  })
-  ipcMain.handle(FILE_READ_MEDIA_ACTION, (_event, args) => {
-    logger.info('file_read_media.invoke', { filePath: args.file_path })
-    return processReadMediaFile(args)
   })
   ipcMain.handle(FILE_READ_MULTIPLE_ACTION, (_event, args) => {
     logger.info('file_read_multiple.invoke', { count: args.file_paths.length })
