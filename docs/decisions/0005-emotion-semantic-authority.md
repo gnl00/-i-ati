@@ -1,7 +1,8 @@
 # ADR-0005: Emotion semantic authority
 
-- Status: Accepted
+- Status: Superseded
 - Date: 2026-07-17
+- Superseded by: [ADR-0017](0017-emotion-stimulus-scoring.md)
 
 ## Context
 

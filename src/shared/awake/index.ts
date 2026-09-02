@@ -1,3 +1,5 @@
+import type { EmotionStimulus, EmotionVector } from '@shared/emotion/emotionVector'
+
 export type AwakeMemorySource = 'pinned_preferences' | 'relevant_memories'
 
 export type AwakeMemoryItem = {
@@ -62,20 +64,18 @@ export type AwakeSnapshot = {
       label: string
       intensity: number
       source: 'awake_carryover'
+      vector: EmotionVector
     }
-    background?: {
+    current: {
       label: string
       intensity: number
+      vector: EmotionVector
     }
-    accumulated: Array<{
-      label: string
-      intensity: number
-      decay: number
-      updated_at: number
-    }>
     recent_history: Array<{
       label: string
       intensity: number
+      vector: EmotionVector
+      stimulus: EmotionStimulus
       timestamp: number
       source: string
     }>

@@ -1,13 +1,19 @@
 import type { EmotionStateRow } from '@main/db/dao/EmotionStateDao'
 import {
-  clampEmotionIntensity,
+  EMOTION_BASELINE_VECTOR,
+  normalizeEmotionStimulus,
+  projectEmotionVector,
+  vectorFromEmotionPresentation,
+  ZERO_EMOTION_STIMULUS,
+  type EmotionVector
+} from '@shared/emotion/emotionVector'
+import {
   normalizeEmotionLabel
 } from '@shared/emotion/emotionAssetCatalog'
 
-const EMOTION_STATE_SCHEMA_VERSION = 1
+export const EMOTION_STATE_SCHEMA_VERSION = 2
+const LEGACY_EMOTION_STATE_SCHEMA_VERSION = 1
 const DEFAULT_INTENSITY = 5
-const DEFAULT_BACKGROUND_DRIFT_FACTOR = 0.1
-const DEFAULT_ACCUMULATED_DECAY = 0.95
 const HISTORY_LIMIT = 10
 
 type EmotionStateRowOverrides = Partial<Pick<EmotionStateRow, 'created_at' | 'updated_at'>>
@@ -17,7 +23,7 @@ type PersistedEmotionState = {
   state: EmotionStateSnapshot
 }
 
-export type EmotionStateParseStatus = 'current' | 'recovered'
+export type EmotionStateParseStatus = 'current' | 'migrated' | 'recovered'
 
 export type EmotionStateParseResult = {
   state: EmotionStateSnapshot
@@ -52,29 +58,36 @@ export const parseEmotionStateRow = (row: EmotionStateRow): EmotionStateParseRes
   }
 
   const envelope = asRecord(parsed)
-  const isCurrentEnvelope = envelope?.schemaVersion === EMOTION_STATE_SCHEMA_VERSION
-  if (!isCurrentEnvelope) {
+  if (envelope?.schemaVersion === EMOTION_STATE_SCHEMA_VERSION) {
+    const issues: string[] = []
+    const state = normalizeV2State(envelope.state, row.updated_at, issues)
     return {
-      state: createNeutralState(row.updated_at),
-      status: 'recovered',
-      issues: ['unsupported_schema']
+      state,
+      status: issues.length > 0 ? 'recovered' : 'current',
+      issues
     }
   }
 
-  const issues: string[] = []
-  const state = normalizeState(envelope.state, row.updated_at, issues)
+  if (envelope?.schemaVersion === LEGACY_EMOTION_STATE_SCHEMA_VERSION) {
+    const issues = ['migrated_v1']
+    return {
+      state: migrateV1State(envelope.state, row.updated_at, issues),
+      status: 'migrated',
+      issues
+    }
+  }
 
   return {
-    state,
-    status: issues.length > 0 ? 'recovered' : 'current',
-    issues
+    state: createNeutralState(row.updated_at),
+    status: 'recovered',
+    issues: ['unsupported_schema']
   }
 }
 
 export const toEmotionStateEntity = (row: EmotionStateRow): EmotionStateSnapshot =>
   parseEmotionStateRow(row).state
 
-const normalizeState = (
+const normalizeV2State = (
   value: unknown,
   fallbackUpdatedAt: number,
   issues: string[]
@@ -85,122 +98,67 @@ const normalizeState = (
     return createNeutralState(fallbackUpdatedAt)
   }
 
-  const current = normalizeCurrent(state.current, fallbackUpdatedAt, issues)
-  const background = normalizeBackground(state.background, current, fallbackUpdatedAt, issues)
-  const accumulated = normalizeAccumulated(state.accumulated, fallbackUpdatedAt, issues)
-  const history = normalizeHistory(state.history, fallbackUpdatedAt, issues)
+  const baseline = normalizeBaseline(state.baseline, issues)
+  const current = normalizeCurrentV2(state.current, fallbackUpdatedAt, issues)
+  const history = normalizeHistoryV2(state.history, fallbackUpdatedAt, issues)
 
-  return { current, background, accumulated, history }
+  return { current, baseline, history }
 }
 
-const normalizeCurrent = (
+const normalizeBaseline = (
+  value: unknown,
+  issues: string[]
+): EmotionVector => {
+  const entry = normalizeVector(value)
+  if (!entry) {
+    issues.push('baseline')
+    return { ...EMOTION_BASELINE_VECTOR }
+  }
+
+  if (
+    entry.valence !== EMOTION_BASELINE_VECTOR.valence
+    || entry.arousal !== EMOTION_BASELINE_VECTOR.arousal
+    || entry.dominance !== EMOTION_BASELINE_VECTOR.dominance
+  ) {
+    issues.push('baseline.value')
+    return { ...EMOTION_BASELINE_VECTOR }
+  }
+
+  return entry
+}
+
+const normalizeCurrentV2 = (
   value: unknown,
   fallbackUpdatedAt: number,
   issues: string[]
 ): EmotionStateEntry => {
   const entry = asRecord(value)
-  const label = normalizeEmotionLabel(asString(entry?.label))
-  if (!label) issues.push('current.label')
-  if (
-    !isFiniteNumber(entry?.intensity)
-    || entry.intensity < 1
-    || entry.intensity > 10
-  ) issues.push('current.intensity')
+  const vector = normalizeVector(entry?.vector)
+  const fallbackLabel = normalizeEmotionLabel(asString(entry?.label)) || 'neutral'
+  const fallbackIntensity = normalizeIntensity(entry?.intensity)
+
+  if (!vector) {
+    issues.push('current.vector')
+  }
+
+  const resolvedVector = vector || vectorFromEmotionPresentation(fallbackLabel, fallbackIntensity)
+  const projection = projectEmotionVector(resolvedVector)
+  if (entry?.label !== projection.label) {
+    issues.push('current.label')
+  }
+  if (normalizeIntensity(entry?.intensity) !== projection.intensity) {
+    issues.push('current.intensity')
+  }
 
   return {
-    label: label || 'neutral',
-    intensity: clampEmotionIntensity(
-      isFiniteNumber(entry?.intensity) ? entry.intensity : DEFAULT_INTENSITY
-    ),
+    vector: resolvedVector,
+    label: projection.label,
+    intensity: projection.intensity,
     updatedAt: finiteTimestamp(entry?.updatedAt, fallbackUpdatedAt)
   }
 }
 
-const normalizeBackground = (
-  value: unknown,
-  current: EmotionStateEntry,
-  fallbackUpdatedAt: number,
-  issues: string[]
-): EmotionStateSnapshot['background'] => {
-  const entry = asRecord(value)
-  const label = normalizeEmotionLabel(asString(entry?.label))
-  if (!label) issues.push('background.label')
-  if (
-    !isFiniteNumber(entry?.intensity)
-    || entry.intensity < 3
-    || entry.intensity > 7
-  ) issues.push('background.intensity')
-  if (!isFiniteNumber(entry?.driftFactor) || entry.driftFactor <= 0) {
-    issues.push('background.driftFactor')
-  }
-
-  const intensity = isFiniteNumber(entry?.intensity)
-    ? entry.intensity
-    : current.intensity
-
-  return {
-    label: label || current.label,
-    intensity: Math.max(3, Math.min(7, intensity)),
-    driftFactor: isFiniteNumber(entry?.driftFactor) && entry.driftFactor > 0
-      ? entry.driftFactor
-      : DEFAULT_BACKGROUND_DRIFT_FACTOR,
-    updatedAt: finiteTimestamp(entry?.updatedAt, fallbackUpdatedAt)
-  }
-}
-
-const normalizeAccumulated = (
-  value: unknown,
-  fallbackUpdatedAt: number,
-  issues: string[]
-): EmotionAccumulatedEntry[] => {
-  if (value == null) {
-    issues.push('accumulated')
-    return []
-  }
-  if (!Array.isArray(value)) {
-    issues.push('accumulated')
-    return []
-  }
-
-  const normalized = value.flatMap((candidate, index) => {
-    const entry = asRecord(candidate)
-    const label = normalizeEmotionLabel(asString(entry?.label))
-    const intensity = entry?.intensity
-    const decay = entry?.decay
-
-    if (!label || !isFiniteNumber(intensity)) {
-      issues.push(`accumulated[${index}]`)
-      return []
-    }
-    if (intensity < 0.25 || intensity > 5) {
-      issues.push(`accumulated[${index}].intensity`)
-    }
-    if (!isFiniteNumber(decay) || decay < 0.9 || decay > 0.99) {
-      issues.push(`accumulated[${index}].decay`)
-    }
-
-    return [{
-      label,
-      intensity: Math.max(0.25, Math.min(5, intensity)),
-      decay: isFiniteNumber(decay)
-        ? Math.max(0.9, Math.min(0.99, decay))
-        : DEFAULT_ACCUMULATED_DECAY,
-      updatedAt: finiteTimestamp(entry?.updatedAt, fallbackUpdatedAt)
-    }]
-  })
-
-  const strongestByLabel = new Map<string, EmotionAccumulatedEntry>()
-  for (const entry of normalized) {
-    const previous = strongestByLabel.get(entry.label)
-    if (!previous || entry.intensity > previous.intensity) {
-      strongestByLabel.set(entry.label, entry)
-    }
-  }
-
-  return Array.from(strongestByLabel.values()).slice(0, 5)
-}
-
-const normalizeHistory = (
+const normalizeHistoryV2 = (
   value: unknown,
   fallbackUpdatedAt: number,
   issues: string[]
@@ -216,43 +174,158 @@ const normalizeHistory = (
 
   return value.flatMap((candidate, index) => {
     const entry = asRecord(candidate)
-    const label = normalizeEmotionLabel(asString(entry?.label))
+    const label = normalizeEmotionLabel(asString(entry?.label)) || 'neutral'
+    const intensity = normalizeIntensity(entry?.intensity)
+    const vector = normalizeVector(entry?.vector) || vectorFromEmotionPresentation(label, intensity)
+    const stimulus = normalizeEmotionStimulus(entry?.stimulus) || { ...ZERO_EMOTION_STIMULUS }
     const source = normalizeSource(entry?.source)
-    if (!label || !isFiniteNumber(entry?.intensity) || !source) {
-      issues.push(`history[${index}]`)
-      return []
+
+    if (!normalizeVector(entry?.vector)) {
+      issues.push(`history[${index}].vector`)
     }
-    if (entry.intensity < 1 || entry.intensity > 10) {
-      issues.push(`history[${index}].intensity`)
+    if (!normalizeEmotionStimulus(entry?.stimulus)) {
+      issues.push(`history[${index}].stimulus`)
+    }
+    if (!source) {
+      issues.push(`history[${index}].source`)
     }
 
+    const projection = projectEmotionVector(vector)
     return [{
-      label,
-      intensity: clampEmotionIntensity(entry.intensity),
-      timestamp: finiteTimestamp(entry.timestamp, fallbackUpdatedAt),
-      source
+      vector,
+      stimulus,
+      label: projection.label,
+      intensity: projection.intensity,
+      timestamp: finiteTimestamp(entry?.timestamp, fallbackUpdatedAt),
+      source: source || 'computed'
     }]
   }).slice(-HISTORY_LIMIT)
 }
 
-const createNeutralState = (updatedAt: number): EmotionStateSnapshot => ({
-  current: {
-    label: 'neutral',
-    intensity: DEFAULT_INTENSITY,
-    updatedAt
-  },
-  background: {
-    label: 'neutral',
-    intensity: DEFAULT_INTENSITY,
-    driftFactor: DEFAULT_BACKGROUND_DRIFT_FACTOR,
-    updatedAt
-  },
-  accumulated: [],
-  history: []
-})
+const migrateV1State = (
+  value: unknown,
+  fallbackUpdatedAt: number,
+  issues: string[]
+): EmotionStateSnapshot => {
+  const state = asRecord(value)
+  if (!state) {
+    issues.push('state_not_object')
+    return createNeutralState(fallbackUpdatedAt)
+  }
+
+  const legacyCurrent = asRecord(state.current)
+  const label = normalizeEmotionLabel(asString(legacyCurrent?.label)) || 'neutral'
+  const intensity = normalizeIntensity(legacyCurrent?.intensity)
+  if (!normalizeEmotionLabel(asString(legacyCurrent?.label))) {
+    issues.push('v1.current.label')
+  }
+  if (!isValidIntensity(legacyCurrent?.intensity)) {
+    issues.push('v1.current.intensity')
+  }
+
+  const currentVector = vectorFromEmotionPresentation(label, intensity)
+  const currentProjection = projectEmotionVector(currentVector)
+  const currentUpdatedAt = finiteTimestamp(legacyCurrent?.updatedAt, fallbackUpdatedAt)
+  const current: EmotionStateEntry = {
+    vector: currentVector,
+    label: currentProjection.label,
+    intensity: currentProjection.intensity,
+    updatedAt: currentUpdatedAt
+  }
+
+  const history = normalizeLegacyHistory(state.history, fallbackUpdatedAt, issues)
+  history.push({
+    vector: currentVector,
+    stimulus: { ...ZERO_EMOTION_STIMULUS },
+    label: current.label,
+    intensity: current.intensity,
+    timestamp: currentUpdatedAt,
+    source: 'computed'
+  })
+
+  return {
+    current,
+    baseline: { ...EMOTION_BASELINE_VECTOR },
+    history: history.slice(-HISTORY_LIMIT)
+  }
+}
+
+const normalizeLegacyHistory = (
+  value: unknown,
+  fallbackUpdatedAt: number,
+  issues: string[]
+): EmotionStateHistoryEntry[] => {
+  if (!Array.isArray(value)) {
+    if (value != null) issues.push('v1.history')
+    return []
+  }
+
+  return value.flatMap((candidate, index) => {
+    const entry = asRecord(candidate)
+    const label = normalizeEmotionLabel(asString(entry?.label))
+    if (!label) {
+      issues.push(`v1.history[${index}].label`)
+      return []
+    }
+    const intensity = normalizeIntensity(entry?.intensity)
+    if (!isValidIntensity(entry?.intensity)) {
+      issues.push(`v1.history[${index}].intensity`)
+    }
+    const vector = vectorFromEmotionPresentation(label, intensity)
+    const projection = projectEmotionVector(vector)
+    return [{
+      vector,
+      stimulus: { ...ZERO_EMOTION_STIMULUS },
+      label: projection.label,
+      intensity: projection.intensity,
+      timestamp: finiteTimestamp(entry?.timestamp, fallbackUpdatedAt),
+      source: normalizeSource(entry?.source) || 'computed'
+    }]
+  }).slice(-HISTORY_LIMIT)
+}
+
+const createNeutralState = (updatedAt: number): EmotionStateSnapshot => {
+  const vector = { ...EMOTION_BASELINE_VECTOR }
+  const projection = projectEmotionVector(vector)
+  return {
+    current: {
+      vector,
+      label: projection.label,
+      intensity: projection.intensity,
+      updatedAt
+    },
+    baseline: { ...EMOTION_BASELINE_VECTOR },
+    history: []
+  }
+}
+
+const normalizeIntensity = (value: unknown): number => (
+  isValidIntensity(value) ? Math.round(value) : DEFAULT_INTENSITY
+)
+
+const isValidIntensity = (value: unknown): value is number => (
+  isFiniteNumber(value) && value >= 1 && value <= 10
+)
 
 const normalizeSource = (value: unknown): ChatEmotionState['source'] | undefined =>
   value === 'tool' || value === 'computed' ? value : undefined
+
+const normalizeVector = (value: unknown): EmotionVector | undefined => {
+  const entry = asRecord(value)
+  if (
+    !isFiniteNumber(entry?.valence) || entry.valence < 0 || entry.valence > 10
+    || !isFiniteNumber(entry?.arousal) || entry.arousal < 0 || entry.arousal > 10
+    || !isFiniteNumber(entry?.dominance) || entry.dominance < 0 || entry.dominance > 10
+  ) {
+    return undefined
+  }
+
+  return {
+    valence: entry.valence,
+    arousal: entry.arousal,
+    dominance: entry.dominance
+  }
+}
 
 const asRecord = (value: unknown): Record<string, unknown> | undefined =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -267,5 +340,3 @@ const isFiniteNumber = (value: unknown): value is number =>
 
 const finiteTimestamp = (value: unknown, fallback: number): number =>
   isFiniteNumber(value) && value >= 0 ? value : fallback
-
-export { EMOTION_STATE_SCHEMA_VERSION }

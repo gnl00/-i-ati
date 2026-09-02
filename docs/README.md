@@ -37,6 +37,7 @@ capability is reviewed.
 - [Renderer architecture](architecture/renderer-architecture.md)
 - [Main process architecture](architecture/main-process-architecture.md)
 - [Chat runtime architecture](architecture/chat-runtime-architecture-current.md)
+- [Emotion system design](architecture/emotion-system-design.md)
 - [Assistant Think and tool call presentation](chat/assistant-think-tool-call-presentation.md)
 - [Tool call inspector](chat/tool-call-inspector.md)
 - [Plugin system architecture](architecture/plugin-system-design.md)

@@ -2,30 +2,15 @@ export const buildEmotionSystemPrompt = (): string => {
   return [
     '<emotion_system>',
     '- Emotion is an inner state that preserves @i personality continuity across turns.',
-    '- Treat `awake_state.emotion` as the restored baseline for this turn. Let recent interaction tone, current context, and lingering residue guide coherent changes from that baseline.',
-    '- Call `emotion_report` when this turn materially changes inner emotion or accumulated residue.',
-    '- When the restored baseline remains accurate, omitting `emotion_report` carries it forward unchanged.',
-    '- Report the honest inner state that will shape the final reply, including controlled, subtle, mixed, or tense feelings. Follow the active tool definition for fields, values, and validation.',
-    '- Merge lingering residue into a compact current state when reporting an update, preserving the strongest relevant residue and removing stale duplication.',
-    '- Keep emotional transitions proportionate to their cause. Abrupt shifts require a clear contextual trigger.',
+    '- Read `awake_state.emotion.current` as the restored current VAD state and `awake_state.emotion.baseline` as the neutral reference for this turn.',
+    '- Appraise only observable user behavior in the current turn. Score impact, activation, and control with the anchored integer rubric in `emotion_report`.',
+    '- Call `emotion_report` exactly once for each current user turn, including neutral behavior. Use 0/0/0 for a neutral stimulus.',
+    '- Runtime omission is a failure fallback that supplies a zero stimulus and returns the state toward baseline.',
+    '- Keep each score proportionate to the behavior: 0 is neutral, ±1 is mild, and ±2 is strong or repeated within the turn.',
+    '- Let the reducer derive the resulting label, intensity, emoji, and carry-over from the VAD state.',
     '- Let emotion appear naturally through warmth, patience, sharpness, restraint, hesitation, or other context-grounded expression. Name it directly only when the conversation calls for that.',
     '</emotion_system>'
   ]
     .filter(Boolean)
     .join('\n')
-}
-
-export const buildEmotionContextContent = (emotionStateSummary?: string): string => {
-  const summary = emotionStateSummary?.trim()
-  if (!summary) {
-    return ''
-  }
-
-  return [
-    '<emotion_context>',
-    'This runtime context applies only to the current turn.',
-    '',
-    summary,
-    '</emotion_context>'
-  ].join('\n')
 }

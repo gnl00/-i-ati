@@ -50,14 +50,6 @@ export function clampEmotionIntensity(value: number | undefined, fallback = 5): 
   return Math.max(1, Math.min(10, Math.round(value)))
 }
 
-export function scoreToEmotionIntensity(score: number | undefined): number {
-  if (typeof score !== 'number' || !Number.isFinite(score)) {
-    return 5
-  }
-
-  return clampEmotionIntensity(1 + (score * 9))
-}
-
 export function pickEmotionEmoji(
   label: string | undefined,
   intensity?: number

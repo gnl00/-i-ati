@@ -18,7 +18,13 @@ export class EmotionStateRepository {
   getEmotionState(): EmotionStateSnapshot | undefined {
     const repo = this.requireRepo()
     const row = repo.get()
-    return row ? this.materialize(row) : undefined
+    if (!row) {
+      return undefined
+    }
+
+    const parsed = this.parse(row)
+    this.persistMigration(repo, row, parsed)
+    return parsed.state
   }
 
   upsertEmotionState(state: EmotionStateSnapshot): void {
@@ -41,7 +47,11 @@ export class EmotionStateRepository {
     const repo = this.requireRepo()
     return repo.transaction(() => {
       const existing = repo.get()
-      const previous = existing ? this.materialize(existing) : undefined
+      const parsed = existing ? this.parse(existing) : undefined
+      if (existing && parsed) {
+        this.persistMigration(repo, existing, parsed)
+      }
+      const previous = parsed?.state
       const result = transition(previous)
 
       if (result.changed) {
@@ -61,7 +71,7 @@ export class EmotionStateRepository {
     repo.delete()
   }
 
-  private materialize(row: import('@main/db/dao/EmotionStateDao').EmotionStateRow): EmotionStateSnapshot {
+  private parse(row: import('@main/db/dao/EmotionStateDao').EmotionStateRow) {
     const parsed = parseEmotionStateRow(row)
     if (parsed.status !== 'current') {
       this.logger.warn('emotion_state.normalized', {
@@ -70,7 +80,22 @@ export class EmotionStateRepository {
         issues: parsed.issues
       })
     }
-    return parsed.state
+    return parsed
+  }
+
+  private persistMigration(
+    repo: EmotionStateDao,
+    row: import('@main/db/dao/EmotionStateDao').EmotionStateRow,
+    parsed: ReturnType<typeof parseEmotionStateRow>
+  ): void {
+    if (parsed.status !== 'migrated') {
+      return
+    }
+
+    repo.upsert(toEmotionStateRow(parsed.state, row.updated_at, {
+      created_at: row.created_at,
+      updated_at: row.updated_at
+    }))
   }
 
   private requireRepo(): EmotionStateDao {

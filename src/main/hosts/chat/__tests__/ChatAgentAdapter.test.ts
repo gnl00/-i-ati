@@ -158,7 +158,9 @@ describe('ChatAgentAdapter', () => {
         content: 'hello',
         emotion: {
           label: 'happiness',
-          emoji: '😊'
+          emoji: '😊',
+          intensity: 5,
+          source: 'computed'
         },
         typewriterCompleted: true
       }

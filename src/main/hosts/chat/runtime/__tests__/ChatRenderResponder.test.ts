@@ -1419,7 +1419,7 @@ describe('ChatRenderResponder', () => {
           type: 'function',
           function: {
             name: 'emotion_report',
-            arguments: '{}'
+            arguments: '{"impact":1,"activation":0,"control":0}'
           },
           index: 0
         }],
@@ -1439,9 +1439,7 @@ describe('ChatRenderResponder', () => {
         toolName: 'emotion_report',
         content: {
           success: true,
-          label: 'joy',
-          emoji: '🙂',
-          intensity: 7
+          stimulus: { impact: 1, activation: 0, control: 0 }
         }
       }
     })
@@ -1464,12 +1462,7 @@ describe('ChatRenderResponder', () => {
     expect(adapter.getFinalAssistantMessage().body.content).toBe(
       '让我先看看这颗新脑袋。\n\n新脑袋新气象，等着你验货 🫡'
     )
-    expect(adapter.getFinalAssistantMessage().body.emotion).toMatchObject({
-      label: 'joy',
-      emoji: '🙂',
-      intensity: 7,
-      source: 'tool'
-    })
+    expect(adapter.getFinalAssistantMessage().body.emotion).toBeUndefined()
     expect(adapter.getFinalAssistantMessage().body.segments).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

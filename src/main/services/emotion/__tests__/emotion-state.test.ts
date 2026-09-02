@@ -1,89 +1,70 @@
 import { describe, expect, it } from 'vitest'
 import {
-  extractEmotionFromToolSegments,
+  EMOTION_BASELINE_VECTOR,
+  projectEmotionVector,
+  type EmotionStimulus,
+  type EmotionVector
+} from '@shared/emotion/emotionVector'
+import {
   extractEmotionToolStateFromSegments,
   transitionEmotionState
 } from '../emotion-state'
 
 const createState = (
-  currentLabel = 'neutral',
-  currentIntensity = 5,
-  history: EmotionStateHistoryEntry[] = [],
-  accumulated: EmotionAccumulatedEntry[] = []
-): EmotionStateSnapshot => ({
-  current: { label: currentLabel, intensity: currentIntensity, updatedAt: 100 },
-  background: { label: 'neutral', intensity: 5, driftFactor: 0.1, updatedAt: 100 },
-  accumulated,
-  history
-})
+  vector: EmotionVector = EMOTION_BASELINE_VECTOR,
+  history: EmotionStateHistoryEntry[] = []
+): EmotionStateSnapshot => {
+  const projection = projectEmotionVector(vector)
+  return {
+    current: {
+      vector: { ...vector },
+      label: projection.label,
+      intensity: projection.intensity,
+      updatedAt: 100
+    },
+    baseline: { ...EMOTION_BASELINE_VECTOR },
+    history
+  }
+}
 
-const report = (
-  label: string,
-  intensity: number,
-  accumulated?: EmotionAccumulatedEntry[]
-) => ({
-  emotion: {
-    label,
-    emoji: '🙂',
-    intensity,
-    source: 'tool' as const
-  },
-  ...(accumulated ? { accumulated } : {})
-})
+const report = (stimulus: EmotionStimulus) => ({ stimulus })
+
+const toolMessage = (stimulus: EmotionStimulus, success = true) => ({
+  role: 'assistant',
+  segments: [{
+    type: 'toolCall',
+    name: 'emotion_report',
+    content: {
+      toolName: 'emotion_report',
+      result: { success, stimulus }
+    }
+  }]
+}) as unknown as ChatMessage
 
 describe('emotion-state helpers', () => {
-  it('extracts emotion and accumulated residue from a successful tool segment', () => {
-    const message = {
-      role: 'assistant',
-      segments: [{
-        type: 'toolCall',
-        name: 'emotion_report',
-        content: {
-          toolName: 'emotion_report',
-          result: {
-            success: true,
-            label: 'fear',
-            stateText: 'uneasy',
-            intensity: 7,
-            reason: 'Slow progress',
-            accumulated: [{
-              label: 'fear',
-              intensity: 3,
-              decay: 0.95
-            }]
-          }
-        }
-      }]
-    } as unknown as ChatMessage
+  it('extracts a normalized stimulus for reducer-owned state calculation', () => {
+    const stimulus = { impact: -1, activation: 1, control: 0 }
 
-    expect(extractEmotionFromToolSegments(message)).toMatchObject({
-      label: 'fear',
-      stateText: 'uneasy',
-      intensity: 7,
-      reason: 'Slow progress',
-      source: 'tool'
-    })
-    expect(extractEmotionToolStateFromSegments(message)?.accumulated).toMatchObject([{
-      label: 'fear',
-      intensity: 3,
-      decay: 0.95
-    }])
+    expect(extractEmotionToolStateFromSegments(toolMessage(stimulus))).toEqual({ stimulus })
   })
 
-  it('ignores failed emotion_report tool segments', () => {
-    const message = {
+  it('ignores failed and malformed emotion_report segments', () => {
+    expect(extractEmotionToolStateFromSegments(toolMessage({
+      impact: 1,
+      activation: 0,
+      control: 0
+    }, false))).toBeUndefined()
+    expect(extractEmotionToolStateFromSegments({
       role: 'assistant',
       segments: [{
         type: 'toolCall',
         name: 'emotion_report',
         content: {
           toolName: 'emotion_report',
-          result: { success: false, label: 'fear' }
+          result: { success: true, stimulus: { impact: 3, activation: 0, control: 0 } }
         }
       }]
-    } as unknown as ChatMessage
-
-    expect(extractEmotionFromToolSegments(message)).toBeUndefined()
+    } as unknown as ChatMessage)).toBeUndefined()
   })
 
   it('creates a neutral computed baseline on the first turn without a report', () => {
@@ -97,186 +78,157 @@ describe('emotion-state helpers', () => {
       source: 'computed'
     })
     expect(result.state.current).toEqual({
+      vector: { valence: 5, arousal: 3, dominance: 5 },
       label: 'neutral',
       intensity: 5,
       updatedAt: 200
     })
+    expect(result.state.baseline).toEqual(EMOTION_BASELINE_VECTOR)
     expect(result.state.history).toEqual([])
     expect(result.diagnostics).toEqual({
       mode: 'initialized',
-      resolved: { label: 'neutral', intensity: 5 },
-      intensityBounded: false,
-      backgroundAction: 'initialized',
-      accumulatedAction: 'empty',
-      evictedCount: 0
+      resolved: {
+        label: 'neutral',
+        intensity: 5,
+        vector: { valence: 5, arousal: 3, dominance: 5 }
+      },
+      historyAction: 'initialized'
     })
   })
 
-  it('carries previous current forward without adding history when the tool is omitted', () => {
-    const previous = createState('happiness', 7, [{
-      label: 'happiness',
-      intensity: 7,
-      timestamp: 100,
-      source: 'tool'
-    }])
+  it('returns an omitted turn toward the fixed baseline', () => {
+    const previous = createState({ valence: 1, arousal: 7, dominance: 8 })
+    const result = transitionEmotionState({ previous, now: 200 })
+
+    expect(result.diagnostics.mode).toBe('decayed')
+    expect(result.state.current.vector).toMatchObject({
+      valence: expect.closeTo(1.8),
+      arousal: 5,
+      dominance: 7.1
+    })
+    expect(result.state.current.vector.valence).toBeGreaterThan(previous.current.vector.valence)
+    expect(result.state.current.vector.arousal).toBeLessThan(previous.current.vector.arousal)
+    expect(result.state.history.at(-1)).toMatchObject({
+      source: 'computed',
+      stimulus: { impact: 0, activation: 0, control: 0 }
+    })
+  })
+
+  it('keeps an already neutral omitted turn unchanged', () => {
+    const previous = createState()
     const result = transitionEmotionState({ previous, now: 200 })
 
     expect(result.changed).toBe(false)
     expect(result.state).toEqual(previous)
-    expect(result.presentation).toMatchObject({
-      label: 'happiness',
-      intensity: 7,
-      source: 'computed'
-    })
-    expect(result.diagnostics.mode).toBe('carried_forward')
-    expect(result.diagnostics.backgroundAction).toBe('held')
-  })
-
-  it.each([
-    [9, 7],
-    [1, 3]
-  ])('bounds reported intensity %s to %s from a previous intensity of 5', (reported, expected) => {
-    const result = transitionEmotionState({
-      previous: createState(),
-      reported: report('surprise', reported),
-      now: 200
-    })
-
-    expect(result.state.current.intensity).toBe(expected)
-    expect(result.presentation.intensity).toBe(expected)
-    expect(result.diagnostics.intensityBounded).toBe(true)
-  })
-
-  it('promotes a new background label after three consecutive successful reports', () => {
-    const history: EmotionStateHistoryEntry[] = [
-      { label: 'happiness', intensity: 6, timestamp: 110, source: 'tool' },
-      { label: 'happiness', intensity: 6, timestamp: 120, source: 'tool' }
-    ]
-    const result = transitionEmotionState({
-      previous: createState('happiness', 6, history),
-      reported: report('happiness', 6),
-      now: 200
-    })
-
-    expect(result.state.background).toEqual({
-      label: 'happiness',
-      intensity: 5.1,
-      driftFactor: 0.1,
-      updatedAt: 200
-    })
-    expect(result.diagnostics.backgroundAction).toBe('promoted')
-  })
-
-  it('keeps background stable when promotion evidence oscillates', () => {
-    const history: EmotionStateHistoryEntry[] = [
-      { label: 'fear', intensity: 6, timestamp: 110, source: 'tool' },
-      { label: 'happiness', intensity: 6, timestamp: 120, source: 'tool' }
-    ]
-    const result = transitionEmotionState({
-      previous: createState('happiness', 6, history),
-      reported: report('happiness', 6),
-      now: 200
-    })
-
-    expect(result.state.background).toEqual(createState().background)
-    expect(result.diagnostics.backgroundAction).toBe('held')
-  })
-
-  it('decays accumulated residue and evicts entries below the threshold', () => {
-    const previous = createState('neutral', 5, [], [{
-      label: 'fear',
-      intensity: 0.26,
-      decay: 0.9,
-      updatedAt: 100
-    }])
-    const result = transitionEmotionState({ previous, now: 200 })
-
-    expect(result.changed).toBe(true)
-    expect(result.state.accumulated).toEqual([])
     expect(result.diagnostics).toMatchObject({
-      accumulatedAction: 'evicted',
-      evictedCount: 1
+      mode: 'decayed',
+      historyAction: 'unchanged'
     })
   })
 
-  it('replaces accumulated residue when the tool supplies a rewrite', () => {
-    const rewritten: EmotionAccumulatedEntry[] = [{
-      label: 'happiness',
-      intensity: 3,
-      decay: 0.97,
-      updatedAt: 150
-    }]
+  it('accumulates repeated hostile behavior into a negative emotion', () => {
+    let state: EmotionStateSnapshot | undefined
+    const valences: number[] = []
+
+    for (let index = 0; index < 3; index += 1) {
+      const result = transitionEmotionState({
+        previous: state,
+        reported: report({ impact: -2, activation: 0, control: -1 }),
+        now: 200 + index
+      })
+      state = result.state
+      valences.push(result.state.current.vector.valence)
+    }
+
+    expect(valences).toEqual([3, 1.4, expect.closeTo(0.12)])
+    expect(state?.current.label).not.toBe('neutral')
+    expect(state?.current.intensity).toBeGreaterThan(5)
+    expect(state?.history).toHaveLength(3)
+    expect(state?.history.every(entry => entry.source === 'tool')).toBe(true)
+  })
+
+  it('raises arousal for a respectful urgent request while keeping valence positive', () => {
     const result = transitionEmotionState({
       previous: createState(),
-      reported: report('happiness', 6, rewritten),
+      reported: report({ impact: 1, activation: 2, control: 1 }),
       now: 200
     })
 
-    expect(result.state.accumulated).toEqual([{
-      ...rewritten[0],
-      updatedAt: 200
-    }])
-    expect(result.diagnostics.accumulatedAction).toBe('rewritten')
+    expect(result.state.current.vector).toEqual({
+      valence: 6,
+      arousal: 5,
+      dominance: 6
+    })
+    expect(result.state.current.vector.arousal).toBeGreaterThan(3)
+    expect(result.state.current.vector.valence).toBeGreaterThanOrEqual(5)
+    expect(['happiness', 'love', 'surprise', 'desire']).toContain(result.presentation.label)
+    expect(result.presentation.source).toBe('computed')
   })
 
   it.each([
     {
-      scenario: 'sustained stable discussion',
-      previous: createState('neutral', 5),
-      reported: report('neutral', 5),
-      expected: {
-        mode: 'reported',
-        resolved: { label: 'neutral', intensity: 5 },
-        intensityBounded: false,
-        backgroundAction: 'held'
-      }
+      scenario: 'plain hostility',
+      stimulus: { impact: -2, activation: 0, control: 0 },
+      expected: 'sadness'
     },
     {
-      scenario: 'consecutive recognition',
-      previous: createState('happiness', 6),
-      reported: report('happiness', 8),
-      expected: {
-        mode: 'reported',
-        resolved: { label: 'happiness', intensity: 8 },
-        intensityBounded: false,
-        backgroundAction: 'held'
-      }
+      scenario: 'activated hostility with control',
+      stimulus: { impact: -2, activation: 2, control: 2 },
+      expected: 'disgust'
     },
     {
-      scenario: 'single challenge',
-      previous: createState('happiness', 6),
-      reported: report('fear', 7),
-      expected: {
-        mode: 'reported',
-        resolved: { label: 'fear', intensity: 7 },
-        intensityBounded: false,
-        backgroundAction: 'held'
-      }
+      scenario: 'destabilizing ambiguity',
+      stimulus: { impact: 0, activation: 1, control: -2 },
+      expected: 'confusion'
     },
     {
-      scenario: 'rapid reversal',
-      previous: createState('happiness', 8),
-      reported: report('sadness', 2),
-      expected: {
-        mode: 'reported',
-        resolved: { label: 'sadness', intensity: 6 },
-        intensityBounded: true,
-        backgroundAction: 'held'
-      }
+      scenario: 'calm support',
+      stimulus: { impact: 2, activation: -1, control: 1 },
+      expected: 'love'
     }
-  ])('records privacy-safe diagnostics for $scenario', ({ previous, reported, expected }) => {
-    const result = transitionEmotionState({ previous, reported, now: 200 })
+  ])('projects $scenario into its expected semantic family', ({ stimulus, expected }) => {
+    const result = transitionEmotionState({
+      previous: createState(),
+      reported: report(stimulus),
+      now: 200
+    })
 
-    expect(result.diagnostics).toMatchObject(expected)
-    expect(result.diagnostics.previous).toEqual({
-      label: previous.current.label,
-      intensity: previous.current.intensity
+    expect(result.presentation.label).toBe(expected)
+  })
+
+  it('repairs a negative state gradually after apology and support', () => {
+    const hostile = transitionEmotionState({
+      previous: createState(),
+      reported: report({ impact: -2, activation: 1, control: -1 }),
+      now: 200
+    }).state
+    const moreHostile = transitionEmotionState({
+      previous: hostile,
+      reported: report({ impact: -2, activation: 1, control: -1 }),
+      now: 201
+    }).state
+    const repaired = transitionEmotionState({
+      previous: moreHostile,
+      reported: report({ impact: 2, activation: -1, control: 1 }),
+      now: 202
     })
-    expect(result.diagnostics.requested).toEqual({
-      label: reported.emotion.label,
-      intensity: reported.emotion.intensity
-    })
-    expect(result.diagnostics).not.toHaveProperty('accumulated')
-    expect(JSON.stringify(result.diagnostics)).not.toContain('description')
+
+    expect(repaired.state.current.vector.valence).toBeGreaterThan(moreHostile.current.vector.valence)
+    expect(repaired.state.current.vector.arousal).toBeLessThan(moreHostile.current.vector.arousal)
+    expect(repaired.state.current.vector.valence).toBeLessThanOrEqual(5)
+  })
+
+  it('bounds history to ten applied transitions', () => {
+    let state: EmotionStateSnapshot | undefined
+    for (let index = 0; index < 12; index += 1) {
+      state = transitionEmotionState({
+        previous: state,
+        reported: report({ impact: 0, activation: 0, control: 0 }),
+        now: 200 + index
+      }).state
+    }
+
+    expect(state?.history).toHaveLength(10)
+    expect(state?.history[0].timestamp).toBe(202)
   })
 })

@@ -95,7 +95,7 @@ The stable prefix follows the minimal-kernel decision:
 
 5. Keep runtime emotion in `awake_state`:
    - `emotion_system` remains a stable rule layer.
-   - `awake_state.emotion` carries the current baseline, background, accumulated residue, recent history, and compact summary.
+   - `awake_state.emotion` carries the fixed VAD baseline, current VAD projection, bounded stimulus history, and compact summary.
    - New requests should not generate a standalone `<emotion_context>` message.
 
 ## Non-goals

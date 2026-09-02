@@ -1,4 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  EMOTION_BASELINE_VECTOR,
+  projectEmotionVector
+} from '@shared/emotion/emotionVector'
 
 const {
   getWorkContextByChatUuidMock,
@@ -55,6 +59,8 @@ const chat = {
 } as unknown as ChatEntity
 
 const longCompressedSummary = `<summary>${'A'.repeat(420)} LONG_TAIL_MARKER</summary>`
+const currentVector = { valence: 6, arousal: 4, dominance: 5 }
+const currentProjection = projectEmotionVector(currentVector)
 
 describe('AwakeSnapshotService', () => {
   beforeEach(() => {
@@ -72,25 +78,17 @@ describe('AwakeSnapshotService', () => {
     })
     getEmotionStateMock.mockReturnValue({
       current: {
-        label: 'curiosity',
-        intensity: 6,
+        vector: currentVector,
+        label: currentProjection.label,
+        intensity: currentProjection.intensity,
         updatedAt: 111
       },
-      background: {
-        label: 'calm',
-        intensity: 5,
-        driftFactor: 0.1,
-        updatedAt: 100
-      },
-      accumulated: [{
-        label: 'concern',
-        intensity: 2,
-        decay: 0.95,
-        updatedAt: 110
-      }],
+      baseline: EMOTION_BASELINE_VECTOR,
       history: [{
-        label: 'curiosity',
-        intensity: 6,
+        vector: currentVector,
+        stimulus: { impact: 1, activation: 1, control: 0 },
+        label: currentProjection.label,
+        intensity: currentProjection.intensity,
         timestamp: 111,
         source: 'tool'
       }]
@@ -211,16 +209,22 @@ describe('AwakeSnapshotService', () => {
       truncated: false
     }))
     expect(snapshot.emotion.baseline).toEqual({
-      label: 'curiosity',
-      intensity: 6,
-      source: 'awake_carryover'
+      label: 'neutral',
+      intensity: 5,
+      source: 'awake_carryover',
+      vector: EMOTION_BASELINE_VECTOR
     })
-    expect(snapshot.emotion.summary).toContain('Current carry-over: curiosity (6)')
-    expect(snapshot.emotion.summary).toContain('Accumulated emotional residue')
+    expect(snapshot.emotion.current).toEqual({
+      label: currentProjection.label,
+      intensity: currentProjection.intensity,
+      vector: currentVector
+    })
+    expect(snapshot.emotion.summary).toContain(`Current emotion: ${currentProjection.label}`)
+    expect(snapshot.emotion.summary).toContain('Current VAD:')
     expect(snapshot.emotion.baseline).not.toHaveProperty('updated_at')
-    expect(snapshot.emotion.accumulated[0]).toMatchObject({
-      label: 'concern',
-      intensity: 2
+    expect(snapshot.emotion.recent_history[0]).toMatchObject({
+      label: currentProjection.label,
+      stimulus: { impact: 1, activation: 1, control: 0 }
     })
     const journalActivity = snapshot.recent_activities.find(item => item.source === 'activity_journal')
     const compressedActivity = snapshot.recent_activities.find(item => item.source === 'compressed_summary')
@@ -252,7 +256,7 @@ describe('AwakeSnapshotService', () => {
 
     expect(snapshot.memories).toEqual([])
     expect('diagnostics' in snapshot).toBe(false)
-    expect(snapshot.emotion.baseline.label).toBe('curiosity')
-    expect(snapshot.emotion.summary).toContain('Current carry-over: curiosity (6)')
+    expect(snapshot.emotion.current.label).toBe(currentProjection.label)
+    expect(snapshot.emotion.summary).toContain(`Current emotion: ${currentProjection.label}`)
   })
 })

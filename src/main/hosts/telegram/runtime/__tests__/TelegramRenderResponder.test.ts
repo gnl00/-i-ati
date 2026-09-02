@@ -454,9 +454,7 @@ describe('TelegramRenderResponder', () => {
           status: 'success',
           result: {
             success: true,
-            label: 'happiness',
-            emoji: '😄',
-            stateText: '心情不错'
+            stimulus: { impact: 1, activation: 0, control: 0 }
           }
         })
       ]
@@ -464,7 +462,7 @@ describe('TelegramRenderResponder', () => {
     await responder.handle(toolDetected({
       toolCallId: 'tool-1',
       toolName: 'emotion_report',
-      toolArgs: '{}'
+      toolArgs: '{"impact":1,"activation":0,"control":0}'
     }))
 
     expect(sendMessage).toHaveBeenCalledTimes(1)

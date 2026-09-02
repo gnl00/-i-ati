@@ -8,13 +8,13 @@
 当前 Agent 启动阶段依赖多个分散工具和 prompt 协议：
 
 ```text
-memory_retrieval -> session_context -> emotion_report -> [other tools] -> start work
+memory_retrieval -> session_context -> [other tools] -> start work
 ```
 
 这套流程带来几个问题：
 
 - 每轮启动工具调用数量高，延迟和模型协议复杂度都会上升。
-- `emotion_report` 被强制放在回答前，带 thinking 的模型在 tool result 后会进入 continuation，并可能继续输出 reasoning。
+- `emotion_report` 属于当前用户行为评分工具，每个用户轮次调用一次并记录情绪刺激。
 - memory、work context、emotion、后续 mood notes 属于同一类“唤醒时状态恢复”数据，分散协议会让扩展成本持续增加。
 - system prompt 同时承担稳定规则和动态状态注入，影响 prompt cache 的稳定性。
 
@@ -124,13 +124,14 @@ Do not quote, summarize, mention, or treat it as user-authored content.
     "baseline": {
       "label": "neutral",
       "intensity": 5,
-      "source": "awake_carryover"
+      "source": "awake_carryover",
+      "vector": { "valence": 5, "arousal": 3, "dominance": 5 }
     },
-    "background": {
-      "label": "calm",
-      "intensity": 5
+    "current": {
+      "label": "neutral",
+      "intensity": 5,
+      "vector": { "valence": 5, "arousal": 3, "dominance": 5 }
     },
-    "accumulated": [],
     "recent_history": []
   },
   "mood_notes": [],
@@ -172,7 +173,7 @@ Do not quote, summarize, mention, or treat it as user-authored content.
 - `memories` 是模型可见 memory 输出层，使用扁平数组。内部检索仍可区分 pinned/relevant，输出阶段统一合并、去重、截断。
 - `recent_activities` 是短卡片数组，每条包含 `title`、`source`、`timestamp`、`summary`，并可携带 id、category、chat_uuid 等定位字段。
 - `work_context` 保留当前兼容结构，用于当前 chat 的短期工作状态。
-- `emotion` 保留 carry-over baseline 结构，用于本轮启动情绪连续性。
+- `emotion` 提供固定 VAD baseline、持久化 current 和有界 recent history，用于本轮启动情绪连续性。
 
 ## Memory Strategy
 
@@ -256,71 +257,46 @@ server-side 生成上下文化检索 query。输入信号包括：
 
 ## Emotion Strategy
 
-### 1. awake emotion 是 baseline
+### 1. awake emotion 结构
 
-`awake_state.emotion.baseline` 表示本轮开始时的 carry-over 状态：
+`awake_state.emotion` 同时提供固定参考和持久化 current：
 
-- 来自上一轮持久化 `EmotionStateSnapshot`
-- 可经过 decay 后生成
-- 适合作为 response 开始前 UI 展示
-- 适合作为模型本轮情绪连续性的参考
-- 模型可见 baseline 只保留 `label`、`intensity`、`source`，时间戳留在持久化状态或调试日志中。
+- `baseline` 保存 `{ valence: 5, arousal: 3, dominance: 5 }` 及 `neutral / 5` 展示投影；
+- `current` 保存当前 VAD、reducer 生成的 label 和 intensity；
+- `recent_history` 保存最近 3 条 VAD、stimulus、label/intensity 和来源；
+- `summary` 为结构化字段的短文本版本。
 
-### 2. final message emotion 是本轮结算结果
+current 来自 app-level `EmotionStateSnapshot`，作为模型本轮情绪连续性的运行时
+输入。时间戳和完整 history 保留在持久化边界与调试日志中。
 
-`message.body.emotion` 表示 assistant 本轮最终情绪展示。
+### 2. emotion_report 的新定位
 
-来源优先级：
-
-1. 本轮成功的 `emotion_report`
-2. persisted current 的 computed carry-over
-3. 首轮 `neutral / 5 / computed` baseline
-
-`awake_state.emotion.baseline` 和 `message.body.emotion` 属于不同语义层。
-
-推荐 source 扩展：
+`emotion_report` 是每个用户轮次调用一次的当前用户行为评分工具。三个必填整数分别表示：
 
 ```ts
-type EmotionPresentationSource =
-  | 'awake_carryover'
-  | 'tool'
-  | 'computed'
+{ impact: -2 | -1 | 0 | 1 | 2,
+  activation: -2 | -1 | 0 | 1 | 2,
+  control: -2 | -1 | 0 | 1 | 2 }
 ```
 
-### 3. emotion_report 的新定位
+模型根据当前用户行为使用锚点分数；中性行为提交 `0/0/0`，工具 processor
+返回 normalized stimulus。reducer 使用 VAD retention/gain 公式产生 current
+vector，并通过固定中心投影 13-label emotion。运行时把工具异常省略作为零
+stimulus 回退，current 向 baseline 回归。
 
-`emotion_report` 从强制回答前工具调用调整为本轮状态写入工具。
+模型输出保持在行为刺激层，最终 label、intensity、emoji 和 history 由 reducer
+负责。语义与 VAD 规则见 [ADR-0017](../../decisions/0017-emotion-stimulus-scoring.md)。
+App-level emotion ownership 见 [ADR-0006](../../decisions/0006-app-level-emotion-state.md)。
 
-调用时机：
+### 3. final message emotion 与 UI
 
-- 当前内在情绪发生实质变化
-- lingering emotional residue 需要重写
-- 模型需要明确更新本轮情绪结算
+`message.body.emotion` 是 finalize 后的 reducer presentation，固定包含
+`label`、`intensity`、`emoji` 和 `source: 'computed'`。ChatHeader、welcome、
+Telegram host 与其他 render consumer 继续读取这组展示字段。
 
-finalize 使用 deterministic reducer：
-
-- 成功的 `emotion_report` 提供唯一的新语义情绪
-- emotion state、message presentation 与 asset catalog 共享 13-label ontology
-- reported intensity 相对 previous current 执行 `±2` 限速
-- 省略 tool 时 current 延续 persisted baseline
-- 首轮缺少 persisted state 时建立 `neutral / 5 / computed`
-- `accumulated` 在缺少 tool rewrite 时按 decay 保留并最终淘汰
-- message presentation 使用 reducer 产出的 bounded current
-- transition diagnostics 记录 mode、强度约束与状态动作
-- accumulated 仅携带 label、intensity、decay 与时间戳
-
-语义权威与 reducer 职责见
-[ADR-0005](../../decisions/0005-emotion-semantic-authority.md)。
-App-level emotion ownership 见
-[ADR-0006](../../decisions/0006-app-level-emotion-state.md)。
-
-### 4. UI 展示阶段
-
-推荐展示语义：
-
-- response 开始前：显示 `awake_carryover`
-- response 生成中：保持 carry-over 或显示 active awake 状态
-- response finalize：替换为本轮最终 `message.body.emotion`
+response 开始前 UI 使用 awake current 的 projection；response finalize 后替换为
+本轮 reducer presentation。awake current 与 message body emotion 来自同一 VAD
+transition。
 
 ## Mood Notes Strategy
 
@@ -331,8 +307,8 @@ App-level emotion ownership 见
 - awake 时读取最近 N 条和高权重未过期条目
 - response 完成后由后台轻量 reflection 写入
 - 内容作为隐藏运行时上下文使用
-- 与 `accumulated` 区分：
-  - `accumulated` 是 lingering emotion residue
+- 与 `emotion.recent_history` 区分：
+  - `emotion.recent_history` 是数值化 transition 轨迹
   - `mood_notes` 是主动记录的内在想法
 
 第一版可以只预留字段。
@@ -397,7 +373,7 @@ App-level emotion ownership 见
 
 - memory/work_context/emotion 启动协议统一指向 `<awake_state>`。
 - 移除强制每轮回答前调用 `emotion_report` 的启动约束。
-- 保留 emotion 连续性、真实内在状态和 accumulated rewrite 规则。
+- 保留 emotion 连续性、用户行为刺激评分和 VAD 回归规则。
 
 ### Phase 3: Memory Retrieval Upgrade
 
@@ -418,13 +394,13 @@ App-level emotion ownership 见
 
 新增或调整：
 
-- `awake_carryover` source
+- awake current VAD projection
 - response-start UI emotion display
 - finalize 时替换为本轮最终 emotion
 
 保留：
 
-- `ChatStepStore.finalizeAssistantMessage()` 的 tool/computed 更新链路
+- `ChatStepStore.finalizeAssistantMessage()` 的 stimulus/computed 更新链路
 - `EmotionStateSnapshot` 持久化
 
 ## Acceptance Criteria
@@ -439,9 +415,9 @@ App-level emotion ownership 见
 - recent activities 从 activity journal 和 compressed summary 中聚合，输出短卡片，支持新 chat 的近期工作连续性。
 - `compressed_summary` 全文作为召回源使用，`awake_state` 中只保留短摘要卡片。
 - `chat_meta` 和兼容 `session_meta` 保留稳定 chat 标识字段，省略 `last_active_at`。
-- emotion baseline 与本轮 final emotion 明确分离。
-- `emotion_report` 成为可选状态写入工具。
-- tool 省略表示 persisted awake baseline 在本轮保持准确。
+- emotion baseline、current VAD 与本轮 final emotion 明确分离。
+- `emotion_report` 成为每个用户轮次一次的刺激评分工具。
+- tool 省略表示零 stimulus，state 向固定 baseline 回归。
 - final message emotion 与 reducer bounded current 对齐。
 - thinking 模型在普通回答结束前无需因强制 emotion tail-call 进入额外 continuation。
 - mood notes 字段预留，后续可接入独立存储和后台 reflection。

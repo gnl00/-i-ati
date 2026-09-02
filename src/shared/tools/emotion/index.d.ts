@@ -1,24 +1,13 @@
-export type EmotionAccumulatedArg = {
-  label?: string
-  intensity?: number
-  decay?: number
-}
+import type { EmotionStimulus } from '@shared/emotion/emotionVector'
 
 export type EmotionReportArgs = {
-  label?: string
-  stateText?: string
-  intensity?: number
-  reason?: string
-  accumulated?: EmotionAccumulatedArg[]
+  impact?: number
+  activation?: number
+  control?: number
 }
 
 export type EmotionReportResponse = {
   success: boolean
-  label?: string
-  stateText?: string
-  emoji?: string
-  intensity: number
-  reason?: string
-  accumulated?: EmotionAccumulatedArg[]
+  stimulus?: EmotionStimulus
   message: string
 }

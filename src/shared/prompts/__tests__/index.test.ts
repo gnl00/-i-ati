@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildCompressionPrompt,
-  buildEmotionContextContent,
   buildEmotionSystemPrompt,
   buildSkillsSystemPrompt,
   buildUserInfoSystemPrompt,
@@ -69,14 +68,11 @@ describe('shared prompts systemPrompt', () => {
 
   it('keeps emotion policy static and current emotion in runtime context', () => {
     const policy = buildEmotionSystemPrompt()
-    const context = buildEmotionContextContent('label: focused')
 
     expect(policy).toContain('<emotion_system>')
     expect(policy).toContain('Emotion is an inner state')
-    expect(policy).not.toContain('label: focused')
-    expect(context).toContain('<emotion_context>')
-    expect(context).toContain('This runtime context applies only to the current turn.')
-    expect(context).toContain('label: focused')
+    expect(policy).toContain('`awake_state.emotion.current`')
+    expect(policy).not.toContain('<emotion_context>')
   })
 
   it('keeps state ownership, write semantics, and conflict priority explicit', () => {

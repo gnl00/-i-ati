@@ -1,20 +1,29 @@
 import { describe, expect, it, vi } from 'vitest'
+import {
+  EMOTION_BASELINE_VECTOR,
+  projectEmotionVector
+} from '@shared/emotion/emotionVector'
 import { EmotionStateRepository } from '../EmotionStateRepository'
 
 vi.mock('@main/logging/LogService', () => ({
   createLogger: () => ({ warn: vi.fn() })
 }))
 
+const projection = projectEmotionVector(EMOTION_BASELINE_VECTOR)
 const emotionState: EmotionStateSnapshot = {
-  current: { label: 'neutral', intensity: 5, updatedAt: 10 },
-  background: { label: 'neutral', intensity: 5, driftFactor: 0.1, updatedAt: 10 },
-  accumulated: [],
+  current: {
+    vector: { ...EMOTION_BASELINE_VECTOR },
+    label: projection.label,
+    intensity: projection.intensity,
+    updatedAt: 10
+  },
+  baseline: { ...EMOTION_BASELINE_VECTOR },
   history: []
 }
 
 const persistedRow = {
   scope: 'app' as const,
-  state_json: JSON.stringify({ schemaVersion: 1, state: emotionState }),
+  state_json: JSON.stringify({ schemaVersion: 2, state: emotionState }),
   created_at: 100,
   updated_at: 200
 }
@@ -40,7 +49,33 @@ describe('EmotionStateRepository', () => {
     expect(repo.get).toHaveBeenCalledOnce()
   })
 
-  it('preserves created_at during upsert', () => {
+  it('rewrites a version 1 singleton row as version 2 during read migration', () => {
+    const repo = createRepo({
+      ...persistedRow,
+      state_json: JSON.stringify({
+        schemaVersion: 1,
+        state: {
+          current: { label: 'happiness', intensity: 7, updatedAt: 120 },
+          history: []
+        }
+      })
+    })
+    const repository = new EmotionStateRepository({
+      hasDb: () => true,
+      getEmotionStateRepo: () => repo as any
+    })
+
+    const result = repository.getEmotionState()
+
+    expect(result?.baseline).toEqual(EMOTION_BASELINE_VECTOR)
+    expect(repo.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      created_at: 100,
+      updated_at: 200,
+      state_json: expect.stringContaining('"schemaVersion":2')
+    }))
+  })
+
+  it('preserves created_at and writes a version 2 envelope during upsert', () => {
     vi.spyOn(Date, 'now').mockReturnValue(300)
     const repo = createRepo()
     const repository = new EmotionStateRepository({
@@ -51,7 +86,8 @@ describe('EmotionStateRepository', () => {
     expect(repo.upsert).toHaveBeenCalledWith(expect.objectContaining({
       scope: 'app',
       created_at: 100,
-      updated_at: 300
+      updated_at: 300,
+      state_json: expect.stringContaining('"schemaVersion":2')
     }))
   })
 
@@ -62,19 +98,30 @@ describe('EmotionStateRepository', () => {
       hasDb: () => true,
       getEmotionStateRepo: () => repo as any
     })
-    const nextState = {
+    const nextVector = { valence: 4, arousal: 4, dominance: 5 }
+    const nextProjection = projectEmotionVector(nextVector)
+    const nextState: EmotionStateSnapshot = {
       ...emotionState,
-      current: { label: 'happiness', intensity: 7, updatedAt: 300 }
+      current: {
+        ...emotionState.current,
+        vector: nextVector,
+        label: nextProjection.label,
+        intensity: nextProjection.intensity,
+        updatedAt: 300
+      }
     }
     const result = repository.transitionEmotionState(previous => ({
       state: nextState,
-      changed: previous?.current.label !== 'happiness',
+      changed: previous?.current.vector.valence !== nextVector.valence,
       marker: 'updated'
     }))
     expect(result.marker).toBe('updated')
     expect(repo.transaction).toHaveBeenCalledOnce()
     expect(repo.get).toHaveBeenCalledOnce()
-    expect(repo.upsert).toHaveBeenCalledOnce()
+    expect(repo.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      updated_at: 300,
+      state_json: expect.stringContaining('"schemaVersion":2')
+    }))
   })
 
   it('skips writes for unchanged transitions and supports explicit clear', () => {
@@ -95,9 +142,15 @@ describe('EmotionStateRepository', () => {
       hasDb: () => true,
       getEmotionStateRepo: () => repo as any
     })
-    const chatAState = {
+    const chatAState: EmotionStateSnapshot = {
       ...emotionState,
-      current: { label: 'happiness', intensity: 6, updatedAt: 300 }
+      current: {
+        ...emotionState.current,
+        vector: { valence: 3, arousal: 4, dominance: 4 },
+        label: projectEmotionVector({ valence: 3, arousal: 4, dominance: 4 }).label,
+        intensity: projectEmotionVector({ valence: 3, arousal: 4, dominance: 4 }).intensity,
+        updatedAt: 300
+      }
     }
     repository.transitionEmotionState(() => ({ state: chatAState, changed: true }))
 

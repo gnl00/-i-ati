@@ -211,7 +211,6 @@ vi.mock('@shared/prompts', () => ({
   buildUserInfoSystemPrompt: vi.fn(() => ''),
   buildUserInfoContextContent: vi.fn(() => '<user_info_context>{}</user_info_context>'),
   buildEmotionSystemPrompt: vi.fn(() => ''),
-  buildEmotionContextContent: vi.fn(() => ''),
   buildSkillsSystemPrompt: vi.fn(() => ''),
   buildUserInstructionPrompt: vi.fn(() => '')
 }))

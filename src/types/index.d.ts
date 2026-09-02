@@ -431,10 +431,7 @@ declare interface MessageEntity {
 declare interface ChatEmotionState {
   label: string
   emoji: string
-  score?: number
-  intensity?: number
-  reason?: string
-  stateText?: string
+  intensity: number
   source: 'tool' | 'computed'
 }
 
@@ -442,16 +439,12 @@ declare interface EmotionStateEntry {
   label: string
   intensity: number
   updatedAt: number
-}
-
-declare interface EmotionAccumulatedEntry {
-  label: string
-  intensity: number
-  decay: number
-  updatedAt: number
+  vector: import('@shared/emotion/emotionVector').EmotionVector
 }
 
 declare interface EmotionStateHistoryEntry {
+  vector: import('@shared/emotion/emotionVector').EmotionVector
+  stimulus: import('@shared/emotion/emotionVector').EmotionStimulus
   label: string
   intensity: number
   timestamp: number
@@ -460,10 +453,7 @@ declare interface EmotionStateHistoryEntry {
 
 declare interface EmotionStateSnapshot {
   current: EmotionStateEntry
-  background: EmotionStateEntry & {
-    driftFactor: number
-  }
-  accumulated: EmotionAccumulatedEntry[]
+  baseline: import('@shared/emotion/emotionVector').EmotionVector
   history: EmotionStateHistoryEntry[]
 }
 

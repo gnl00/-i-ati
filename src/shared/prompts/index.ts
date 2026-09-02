@@ -1,5 +1,5 @@
 export { buildCompressionPrompt } from './compression'
-export { buildEmotionContextContent, buildEmotionSystemPrompt } from './emotion'
+export { buildEmotionSystemPrompt } from './emotion'
 export { buildSkillsSystemPrompt } from './skills'
 export { generateTitlePrompt } from './title'
 export { buildSmartMessagePrompt } from './smartMessages'

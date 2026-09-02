@@ -3,6 +3,10 @@ import { smartMessageDb } from '@main/db/smart-messages'
 import activityJournalService from '@main/services/activityJournal/ActivityJournalService'
 import { buildEmotionStateSummary } from '@main/services/emotion/EmotionPromptSummary'
 import MemoryService from '@main/services/memory/MemoryService'
+import {
+  EMOTION_BASELINE_VECTOR,
+  projectEmotionVector
+} from '@shared/emotion/emotionVector'
 import type {
   AwakeMemoryCandidate,
   AwakeMemoryItem,
@@ -380,49 +384,52 @@ const buildRetrievalPlan = (input: {
   }
 }
 
-const fallbackEmotion = (): AwakeSnapshot['emotion'] => ({
-  summary: buildEmotionStateSummary(undefined),
-  baseline: {
-    label: 'neutral',
-    intensity: 5,
-    source: 'awake_carryover'
-  },
-  accumulated: [],
-  recent_history: []
-})
+const fallbackEmotion = (): AwakeSnapshot['emotion'] => {
+  const projection = projectEmotionVector(EMOTION_BASELINE_VECTOR)
+  return {
+    summary: buildEmotionStateSummary(undefined),
+    baseline: {
+      label: projection.label,
+      intensity: projection.intensity,
+      source: 'awake_carryover',
+      vector: { ...EMOTION_BASELINE_VECTOR }
+    },
+    current: {
+      label: projection.label,
+      intensity: projection.intensity,
+      vector: { ...EMOTION_BASELINE_VECTOR }
+    },
+    recent_history: []
+  }
+}
 
 const buildEmotionSnapshot = (state: EmotionStateSnapshot | undefined): AwakeSnapshot['emotion'] => {
   if (!state) {
     return fallbackEmotion()
   }
 
+  const baselineProjection = projectEmotionVector(state.baseline)
   return {
     summary: buildEmotionStateSummary(state),
     baseline: {
+      label: baselineProjection.label,
+      intensity: baselineProjection.intensity,
+      source: 'awake_carryover',
+      vector: { ...state.baseline }
+    },
+    current: {
       label: state.current.label,
       intensity: state.current.intensity,
-      source: 'awake_carryover'
+      vector: { ...state.current.vector }
     },
-    background: {
-      label: state.background.label,
-      intensity: state.background.intensity
-    },
-    accumulated: state.accumulated
-      .slice()
-      .sort((a, b) => b.intensity - a.intensity)
-      .slice(0, 5)
-      .map(entry => ({
-        label: entry.label,
-        intensity: entry.intensity,
-        decay: entry.decay,
-        updated_at: entry.updatedAt
-      })),
     recent_history: state.history
       .slice(-3)
       .reverse()
       .map(entry => ({
         label: entry.label,
         intensity: entry.intensity,
+        vector: { ...entry.vector },
+        stimulus: { ...entry.stimulus },
         timestamp: entry.timestamp,
         source: entry.source
       }))

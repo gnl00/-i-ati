@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { EMOTION_BASELINE_VECTOR } from '@shared/emotion/emotionVector'
 
 const {
   saveMessageMock,
@@ -288,9 +289,13 @@ describe('ChatStepStore.finalizeAssistantMessage', () => {
 
   it('uses bounded reducer output for message presentation and persistence', async () => {
     getEmotionStateMock.mockReturnValue({
-      current: { label: 'neutral', intensity: 5, updatedAt: 100 },
-      background: { label: 'neutral', intensity: 5, driftFactor: 0.1, updatedAt: 100 },
-      accumulated: [],
+      current: {
+        vector: { ...EMOTION_BASELINE_VECTOR },
+        label: 'neutral',
+        intensity: 5,
+        updatedAt: 100
+      },
+      baseline: { ...EMOTION_BASELINE_VECTOR },
       history: []
     })
     const store = new ChatStepStore()
@@ -315,29 +320,32 @@ describe('ChatStepStore.finalizeAssistantMessage', () => {
             toolName: 'emotion_report',
             result: {
               success: true,
-              label: 'surprise',
-              intensity: 10
+              stimulus: { impact: 0, activation: 2, control: 1 }
             }
           }
         }]
       }
     } as MessageEntity)
 
-    expect(result.body.emotion).toMatchObject({
-      label: 'surprise',
-      intensity: 7,
-      source: 'tool'
-    })
+    expect(result.body.emotion).toMatchObject({ source: 'computed' })
+    expect(result.body.emotion?.label).toEqual(expect.any(String))
+    expect(result.body.emotion?.intensity).toEqual(expect.any(Number))
+    expect(result.body.emotion?.emoji).toEqual(expect.any(String))
     expect(upsertEmotionStateMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        current: expect.objectContaining({ label: 'surprise', intensity: 7 })
+        current: expect.objectContaining({
+          vector: { valence: 5, arousal: 5, dominance: 6 }
+        })
       })
     )
     expect(logInfoMock).toHaveBeenCalledWith('emotion_state.transition', expect.objectContaining({
       mode: 'reported',
-      requested: { label: 'surprise', intensity: 10 },
-      resolved: { label: 'surprise', intensity: 7 },
-      intensityBounded: true
+      requested: { impact: 0, activation: 2, control: 1 },
+      resolved: expect.objectContaining({
+        label: expect.any(String),
+        intensity: expect.any(Number),
+        vector: { valence: 5, arousal: 5, dominance: 6 }
+      })
     }))
     expect(JSON.stringify(logInfoMock.mock.calls)).not.toContain('description')
   })
@@ -366,8 +374,7 @@ describe('ChatStepStore.finalizeAssistantMessage', () => {
             toolName: 'emotion_report',
             result: {
               success: true,
-              label: 'happiness',
-              intensity: 6
+              stimulus: { impact: 2, activation: 0, control: 1 }
             }
           }
         }]
@@ -375,9 +382,10 @@ describe('ChatStepStore.finalizeAssistantMessage', () => {
     } as MessageEntity)
 
     expect(result.body.emotion).toMatchObject({
-      label: 'happiness',
-      intensity: 6,
-      source: 'tool'
+      source: 'computed',
+      label: expect.any(String),
+      intensity: expect.any(Number),
+      emoji: expect.any(String)
     })
     expect(transitionEmotionStateMock).toHaveBeenCalledOnce()
     expect(upsertEmotionStateMock).toHaveBeenCalledOnce()

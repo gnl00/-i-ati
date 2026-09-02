@@ -60,7 +60,6 @@ vi.mock('@shared/services/skills/SkillPromptBuilder', () => ({
 vi.mock('@shared/prompts', () => ({
   systemPrompt: vi.fn(() => 'system prompt'),
   buildEmotionSystemPrompt: vi.fn(() => 'emotion prompt'),
-  buildEmotionContextContent: vi.fn((summary?: string) => summary ? `<emotion_context>\n${summary}\n</emotion_context>` : ''),
   buildUserInfoSystemPrompt: vi.fn(() => 'user info policy'),
   buildUserInfoContextContent: vi.fn(() => '<user_info_context>{"profile":{"name":null}}</user_info_context>'),
   buildUserInstructionPrompt: vi.fn((prompt?: string) => prompt ? `<user_instruction>\n${prompt}\n</user_instruction>` : '')

@@ -24,3 +24,4 @@ Use sequential names such as `0001-chat-runtime-host-boundary.md`.
 - [0014: Resource-action tool consolidation](0014-resource-action-tool-consolidation.md) - Accepted
 - [0015: Paused user-question tool protocol](0015-paused-user-question-tool-protocol.md) - Accepted
 - [0016: Physical chat branch snapshots](0016-physical-chat-branch-snapshots.md) - Accepted
+- [0017: Emotion stimulus scoring and VAD state projection](0017-emotion-stimulus-scoring.md) - Accepted

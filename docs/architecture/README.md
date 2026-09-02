@@ -10,6 +10,7 @@ and data flow. Historical implementation summaries live in
 - [Renderer architecture](renderer-architecture.md)
 - [Main process architecture](main-process-architecture.md)
 - [Chat runtime](chat-runtime-architecture-current.md)
+- [Emotion system](emotion-system-design.md)
 - [Agent abstraction](agent-abstraction.md)
 - [Plugin system](plugin-system-design.md)
 - [System prompt runtime context](system-prompt-runtime-context.md)
