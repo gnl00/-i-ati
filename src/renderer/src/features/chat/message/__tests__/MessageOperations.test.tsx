@@ -134,8 +134,11 @@ describe('MessageOperations', () => {
     expect(footerButton?.className).toContain('duration-[160ms]')
     expect(footerButton?.className).toContain('active:scale-[0.97]')
     expect(footerButton?.className).toContain('backdrop-blur-sm')
-    expect(footerSlot?.className).toContain('h-4')
-    expect(footerSlot?.className).toContain('w-4')
+    expect(footerButton?.className).toContain('text-gray-400')
+    expect(footerButton?.className).toContain('hover:bg-gray-200/70')
+    expect(footerButton?.className).toContain('dark:hover:bg-(--app-surface-hover)')
+    expect(footerSlot?.className).toContain('h-3.5')
+    expect(footerSlot?.className).toContain('w-3.5')
     expect(footerIcon?.getAttribute('class')).toContain('h-full')
 
     expect(compactButton?.className).toContain('h-6')

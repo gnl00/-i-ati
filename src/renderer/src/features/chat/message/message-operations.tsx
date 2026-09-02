@@ -91,8 +91,8 @@ const OperationButton: React.FC<OperationButtonProps> = ({
               'focus-visible:ring-zinc-400/40 dark:focus-visible:ring-zinc-500/60'
             ]
             : [
-              'h-7 w-7',
-              'hover:bg-gray-100 dark:hover:bg-gray-800',
+              'h-7 w-7 text-gray-400 dark:text-gray-500',
+              'hover:bg-gray-200/70 hover:text-gray-600 dark:hover:bg-(--app-surface-hover) dark:hover:text-gray-300',
               'focus-visible:ring-blue-500/30',
               'backdrop-blur-sm'
             ]
@@ -142,7 +142,7 @@ export const CopyButton: React.FC<CopyButtonProps> = ({
     onError: () => toast.error('Copy failed')
   })
   const currentLabel = copied ? 'Copied' : label
-  const iconSizeClassName = variant === 'compact' ? 'h-3 w-3' : 'h-4 w-4'
+  const iconSizeClassName = variant === 'compact' ? 'h-3 w-3' : 'h-3.5 w-3.5'
 
   return (
     <>
@@ -259,7 +259,7 @@ export const MessageOperations: React.FC<MessageOperationButtonsProps> = ({
 
       {!isUser && showRegenerate && onRegenerateClick && (
         <OperationButton
-          icon={<ReloadIcon className="w-4 h-4" />}
+          icon={<ReloadIcon className="h-3.5 w-3.5" />}
           onClick={onRegenerateClick}
           label="Regenerate"
         />
@@ -267,14 +267,14 @@ export const MessageOperations: React.FC<MessageOperationButtonsProps> = ({
 
       {!isUser && showBranch && onBranchClick && (
         <OperationButton
-          icon={<Split className="h-4 w-4" />}
+          icon={<Split className="h-3.5 w-3.5" />}
           onClick={onBranchClick}
           label="Branch chat"
         />
       )}
 
       <OperationButton
-        icon={<Pencil2Icon className="w-4 h-4" />}
+        icon={<Pencil2Icon className="h-3.5 w-3.5" />}
         onClick={onEditClick}
         label="Edit"
         disabled
