@@ -13,6 +13,7 @@ interface TextSegmentProps {
   segment: TextSegment
   visibleText?: string
   animateOnChange?: boolean
+  animateOnMount?: boolean
   transitionKey?: string
 }
 
@@ -20,13 +21,14 @@ export const TextSegment: React.FC<TextSegmentProps> = memo(({
   segment,
   visibleText,
   animateOnChange,
+  animateOnMount = true,
   transitionKey
 }) => {
   const displayedText = visibleText ?? segment.content
 
   const entered = useEnterTransition(
     animateOnChange ? (transitionKey ?? displayedText) : 'enter',
-    { enabled: Boolean(displayedText), throttleMs: animateOnChange ? 120 : 0 }
+    { enabled: animateOnMount && Boolean(displayedText), throttleMs: animateOnChange ? 120 : 0 }
   )
 
   if (!displayedText) return null

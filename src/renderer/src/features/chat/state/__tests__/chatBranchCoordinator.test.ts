@@ -177,4 +177,345 @@ describe('chat branch coordinator', () => {
     expect(syncSelectedModelRefForChat).not.toHaveBeenCalled()
     expect(setScrollHint).not.toHaveBeenCalled()
   })
+
+  it('skips every hydration commit when the selection becomes stale during reads', async () => {
+    const chat: ChatEntity = {
+      id: 3,
+      uuid: 'stale-chat',
+      title: 'Stale chat',
+      messages: [301],
+      createTime: 1_000,
+      updateTime: 1_000
+    }
+    const messages: MessageEntity[] = [{
+      id: 301,
+      chatUuid: chat.uuid,
+      body: { role: 'assistant', content: 'answer', segments: [] }
+    }]
+    let resolveMessages: ((value: MessageEntity[]) => void) | undefined
+    let isCurrent = true
+    persistenceMocks.getChatById.mockResolvedValue(chat)
+
+    const set = vi.fn()
+    const restoreTranscriptForChat = vi.fn()
+    const syncSelectedModelRefForChat = vi.fn()
+    const state = {
+      fetchMessagesByChatUuid: vi.fn(() => new Promise<MessageEntity[]>(resolve => {
+        resolveMessages = resolve
+      })),
+      getRunStatusForChat: vi.fn(() => ({
+        runPhase: 'idle',
+        postRunJobs: { title: 'idle', compression: 'idle' },
+        lastRunOutcome: 'idle'
+      })),
+      messages: [],
+      restoreTranscriptForChat,
+      syncSelectedModelRefForChat
+    }
+    const actions = createChatCoordinatorActions(set as never, (() => state) as never)
+    const hydration = actions.hydrateChat(3, { isCurrent: () => isCurrent })
+
+    await Promise.resolve()
+    isCurrent = false
+    resolveMessages?.(messages)
+    await hydration
+
+    expect(set).not.toHaveBeenCalled()
+    expect(restoreTranscriptForChat).not.toHaveBeenCalled()
+    expect(syncSelectedModelRefForChat).not.toHaveBeenCalled()
+  })
+
+  it('checks currentness before restoring and syncing after the shell commit', async () => {
+    const chat: ChatEntity = {
+      id: 4,
+      uuid: 'becomes-stale-chat',
+      title: 'Becomes stale',
+      messages: [401],
+      createTime: 1_000,
+      updateTime: 1_000
+    }
+    const messages: MessageEntity[] = [{
+      id: 401,
+      chatUuid: chat.uuid,
+      body: { role: 'assistant', content: 'answer', segments: [] }
+    }]
+    let isCurrent = true
+    persistenceMocks.getChatById.mockResolvedValue(chat)
+
+    const set = vi.fn(() => {
+      isCurrent = false
+    })
+    const restoreTranscriptForChat = vi.fn()
+    const syncSelectedModelRefForChat = vi.fn()
+    const state = {
+      fetchMessagesByChatUuid: vi.fn().mockResolvedValue(messages),
+      getRunStatusForChat: vi.fn(() => ({
+        runPhase: 'idle',
+        postRunJobs: { title: 'idle', compression: 'idle' },
+        lastRunOutcome: 'idle'
+      })),
+      messages,
+      restoreTranscriptForChat,
+      syncSelectedModelRefForChat
+    }
+    const actions = createChatCoordinatorActions(set as never, (() => state) as never)
+
+    await actions.hydrateChat(4, { isCurrent: () => isCurrent })
+
+    expect(set).toHaveBeenCalledTimes(1)
+    expect(restoreTranscriptForChat).not.toHaveBeenCalled()
+    expect(syncSelectedModelRefForChat).not.toHaveBeenCalled()
+  })
+
+  it('keeps a reset chat current when hydration resolves late', async () => {
+    const chat: ChatEntity = {
+      id: 5,
+      uuid: 'stale-after-reset',
+      title: 'Stale after reset',
+      messages: [501],
+      createTime: 1_000,
+      updateTime: 1_000
+    }
+    const messages: MessageEntity[] = [{
+      id: 501,
+      chatUuid: chat.uuid,
+      body: { role: 'assistant', content: 'answer', segments: [] }
+    }]
+    let resolveMessages: ((value: MessageEntity[]) => void) | undefined
+    persistenceMocks.getChatById.mockResolvedValue(chat)
+
+    const set = vi.fn()
+    const restoreTranscriptForChat = vi.fn()
+    const syncSelectedModelRefForChat = vi.fn()
+    const state = {
+      fetchMessagesByChatUuid: vi.fn(() => new Promise<MessageEntity[]>(resolve => {
+        resolveMessages = resolve
+      })),
+      getRunStatusForChat: vi.fn(() => ({
+        runPhase: 'idle',
+        postRunJobs: { title: 'idle', compression: 'idle' },
+        lastRunOutcome: 'idle'
+      })),
+      messages: [],
+      restoreTranscriptForChat,
+      syncSelectedModelRefForChat
+    }
+    const actions = createChatCoordinatorActions(set as never, (() => state) as never)
+    const hydration = actions.hydrateChat(chat.id!)
+
+    await Promise.resolve()
+    actions.resetChatContext()
+    resolveMessages?.(messages)
+    await hydration
+
+    expect(set).toHaveBeenCalledTimes(1)
+    expect(set).toHaveBeenCalledWith(expect.objectContaining({
+      currentChatId: null,
+      currentChatUuid: null
+    }))
+    expect(restoreTranscriptForChat).not.toHaveBeenCalled()
+    expect(syncSelectedModelRefForChat).toHaveBeenCalledWith(null)
+    expect(syncSelectedModelRefForChat).not.toHaveBeenCalledWith(chat, messages)
+  })
+
+  it('keeps an externally selected shell current when hydration resolves late', async () => {
+    const chat: ChatEntity = {
+      id: 6,
+      uuid: 'stale-before-selection',
+      title: 'Stale before selection',
+      messages: [601],
+      createTime: 1_000,
+      updateTime: 1_000
+    }
+    const messages: MessageEntity[] = [{
+      id: 601,
+      chatUuid: chat.uuid,
+      body: { role: 'assistant', content: 'answer', segments: [] }
+    }]
+    const selectedChat: ChatEntity = {
+      id: 9,
+      uuid: 'selected-chat',
+      title: 'Selected chat',
+      messages: [],
+      createTime: 2_000,
+      updateTime: 2_000
+    }
+    let resolveMessages: ((value: MessageEntity[]) => void) | undefined
+    persistenceMocks.getChatById.mockResolvedValue(chat)
+
+    const set = vi.fn()
+    const restoreTranscriptForChat = vi.fn()
+    const state = {
+      currentChatId: 1,
+      currentChatUuid: 'source-chat',
+      chatTitle: 'Source chat',
+      chatList: [],
+      transcriptBuffersByChatUuid: {},
+      fetchMessagesByChatUuid: vi.fn(() => new Promise<MessageEntity[]>(resolve => {
+        resolveMessages = resolve
+      })),
+      getRunStatusForChat: vi.fn(() => ({
+        runPhase: 'idle',
+        postRunJobs: { title: 'idle', compression: 'idle' },
+        lastRunOutcome: 'idle'
+      })),
+      messages: [],
+      restoreTranscriptForChat,
+      syncSelectedModelRefForChat: vi.fn()
+    }
+    const actions = createChatCoordinatorActions(set as never, (() => state) as never)
+    const hydration = actions.hydrateChat(chat.id!)
+
+    await Promise.resolve()
+    actions.selectChatShell(selectedChat.id!, selectedChat.uuid!, selectedChat)
+    resolveMessages?.(messages)
+    await hydration
+
+    expect(set).toHaveBeenCalledTimes(1)
+    expect(set).toHaveBeenCalledWith(expect.objectContaining({
+      currentChatId: selectedChat.id,
+      currentChatUuid: selectedChat.uuid
+    }))
+    expect(restoreTranscriptForChat).not.toHaveBeenCalled()
+  })
+
+  it.each(['before-hydration', 'chat-read', 'message-read'] as const)(
+    'preserves a pending selection across a same-shell ready refresh during %s',
+    async phase => {
+      const currentChat: ChatEntity = {
+        id: 1, uuid: 'chat-a', title: 'A ready', messages: [], createTime: 1, updateTime: 2
+      }
+      const targetChat: ChatEntity = {
+        id: 2, uuid: 'chat-b', title: 'B', messages: [201], createTime: 1, updateTime: 1
+      }
+      const messages: MessageEntity[] = [{
+        id: 201, chatUuid: 'chat-b', body: { role: 'assistant', content: 'B history', segments: [] }
+      }]
+      let resume!: () => void
+      const readGate = new Promise<void>(resolve => { resume = resolve })
+      persistenceMocks.getChatById.mockImplementation(async () => {
+        if (phase === 'chat-read') await readGate
+        return targetChat
+      })
+      const state = {
+        currentChatId: 1,
+        currentChatUuid: 'chat-a',
+        chatTitle: 'A submitting',
+        messages: [] as MessageEntity[],
+        scrollHint: { type: 'none' },
+        fetchMessagesByChatUuid: vi.fn(async () => {
+          if (phase === 'message-read') await readGate
+          return messages
+        }),
+        getRunStatusForChat: vi.fn(() => ({
+          runPhase: 'idle',
+          postRunJobs: { title: 'idle', compression: 'idle' },
+          lastRunOutcome: 'idle'
+        })),
+        restoreTranscriptForChat: vi.fn((_uuid: string, restored: MessageEntity[]) => {
+          state.messages = restored
+        }),
+        syncSelectedModelRefForChat: vi.fn(),
+        updateChatList: vi.fn()
+      }
+      const actions = createChatCoordinatorActions(
+        ((patch: Partial<typeof state>) => Object.assign(state, patch)) as never,
+        (() => state) as never
+      )
+      const selectionEpoch = actions.getSelectionEpoch()
+      const isCurrent = (): boolean => actions.getSelectionEpoch() === selectionEpoch
+      let hydration: Promise<void> | undefined
+      if (phase !== 'before-hydration') {
+        hydration = actions.hydrateChat(2, { isCurrent })
+        await Promise.resolve()
+      }
+
+      // CHAT_READY still targets A while the user's B selection is waiting.
+      actions.applyReadyChat(currentChat, { selectShell: true })
+      expect(state.chatTitle).toBe('A ready')
+      expect(state.updateChatList).toHaveBeenCalledWith(currentChat)
+      const epochAfterReady = actions.getSelectionEpoch()
+      if (phase === 'before-hydration' && isCurrent()) {
+        hydration = actions.hydrateChat(2, { isCurrent })
+      }
+      resume()
+      await hydration
+
+      expect(state.currentChatUuid).toBe('chat-b')
+      expect(state.messages).toEqual(messages)
+      expect(epochAfterReady).toBe(selectionEpoch)
+      expect(state.restoreTranscriptForChat).toHaveBeenCalledWith('chat-b', messages)
+      expect(state.syncSelectedModelRefForChat).toHaveBeenCalledWith(targetChat, messages)
+      expect(state.scrollHint).toEqual({
+        type: 'conversation-switch', chatUuid: 'chat-b', index: 0, align: 'end'
+      })
+    }
+  )
+
+  it.each([
+    { id: 10, uuid: 'ready-chat' },
+    { id: 1, uuid: 'ready-chat' },
+    { id: 10, uuid: 'source-chat' }
+  ])('invalidates hydration when applyReadyChat changes shell identity to $id / $uuid', async identity => {
+    const chat: ChatEntity = {
+      id: 7,
+      uuid: 'stale-before-ready-chat',
+      title: 'Stale before ready chat',
+      messages: [701],
+      createTime: 1_000,
+      updateTime: 1_000
+    }
+    const messages: MessageEntity[] = [{
+      id: 701,
+      chatUuid: chat.uuid,
+      body: { role: 'assistant', content: 'answer', segments: [] }
+    }]
+    const readyChat: ChatEntity = {
+      ...identity,
+      title: 'Ready chat',
+      messages: [],
+      createTime: 2_000,
+      updateTime: 2_000
+    }
+    let resolveMessages: ((value: MessageEntity[]) => void) | undefined
+    persistenceMocks.getChatById.mockResolvedValue(chat)
+
+    const set = vi.fn()
+    const restoreTranscriptForChat = vi.fn()
+    const updateChatList = vi.fn()
+    const state = {
+      currentChatId: 1,
+      currentChatUuid: 'source-chat',
+      chatTitle: 'Source chat',
+      chatList: [],
+      transcriptBuffersByChatUuid: {},
+      fetchMessagesByChatUuid: vi.fn(() => new Promise<MessageEntity[]>(resolve => {
+        resolveMessages = resolve
+      })),
+      getRunStatusForChat: vi.fn(() => ({
+        runPhase: 'idle',
+        postRunJobs: { title: 'idle', compression: 'idle' },
+        lastRunOutcome: 'idle'
+      })),
+      messages: [],
+      restoreTranscriptForChat,
+      syncSelectedModelRefForChat: vi.fn(),
+      updateChatList
+    }
+    const actions = createChatCoordinatorActions(set as never, (() => state) as never)
+    const hydration = actions.hydrateChat(chat.id!)
+
+    await Promise.resolve()
+    actions.applyReadyChat(readyChat)
+    resolveMessages?.(messages)
+    await hydration
+
+    expect(updateChatList).toHaveBeenCalledWith(readyChat)
+    expect(set).toHaveBeenCalledTimes(1)
+    expect(set).toHaveBeenCalledWith(expect.objectContaining({
+      currentChatId: readyChat.id,
+      currentChatUuid: readyChat.uuid
+    }))
+    expect(restoreTranscriptForChat).not.toHaveBeenCalled()
+  })
 })

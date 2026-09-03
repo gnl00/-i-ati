@@ -9,11 +9,16 @@ import {
 } from '@shared/tools/approval'
 
 export type ChatCoordinatorActions = {
-  hydrateChat: (chatId: number) => Promise<void>
+  hydrateChat: (chatId: number, options?: HydrateChatOptions) => Promise<void>
+  getSelectionEpoch: () => number
   forkCurrentChatFromMessage: (forkedFromMessageId: number) => Promise<ChatForkResult>
   selectChatShell: (chatId: number | null, chatUuid: string | null, chat?: ChatEntity | null) => void
   resetChatContext: () => void
   applyReadyChat: (chatEntity: ChatEntity, options?: { selectShell?: boolean }) => void
+}
+
+export type HydrateChatOptions = {
+  isCurrent?: () => boolean
 }
 
 export class ChatForkInProgressError extends Error {
@@ -98,10 +103,19 @@ export function createChatCoordinatorActions<T extends ChatCoordinatorSliceState
   get: Parameters<StateCreator<T>>[1]
 ): ChatCoordinatorActions {
   let isForkInProgress = false
+  let selectionEpoch = 0
 
   return {
-    hydrateChat: async (chatId) => {
+    getSelectionEpoch: () => selectionEpoch,
+
+    hydrateChat: async (chatId, options) => {
+      const isCurrent = options?.isCurrent
+      const hydrationEpoch = selectionEpoch
+      const canCommit = (): boolean => selectionEpoch === hydrationEpoch && (!isCurrent || isCurrent())
       const chat = await getChatById(chatId)
+      if (!canCommit()) {
+        return
+      }
       if (!chat) {
         throw new Error(`Chat not found: ${chatId}`)
       }
@@ -111,7 +125,13 @@ export function createChatCoordinatorActions<T extends ChatCoordinatorSliceState
       }
 
       const messages = await get().fetchMessagesByChatUuid(chat.uuid)
+      if (!canCommit()) {
+        return
+      }
       const runStatus = get().getRunStatusForChat(chat.uuid)
+      if (!canCommit()) {
+        return
+      }
 
       set({
         currentChatId: chat.id,
@@ -124,11 +144,20 @@ export function createChatCoordinatorActions<T extends ChatCoordinatorSliceState
         lastRunOutcome: runStatus.lastRunOutcome,
         scrollHint: buildConversationScrollHint(chat.uuid, messages.length)
       } as Partial<T>)
+      if (!canCommit()) {
+        return
+      }
       get().restoreTranscriptForChat(chat.uuid, messages)
+      if (!canCommit()) {
+        return
+      }
       set({
         scrollHint: buildConversationScrollHint(chat.uuid, get().messages.length)
       } as Partial<T>)
 
+      if (!canCommit()) {
+        return
+      }
       get().syncSelectedModelRefForChat(chat, messages)
     },
 
@@ -177,10 +206,12 @@ export function createChatCoordinatorActions<T extends ChatCoordinatorSliceState
     },
 
     selectChatShell: (chatId, chatUuid, chat) => {
+      selectionEpoch += 1
       applyChatShellSelection(set, get, chatId, chatUuid, chat)
     },
 
     resetChatContext: () => {
+      selectionEpoch += 1
       set({
         currentChatId: null,
         currentChatUuid: null,
@@ -209,7 +240,14 @@ export function createChatCoordinatorActions<T extends ChatCoordinatorSliceState
       if (options.selectShell === false) {
         return
       }
-      applyChatShellSelection(set, get, chatEntity.id ?? null, chatEntity.uuid ?? null, chatEntity)
+      const chatId = chatEntity.id ?? null
+      const chatUuid = chatEntity.uuid ?? null
+      const state = get()
+      // A same-shell CHAT_READY refresh preserves the user's pending selection.
+      if (state.currentChatId !== chatId || state.currentChatUuid !== chatUuid) {
+        selectionEpoch += 1
+      }
+      applyChatShellSelection(set, get, chatId, chatUuid, chatEntity)
     }
   }
 }

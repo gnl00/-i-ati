@@ -96,4 +96,51 @@ describe('buildAssistantMessageLayoutModels', () => {
       onEditClick
     })
   })
+
+  it('carries the history presentation mode through shell and body models', () => {
+    const onHover = vi.fn()
+    const models = buildAssistantMessageLayoutModels({
+      index: 3,
+      isLatest: true,
+      animateOnMount: false,
+      isHovered: false,
+      onHover,
+      committedMessage: {
+        role: 'assistant',
+        content: 'historical answer',
+        segments: []
+      },
+      headerProjection: {},
+      transcriptProjection: {
+        isOverlayPreview: false,
+        textItems: [],
+        supportItems: [],
+        supportUnits: []
+      },
+      textPlayback: {
+        committed: {
+          role: 'assistant',
+          segments: []
+        },
+        preview: {
+          role: 'assistant',
+          source: 'stream_preview',
+          segments: []
+        }
+      },
+      footerState: {
+        showOperations: false,
+        showRegenerate: false,
+        showBranch: false
+      },
+      badgeAnimate: false,
+      onCopyClick: vi.fn(),
+      onRegenerateClick: vi.fn(),
+      onBranchClick: vi.fn(),
+      onEditClick: vi.fn()
+    })
+
+    expect(models.shell.animateOnMount).toBe(false)
+    expect(models.body.animateOnMount).toBe(false)
+  })
 })

@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeKatex from 'rehype-katex'
 import remarkGfm from 'remark-gfm'
@@ -45,6 +45,7 @@ const CollapsibleUserMessageContent: React.FC<{
   const [hasMeasured, setHasMeasured] = useState(false)
   const [measuredExpandedHeight, setMeasuredExpandedHeight] = useState<number | null>(null)
   const [measuredContentSignature, setMeasuredContentSignature] = useState(contentSignature)
+  const measurementFrameRef = useRef<number | null>(null)
 
   const measureContent = useCallback(() => {
     const node = contentRef.current
@@ -53,10 +54,10 @@ const CollapsibleUserMessageContent: React.FC<{
     const nextHeight = node.scrollHeight
     const nextCanCollapse = nextHeight > COLLAPSED_USER_MESSAGE_HEIGHT + COLLAPSE_OVERFLOW_BUFFER
 
-    setMeasuredContentSignature(contentSignature)
-    setMeasuredExpandedHeight(nextHeight)
-    setCanCollapse(nextCanCollapse)
-    setHasMeasured(true)
+    setMeasuredContentSignature(current => current === contentSignature ? current : contentSignature)
+    setMeasuredExpandedHeight(current => current === nextHeight ? current : nextHeight)
+    setCanCollapse(current => current === nextCanCollapse ? current : nextCanCollapse)
+    setHasMeasured(current => current ? current : true)
   }, [contentSignature])
 
   useLayoutEffect(() => {
@@ -64,22 +65,40 @@ const CollapsibleUserMessageContent: React.FC<{
     setMeasuredExpandedHeight(null)
   }, [contentSignature])
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const node = contentRef.current
     if (!node) return
 
-    measureContent()
+    let active = true
+    const scheduleMeasurement = () => {
+      if (!active || measurementFrameRef.current !== null) return
 
-    if (typeof ResizeObserver === 'undefined') {
-      window.addEventListener('resize', measureContent)
-      return () => window.removeEventListener('resize', measureContent)
+      measurementFrameRef.current = window.requestAnimationFrame(() => {
+        measurementFrameRef.current = null
+        if (!active) return
+        measureContent()
+      })
     }
 
-    const resizeObserver = new ResizeObserver(() => {
-      measureContent()
-    })
-    resizeObserver.observe(node)
-    return () => resizeObserver.disconnect()
+    scheduleMeasurement()
+
+    let resizeObserver: ResizeObserver | undefined
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', scheduleMeasurement)
+    } else {
+      resizeObserver = new ResizeObserver(scheduleMeasurement)
+      resizeObserver.observe(node)
+    }
+
+    return () => {
+      active = false
+      if (measurementFrameRef.current !== null) {
+        window.cancelAnimationFrame(measurementFrameRef.current)
+        measurementFrameRef.current = null
+      }
+      window.removeEventListener('resize', scheduleMeasurement)
+      resizeObserver?.disconnect()
+    }
   }, [contentSignature, measureContent])
 
   const hasCurrentMeasurement = hasMeasured && measuredContentSignature === contentSignature

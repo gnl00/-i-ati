@@ -24,18 +24,27 @@ const AssistantTextSegmentItem = memo(({
   item,
   shouldRender,
   visibleText,
-  isTyping
+  isTyping,
+  animateOnMount
 }: {
   item: TextSegmentRenderItem
   shouldRender: boolean
   visibleText?: string
   isTyping: boolean
+  animateOnMount: boolean
 }) => {
   if (!shouldRender) {
     return null
   }
 
-  return <AssistantTextSegmentContent segment={item.segment} visibleText={visibleText} isTyping={isTyping} />
+  return (
+    <AssistantTextSegmentContent
+      segment={item.segment}
+      visibleText={visibleText}
+      isTyping={isTyping}
+      animateOnMount={animateOnMount}
+    />
+  )
 }, (prevProps, nextProps) => (
   prevProps.item.key === nextProps.item.key
   && prevProps.item.layer === nextProps.item.layer
@@ -45,6 +54,7 @@ const AssistantTextSegmentItem = memo(({
   && prevProps.shouldRender === nextProps.shouldRender
   && prevProps.visibleText === nextProps.visibleText
   && prevProps.isTyping === nextProps.isTyping
+  && prevProps.animateOnMount === nextProps.animateOnMount
 ))
 
 export const AssistantTextSegmentList = memo(({
@@ -52,6 +62,7 @@ export const AssistantTextSegmentList = memo(({
   committedPlaybackInput,
   previewPlaybackInput,
   isLatest,
+  animateOnMount = true,
   onTypingChange,
   items,
   isOverlayPreview
@@ -60,6 +71,7 @@ export const AssistantTextSegmentList = memo(({
   committedPlaybackInput: AssistantMessageTextPlaybackInput
   previewPlaybackInput: AssistantMessageTextPlaybackInput
   isLatest: boolean
+  animateOnMount?: boolean
   onTypingChange?: () => void
   items: TextSegmentRenderItem[]
   isOverlayPreview: boolean
@@ -68,14 +80,14 @@ export const AssistantTextSegmentList = memo(({
     index,
     message: committedPlaybackInput,
     isLatest,
-    playbackEnabled: !isOverlayPreview,
+    playbackEnabled: animateOnMount && !isOverlayPreview,
     onTypingChange
   })
   const previewTypewriter = useMessageTypewriter({
     index,
     message: previewPlaybackInput,
     isLatest,
-    playbackEnabled: isOverlayPreview,
+    playbackEnabled: animateOnMount && isOverlayPreview,
     onTypingChange
   })
 
@@ -102,6 +114,7 @@ export const AssistantTextSegmentList = memo(({
           shouldRender={shouldRender}
           visibleText={visibleText}
           isTyping={isTyping}
+          animateOnMount={animateOnMount}
         />
       </div>
     )
@@ -111,6 +124,7 @@ export const AssistantTextSegmentList = memo(({
   && prevProps.committedPlaybackInput === nextProps.committedPlaybackInput
   && prevProps.previewPlaybackInput === nextProps.previewPlaybackInput
   && prevProps.isLatest === nextProps.isLatest
+  && prevProps.animateOnMount === nextProps.animateOnMount
   && prevProps.onTypingChange === nextProps.onTypingChange
   && prevProps.isOverlayPreview === nextProps.isOverlayPreview
   && areTextSegmentRenderItemsEqual(prevProps.items, nextProps.items)

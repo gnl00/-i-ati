@@ -12,6 +12,8 @@ Legacy guides migrate here incrementally when their owning workflow changes.
 - [Tool definition workflow](development/tool-definition-workflow.md)
 - [Plugin author checklist](development/plugin-author-checklist.md)
 - [Chat streaming performance P1/P2 optimization](development/chat-streaming-performance-p1-p2-optimization.md)
+- [Chat history first-paint optimization](development/chat-history-first-paint-optimization.md)
+- [ChatWindow 内容层入场动画](development/chat-window-entrance-animation.md)
 
 ## Testing
 

@@ -14,6 +14,7 @@ import {
   MessageScrollerProvider,
   MessageScrollerViewport,
   useMessageScroller,
+  useMessageScrollerVisibility,
 } from '@renderer/shared/components/ui/message-scroller';
 import ChatMessageComponent from '@renderer/features/chat/message/ChatMessageComponent';
 import { useChatStore } from '@renderer/features/chat/state/chatStore';
@@ -27,6 +28,7 @@ import { cn } from '@renderer/shared/lib/utils';
 const CHAT_SCROLL_EDGE_THRESHOLD_PX = 80;
 const CHAT_SCROLL_PREVIOUS_ITEM_PEEK_PX = 24;
 const PENDING_USER_MESSAGE_ID = -1;
+const UNMOUNTED_MESSAGE_BODY_HEIGHT = '10rem';
 const TRANSCRIPT_COLUMN_CLASS = 'mx-auto w-full max-w-4xl';
 
 export type PendingAssistantModel = {
@@ -142,6 +144,7 @@ export function buildChatTranscriptItems({
         scrollAnchor: isUserAnchor,
         forceVisible:
           messageIndex === latestUserIndex ||
+          messageIndex === lastAssistantIndex ||
           (message.body.role === 'user' &&
             message.id === PENDING_USER_MESSAGE_ID) ||
           isCurrentAssistant,
@@ -206,6 +209,29 @@ function findElementByMessageId(
 
   return null;
 }
+
+function getInitiallyMountedBodyIds(
+  items: readonly ChatTranscriptItem[],
+): Set<string> {
+  const finalItemsStart = Math.max(0, items.length - 2);
+  return new Set(
+    items
+      .filter(
+        (item, index) => item.forceVisible || index >= finalItemsStart,
+      )
+      .map((item) => item.messageId),
+  );
+}
+
+const ChatMessageBodyPlaceholder: React.FC = memo(() => (
+  <div
+    role="status"
+    aria-label="Message content loading"
+    data-testid="message-body-placeholder"
+    className="min-h-40"
+    style={{ minHeight: UNMOUNTED_MESSAGE_BODY_HEIGHT }}
+  />
+));
 
 const ChatMessageRow: React.FC<{
   messageIndex: number;
@@ -288,7 +314,10 @@ const ChatTranscriptScrollerBody: React.FC<ChatTranscriptScrollerProps> = ({
   const clearScrollHint = useChatStore((state) => state.clearScrollHint);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const consumedHintRef = useRef<string | null>(null);
+  // Visited bodies stay mounted for local disclosure state; full recycling is a separate feature.
+  const retainedBodyIdsRef = useRef<Set<string>>(new Set());
   const { scrollToMessage } = useMessageScroller();
+  const { visibleMessageIds } = useMessageScrollerVisibility();
 
   const items = useMemo(
     () =>
@@ -324,6 +353,41 @@ const ChatTranscriptScrollerBody: React.FC<ChatTranscriptScrollerProps> = ({
         : item,
     );
   }, [items, searchTargetId]);
+
+  const initiallyMountedBodyIds = useMemo(
+    () => getInitiallyMountedBodyIds(itemsWithSearchTarget),
+    [itemsWithSearchTarget],
+  );
+  const activeMessageIds = useMemo(
+    () => new Set(itemsWithSearchTarget.map((item) => item.messageId)),
+    [itemsWithSearchTarget],
+  );
+  const mountedBodyIds = useMemo(() => {
+    const nextMountedBodyIds = new Set<string>(initiallyMountedBodyIds);
+    for (const messageId of visibleMessageIds) {
+      if (activeMessageIds.has(messageId)) {
+        nextMountedBodyIds.add(messageId);
+      }
+    }
+    for (const messageId of retainedBodyIdsRef.current) {
+      if (activeMessageIds.has(messageId)) {
+        nextMountedBodyIds.add(messageId);
+      }
+    }
+    return nextMountedBodyIds;
+  }, [activeMessageIds, initiallyMountedBodyIds, visibleMessageIds]);
+
+  useLayoutEffect(() => {
+    const retainedBodyIds = retainedBodyIdsRef.current;
+    for (const messageId of retainedBodyIds) {
+      if (!activeMessageIds.has(messageId)) {
+        retainedBodyIds.delete(messageId);
+      }
+    }
+    for (const messageId of mountedBodyIds) {
+      retainedBodyIds.add(messageId);
+    }
+  }, [activeMessageIds, mountedBodyIds]);
 
   const findHintTarget = useCallback(
     (hint: ChatRunScrollHint): ChatTranscriptItem | undefined => {
@@ -485,7 +549,7 @@ const ChatTranscriptScrollerBody: React.FC<ChatTranscriptScrollerProps> = ({
                 scrollMarginBlockStart: `${topOcclusionPx}px`,
               }}
             >
-              {item.type === 'message' ? (
+              {mountedBodyIds.has(item.messageId) && item.type === 'message' ? (
                 <ChatMessageRow
                   messageIndex={item.messageIndex}
                   message={item.message}
@@ -498,7 +562,7 @@ const ChatTranscriptScrollerBody: React.FC<ChatTranscriptScrollerProps> = ({
                   lastMessageIndex={lastMessageIndex}
                   isPending={item.message.id === PENDING_USER_MESSAGE_ID}
                 />
-              ) : (
+              ) : mountedBodyIds.has(item.messageId) ? (
                 <ChatPendingAssistantRow
                   messageIndex={item.messageIndex}
                   pendingAssistantModel={pendingAssistantModel}
@@ -506,6 +570,8 @@ const ChatTranscriptScrollerBody: React.FC<ChatTranscriptScrollerProps> = ({
                     !hasCurrentTurnAssistant ? previewMessage?.body : undefined
                   }
                 />
+              ) : (
+                <ChatMessageBodyPlaceholder />
               )}
             </MessageScrollerItem>
           ))}

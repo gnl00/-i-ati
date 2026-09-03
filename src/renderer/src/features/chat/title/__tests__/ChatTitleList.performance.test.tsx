@@ -145,6 +145,30 @@ describe('ChatTitleList performance behavior', () => {
     expect(updateCommits).toBe(initialUpdateCommits)
   })
 
+  it('skips unchanged parent renders while responding to its own selection and list updates', async () => {
+    const readTitle = vi.fn(() => 'Newest chat')
+    Object.defineProperty(chatOne, 'title', { configurable: true, get: readTitle })
+    const onChatClick = vi.fn()
+    const onDeletedCurrentChat = vi.fn()
+    await renderList(onChatClick, onDeletedCurrentChat)
+    expect(readTitle).toHaveBeenCalled()
+    readTitle.mockClear()
+
+    await renderList(onChatClick, onDeletedCurrentChat)
+    expect(readTitle).not.toHaveBeenCalled()
+
+    await act(async () => useChatStore.setState({ currentChatId: 2 }))
+    expect(readTitle).toHaveBeenCalled()
+    const rows = container.querySelectorAll<HTMLElement>('[data-chat-title-row]')
+    expect(rows[1].className).toContain('from-blue-50/80')
+    expect(rows[0].className).not.toContain('from-blue-50/80')
+
+    await act(async () => useChatStore.setState({
+      chatList: [chatOne, { ...chatTwo, title: 'Updated older chat' }]
+    }))
+    expect(container.textContent).toContain('Updated older chat')
+  })
+
   it('keeps selection, edit, and delete interactions working', async () => {
     const onChatClick = vi.fn()
     const onDeletedCurrentChat = vi.fn()

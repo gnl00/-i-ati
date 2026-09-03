@@ -7,6 +7,7 @@ import type { AssistantMessageTextPlaybackModel } from './model/assistantMessage
 export interface AssistantMessageBodyModel {
   index: number
   isLatest: boolean
+  animateOnMount?: boolean
   onTypingChange?: () => void
   transcript: AssistantMessageTranscriptProjection
   textPlayback: AssistantMessageTextPlaybackModel
@@ -35,6 +36,7 @@ export const AssistantMessageBody: React.FC<AssistantMessageBodyProps> = memo(({
           committedPlaybackInput={textPlayback.committed}
           previewPlaybackInput={textPlayback.preview}
           isLatest={isLatest}
+          animateOnMount={model.animateOnMount}
           onTypingChange={onTypingChange}
           items={transcript.textItems}
           isOverlayPreview={transcript.isOverlayPreview}

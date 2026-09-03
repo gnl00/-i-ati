@@ -45,6 +45,8 @@ capability is reviewed.
 - [Tailwind CSS v4 syntax rules](guides/development/tailwindcss-v4-syntax-rules.md)
 - [Chat Sheet performance optimization](guides/development/chat-sheet-performance-optimization.md)
 - [Chat streaming performance P1/P2 optimization](guides/development/chat-streaming-performance-p1-p2-optimization.md)
+- [Chat history first-paint optimization](guides/development/chat-history-first-paint-optimization.md)
+- [ChatWindow 内容层入场动画](guides/development/chat-window-entrance-animation.md)
 - [Documentation decisions](decisions/README.md)
 - [Active work](work/README.md)
 - [Migration inventory](archive/migration-inventory.md)

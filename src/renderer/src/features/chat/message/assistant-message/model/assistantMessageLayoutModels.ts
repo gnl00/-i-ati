@@ -11,6 +11,7 @@ import type { CopyActionHandler } from '../../message-operations'
 export interface BuildAssistantMessageLayoutModelsInput {
   index: number
   isLatest: boolean
+  animateOnMount?: boolean
   isHovered: boolean
   onHover: (hovered: boolean) => void
   onTypingChange?: () => void
@@ -35,12 +36,13 @@ export interface AssistantMessageLayoutModels {
 }
 
 export function buildAssistantMessageShellModel(
-  input: Pick<BuildAssistantMessageLayoutModelsInput, 'index' | 'isLatest' | 'onHover'>
+  input: Pick<BuildAssistantMessageLayoutModelsInput, 'index' | 'isLatest' | 'onHover' | 'animateOnMount'>
 ): AssistantMessageShellModel {
   return {
     index: input.index,
     isLatest: input.isLatest,
-    onHover: input.onHover
+    onHover: input.onHover,
+    ...(input.animateOnMount === false ? { animateOnMount: false } : {})
   }
 }
 
@@ -58,6 +60,7 @@ export function buildAssistantMessageBodyModel(
     BuildAssistantMessageLayoutModelsInput,
     | 'index'
     | 'isLatest'
+    | 'animateOnMount'
     | 'onTypingChange'
     | 'transcriptProjection'
     | 'textPlayback'
@@ -66,6 +69,7 @@ export function buildAssistantMessageBodyModel(
   return {
     index: input.index,
     isLatest: input.isLatest,
+    ...(input.animateOnMount === false ? { animateOnMount: false } : {}),
     onTypingChange: input.onTypingChange,
     transcript: input.transcriptProjection,
     textPlayback: input.textPlayback

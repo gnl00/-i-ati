@@ -68,8 +68,21 @@ vi.mock('../model-badge/ModelBadge', () => ({
 }))
 
 vi.mock('../segments/TextSegment', () => ({
-  TextSegment: ({ segment, visibleText }: { segment: TextSegment; visibleText?: string }) => (
-    <div data-testid={`text-${segment.segmentId}`}>{visibleText ?? segment.content}</div>
+  TextSegment: ({
+    segment,
+    visibleText,
+    animateOnMount
+  }: {
+    segment: TextSegment
+    visibleText?: string
+    animateOnMount?: boolean
+  }) => (
+    <div
+      data-testid={`text-${segment.segmentId}`}
+      data-animate-mount={animateOnMount === false ? 'no' : 'yes'}
+    >
+      {visibleText ?? segment.content}
+    </div>
   )
 }))
 
@@ -198,6 +211,8 @@ beforeEach(() => {
     useChatStore.setState({
       runPhase: 'streaming',
       messages: [],
+      currentChatUuid: null,
+      pendingUserMessage: null,
       selectedModelRef: undefined
     })
     useToolConfirmationStore.setState({
@@ -255,6 +270,152 @@ beforeEach(() => {
     ], 'hello world again'))
 
     expect(toolCallRenderCounts.get('committed:step-1:tool:tool-1')).toBe(1)
+  })
+
+  it('keeps non-latest historical code opaque during another response', async () => {
+    const code = '```ts\\nconst answer = 1\\n```'
+    const segment = textSegment('committed:history:code:0', code)
+
+    await act(async () => {
+      root.render(
+        <AssistantMessage
+          index={0}
+          committedMessage={createAssistantMessage([segment], code)}
+          isLatest={false}
+          isHovered={false}
+          onHover={() => {}}
+          onCopyClick={() => {}}
+        />
+      )
+    })
+
+    const rendered = container.querySelector('[data-testid="text-committed:history:code:0"]')
+    expect(rendered?.getAttribute('data-animate-mount')).toBe('no')
+    expect(container.querySelector('#assistant-message-0')?.className)
+      .not.toContain('animate-assistant-message-in')
+  })
+
+  it('keeps a previous latest assistant historical when a new user turn starts', async () => {
+    const code = '```ts\\nconst answer = 1\\n```'
+    const historicalUser: MessageEntity = {
+      id: 10,
+      body: {
+        role: 'user',
+        content: 'Previous question',
+        segments: []
+      }
+    }
+    const historicalAssistant: MessageEntity = {
+      id: 11,
+      body: {
+        role: 'assistant',
+        content: code,
+        segments: [textSegment('committed:history:latest:code:0', code)],
+        typewriterCompleted: false
+      }
+    }
+
+    useChatStore.setState({
+      runPhase: 'idle',
+      messages: [historicalUser, historicalAssistant],
+      currentChatUuid: 'chat-1',
+      pendingUserMessage: null
+    })
+
+    await act(async () => {
+      root.render(
+        <AssistantMessage
+          index={1}
+          messageId={11}
+          committedMessage={historicalAssistant.body}
+          isLatest
+          isHovered={false}
+          onHover={() => {}}
+          onCopyClick={() => {}}
+        />
+      )
+    })
+
+    const assertHistoryPresentation = () => {
+      const rendered = container.querySelector('[data-testid="text-committed:history:latest:code:0"]')
+      expect(rendered?.getAttribute('data-animate-mount')).toBe('no')
+      expect(container.querySelector('#assistant-message-1')?.className)
+        .not.toContain('animate-assistant-message-in')
+    }
+    assertHistoryPresentation()
+
+    await act(async () => {
+      useChatStore.setState({
+        runPhase: 'submitting',
+        pendingUserMessage: {
+          submissionId: 'submission-1',
+          chatUuid: 'chat-1',
+          text: 'New question',
+          mediaCtx: [],
+          createdAt: 2
+        }
+      })
+    })
+    assertHistoryPresentation()
+
+    await act(async () => {
+      useChatStore.setState({ runPhase: 'streaming' })
+    })
+    assertHistoryPresentation()
+
+    const newUser: MessageEntity = {
+      id: 12,
+      body: {
+        role: 'user',
+        content: 'New question',
+        segments: []
+      }
+    }
+    await act(async () => {
+      useChatStore.setState({
+        messages: [historicalUser, historicalAssistant, newUser],
+        runPhase: 'submitting',
+        pendingUserMessage: null
+      })
+    })
+    assertHistoryPresentation()
+
+    await act(async () => {
+      useChatStore.setState({ runPhase: 'streaming' })
+    })
+    assertHistoryPresentation()
+  })
+
+  it('keeps live presentation playback enabled after the run settles', async () => {
+    const liveContent = '```ts\\nconst answer = 1\\n```'
+    const segment = textSegment('committed:live:text:0', liveContent)
+    const message: ChatMessage = {
+      ...createAssistantMessage([segment], liveContent),
+      typewriterCompleted: true
+    }
+
+    await act(async () => {
+      root.render(
+        <AssistantMessage
+          index={0}
+          committedMessage={message}
+          isLatest
+          isHovered={false}
+          onHover={() => {}}
+          onCopyClick={() => {}}
+        />
+      )
+    })
+
+    const renderedBeforeSettling = container.querySelector('[data-testid="text-committed:live:text:0"]')
+    expect(renderedBeforeSettling?.getAttribute('data-animate-mount')).toBe('yes')
+
+    await act(async () => {
+      useChatStore.setState({ runPhase: 'idle' })
+    })
+
+    const renderedAfterSettling = container.querySelector('[data-testid="text-committed:live:text:0"]')
+    expect(renderedAfterSettling?.getAttribute('data-animate-mount')).toBe('yes')
   })
 
   it('forks from the persisted assistant message and reports success', async () => {

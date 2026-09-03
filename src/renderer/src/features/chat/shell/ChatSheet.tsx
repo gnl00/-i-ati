@@ -82,22 +82,13 @@ const ChatSheet: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
     const sheetOpenState = useSheetStore(state => state.sheetOpenState)
     const setSheetOpenState = useSheetStore(state => state.setSheetOpenState)
     const appVersion = useAppConfigStore(state => state.appVersion)
-    const upsertMessage = useChatStore(state => state.upsertMessage)
-    const patchMessageUiState = useChatStore(state => state.patchMessageUiState)
-    const toggleWebSearch = useChatStore(state => state.toggleWebSearch)
-    const setScrollHint = useChatStore(state => state.setScrollHint)
-    const chatId = useChatStore(state => state.currentChatId)
-    const chatUuid = useChatStore(state => state.currentChatUuid)
-    const replaceChatList = useChatStore(state => state.replaceChatList)
-    const hydrateChat = useChatStore(state => state.hydrateChat)
-    const resetChatContext = useChatStore(state => state.resetChatContext)
 
     /**
      * 批量完成当前 chat 的所有消息的打字机效果
      * 用于切换 chat 或开始新 chat 时
      */
-    const completeAllTypewriters = async () => {
-        const currentMessages = useChatStore.getState().messages
+    const completeAllTypewriters = useCallback(async () => {
+        const { messages: currentMessages, upsertMessage, patchMessageUiState } = useChatStore.getState()
 
         if (currentMessages.length === 0) {
             return
@@ -137,7 +128,7 @@ const ChatSheet: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
         ).catch(err => {
             logger.error('typewriter.batch_complete_failed', err)
         })
-    }
+    }, [logger])
 
     const [scheduledTasks, setScheduledTasks] = useState<ScheduleTask[]>([])
     const [scheduleLoading, setScheduleLoading] = useState(true)
@@ -187,11 +178,11 @@ const ChatSheet: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
             if (areChatListsEquivalent(currentChatList, nextChatList)) {
                 return
             }
-            replaceChatList(nextChatList)
+            useChatStore.getState().replaceChatList(nextChatList)
         } catch (err) {
             logger.error('chat_list.refresh_failed', err)
         }
-    }, [logger, replaceChatList])
+    }, [logger])
 
     useEffect(() => {
         void refreshChatList()
@@ -261,16 +252,18 @@ const ChatSheet: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
         }
     }, [])
 
-    const onNewChatClick = (_) => {
-        setSheetOpenState(false)
-        logger.debug('new_chat.clicked', { chatId, chatUuid })
-        if ((chatId && chatUuid) || !chatId || !chatUuid) {
-            startNewChat()
+    useEffect(() => {
+        return () => {
+            chatSwitchRequestRef.current += 1
+            useSheetStore.getState().setChatLoading(false)
+            useSheetStore.getState().setChatEntranceRequest(null)
         }
-    }
+    }, [])
 
-    const startNewChat = async () => {
+    const startNewChat = useCallback(async () => {
         const requestId = ++chatSwitchRequestRef.current
+        useSheetStore.getState().setChatLoading(false)
+        useSheetStore.getState().setChatEntranceRequest(null)
 
         // 批量完成当前 chat 的所有打字机效果
         await completeAllTypewriters()
@@ -278,24 +271,39 @@ const ChatSheet: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
             return
         }
 
-        resetChatContext()
+        useChatStore.getState().resetChatContext()
 
         // 切换到默认 workspace (tmp)
         const workspaceResult = await switchWorkspace()
         if (!workspaceResult.success) {
             logger.warn('workspace.switch_default_failed', { error: workspaceResult.error })
         }
+        if (chatSwitchRequestRef.current !== requestId) {
+            return
+        }
 
-        toggleWebSearch(false)
-    }
+        useChatStore.getState().toggleWebSearch(false)
+    }, [completeAllTypewriters, logger])
 
-    const onChatClick = async (_: React.MouseEvent<HTMLDivElement>, result: ChatSearchResult) => {
+    const onNewChatClick = useCallback(() => {
+        const { currentChatId, currentChatUuid } = useChatStore.getState()
+        setSheetOpenState(false)
+        logger.debug('new_chat.clicked', { chatId: currentChatId, chatUuid: currentChatUuid })
+        void startNewChat()
+    }, [logger, setSheetOpenState, startNewChat])
+
+    const onChatClick = useCallback(async (event: React.MouseEvent<HTMLDivElement>, result: ChatSearchResult) => {
+        const isPointerInitiated = event.detail > 0
         const { chat, matchedMessageId } = result
         setSheetOpenState(false)
 
-        if (chatId === chat.id) {
+        const { currentChatId } = useChatStore.getState()
+        if (currentChatId === chat.id) {
+            chatSwitchRequestRef.current += 1
+            useSheetStore.getState().setChatLoading(false)
+            useSheetStore.getState().setChatEntranceRequest(null)
             if (matchedMessageId && chat.uuid) {
-                setScrollHint({
+                useChatStore.getState().setScrollHint({
                     type: 'search-result',
                     chatUuid: chat.uuid,
                     messageId: matchedMessageId
@@ -304,55 +312,80 @@ const ChatSheet: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
             return
         }
 
-        if (chatId != chat.id) {
-            const requestId = ++chatSwitchRequestRef.current
+        const requestId = ++chatSwitchRequestRef.current
+        const selectionEpoch = useChatStore.getState().getSelectionEpoch()
+        const isRequestActive = (): boolean => chatSwitchRequestRef.current === requestId
+        const isCurrent = (): boolean => isRequestActive()
+            && useChatStore.getState().getSelectionEpoch() === selectionEpoch
+        useSheetStore.getState().setChatEntranceRequest(null)
+        useSheetStore.getState().setChatLoading(true)
 
+        try {
             // 批量完成当前 chat 的所有打字机效果
             await completeAllTypewriters()
-            if (chatSwitchRequestRef.current !== requestId) {
+            if (!isCurrent()) {
                 return
             }
 
-            toggleWebSearch(false)
+            useChatStore.getState().toggleWebSearch(false)
 
             // 切换 workspace
             const workspaceResult = await switchWorkspace(chat.uuid, chat.workspacePath)
             if (!workspaceResult.success) {
                 logger.warn('workspace.switch_for_chat_failed', { chatUuid: chat.uuid, error: workspaceResult.error })
             }
-            if (chatSwitchRequestRef.current !== requestId) {
+            if (!isCurrent()) {
                 return
             }
 
             if (!chat.id) {
-                resetChatContext()
+                useChatStore.getState().resetChatContext()
                 return
             }
 
-            try {
-                await hydrateChat(chat.id)
-                if (chatSwitchRequestRef.current !== requestId) {
-                    return
-                }
-                if (matchedMessageId) {
-                    setScrollHint({
-                        type: 'search-result',
-                        chatUuid: chat.uuid,
-                        messageId: matchedMessageId
-                    })
-                }
-            } catch (err: any) {
+            await useChatStore.getState().hydrateChat(chat.id, { isCurrent })
+            if (!isCurrent()) {
+                return
+            }
+            const { currentChatId, currentChatUuid } = useChatStore.getState()
+            if (currentChatId !== chat.id || currentChatUuid !== chat.uuid) {
+                return
+            }
+            if (isPointerInitiated && useChatStore.getState().messages.length > 0) {
+                useSheetStore.getState().setChatEntranceRequest({
+                    chatUuid: chat.uuid,
+                    selectionEpoch
+                })
+            }
+            if (matchedMessageId) {
+                useChatStore.getState().setScrollHint({
+                    type: 'search-result',
+                    chatUuid: chat.uuid,
+                    messageId: matchedMessageId
+                })
+            }
+        } catch (err: unknown) {
+            if (isCurrent()) {
+                const message = err instanceof Error ? err.message : String(err)
                 toast({
                     variant: "destructive",
                     title: "Uh oh! Something went wrong.",
-                    description: `There was a problem: ${err.message}`
+                    description: `There was a problem: ${message}`
                 })
             }
+        } finally {
+            if (isRequestActive()) {
+                useSheetStore.getState().setChatLoading(false)
+            }
         }
-    }
+    }, [completeAllTypewriters, logger, setSheetOpenState])
+
+    const onSheetOpenChange = useCallback((open: boolean) => {
+        setSheetOpenState(open)
+    }, [setSheetOpenState])
 
     return (
-        <Sheet open={sheetOpenState} onOpenChange={() => { setSheetOpenState(!sheetOpenState) }}>
+        <Sheet open={sheetOpenState} onOpenChange={onSheetOpenChange}>
             <SheetContent
                 side={"left"}
                 overlayClassName="bg-slate-950/18 dark:bg-(--app-scrim) dark:backdrop-blur-[2px]"

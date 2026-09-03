@@ -10,6 +10,10 @@ import ChatTranscriptScroller from '@renderer/features/chat/shell/ChatTranscript
 import WelcomeMessage from '@renderer/features/chat/welcome/SmartWelcomeEntrance';
 import { useAppConfigStore } from '@renderer/infrastructure/config/appConfig';
 import { useChatStore } from '@renderer/features/chat/state/chatStore';
+import {
+  useSheetStore,
+  type ChatEntranceRequest,
+} from '@renderer/features/chat/state/sheetStore';
 import { cn } from '@renderer/shared/lib/utils';
 import {
   ResizableHandle,
@@ -25,6 +29,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { LoaderCircle } from 'lucide-react';
 import { TaskPlanBar } from '../task/TaskPlanBar';
 import { useTaskPlan } from '@renderer/features/task-planner';
 import { useSubagentRuntime } from '@renderer/features/subagents';
@@ -39,14 +44,31 @@ const CHAT_HEADER_OCCLUSION_PADDING_STYLE: React.CSSProperties = {
 const PENDING_USER_MESSAGE_ID = -1;
 const ARTIFACTS_SIDE_PANEL_PREFERENCE_KEY = 'chat-artifacts';
 const TRANSCRIPT_COLUMN_CLASS = 'mx-auto w-full max-w-4xl';
+const WELCOME_EXIT_DURATION_MS = 220;
+const CHAT_ENTRANCE_DURATION_MS = 180;
+const CHAT_ENTRANCE_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
+const CHAT_ENTRANCE_KEYFRAMES: Keyframe[] = [
+  { opacity: 0.6 },
+  { opacity: 1 },
+];
+const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
 const ChatWindow: React.FC = () => {
   const messages = useChatStore((state) => state.messages);
   const previewMessage = useChatStore((state) => state.preview.message);
   const pendingUserMessage = useChatStore((state) => state.pendingUserMessage);
+  const chatLoading = useSheetStore((state) => state.chatLoading);
+  const chatEntranceRequest = useSheetStore(
+    (state) => state.chatEntranceRequest,
+  );
+  const setChatEntranceRequest = useSheetStore(
+    (state) => state.setChatEntranceRequest,
+  );
   const artifactsPanelOpen = useChatStore((state) => state.artifactsPanelOpen);
   const setArtifactsPanel = useChatStore((state) => state.setArtifactsPanel);
   const chatUuid = useChatStore((state) => state.currentChatUuid ?? undefined);
+  const selectionEpoch = useChatStore((state) => state.getSelectionEpoch());
+  const scrollHint = useChatStore((state) => state.scrollHint);
   const runPhase = useChatStore((state) => state.runPhase);
   const selectedModelRef = useChatStore((state) => state.selectedModelRef);
   const resolveModelRef = useAppConfigStore((state) => state.resolveModelRef);
@@ -160,6 +182,13 @@ const ChatWindow: React.FC = () => {
   const isRunStreaming = runPhase === 'streaming';
 
   const topOverlayRef = useRef<HTMLDivElement>(null);
+  const transcriptEntranceSurfaceRef = useRef<HTMLDivElement>(null);
+  const transcriptEntranceAnimationRef = useRef<Animation | null>(null);
+  const activeTranscriptEntranceRef =
+    useRef<ChatEntranceRequest | null>(null);
+  const handledTranscriptEntranceRef = useRef<ChatEntranceRequest | null>(null);
+  const reducedMotionRef = useRef(false);
+  const transcriptEntranceLifecycleRef = useRef(0);
   const chatInputRef = useRef<ChatInputAreaHandle>(null);
   const {
     activePlans,
@@ -186,37 +215,267 @@ const ChatWindow: React.FC = () => {
   const [isWelcomeComposerFocused, setIsWelcomeComposerFocused] =
     useState<boolean>(false);
   const hasShownWelcomeRef = useRef<boolean>(false);
+  const welcomeExitTimerRef = useRef<number | null>(null);
+  const welcomeTransitionVersionRef = useRef(0);
+  const freshSubmissionRef = useRef<{
+    submissionId: string;
+    originChatUuid: string | null;
+  } | null>(null);
+  const previousWelcomeChatUuidRef = useRef<string | undefined>(chatUuid);
 
   const handleWelcomeSuggestionClick = useCallback((prompt: string) => {
     chatInputRef.current?.fillInput(prompt);
   }, []);
 
   const hasVisibleTranscript = displayMessages.length > 0;
+  const hasFreshSubmission =
+    Boolean(pendingUserMessageEntity) || freshSubmissionRef.current !== null;
+  const hasFreshPendingSubmission =
+    Boolean(pendingUserMessage) &&
+    (Boolean(pendingUserMessageEntity) ||
+      pendingUserMessage?.submissionId === freshSubmissionRef.current?.submissionId);
+  const hasConversationSwitchIntent =
+    scrollHint?.type === 'conversation-switch' &&
+    scrollHint.chatUuid === (chatUuid ?? null) &&
+    runPhase === 'idle';
+  const hasHistorySelectionIntent = chatLoading || hasConversationSwitchIntent;
+  const isHistoricalTranscript = hasVisibleTranscript && !hasFreshSubmission;
   const isWelcomeMode = showWelcome && !hasVisibleTranscript;
   const shouldRenderWelcomeStage =
     showWelcome &&
+    !isHistoricalTranscript &&
     (isWelcomeMode || isWelcomeExiting || !hasShownWelcomeRef.current);
 
-  useLayoutEffect(() => {
-    if (hasVisibleTranscript && showWelcome && !hasShownWelcomeRef.current) {
-      hasShownWelcomeRef.current = true;
-      setIsWelcomeComposerFocused(false);
-      setIsWelcomeExiting(true);
-      setTimeout((): void => {
-        setShowWelcome(false);
-        setIsWelcomeExiting(false);
-      }, 220);
+  const cancelTranscriptEntrance = useCallback((): void => {
+    const animation = transcriptEntranceAnimationRef.current;
+    transcriptEntranceAnimationRef.current = null;
+    activeTranscriptEntranceRef.current = null;
+    if (!animation) return;
+
+    try {
+      animation.cancel();
+    } catch {
+      // The browser can finish or cancel an animation while its surface unmounts.
     }
-  }, [hasVisibleTranscript, showWelcome]);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (typeof window.matchMedia !== 'function') {
+      reducedMotionRef.current = false;
+      return;
+    }
+
+    const mediaQuery = window.matchMedia(REDUCED_MOTION_QUERY);
+    const handleChange = (): void => {
+      reducedMotionRef.current = mediaQuery.matches;
+      if (mediaQuery.matches) {
+        cancelTranscriptEntrance();
+      }
+    };
+
+    handleChange();
+    if (typeof mediaQuery.addEventListener !== 'function') return;
+    mediaQuery.addEventListener('change', handleChange);
+    return (): void => mediaQuery.removeEventListener('change', handleChange);
+  }, [cancelTranscriptEntrance]);
 
   useEffect(() => {
-    if (!hasVisibleTranscript) {
+    const lifecycle = ++transcriptEntranceLifecycleRef.current;
+    return (): void => {
+      const cancelIfUnmounted = (): void => {
+        if (transcriptEntranceLifecycleRef.current === lifecycle) {
+          cancelTranscriptEntrance();
+        }
+      };
+
+      queueMicrotask(cancelIfUnmounted);
+    };
+  }, [cancelTranscriptEntrance]);
+
+  useLayoutEffect(() => {
+    const activeRequest = activeTranscriptEntranceRef.current;
+    if (!activeRequest) return;
+
+    if (
+      chatLoading ||
+      activeRequest.chatUuid !== (chatUuid ?? null) ||
+      activeRequest.selectionEpoch !== selectionEpoch
+    ) {
+      cancelTranscriptEntrance();
+    }
+  }, [cancelTranscriptEntrance, chatLoading, chatUuid, selectionEpoch]);
+
+  useLayoutEffect(() => {
+    const request = chatEntranceRequest;
+    if (!request) return;
+
+    if (handledTranscriptEntranceRef.current === request) return;
+
+    if (
+      request.chatUuid !== (chatUuid ?? null) ||
+      request.selectionEpoch !== selectionEpoch
+    ) {
+      handledTranscriptEntranceRef.current = request;
+      setChatEntranceRequest(null);
+      return;
+    }
+
+    if (chatLoading) return;
+    if (!isHistoricalTranscript) {
+      handledTranscriptEntranceRef.current = request;
+      setChatEntranceRequest(null);
+      return;
+    }
+
+    const surface = transcriptEntranceSurfaceRef.current;
+    if (!surface) return;
+
+    handledTranscriptEntranceRef.current = request;
+    cancelTranscriptEntrance();
+
+    if (
+      reducedMotionRef.current ||
+      typeof surface.animate !== 'function'
+    ) {
+      setChatEntranceRequest(null);
+      return;
+    }
+
+    let animation: Animation;
+    try {
+      animation = surface.animate(CHAT_ENTRANCE_KEYFRAMES, {
+        duration: CHAT_ENTRANCE_DURATION_MS,
+        easing: CHAT_ENTRANCE_EASING,
+      });
+    } catch {
+      setChatEntranceRequest(null);
+      return;
+    }
+
+    transcriptEntranceAnimationRef.current = animation;
+    activeTranscriptEntranceRef.current = request;
+    animation.addEventListener(
+      'finish',
+      () => {
+        if (transcriptEntranceAnimationRef.current !== animation) return;
+        transcriptEntranceAnimationRef.current = null;
+        activeTranscriptEntranceRef.current = null;
+      },
+      { once: true },
+    );
+    setChatEntranceRequest(null);
+  }, [
+    cancelTranscriptEntrance,
+    chatEntranceRequest,
+    chatLoading,
+    chatUuid,
+    isHistoricalTranscript,
+    selectionEpoch,
+    setChatEntranceRequest,
+  ]);
+
+  const clearWelcomeExitTimer = useCallback((): void => {
+    if (welcomeExitTimerRef.current !== null) {
+      window.clearTimeout(welcomeExitTimerRef.current);
+      welcomeExitTimerRef.current = null;
+    }
+  }, []);
+
+  const invalidateWelcomeTransition = useCallback((): void => {
+    clearWelcomeExitTimer();
+    welcomeTransitionVersionRef.current += 1;
+    freshSubmissionRef.current = null;
+  }, [clearWelcomeExitTimer]);
+
+  useLayoutEffect(() => {
+    if (!pendingUserMessageEntity || !pendingUserMessage) return;
+
+    freshSubmissionRef.current = {
+      submissionId: pendingUserMessage.submissionId,
+      originChatUuid: pendingUserMessage.chatUuid,
+    };
+  }, [pendingUserMessage, pendingUserMessageEntity]);
+
+  useLayoutEffect(() => {
+    if (previousWelcomeChatUuidRef.current === chatUuid) return;
+
+    const transition = freshSubmissionRef.current;
+    const pendingBelongsToTransition =
+      transition !== null &&
+      pendingUserMessage?.submissionId === transition.submissionId;
+    const isFreshChatCreation =
+      pendingBelongsToTransition &&
+      transition.originChatUuid === null &&
+      chatUuid !== undefined;
+
+    previousWelcomeChatUuidRef.current = chatUuid;
+    if (isFreshChatCreation) return;
+
+    invalidateWelcomeTransition();
+    setIsWelcomeExiting(false);
+  }, [chatUuid, invalidateWelcomeTransition, pendingUserMessage?.submissionId]);
+
+  useEffect(() => invalidateWelcomeTransition, [invalidateWelcomeTransition]);
+
+  useLayoutEffect(() => {
+    if (hasHistorySelectionIntent) {
+      invalidateWelcomeTransition();
+      if (hasVisibleTranscript) {
+        hasShownWelcomeRef.current = true;
+        setShowWelcome(false);
+        setIsWelcomeExiting(false);
+        setIsWelcomeComposerFocused(false);
+      } else {
+        setIsWelcomeExiting(false);
+      }
+      return;
+    }
+
+    if (!hasVisibleTranscript && !hasFreshPendingSubmission) {
+      invalidateWelcomeTransition();
       setShowWelcome(true);
       setIsWelcomeExiting(false);
       setIsWelcomeComposerFocused(false);
       hasShownWelcomeRef.current = false;
+      return;
     }
-  }, [chatUuid, hasVisibleTranscript]);
+
+    if (isHistoricalTranscript) {
+      invalidateWelcomeTransition();
+      hasShownWelcomeRef.current = true;
+      setShowWelcome(false);
+      setIsWelcomeExiting(false);
+      setIsWelcomeComposerFocused(false);
+      return;
+    }
+
+    if (
+      showWelcome &&
+      (welcomeExitTimerRef.current === null || !hasShownWelcomeRef.current)
+    ) {
+      hasShownWelcomeRef.current = true;
+      setIsWelcomeComposerFocused(false);
+      setIsWelcomeExiting(true);
+      const transitionVersion = ++welcomeTransitionVersionRef.current;
+      clearWelcomeExitTimer();
+      welcomeExitTimerRef.current = window.setTimeout((): void => {
+        welcomeExitTimerRef.current = null;
+        if (welcomeTransitionVersionRef.current !== transitionVersion) return;
+
+        freshSubmissionRef.current = null;
+        setShowWelcome(false);
+        setIsWelcomeExiting(false);
+      }, WELCOME_EXIT_DURATION_MS);
+    }
+  }, [
+    clearWelcomeExitTimer,
+    hasFreshPendingSubmission,
+    hasHistorySelectionIntent,
+    hasVisibleTranscript,
+    invalidateWelcomeTransition,
+    isHistoricalTranscript,
+    showWelcome,
+  ]);
 
   useLayoutEffect(() => {
     if (displayPlans.length === 0) {
@@ -251,6 +510,24 @@ const ChatWindow: React.FC = () => {
       <ChatHeader />
 
       <div className="relative z-0 -mt-10 min-h-svh max-h-svh overflow-hidden flex flex-col bg-chat-light dark:bg-chat-dark">
+        {chatLoading && (
+          <div
+            className="pointer-events-none absolute inset-x-0 top-12 z-50 flex justify-center"
+            data-testid="chat-loading-indicator"
+            role="status"
+            aria-live="polite"
+            aria-label="Loading chat"
+          >
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-(--chat-border-subtle) bg-(--chat-surface) px-2.5 py-1 text-[11px] font-medium text-(--chat-text-secondary) shadow-xs backdrop-blur-sm">
+              <LoaderCircle
+                aria-hidden="true"
+                className="size-3 animate-spin motion-reduce:animate-none"
+                strokeWidth={2}
+              />
+              <span>Loading chat</span>
+            </div>
+          </div>
+        )}
         {shouldRenderWelcomeStage ? (
           <ChatSidePanelLayout
             open={artifactsPanelOpen}
@@ -372,20 +649,26 @@ const ChatWindow: React.FC = () => {
                   </AnimatePresence>
                 </div>
 
-                <ChatTranscriptScroller
-                  chatUuid={chatUuid}
-                  displayMessages={displayMessages}
-                  previewMessage={previewMessage ?? undefined}
-                  previewRenderIndex={previewRenderIndex}
-                  lastAssistantIndex={lastAssistantIndex}
-                  lastMessageIndex={lastMessageIndex}
-                  latestUserIndex={latestUserIndex}
-                  hasCurrentTurnAssistant={hasCurrentTurnAssistant}
-                  shouldRenderPendingAssistant={shouldRenderPendingAssistant}
-                  pendingAssistantModel={pendingAssistantModel}
-                  topOcclusionPx={topOcclusionPx}
-                  isRunStreaming={isRunStreaming}
-                />
+                <div
+                  ref={transcriptEntranceSurfaceRef}
+                  data-testid="chat-transcript-entrance-surface"
+                  className="h-full min-h-0"
+                >
+                  <ChatTranscriptScroller
+                    chatUuid={chatUuid}
+                    displayMessages={displayMessages}
+                    previewMessage={previewMessage ?? undefined}
+                    previewRenderIndex={previewRenderIndex}
+                    lastAssistantIndex={lastAssistantIndex}
+                    lastMessageIndex={lastMessageIndex}
+                    latestUserIndex={latestUserIndex}
+                    hasCurrentTurnAssistant={hasCurrentTurnAssistant}
+                    shouldRenderPendingAssistant={shouldRenderPendingAssistant}
+                    pendingAssistantModel={pendingAssistantModel}
+                    topOcclusionPx={topOcclusionPx}
+                    isRunStreaming={isRunStreaming}
+                  />
+                </div>
               </ChatSidePanelLayout>
             </ResizablePanel>
 

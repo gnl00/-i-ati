@@ -242,6 +242,10 @@ Blur 是浅色玻璃材质与特定遮罩的辅助工具。Dark Mode 主 surface
 - 侧栏：spring duration 约 420ms，低 bounce。
 - progress、spinner 和 shimmer 只出现在运行状态。
 
+历史会话首屏直接呈现已加载正文，保持文本与代码初始可见；Welcome 退场与消息进入动效用于新提交和实时响应。切换会话的异步加载期间保留当前内容或 Welcome，并提供轻量、非阻塞的 polite 状态反馈。历史消息壳保持连续布局，视口内及明确跳转目标的正文优先挂载。
+
+指针选择历史会话成功后，ChatWindow 正文可视容器统一执行一次 180ms 的 `opacity: 0.6 → 1` 过渡，曲线为 `cubic-bezier(0.22, 1, 0.36, 1)`。Header、composer、Artifacts 和任务浮层保持原有呈现；正文容器保持稳定挂载与尺寸。键盘/辅助技术入口和 reduced-motion 使用即时显示，流式更新、历史补载及 disclosure 展开维持既有呈现。具体生命周期见[ChatWindow 入场指南](docs/guides/development/chat-window-entrance-animation.md)。
+
 所有持续动画和位移动效提供 `prefers-reduced-motion` 分支。Tab 切换优先保证首帧内容完整，顶层 tab panel 使用同步显隐。Hover motion 以颜色、边框、阴影、opacity 和小幅 scale 为主。
 
 ## 8. 推荐做法与约束

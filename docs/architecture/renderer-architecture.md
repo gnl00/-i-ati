@@ -41,8 +41,34 @@ conversation, and passes top-occlusion and anchor metadata to the scroller.
 Message row components own message content and operations while the shared UI
 wrappers own layout primitives and the self-managed jump button. Feature code
 keeps message identity stable across pending-to-committed assistant updates;
-historical rows can use the registry's content-visibility behavior while the
-active row and search target stay visible.
+historical rows retain every registry shell while their bodies mount on demand
+from `useMessageScrollerVisibility`. Latest/pending rows, the final two items,
+and an explicit search target mount immediately. Visited bodies remain mounted
+within the current conversation to preserve disclosure state; memory therefore
+follows visited history. The registry continues to own visibility and scrolling.
+
+`ChatSheet` owns selection request tokens and transient `sheetStore.chatLoading`
+feedback. The coordinator owns a transient selection epoch, invalidated by
+shell selection, New Chat/reset, and foreground ready-chat application that
+changes the selected ID or UUID. A same-identity `CHAT_READY` refresh updates
+metadata while preserving the epoch and any pending user selection.
+`ChatSheet` captures it before its first await; `hydrateChat` also checks its
+epoch and optional current-request predicate before committing state. Loading
+cleanup follows the latest sheet request even when an external reset invalidates
+its selection, so an obsolete request cannot clear newer feedback.
+Stable callbacks and a memoized `ChatTitleList` isolate sheet transitions from
+list reconstruction. `ChatWindow` retains its existing surface during loading
+and renders loaded history immediately; Welcome exit and message entrance
+animations remain scoped to fresh submissions/live responses. Implementation
+contracts and acceptance evidence live in the
+[history first-paint guide](../guides/development/chat-history-first-paint-optimization.md).
+
+For successful pointer-driven history selection, ChatSheet publishes a transient
+presentation request and ChatWindow animates one stable transcript surface using
+the native Web Animations API. The 180ms opacity-only entrance leaves message
+mounting, scroll ownership, the composer, and Artifacts unchanged. Keyboard and
+reduced-motion paths keep immediate presentation. Lifecycle and verification
+contracts live in the [window entrance guide](../guides/development/chat-window-entrance-animation.md).
 
 Paused model questions are owned by `features/chat/toolUserQuestion/`, the
 colocated `toolUserQuestionStore`, and `UserQuestionCard` in the chat input

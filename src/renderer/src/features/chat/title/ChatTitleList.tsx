@@ -647,4 +647,4 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
   )
 }
 
-export default ChatTitleList
+export default React.memo(ChatTitleList)

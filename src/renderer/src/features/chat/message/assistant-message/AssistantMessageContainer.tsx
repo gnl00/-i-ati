@@ -1,5 +1,6 @@
 import React, { memo, useCallback, useLayoutEffect, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
+import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
 import { ChatForkInProgressError } from '@renderer/features/chat/state/chatCoordinatorStore'
 import useChatRun from '@renderer/features/chat/runtime/useChatRun'
@@ -39,6 +40,7 @@ export interface AssistantMessageProps {
   tokenUsage?: ITokenUsage
   previewMessage?: ChatMessage
   isLatest: boolean
+  animateOnMount?: boolean
   isHovered: boolean
   onHover: (hovered: boolean) => void
   onCopyClick: (content: string) => CopyActionResult | Promise<CopyActionResult>
@@ -53,6 +55,7 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
   tokenUsage,
   previewMessage,
   isLatest,
+  animateOnMount,
   isHovered,
   onHover,
   onCopyClick,
@@ -60,6 +63,10 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
 }) => {
   const runPhase = useChatStore(state => state.runPhase)
   const messages = useChatStore(state => state.messages)
+  const hasPendingUserMessage = useChatStore(state => Boolean(
+    state.pendingUserMessage
+      && state.pendingUserMessage.chatUuid === state.currentChatUuid
+  ))
   const selectedModelRef = useChatStore(state => state.selectedModelRef)
   const forkCurrentChatFromMessage = useChatStore(state => state.forkCurrentChatFromMessage)
   const providerDefinitions = useAppConfigStore(state => state.providerDefinitions)
@@ -86,10 +93,45 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
     pendingModel?.model,
     pendingModel?.modelRef
   ])
-
   const projectionIdentity: AssistantMessageProjectionIdentity = messageId
     ?? committedMessage?.createdAt
     ?? `${index}:${committedMessage ? 'committed' : 'pending'}:${pendingModel?.modelRef?.accountId ?? pendingModel?.model ?? ''}`
+  const latestUserIndex = useMemo(() => {
+    if (!isLatest) return -1
+
+    for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+      if (messages[messageIndex].body.role === 'user') {
+        return messageIndex
+      }
+    }
+    return -1
+  }, [isLatest, messages])
+  const isCurrentTurnResponse = !committedMessage
+    || (!hasPendingUserMessage && (
+      latestUserIndex >= 0
+        ? index > latestUserIndex
+        : messages.length === 0
+    ))
+  const isCurrentLiveResponse = isLatest && isCurrentTurnResponse && (
+    isAssistantResponseActive
+    || Boolean(previewMessage)
+    || displayCommittedMessage.source === MESSAGE_SOURCE.STREAM_PREVIEW
+  )
+  const presentationModeRef = useRef<{
+    identity: AssistantMessageProjectionIdentity
+    animateOnMount: boolean
+  } | null>(null)
+
+  if (presentationModeRef.current?.identity !== projectionIdentity) {
+    presentationModeRef.current = {
+      identity: projectionIdentity,
+      animateOnMount: isCurrentLiveResponse
+    }
+  } else if (isCurrentLiveResponse) {
+    presentationModeRef.current.animateOnMount = true
+  }
+
+  const shouldAnimateOnMount = animateOnMount ?? presentationModeRef.current.animateOnMount
 
   const projectionCache = useMemo(() => {
     return mapAssistantMessageIncrementally({
@@ -217,10 +259,12 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
   const shellModel = useMemo(() => buildAssistantMessageShellModel({
     index,
     isLatest,
+    animateOnMount: shouldAnimateOnMount,
     onHover
   }), [
     index,
     isLatest,
+    shouldAnimateOnMount,
     onHover
   ])
 
@@ -240,12 +284,14 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
   const bodyModel = useMemo(() => buildAssistantMessageBodyModel({
     index,
     isLatest,
+    animateOnMount: shouldAnimateOnMount,
     onTypingChange,
     transcriptProjection: renderState.transcript,
     textPlayback
   }), [
     index,
     isLatest,
+    shouldAnimateOnMount,
     onTypingChange,
     renderState.transcript,
     textPlayback

@@ -10,6 +10,7 @@ import {
 export interface AssistantMessageShellModel {
   index: number
   isLatest: boolean
+  animateOnMount?: boolean
   onHover: (hovered: boolean) => void
 }
 
@@ -34,7 +35,7 @@ export const AssistantMessageLayout: React.FC<AssistantMessageLayoutProps> = mem
       className={cn(
         'flex justify-start flex-col',
         shell.index === 0 ? 'mt-2' : '',
-        shell.isLatest && 'animate-assistant-message-in'
+        shell.isLatest && shell.animateOnMount !== false && 'animate-assistant-message-in'
       )}
     >
       <div>

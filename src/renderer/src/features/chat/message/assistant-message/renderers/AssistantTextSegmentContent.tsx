@@ -18,12 +18,14 @@ export interface AssistantTextSegmentContentProps {
   segment: TextSegment
   visibleText?: string
   isTyping: boolean
+  animateOnMount?: boolean
 }
 
 export const AssistantTextSegmentContent: React.FC<AssistantTextSegmentContentProps> = memo(({
   segment,
   visibleText,
-  isTyping
+  isTyping,
+  animateOnMount = true
 }) => {
   const mode = getStreamingTextRenderMode()
   const hasCode = segment.content.includes('```') || segment.content.includes('`')
@@ -40,13 +42,21 @@ export const AssistantTextSegmentContent: React.FC<AssistantTextSegmentContentPr
 
   let content: React.ReactNode
   if (hasCode) {
-    content = <TextSegment segment={segment} visibleText={visibleText} animateOnChange={false} />
+    content = (
+      <TextSegment
+        segment={segment}
+        visibleText={visibleText}
+        animateOnChange={false}
+        animateOnMount={animateOnMount}
+      />
+    )
   } else if (mode === 'markdown') {
     content = (
       <TextSegment
         segment={segment}
         visibleText={visibleText}
         animateOnChange={isTyping}
+        animateOnMount={animateOnMount}
         transitionKey={visibleText}
       />
     )

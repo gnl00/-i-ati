@@ -8,16 +8,19 @@ vi.mock('../segments/TextSegment', () => ({
   TextSegment: ({
     segment,
     visibleText,
-    animateOnChange
+    animateOnChange,
+    animateOnMount
   }: {
     segment: TextSegment
     visibleText?: string
     animateOnChange?: boolean
+    animateOnMount?: boolean
   }) => (
     <div
       data-testid="text-segment"
       data-content={visibleText ?? segment.content}
       data-animate={animateOnChange ? 'yes' : 'no'}
+      data-animate-mount={animateOnMount === false ? 'no' : 'yes'}
     />
   )
 }))
@@ -62,6 +65,23 @@ describe('AssistantTextSegmentContent', () => {
 
     expect(html).toContain('data-testid="text-segment"')
     expect(html).toContain('data-animate="no"')
+  })
+
+  it('keeps historical code content opaque on its first render', () => {
+    const html = renderToStaticMarkup(
+      <AssistantTextSegmentContent
+        segment={{
+          type: 'text',
+          segmentId: 'historical-code-text',
+          content: '```ts\\nconst x = 1\\n```',
+          timestamp: 1
+        }}
+        isTyping={false}
+        animateOnMount={false}
+      />
+    )
+
+    expect(html).toContain('data-animate-mount="no"')
   })
 
   it('routes plain text through TextSegment in markdown mode', () => {
