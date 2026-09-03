@@ -24,13 +24,11 @@ import type { ModelStreamExecutor } from '../model/ModelStreamExecutor'
 import type { LoadedSkillsTranscriptContextProvider } from '../skills/LoadedSkillsTranscriptContextProvider'
 import type { LoopIdentityProvider } from './LoopIdentityProvider'
 import type { RuntimeClock } from './RuntimeClock'
-import type { LoopBudgetPolicy } from './LoopBudgetPolicy'
 import type { SteeringMessageSource } from '../steering/SteeringMessageSource'
 
 export interface AgentLoopDependencies {
   loopIdentityProvider: LoopIdentityProvider
   runtimeClock: RuntimeClock
-  loopBudgetPolicy: LoopBudgetPolicy
   agentStepMaterializer: AgentStepMaterializer
   transcriptAppender: AgentTranscriptAppender
   transcriptSnapshotMaterializer: AgentTranscriptSnapshotMaterializer

@@ -33,7 +33,6 @@ import { createInitialModelResponseParserState } from '../model/ModelResponsePar
 import type { AgentTranscript } from '../transcript/AgentTranscript'
 import type { ToolCallReadyFact } from '../tools/ToolCallReadyFact'
 import type { ToolResultFact } from '../tools/ToolResultFact'
-import type { LoopBudgetProgressSignal, LoopBudgetState } from './LoopBudgetPolicy'
 import { mergeUsage } from './AgentLoopUsage'
 import type { AgentTranscriptUserRecord } from '../transcript/AgentTranscriptRecord'
 
@@ -231,40 +230,8 @@ const collectReadyToolCallFacts = (
   })
 )
 
-const collectProgressSignalsFromDelta = (
-  delta: AgentStepDraftDelta
-): LoopBudgetProgressSignal[] => {
-  switch (delta.type) {
-    case 'tool_call_ready':
-      return [{ kind: 'tool_call' }]
-    default:
-      return []
-  }
-}
-
-const collectBudgetProgressSources = (
-  signals: LoopBudgetProgressSignal[],
-  toolResults?: ToolResultFact[]
-): string[] => {
-  const sources = new Set<string>()
-
-  for (const signal of signals) {
-    sources.add(signal.kind)
-  }
-
-  if (toolResults?.length) {
-    sources.add('tool_result')
-  }
-
-  return Array.from(sources)
-}
-
 const formatBudgetExhaustedMessage = (input: {
-  softMaxSteps: number
-  hardMaxSteps: number
-  extensionStepSize: number
-  budgetExtensionCount: number
-  lastBudgetProgressSources: string[]
+  maxSteps: number
   lastStep?: AgentStep
 }): string => {
   const lastToolNames = Array.from(new Set(
@@ -274,11 +241,8 @@ const formatBudgetExhaustedMessage = (input: {
   ))
 
   return [
-    `AgentLoop exceeded softMaxSteps=${input.softMaxSteps} (hardMaxSteps=${input.hardMaxSteps})`,
-    `budgetExtensions=${input.budgetExtensionCount}`,
-    `extensionStepSize=${input.extensionStepSize}`,
+    `AgentLoop exceeded maxSteps=${input.maxSteps}`,
     `lastStepIndex=${input.lastStep?.stepIndex ?? 'none'}`,
-    `lastProgressSources=${input.lastBudgetProgressSources.length > 0 ? input.lastBudgetProgressSources.join(',') : 'none'}`,
     `lastToolCalls=${lastToolNames.length > 0 ? lastToolNames.join(',') : 'none'}`
   ].join('\n')
 }
@@ -303,19 +267,18 @@ export class DefaultAgentLoop implements AgentLoop {
     dependencies: AgentLoopDependencies
   ): Promise<AgentLoopResult> {
     const startedAt = dependencies.runtimeClock.now()
-    let budgetState = dependencies.loopBudgetPolicy.initialize(input.execution)
+    const configuredMaxSteps = input.execution?.maxSteps
+    const maxSteps = typeof configuredMaxSteps === 'number'
+      && Number.isFinite(configuredMaxSteps) && configuredMaxSteps >= 1
+      ? Math.floor(configuredMaxSteps)
+      : 80
     let transcript = input.transcript
     let usage: ITokenUsage | undefined
     let lastStableStep: AgentStep | undefined
-    let budgetExtensionCount = 0
-    let lastBudgetProgressSources: string[] = []
     let stepIndex = 0
     let incompleteResponseRecoveryAttempts = 0
 
-    while (
-      stepIndex < budgetState.hardMaxSteps
-      && dependencies.loopBudgetPolicy.canStartStep(stepIndex, budgetState)
-    ) {
+    while (stepIndex < maxSteps) {
       if (input.signal?.aborted) {
         return this.finalizeAborted({
           startedAt,
@@ -331,7 +294,6 @@ export class DefaultAgentLoop implements AgentLoop {
       const stepId = dependencies.loopIdentityProvider.nextStepId()
       const stepStartedAt = dependencies.runtimeClock.now()
       let draft = createDraft(stepId, stepIndex, stepStartedAt)
-      const progressSignals: LoopBudgetProgressSignal[] = []
 
       await dependencies.agentEventEmitter.emitStepStarted({
         stepId,
@@ -376,7 +338,6 @@ export class DefaultAgentLoop implements AgentLoop {
 
           for (const delta of parsed.deltas) {
             draft = applyDeltaToDraft(draft, delta, parsed.toolCallsSnapshot)
-            progressSignals.push(...collectProgressSignalsFromDelta(delta))
             await dependencies.agentEventEmitter.emitStepDelta({
               stepId: draft.stepId,
               stepIndex: draft.stepIndex,
@@ -511,7 +472,7 @@ export class DefaultAgentLoop implements AgentLoop {
       })
 
       if (step.toolCalls.length === 0) {
-        const steered = this.canStartNextStep(stepIndex, budgetState, dependencies)
+        const steered = stepIndex + 1 < maxSteps
           ? await this.consumeSteeringMessage(transcript, dependencies)
           : undefined
         if (steered) {
@@ -559,28 +520,7 @@ export class DefaultAgentLoop implements AgentLoop {
             updatedAt: dependencies.runtimeClock.now()
           })
         }
-        const progressSources = collectBudgetProgressSources(progressSignals, outcome.results)
-        const previousSoftMaxSteps = budgetState.softMaxSteps
-        budgetState = dependencies.loopBudgetPolicy.extendForProgress(budgetState, {
-          step,
-          signals: progressSignals,
-          toolResults: outcome.results
-        })
-        if (budgetState.softMaxSteps > previousSoftMaxSteps) {
-          budgetExtensionCount += 1
-          lastBudgetProgressSources = progressSources
-          logger.info('budget.extended', {
-            runId: input.run.runId,
-            stepId: step.stepId,
-            stepIndex: step.stepIndex,
-            previousSoftMaxSteps,
-            nextSoftMaxSteps: budgetState.softMaxSteps,
-            hardMaxSteps: budgetState.hardMaxSteps,
-            extensionStepSize: budgetState.extensionStepSize,
-            progressSources
-          })
-        }
-        if (this.canStartNextStep(stepIndex, budgetState, dependencies)) {
+        if (stepIndex + 1 < maxSteps) {
           transcript = await this.consumeSteeringMessage(transcript, dependencies) ?? transcript
         }
         stepIndex += 1
@@ -629,11 +569,7 @@ export class DefaultAgentLoop implements AgentLoop {
 
     logger.warn('budget.exhausted', {
       runId: input.run.runId,
-      softMaxSteps: budgetState.softMaxSteps,
-      hardMaxSteps: budgetState.hardMaxSteps,
-      extensionStepSize: budgetState.extensionStepSize,
-      budgetExtensionCount,
-      lastBudgetProgressSources,
+      maxSteps,
       lastStepId: lastStableStep?.stepId,
       lastStepIndex: lastStableStep?.stepIndex,
       lastStepStatus: lastStableStep?.status
@@ -646,11 +582,7 @@ export class DefaultAgentLoop implements AgentLoop {
       usage,
       failure: {
         message: formatBudgetExhaustedMessage({
-          softMaxSteps: budgetState.softMaxSteps,
-          hardMaxSteps: budgetState.hardMaxSteps,
-          extensionStepSize: budgetState.extensionStepSize,
-          budgetExtensionCount,
-          lastBudgetProgressSources,
+          maxSteps,
           lastStep: lastStableStep
         })
       },
@@ -719,16 +651,6 @@ export class DefaultAgentLoop implements AgentLoop {
 
     dependencies.steeringMessageSource?.acknowledge(message.queueItemId)
     return transcriptWithContext
-  }
-
-  private canStartNextStep(
-    stepIndex: number,
-    budgetState: LoopBudgetState,
-    dependencies: AgentLoopDependencies
-  ): boolean {
-    const nextStepIndex = stepIndex + 1
-    return nextStepIndex < budgetState.hardMaxSteps
-      && dependencies.loopBudgetPolicy.canStartStep(nextStepIndex, budgetState)
   }
 
   private async materializeLoadedSkillsContextRecords(

@@ -31,9 +31,7 @@ import type {
 } from './MainAgentRuntimeRunner'
 
 const DEFAULT_MAIN_AGENT_EXECUTION = {
-  softMaxSteps: 25,
-  hardMaxSteps: 80,
-  extensionStepSize: 5
+  maxSteps: 80
 } as const
 
 export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {

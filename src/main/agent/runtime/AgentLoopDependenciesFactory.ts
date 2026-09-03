@@ -25,12 +25,10 @@ import type { TranscriptRecordFactory } from './transcript/TranscriptRecordFacto
 import type { ExecutableRequestAdapter } from './model/ExecutableRequestAdapter'
 import type { ModelResponseParser } from './model/ModelResponseParser'
 import type { ModelStreamExecutor } from './model/ModelStreamExecutor'
-import type { LoopBudgetPolicy } from './loop/LoopBudgetPolicy'
 import type { LoadedSkillsTranscriptContextProvider } from './skills/LoadedSkillsTranscriptContextProvider'
 import type { SteeringMessageSource } from './steering/SteeringMessageSource'
 import { DefaultAgentEventBus } from './events/AgentEventBus'
 import { DefaultAgentEventEmitter } from './events/AgentEventEmitter'
-import { DefaultLoopBudgetPolicy } from './loop/LoopBudgetPolicy'
 import { DefaultAgentStepMaterializer } from './step/AgentStepMaterializer'
 import { DefaultReadyToolCallMaterializer } from './tools/ReadyToolCallMaterializer'
 import { DefaultToolBatchAssembler } from './tools/ToolBatchAssembler'
@@ -51,7 +49,6 @@ export interface AgentLoopDependenciesFactory {
 export interface DefaultAgentLoopDependenciesFactoryOptions {
   agentEventBus?: AgentEventBus
   agentEventEmitter?: AgentEventEmitter
-  loopBudgetPolicy?: LoopBudgetPolicy
   agentStepMaterializer?: AgentStepMaterializer
   transcriptAppender?: AgentTranscriptAppender
   transcriptSnapshotMaterializer?: AgentTranscriptSnapshotMaterializer
@@ -88,7 +85,6 @@ implements AgentLoopDependenciesFactory {
     return {
       loopIdentityProvider: runtimeInfrastructure.loopIdentityProvider,
       runtimeClock: runtimeInfrastructure.runtimeClock,
-      loopBudgetPolicy: this.options.loopBudgetPolicy ?? new DefaultLoopBudgetPolicy(),
       agentStepMaterializer: this.options.agentStepMaterializer ?? new DefaultAgentStepMaterializer(),
       transcriptAppender: this.options.transcriptAppender ?? new DefaultAgentTranscriptAppender(),
       transcriptSnapshotMaterializer:

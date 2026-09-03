@@ -305,8 +305,7 @@ describe('DefaultAgentRuntime', () => {
         userContent: [{ type: 'input_text', text: 'hello' }]
       },
       execution: {
-        softMaxSteps: 1,
-        hardMaxSteps: 1
+        maxSteps: 1
       }
     })
 
@@ -710,8 +709,7 @@ describe('DefaultAgentRuntime', () => {
         userContent: [{ type: 'input_text', text: 'use a tool' }]
       },
       execution: {
-        softMaxSteps: 1,
-        hardMaxSteps: 1
+        maxSteps: 1
       }
     })
 
@@ -876,7 +874,7 @@ describe('DefaultAgentRuntime', () => {
     expect(toolExecutorDispatcher.dispatch).toHaveBeenCalledTimes(1)
   })
 
-  it('extends the soft step budget when tool/progress signals continue the loop', async () => {
+  it('completes on the final allowed model step after tool calls', async () => {
     const modelStreamExecutor: ModelStreamExecutor = {
       execute: vi.fn(async ({ request }) => {
         const toolMessageCount = request.messages.filter(message => message.role === 'tool').length
@@ -946,7 +944,7 @@ describe('DefaultAgentRuntime', () => {
             kind: 'delta',
             responseId: 'resp-3',
             model: 'test-model',
-            content: 'Completed after budget extension',
+            content: 'Completed within step limit',
             finishReason: 'stop'
           },
           {
@@ -998,14 +996,12 @@ describe('DefaultAgentRuntime', () => {
         userContent: [
           {
             type: 'input_text',
-            text: 'extend budget through tool progress'
+            text: 'complete within step limit'
           }
         ]
       },
       execution: {
-        softMaxSteps: 1,
-        hardMaxSteps: 3,
-        extensionStepSize: 1
+        maxSteps: 3
       }
     })
 
@@ -1013,12 +1009,12 @@ describe('DefaultAgentRuntime', () => {
     if (result.status !== 'completed') {
       throw new Error('Expected completed result')
     }
-    expect(result.finalStep.content).toBe('Completed after budget extension')
+    expect(result.finalStep.content).toBe('Completed within step limit')
     expect(modelStreamExecutor.execute).toHaveBeenCalledTimes(3)
     expect(toolExecutorDispatcher.dispatch).toHaveBeenCalledTimes(2)
   })
 
-  it('reports budget exhaustion details when tool progress reaches the hard step limit', async () => {
+  it.each<[number | undefined, number]>([[3, 3], [undefined, 80]])('stops tool loops at maxSteps=%s (effective %s)', async (maxSteps, expectedSteps) => {
     const modelStreamExecutor: ModelStreamExecutor = {
       execute: vi.fn(async () => createAsyncStream([
         {
@@ -1094,9 +1090,7 @@ describe('DefaultAgentRuntime', () => {
         ]
       },
       execution: {
-        softMaxSteps: 1,
-        hardMaxSteps: 3,
-        extensionStepSize: 1
+        maxSteps
       }
     })
 
@@ -1104,14 +1098,11 @@ describe('DefaultAgentRuntime', () => {
     if (result.status !== 'failed') {
       throw new Error('Expected failed result')
     }
-    expect(result.failure.message).toContain('AgentLoop exceeded softMaxSteps=3 (hardMaxSteps=3)')
-    expect(result.failure.message).toContain('budgetExtensions=2')
-    expect(result.failure.message).toContain('extensionStepSize=1')
-    expect(result.failure.message).toContain('lastStepIndex=2')
-    expect(result.failure.message).toContain('lastProgressSources=tool_call,tool_result')
+    expect(result.failure.message).toContain(`AgentLoop exceeded maxSteps=${expectedSteps}`)
+    expect(result.failure.message).toContain(`lastStepIndex=${expectedSteps - 1}`)
     expect(result.failure.message).toContain('lastToolCalls=repeat_tool')
-    expect(modelStreamExecutor.execute).toHaveBeenCalledTimes(3)
-    expect(toolExecutorDispatcher.dispatch).toHaveBeenCalledTimes(3)
+    expect(modelStreamExecutor.execute).toHaveBeenCalledTimes(expectedSteps)
+    expect(toolExecutorDispatcher.dispatch).toHaveBeenCalledTimes(expectedSteps)
   })
 
   it('emits step.failed even when the step fails before any delta is produced', async () => {

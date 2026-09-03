@@ -26,8 +26,7 @@ const SUBAGENT_APPROVAL_POLICY: ResolvedAgentApprovalPolicy = {
 }
 
 const DEFAULT_SUBAGENT_EXECUTION: LoopExecutionConfig = {
-  softMaxSteps: 25,
-  hardMaxSteps: 25
+  maxSteps: 80
 }
 
 export interface PreparedSubagentRunContext {

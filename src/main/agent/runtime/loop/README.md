@@ -135,3 +135,12 @@
 - runtime sources 不应直接下沉到 loop 依赖面
 - `AgentLoopDependencies` 只保留 loop 真正直接调用的 bridges / emitter / id&time providers
 - runtime 负责 wiring，loop 负责执行
+
+## 步数上限
+
+`LoopExecutionConfig.maxSteps` 是单轮 run 的唯一模型步数上限，默认 80。
+主聊天和子 Agent 统一使用 80。
+每个 stable 模型响应占一步，同一步中的多个工具调用共享这一步。
+工具结果写回后，后续模型响应继续计步；steering 也使用当前 run 的剩余步数。
+最后一步给出最终回答时正常完成；最后一步仍调用工具时，工具执行并写回后返回预算耗尽失败。
+预算耗尽日志保留上限、最后一步索引和工具名。

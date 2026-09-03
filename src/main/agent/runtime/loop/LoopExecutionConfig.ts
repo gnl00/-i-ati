@@ -11,8 +11,6 @@
  * - 它不负责表达外部取消通道，取消仍应通过 `AbortSignal`
  */
 export interface LoopExecutionConfig {
-  softMaxSteps?: number
-  hardMaxSteps?: number
-  extensionStepSize?: number
+  /** Maximum model steps per run; defaults to 80. */
   maxSteps?: number
 }

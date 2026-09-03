@@ -30,7 +30,7 @@ vi.mock('@main/main-window', () => ({
 }))
 
 describe('DefaultSubagentRuntimeRunner execution config', () => {
-  it('runs runtime with default softMaxSteps=25 and hardMaxSteps=25', async () => {
+  it('runs runtime with default maxSteps=80', async () => {
     const finalStep: CompletedAgentStep = {
       stepId: 'step-1',
       stepIndex: 0,
@@ -101,8 +101,7 @@ describe('DefaultSubagentRuntimeRunner execution config', () => {
     expect(runtime.run).toHaveBeenCalledWith(
       expect.objectContaining({
         execution: {
-          softMaxSteps: 25,
-          hardMaxSteps: 25
+          maxSteps: 80
         }
       })
     )
