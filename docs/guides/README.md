@@ -8,6 +8,7 @@ Legacy guides migrate here incrementally when their owning workflow changes.
 
 ## Development
 
+- [技能安装与残缺恢复实施指导](development/skill-install-recovery-implementation.md)
 - [Tailwind CSS v4 syntax rules](development/tailwindcss-v4-syntax-rules.md)
 - [Tool definition workflow](development/tool-definition-workflow.md)
 - [Plugin author checklist](development/plugin-author-checklist.md)

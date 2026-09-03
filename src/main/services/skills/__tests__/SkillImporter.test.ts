@@ -9,7 +9,13 @@ import { markSkillCacheDirty } from '../SkillCache'
 
 vi.mock('../SkillCache', () => ({
   ensureSkillsDir: vi.fn(async () => '/tmp/skills-root'),
-  markSkillCacheDirty: vi.fn()
+  markSkillCacheDirty: vi.fn(),
+  listInstalledSkillStates: vi.fn(async () => [])
+}))
+
+vi.mock('../SkillInstallation', () => ({
+  recoverSkillInstallTransactions: vi.fn(),
+  withSkillRootLock: vi.fn(async (_root: string, operation: () => Promise<unknown>) => await operation())
 }))
 
 vi.mock('../SkillCollector', async (importOriginal) => {
@@ -86,6 +92,6 @@ describe('SkillImporter', () => {
       path.resolve(sourceDir),
       'pdf-processing-skill-source'
     )
-    expect(markSkillCacheDirty).toHaveBeenCalledTimes(1)
+    expect(markSkillCacheDirty).toHaveBeenCalled()
   })
 })

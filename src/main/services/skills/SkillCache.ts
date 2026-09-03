@@ -8,7 +8,13 @@ import {
   parseSkillMetadata,
   validateSkillName
 } from './SkillParser'
-import { resolveSkillPath } from './SkillPathResolver'
+import { resolveSkillPath, SkillPathError } from './SkillPathResolver'
+import {
+  inspectSkillDirectory,
+  isSkillInternalDirectory,
+  recoverSkillInstallTransactions,
+  withSkillRootLock
+} from './SkillInstallation'
 
 type SkillMetadataCacheItem = SkillMetadata & {
   mtimeMs: number
@@ -26,11 +32,20 @@ type SkillSourceInfo = {
   importedAt: number
 }
 
+export type InstalledSkillInspection = {
+  name: string
+  directory: string
+  state: 'complete' | 'incomplete' | 'unreadable' | 'unsafe'
+  metadata?: SkillMetadata
+  source?: string
+  error?: string
+}
+
 const SKILLS_DIR = 'skills'
 const BUILT_IN_SKILL_SOURCE = 'built-in'
 const SKILL_METADATA_CACHE_KEY = 'skillsMetadataCache'
 const SKILL_SOURCE_FILE = '.skill-source.json'
-const SKILL_METADATA_CACHE_VERSION = 4
+const SKILL_METADATA_CACHE_VERSION = 5
 
 const skillMetadataCache: {
   root: string | null
@@ -70,8 +85,8 @@ export const resolveBuiltInSkillsDir = (): string => {
 
 export const skillDirExists = async (dirPath: string): Promise<boolean> => {
   try {
-    const stat = await fs.stat(dirPath)
-    return stat.isDirectory()
+    const stat = await fs.lstat(dirPath)
+    return stat.isDirectory() && !stat.isSymbolicLink()
   } catch {
     return false
   }
@@ -189,7 +204,7 @@ const isCacheValid = async (root: string, cache: SkillMetadataCacheFile): Promis
   const seen = new Set<string>()
 
   for (const entry of entries) {
-    if (!entry.isDirectory()) {
+    if (!entry.isDirectory() || isSkillInternalDirectory(entry.name)) {
       continue
     }
 
@@ -218,6 +233,86 @@ const isCacheValid = async (root: string, cache: SkillMetadataCacheFile): Promis
   return seen.size === cachedByName.size
 }
 
+const errorText = (error: unknown): string => {
+  return error instanceof Error ? error.message : String(error)
+}
+
+const inspectInstalledSkillDirectory = async (
+  directory: string,
+  name: string
+): Promise<InstalledSkillInspection> => {
+  const inspection = await inspectSkillDirectory(directory)
+  if (inspection.state === 'unreadable') {
+    return { name, directory, state: 'unreadable', error: errorText(inspection.error) }
+  }
+
+  // Recovery needs confirmed provenance; an unreadable record cannot imply an unowned install.
+  let source: string | undefined
+  try {
+    const resolved = await resolveSkillPath(directory, SKILL_SOURCE_FILE, 'Skill source file')
+    const record: unknown = JSON.parse(await fs.readFile(resolved.canonicalPath, 'utf-8'))
+    if (!record || typeof record !== 'object' || !('source' in record)
+      || typeof record.source !== 'string' || !record.source.trim()) {
+      throw new Error('Skill source metadata must contain a non-empty source')
+    }
+    source = record.source
+  } catch (error) {
+    if (!(error instanceof SkillPathError && error.code === 'PATH_NOT_FOUND')) {
+      return { name, directory, state: 'unreadable', error: errorText(error) }
+    }
+  }
+
+  if (inspection.state === 'incomplete') {
+    return {
+      name,
+      directory,
+      state: 'incomplete',
+      source,
+      error: inspection.error ? errorText(inspection.error) : 'Skill entry is missing or incomplete'
+    }
+  }
+  return {
+    name,
+    directory,
+    state: 'complete',
+    metadata: {
+      ...inspection.parsed.metadata,
+      name,
+      source,
+      path: path.join(directory, SKILL_FILE)
+    },
+    source
+  }
+}
+
+export const listInstalledSkillStates = async (
+  rootOverride?: string
+): Promise<InstalledSkillInspection[]> => {
+  const root = rootOverride ?? await ensureSkillsDir()
+  const entries = await fs.readdir(root, { withFileTypes: true })
+  const results: InstalledSkillInspection[] = []
+  for (const entry of entries) {
+    if (isSkillInternalDirectory(entry.name)) {
+      continue
+    }
+    const directory = path.join(root, entry.name)
+    if (entry.isSymbolicLink()) {
+      results.push({
+        name: entry.name,
+        directory,
+        state: 'unsafe',
+        error: 'Skill directory is a symbolic link'
+      })
+      continue
+    }
+    if (!entry.isDirectory()) {
+      continue
+    }
+    results.push(await inspectInstalledSkillDirectory(directory, entry.name))
+  }
+  return results.sort((a, b) => a.name.localeCompare(b.name))
+}
+
 export const listInstalledSkillMetadata = async (): Promise<SkillMetadata[]> => {
   const root = await ensureSkillsDir()
   const cached = await readMetadataCacheFile(root)
@@ -229,7 +324,7 @@ export const listInstalledSkillMetadata = async (): Promise<SkillMetadata[]> => 
   const results: SkillMetadataCacheItem[] = []
 
   for (const entry of entries) {
-    if (!entry.isDirectory()) {
+    if (!entry.isDirectory() || isSkillInternalDirectory(entry.name)) {
       continue
     }
 
@@ -255,7 +350,7 @@ const listBuiltInSkillMetadata = async (): Promise<SkillMetadata[]> => {
   const results: SkillMetadataCacheItem[] = []
 
   for (const entry of entries) {
-    if (!entry.isDirectory()) {
+    if (!entry.isDirectory() || isSkillInternalDirectory(entry.name)) {
       continue
     }
 
@@ -296,16 +391,33 @@ export const listSkillMetadata = async (): Promise<SkillMetadata[]> => {
   return [...items]
 }
 
+const hasSkillEntry = async (skillRoot: string): Promise<boolean> => {
+  try {
+    const rootStat = await fs.lstat(skillRoot)
+    if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) {
+      return false
+    }
+    const skillFile = path.join(skillRoot, SKILL_FILE)
+    const skillFileStat = await fs.lstat(skillFile)
+    if (skillFileStat.isSymbolicLink()) {
+      await fs.realpath(skillFile)
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
 export const resolveSkillRootPath = async (name: string): Promise<string> => {
   validateSkillName(name)
   const installedRoot = await ensureSkillsDir()
   const installedSkillRoot = path.join(installedRoot, name)
-  if (existsSync(path.join(installedSkillRoot, SKILL_FILE))) {
+  if (await hasSkillEntry(installedSkillRoot)) {
     return installedSkillRoot
   }
 
   const builtInSkillRoot = path.join(resolveBuiltInSkillsDir(), name)
-  if (existsSync(path.join(builtInSkillRoot, SKILL_FILE))) {
+  if (await hasSkillEntry(builtInSkillRoot)) {
     return builtInSkillRoot
   }
 
@@ -321,10 +433,14 @@ export const readSkillContent = async (name: string): Promise<string> => {
 export const deleteInstalledSkill = async (name: string): Promise<void> => {
   validateSkillName(name)
   const root = await ensureSkillsDir()
-  const skillDir = path.join(root, name)
-  if (!(await skillDirExists(skillDir))) {
-    throw new Error(`Skill "${name}" not found`)
-  }
-  await fs.rm(skillDir, { recursive: true, force: true })
-  markSkillCacheDirty()
+  await withSkillRootLock(root, async () => {
+    await recoverSkillInstallTransactions(root)
+    markSkillCacheDirty()
+    const skillDir = path.join(root, name)
+    if (!(await skillDirExists(skillDir))) {
+      throw new Error(`Skill "${name}" not found`)
+    }
+    await fs.rm(skillDir, { recursive: true, force: true })
+    markSkillCacheDirty()
+  })
 }

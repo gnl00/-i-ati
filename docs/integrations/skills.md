@@ -67,11 +67,11 @@ The service installs skills into `userData/skills` from:
 - remote archive URLs
 - recursively scanned folders containing one or more `SKILL.md` files
 
-Installation validates frontmatter, normalizes the skill name with `^[a-z0-9]+(?:-[a-z0-9]+)*$`, copies the source directory or writes the `SKILL.md`, records the source in `.skill-source.json`, and marks the in-memory metadata cache dirty.
+Installation validates frontmatter, normalizes the skill name with `^[a-z0-9]+(?:-[a-z0-9]+)*$`, prepares a complete candidate, copies the source directory or writes the `SKILL.md`, records the source in `.skill-source.json`, publishes the candidate through the installation transaction, and marks the in-memory metadata cache dirty.
 
 Archive installation extracts to a temporary directory, rejects unsafe archive paths, scans up to depth 5 for `SKILL.md`, and requires exactly one skill directory for single-skill archive installs. Local extraction uses system `tar`/`unzip`.
 
-`listSkills()` reads built-in and user-installed skill directories and returns sorted `SkillMetadata[]`. User-installed metadata uses an in-memory cache and a config DB cache keyed by `skillsMetadataCache`; cache validity is based on installed `SKILL.md` mtimes and root path. Built-in metadata is read from the app resource directory and merged into the returned list. Invalid skill directories are skipped with a warning.
+`listSkills()` reads built-in and user-installed skill directories and returns sorted `SkillMetadata[]`. User-installed metadata uses an in-memory cache and a config DB cache keyed by `skillsMetadataCache`; cache validity is based on installed `SKILL.md` mtimes and root path. Built-in metadata is read from the app resource directory and merged into the returned list. Incomplete entries are omitted with a warning, while unreadable and unsafe entries retain their failure reason for import and recovery decisions.
 
 `listInstalledSkills()` returns only user-installed skill metadata and is used by folder import conflict detection.
 
@@ -79,7 +79,17 @@ Archive installation extracts to a temporary directory, rejects unsafe archive p
 
 `importSkillsFromFolder(folderPath)` recursively finds skill directories under a configured folder. It overwrites a previously imported skill when `.skill-source.json` points to the same source path. When a new source conflicts by normalized name, it creates a unique name by appending the scanned folder name and, if needed, a numeric suffix.
 
-`initializeFromConfig(config)` runs on app startup from [src/main/index.ts](/Users/gnl/Workspace/code/-i-ati/src/main/index.ts:1) and imports every path in `config.skills.folders`.
+`initializeFromConfig(config)` runs on app startup from [MainApplication](../../src/main/app/MainApplication.ts), recovers validated stale installation transactions, then imports each path in `config.skills.folders` in configuration order. Source-level exceptions and every item in an import summary's `failed` list are logged before the next source is processed.
+
+### Installation publication and recovery
+
+[SkillInstallation](../../src/main/services/skills/SkillInstallation.ts) owns the filesystem protocol shared by install, import, delete, and startup recovery. Mutating operations acquire an exclusive `.skill-lock` directory under `userData/skills`; the owner record contains the process id and a random token. Active processes, permission-denied process probes, and unrecognizable lock state keep the lock protected. Stale lock reclamation uses an exclusive marker inside the lock directory so concurrent reclaimers cannot remove a newly acquired lock.
+
+Preparation writes into `.skill-staging` on the installation filesystem. The candidate tree is validated after copying, including relative and internal symbolic links, and source file modes and resources are retained. `.skill-source.json` is written into the candidate before publication. Transaction records live in `.skill-transactions`, use a UUID-matching filename, and are updated through a sibling temporary record followed by rename. Replaced directories move to `.skill-backups` before the candidate moves into the target directory; a publication failure rolls back the previous directory when possible and leaves a validated transaction record for restart recovery when rollback needs later attention.
+
+Startup recovery processes only validated records created by this protocol. It restores a previous directory after an interrupted `previous-moved` step, publishes a complete staged candidate when the target is absent, and removes completed records and temporary trees. Active or unknown process records remain available for their owner, and unreadable targets or unsafe paths keep their record and error for diagnosis. The reserved staging, backup, transaction, lock, and temporary directories are excluded from installed-skill enumeration and folder collection.
+
+Folder import reads source ownership for incomplete entries as well as complete entries. A configured source can rebuild a same-name incomplete directory while preserving the original directory in the backup area. A different source follows the existing conflict rename policy, and unreadable or unsafe same-name entries produce an explicit failure.
 
 ## Embedded Tools
 
@@ -279,11 +289,11 @@ tool call read_skill_file
 Existing tests cover the service and part of the tool processor:
 
 - [SkillService.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/skills/__tests__/SkillService.test.ts:1): installs from single `SKILL.md`, installs from directory and copies assets, imports folders with conflict renaming, and installs a zip archive when archive tooling is available.
+- [SkillInstallation.test.ts](../../src/main/services/skills/__tests__/SkillInstallation.test.ts): verifies publication rollback, stale transaction restoration, active transaction protection, invalid record containment, and cross-process lock contention.
+- [SkillRecoveryFlow.integration.test.ts](../../src/main/services/skills/__tests__/SkillRecoveryFlow.integration.test.ts): verifies incomplete skill recovery, old-version preservation after copy failure, startup failure reporting, and symlink handling through `SkillService`.
 - [SkillToolsProcessor.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/tools/skills/__tests__/SkillToolsProcessor.test.ts:1): covers `unload_skill` validation and DB deletion, plus `load_skill` lightweight status and duplicate-load behavior.
 - [SkillPromptBuilder.test.ts](/Users/gnl/Workspace/code/-i-ati/src/shared/services/skills/__tests__/SkillPromptBuilder.test.ts:1): covers available skill prompt formatting and verifies loaded skill content is omitted from the initial prompt.
 - [SkillsPromptProvider.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/preparation/request/__tests__/SkillsPromptProvider.test.ts:1): verifies prompt assembly lists available metadata without reading loaded skill content.
 - [LoadedSkillsContextProvider.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/preparation/request/__tests__/LoadedSkillsContextProvider.test.ts:1): verifies active chat skills are rebuilt into hidden context messages.
 - [RequestMessageBuilder.test.ts](/Users/gnl/Workspace/code/-i-ati/src/shared/services/__tests__/RequestMessageBuilder.test.ts:1): verifies hidden context insertion after compression summaries.
 - [DefaultMainAgentRuntimeRunner.integration.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/runtime/__tests__/DefaultMainAgentRuntimeRunner.integration.test.ts:1): verifies `load_skill` refreshes hidden context before same-run continuation.
-
-Useful next test targets are `install_skill`, `import_skills`, `read_skill_file` traversal rejection, IPC registration, renderer folder rescan behavior, startup `initializeFromConfig`, and a database-level uniqueness/upsert path for `chat_skills`.

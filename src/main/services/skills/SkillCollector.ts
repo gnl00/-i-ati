@@ -3,6 +3,7 @@ import path from 'path'
 import * as fs from 'fs/promises'
 import { promisify } from 'util'
 import { SKILL_FILE } from './SkillParser'
+import { isSkillInternalDirectory } from './SkillInstallation'
 
 export type ArchiveType = 'zip' | 'tar' | 'targz'
 
@@ -120,7 +121,9 @@ export const findSkillDirectories = async (rootDir: string, maxDepth = 5): Promi
     if (!current) continue
 
     const entries = await fs.readdir(current.dir, { withFileTypes: true })
-    const hasSkill = entries.some(entry => entry.isFile() && entry.name === SKILL_FILE)
+    const hasSkill = entries.some(
+      entry => (entry.isFile() || entry.isSymbolicLink()) && entry.name === SKILL_FILE
+    )
     if (hasSkill) {
       results.push(current.dir)
       continue
@@ -131,7 +134,7 @@ export const findSkillDirectories = async (rootDir: string, maxDepth = 5): Promi
     }
 
     for (const entry of entries) {
-      if (entry.isDirectory()) {
+      if (entry.isDirectory() && !isSkillInternalDirectory(entry.name)) {
         queue.push({ dir: path.join(current.dir, entry.name), depth: current.depth + 1 })
       }
     }

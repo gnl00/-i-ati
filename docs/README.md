@@ -36,6 +36,7 @@ capability is reviewed.
 
 - [Renderer architecture](architecture/renderer-architecture.md)
 - [Main process architecture](architecture/main-process-architecture.md)
+- [技能安装与残缺恢复实施指导](guides/development/skill-install-recovery-implementation.md)
 - [Chat runtime architecture](architecture/chat-runtime-architecture-current.md)
 - [Emotion system design](architecture/emotion-system-design.md)
 - [Assistant Think and tool call presentation](chat/assistant-think-tool-call-presentation.md)
