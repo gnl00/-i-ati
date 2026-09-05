@@ -27,7 +27,7 @@ type ChatRunLifecycleOutcome = 'idle' | 'completed' | 'failed' | 'aborted'
 
 const logger = createRendererLogger('ChatRunEvent')
 
-type BindChatRunEventsInput = {
+export type BindChatRunEventsInput = {
   submissionId: string
   runChatUuidRef: MutableRefObject<string | null>
   chatStore: ChatStoreState

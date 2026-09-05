@@ -14,6 +14,7 @@ export type ScheduleEventPayloads = {
     run: import('@shared/tools/schedule').ScheduleTaskRun
     submissionId: string
     attempt: number
+    executionChat?: ChatEntity
   }
   [SCHEDULE_EVENTS.RUN_FINISHED]: {
     task: import('@shared/tools/schedule').ScheduleTask

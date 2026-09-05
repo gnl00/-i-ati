@@ -15,6 +15,7 @@ Legacy guides migrate here incrementally when their owning workflow changes.
 - [Chat streaming performance P1/P2 optimization](development/chat-streaming-performance-p1-p2-optimization.md)
 - [Chat history first-paint optimization](development/chat-history-first-paint-optimization.md)
 - [ChatWindow 内容层入场动画](development/chat-window-entrance-animation.md)
+- [Schedule 每次尝试创建新会话实施指导](development/schedule-fresh-chat-implementation.md)
 
 ## Testing
 

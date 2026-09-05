@@ -5,7 +5,8 @@
 
 import { DbRuntime } from '../core/DbRuntime'
 import { DbAppServices } from './DbAppServices'
-import type { ClaimedScheduledRun, ScheduledTaskRow, ScheduledTaskRunRow } from '../dao/ScheduledTaskDao'
+import type { ClaimedScheduledRun, ScheduledTaskRunAttemptRow, ScheduledTaskRow, ScheduledTaskRunRow } from '../dao/ScheduledTaskDao'
+import type { ScheduledExecutionChatBinding } from '../repositories/ScheduledTaskRepository'
 import type { TodoListFilters, TodoRow } from '../dao/TodoDao'
 import type { SmartMessageCandidateSummaryRow } from '../dao/SmartMessageDao'
 import type { ScheduleTaskStatus } from '@shared/tools/schedule'
@@ -375,8 +376,12 @@ class DatabaseService {
 
   public getActiveScheduledTaskRun(taskId: string): ScheduledTaskRunRow | undefined { return this.requirePlanningService().getActiveScheduledTaskRun(taskId) }
   public getScheduledTaskRuns(taskId: string, limit?: number): ScheduledTaskRunRow[] { return this.requirePlanningService().getScheduledTaskRuns(taskId, limit) }
+  public getScheduledTaskRunAttempts(runId: string, limit?: number): ScheduledTaskRunAttemptRow[] { return this.requirePlanningService().getScheduledTaskRunAttempts(runId, limit) }
   public claimDueScheduledTaskRuns(now: number, limit: number): ClaimedScheduledRun[] { return this.requirePlanningService().claimDueScheduledTaskRuns(now, limit) }
   public startScheduledTaskRunAttempt(runId: string, submissionId: string, now: number): ScheduledTaskRunRow | undefined { return this.requirePlanningService().startScheduledTaskRunAttempt(runId, submissionId, now) }
+  public createExecutionChatAndBindAttempt(runId: string, attempt: number, submissionId: string, chat: ChatEntity, now: number): ScheduledExecutionChatBinding {
+    return this.requirePlanningService().createExecutionChatAndBindAttempt(runId, attempt, submissionId, chat, now)
+  }
   public deferScheduledTaskRun(runId: string, nextAttemptAt: number, now: number): void { this.requirePlanningService().deferScheduledTaskRun(runId, nextAttemptAt, now) }
   public completeScheduledTaskRun(runId: string, resultMessageId: number | null, nextRun: ScheduledTaskRunRow | null, now: number): void { this.requirePlanningService().completeScheduledTaskRun(runId, resultMessageId, nextRun, now) }
   public failScheduledTaskRun(runId: string, error: string, retryAt: number | null, nextRun: ScheduledTaskRunRow | null, now: number): void { this.requirePlanningService().failScheduledTaskRun(runId, error, retryAt, nextRun, now) }

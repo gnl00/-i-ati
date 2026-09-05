@@ -12,6 +12,9 @@ const mocks = vi.hoisted(() => ({
   cancel: vi.fn(),
   emit: vi.fn(),
   getChat: vi.fn(),
+  createExecutionChat: vi.fn(),
+  createExecutionChatAndBindAttempt: vi.fn(),
+  emitterMeta: [] as Array<{ chatId?: number; chatUuid?: string }>,
   notifyTerminalRunFailure: vi.fn()
 }))
 
@@ -19,6 +22,7 @@ vi.mock('@main/db/chat', () => ({ chatDb: {
   getChatByUuid: mocks.getChat,
   getMessageById: vi.fn((id: number) => ({ id, chatId: 1, chatUuid: 'chat-1', body: { role: 'assistant', content: 'done' } }))
 } }))
+vi.mock('@main/services/scheduler/ScheduledExecutionChat', () => ({ createScheduledExecutionChat: mocks.createExecutionChat }))
 vi.mock('@main/db/config', () => ({ configDb: { getConfig: vi.fn(() => undefined) } }))
 vi.mock('@main/notifications/AgentNotificationSink', () => ({
   notifyTerminalRunFailure: mocks.notifyTerminalRunFailure
@@ -29,15 +33,19 @@ vi.mock('@main/orchestration/chat/run', () => ({ RunService: class {
   cancel = mocks.cancel
 } }))
 vi.mock('@main/logging/LogService', () => ({ createSchedulerLogger: vi.fn(() => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() })) }))
-vi.mock('@main/services/scheduler/event-emitter', () => ({ ScheduleEventEmitter: class { emit = mocks.emit } }))
+vi.mock('@main/services/scheduler/event-emitter', () => ({ ScheduleEventEmitter: class {
+  constructor(meta: { chatId?: number; chatUuid?: string }) { mocks.emitterMeta.push(meta) }
+  emit = mocks.emit
+} }))
 vi.mock('@main/db/planning', () => ({ planningDb: {
   claimDueScheduledTaskRuns: vi.fn((now: number, limit: number) => runs.filter(run => run.status === 'pending' && run.next_attempt_at <= now).slice(0, limit).map(run => {
     run.status = 'running'; const task = tasks.find(item => item.id === run.task_id)!; task.status = 'running'; return { task: { ...task }, run: { ...run } }
   })),
   startScheduledTaskRunAttempt: vi.fn((id: string, submissionId: string, now: number) => {
     const run = runs.find(item => item.id === id); if (!run) return undefined
-    run.attempt_count += 1; run.submission_id = submissionId; run.started_at = now; return { ...run }
+    run.attempt_count += 1; run.submission_id = submissionId; run.execution_chat_uuid = null; run.started_at = now; return { ...run }
   }),
+  createExecutionChatAndBindAttempt: mocks.createExecutionChatAndBindAttempt,
   deferScheduledTaskRun: vi.fn((id: string, next: number) => {
     const run = runs.find(item => item.id === id)!; run.status = 'pending'; run.next_attempt_at = next
     const task = tasks.find(item => item.id === run.task_id)!; task.status = 'pending'; task.run_at = next
@@ -78,7 +86,7 @@ function addTask(overrides: Partial<ScheduledTaskRow> = {}): ScheduledTaskRow {
   tasks.push(task)
   runs.push({
     id: `run-${runs.length + 1}`, task_id: task.id, scheduled_for: task.run_at, next_attempt_at: task.run_at,
-    status: 'pending', attempt_count: 0, submission_id: null, started_at: null, finished_at: null,
+    status: 'pending', attempt_count: 0, submission_id: null, execution_chat_uuid: null, started_at: null, finished_at: null,
     last_error: null, result_message_id: null, created_at: now, updated_at: now
   })
   return task
@@ -94,8 +102,31 @@ describe('SchedulerService', () => {
       id: 1,
       uuid,
       title: 'Scheduled chat',
-      modelRef: { accountId: 'a', modelId: 'm' }
+      modelRef: { accountId: 'a', modelId: 'm' },
+      permissionApprovalMode: 'auto',
+      workspacePath: '/tmp/source-workspace'
     }))
+    mocks.createExecutionChat.mockReset().mockImplementation(async ({ attempt }: { attempt: number }) => ({
+      uuid: `execution-${attempt}-${Date.now()}`,
+      title: 'Scheduled execution',
+      messages: [],
+      msgCount: 0,
+      modelRef: { accountId: 'a', modelId: 'm' },
+      workspacePath: '/tmp/source-workspace',
+      userInstruction: '',
+      permissionApprovalMode: 'auto',
+      createTime: Date.now(),
+      updateTime: Date.now()
+    }))
+    mocks.createExecutionChatAndBindAttempt.mockReset().mockImplementation((id: string, attempt: number, submissionId: string, chat: ChatEntity) => {
+      const run = runs.find(item => item.id === id)
+      if (!run || run.status !== 'running' || run.attempt_count !== attempt || run.submission_id !== submissionId) {
+        throw new Error(`Scheduled run binding unavailable: ${id}`)
+      }
+      run.execution_chat_uuid = chat.uuid
+      return { chat: { ...chat, id: 2 }, run: { ...run } }
+    })
+    mocks.emitterMeta.length = 0
     vi.clearAllMocks()
   })
 
@@ -108,6 +139,17 @@ describe('SchedulerService', () => {
     await (new SchedulerService() as unknown as { tick(): Promise<void> }).tick()
     expect(task.status).toBe('completed')
     expect(runs[0]).toMatchObject({ status: 'completed', attempt_count: 1, result_message_id: 42 })
+    expect(mocks.createExecutionChat).toHaveBeenCalledWith(expect.objectContaining({
+      scheduledFor: task.run_at,
+      attempt: 1,
+      sourceChat: expect.objectContaining({ permissionApprovalMode: 'auto', workspacePath: '/tmp/source-workspace' }),
+      modelRef: { accountId: 'a', modelId: 'm' }
+    }))
+    expect(mocks.execute).toHaveBeenCalledWith(expect.objectContaining({
+      chatId: 2,
+      chatUuid: expect.stringContaining('execution-'),
+      input: expect.objectContaining({ permissionApprovalMode: 'auto' })
+    }))
     expect(mocks.emit).toHaveBeenCalledWith(SCHEDULE_EVENTS.RUN_FINISHED, expect.objectContaining({ run: expect.objectContaining({ id: runs[0].id }) }))
   })
 
@@ -117,6 +159,24 @@ describe('SchedulerService', () => {
     expect(task.status).toBe('pending')
     expect(runs.filter(run => run.status === 'pending')).toHaveLength(1)
     expect(new Date(task.run_at).toISOString()).toBe('2026-07-22T01:00:00.000Z')
+  })
+
+  it('creates a fresh execution chat for each recurring occurrence', async () => {
+    const task = addTask({ schedule_type: 'cron', cron_expression: '0 * * * *', timezone: 'UTC' })
+    const scheduler = new SchedulerService()
+
+    await (scheduler as unknown as { tick(): Promise<void> }).tick()
+    const firstExecutionChatUuid = mocks.execute.mock.calls[0][0].chatUuid
+    const nextOccurrence = runs.find(run => run.status === 'pending')!
+
+    vi.setSystemTime(nextOccurrence.next_attempt_at)
+    await (scheduler as unknown as { tick(): Promise<void> }).tick()
+
+    expect(mocks.execute).toHaveBeenCalledTimes(2)
+    expect(mocks.execute.mock.calls[1][0].chatUuid).not.toBe(firstExecutionChatUuid)
+    expect(runs.filter(run => run.status === 'completed')).toHaveLength(2)
+    expect(runs.filter(run => run.status === 'pending')).toHaveLength(1)
+    expect(task.run_count).toBe(2)
   })
 
   it('uses the exact due timer before the fallback interval', async () => {
@@ -134,15 +194,17 @@ describe('SchedulerService', () => {
     scheduler.stop()
   })
 
-  it('defers a busy chat without consuming an attempt', async () => {
+  it('runs while the source chat has an active interactive run', async () => {
     addTask(); mocks.busy.mockReturnValue(true)
     await (new SchedulerService() as unknown as { tick(): Promise<void> }).tick()
-    expect(runs[0]).toMatchObject({ status: 'pending', attempt_count: 0, next_attempt_at: Date.now() + 30_000 })
+    expect(mocks.execute).toHaveBeenCalledOnce()
+    expect(runs[0]).toMatchObject({ status: 'completed', attempt_count: 1 })
   })
 
   it('retries with exponential backoff', async () => {
     addTask(); mocks.execute.mockRejectedValue(new Error('temporary'))
-    await (new SchedulerService() as unknown as { tick(): Promise<void> }).tick()
+    const scheduler = new SchedulerService()
+    await (scheduler as unknown as { tick(): Promise<void> }).tick()
     expect(runs[0]).toMatchObject({ status: 'pending', attempt_count: 1, next_attempt_at: Date.now() + 30_000 })
     expect(mocks.execute).toHaveBeenCalledWith(expect.objectContaining({
       input: expect.objectContaining({
@@ -153,6 +215,13 @@ describe('SchedulerService', () => {
         })
       })
     }))
+    const firstExecutionChatUuid = mocks.execute.mock.calls[0][0].chatUuid
+    vi.setSystemTime(Date.now() + 30_000)
+    await (scheduler as unknown as { tick(): Promise<void> }).tick()
+    expect(runs[0]).toMatchObject({ status: 'pending', attempt_count: 2 })
+    expect(mocks.createExecutionChat).toHaveBeenCalledTimes(2)
+    expect(mocks.execute).toHaveBeenCalledTimes(2)
+    expect(mocks.execute.mock.calls[1][0].chatUuid).not.toBe(firstExecutionChatUuid)
   })
 
   it('continues cron after its final failed attempt', async () => {
@@ -197,6 +266,115 @@ describe('SchedulerService', () => {
     })
   })
 
+  it('rejects malformed execution input before creating a chat', async () => {
+    const task = addTask({ max_attempts: 1, payload: JSON.stringify({ prompt: 1 }) })
+
+    await (new SchedulerService() as unknown as { tick(): Promise<void> }).tick()
+
+    expect(mocks.createExecutionChat).not.toHaveBeenCalled()
+    expect(mocks.execute).not.toHaveBeenCalled()
+    expect(runs[0]).toMatchObject({ status: 'failed', attempt_count: 1 })
+    expect(runs[0].last_error).toContain('prompt must be a string')
+    expect(task.status).toBe('failed')
+  })
+
+  it('rejects an invalid model reference before creating a chat', async () => {
+    const task = addTask({ max_attempts: 1, payload: JSON.stringify({ modelRef: { accountId: 'a' } }) })
+
+    await (new SchedulerService() as unknown as { tick(): Promise<void> }).tick()
+
+    expect(mocks.createExecutionChat).not.toHaveBeenCalled()
+    expect(mocks.execute).not.toHaveBeenCalled()
+    expect(runs[0]).toMatchObject({ status: 'failed', attempt_count: 1 })
+    expect(runs[0].last_error).toContain('modelRef must include accountId and modelId')
+    expect(task.status).toBe('failed')
+  })
+
+  it('rejects an empty final instruction before creating a chat', async () => {
+    const task = addTask({ max_attempts: 1, goal: '   ', payload: JSON.stringify({ prompt: '  ' }) })
+
+    await (new SchedulerService() as unknown as { tick(): Promise<void> }).tick()
+
+    expect(mocks.createExecutionChat).not.toHaveBeenCalled()
+    expect(mocks.execute).not.toHaveBeenCalled()
+    expect(runs[0]).toMatchObject({ status: 'failed', attempt_count: 1 })
+    expect(runs[0].last_error).toContain('goal must be a non-empty string')
+    expect(task.status).toBe('failed')
+  })
+
+  it('fails without executing when atomic chat binding throws', async () => {
+    const task = addTask({ max_attempts: 1 })
+    mocks.createExecutionChatAndBindAttempt.mockImplementationOnce(() => {
+      throw new Error('binding unavailable')
+    })
+
+    await (new SchedulerService() as unknown as { tick(): Promise<void> }).tick()
+
+    expect(mocks.execute).not.toHaveBeenCalled()
+    expect(mocks.createExecutionChatAndBindAttempt).toHaveBeenCalledOnce()
+    expect(runs[0]).toMatchObject({ status: 'failed', attempt_count: 1, last_error: 'binding unavailable' })
+    expect(mocks.notifyTerminalRunFailure).toHaveBeenCalledWith(expect.objectContaining({ occurrenceKey: runs[0].id }))
+    expect(task.status).toBe('failed')
+  })
+
+  it('fails before atomic binding when the source workspace changes', async () => {
+    const task = addTask({ max_attempts: 1 })
+    const originalSource = {
+      id: 1,
+      uuid: 'chat-1',
+      title: 'Scheduled chat',
+      modelRef: { accountId: 'a', modelId: 'm' },
+      permissionApprovalMode: 'auto' as const,
+      workspacePath: '/tmp/source-workspace'
+    }
+    let lookupCount = 0
+    mocks.getChat.mockImplementation(() => {
+      lookupCount += 1
+      return lookupCount === 1
+        ? originalSource
+        : { ...originalSource, workspacePath: '/tmp/changed-workspace' }
+    })
+
+    await (new SchedulerService() as unknown as { tick(): Promise<void> }).tick()
+
+    expect(mocks.execute).not.toHaveBeenCalled()
+    expect(mocks.createExecutionChatAndBindAttempt).not.toHaveBeenCalled()
+    expect(runs[0]).toMatchObject({ status: 'failed', attempt_count: 1 })
+    expect(runs[0].last_error).toContain('Source chat changed')
+    expect(task.status).toBe('failed')
+  })
+
+  it('does not execute or retain a chat when cancellation wins the bind window', async () => {
+    const task = addTask({ max_attempts: 1 })
+    let resolveChat!: (chat: ChatEntity) => void
+    mocks.createExecutionChat.mockImplementationOnce(() => new Promise(resolve => {
+      resolveChat = resolve
+    }))
+    mocks.createExecutionChatAndBindAttempt.mockImplementationOnce(() => {
+      throw new Error('Scheduled run binding unavailable')
+    })
+
+    const scheduler = new SchedulerService()
+    const tick = (scheduler as unknown as { tick(): Promise<void> }).tick()
+    await Promise.resolve()
+    scheduler.cancelTask(task.id)
+    resolveChat({
+      id: 2,
+      uuid: 'execution-cancelled',
+      title: 'Cancelled execution',
+      messages: [],
+      msgCount: 0,
+      modelRef: { accountId: 'a', modelId: 'm' },
+      createTime: Date.now(),
+      updateTime: Date.now()
+    })
+    await tick
+
+    expect(mocks.execute).not.toHaveBeenCalled()
+    expect(mocks.createExecutionChatAndBindAttempt).toHaveBeenCalledOnce()
+    expect(task.status).toBe('cancelled')
+  })
+
   it('settles a claimed run when the chat lookup throws', async () => {
     const task = addTask({ goal: 'Chat lookup task', max_attempts: 1 })
     mocks.getChat.mockImplementation(() => {
@@ -208,7 +386,7 @@ describe('SchedulerService', () => {
     expect(mocks.execute).not.toHaveBeenCalled()
     expect(runs[0]).toMatchObject({
       status: 'failed',
-      attempt_count: 0,
+      attempt_count: 1,
       last_error: 'chat database unavailable'
     })
     expect(mocks.notifyTerminalRunFailure).toHaveBeenCalledWith({
@@ -253,6 +431,7 @@ describe('SchedulerService', () => {
     const scheduler = new SchedulerService()
     const tick = (scheduler as unknown as { tick(): Promise<void> }).tick()
 
+    await vi.waitFor(() => expect(mocks.execute).toHaveBeenCalledOnce())
     scheduler.cancelTask(task.id)
     resolveExecution({ userMessageId: 41, assistantMessageId: 42 })
     await tick
@@ -264,8 +443,10 @@ describe('SchedulerService', () => {
   it('records an interrupted one-time occurrence during startup recovery', () => {
     const task = addTask({ status: 'running' })
     runs[0].status = 'running'
+    runs[0].execution_chat_uuid = 'execution-recovered'
     vi.mocked(planningDb.listRunningScheduledTaskRuns).mockReturnValueOnce([{ task, run: runs[0] }])
     ;(new SchedulerService() as unknown as { recoverInterruptedRuns(): void }).recoverInterruptedRuns()
     expect(planningDb.recoverScheduledTaskRun).toHaveBeenCalledWith(runs[0].id, null, Date.now())
+    expect(mocks.emitterMeta).toContainEqual({ chatId: 1, chatUuid: 'execution-recovered' })
   })
 })

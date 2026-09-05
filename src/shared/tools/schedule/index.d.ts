@@ -41,6 +41,7 @@ export interface ScheduleTaskRun {
   status: ScheduleRunStatus
   attempt_count: number
   submission_id: string | null
+  execution_chat_uuid: string | null
   started_at: number | null
   finished_at: number | null
   last_error: string | null

@@ -112,10 +112,15 @@ describe('AppDatabase', () => {
     const indexSql = dbExecMock.mock.calls
       .map(([sql]) => sql)
       .find((sql) => typeof sql === 'string' && sql.includes('idx_scheduled_task_runs_due'))
+    const attemptsTableSql = dbExecMock.mock.calls
+      .map(([sql]) => sql)
+      .find((sql) => typeof sql === 'string' && sql.includes('CREATE TABLE IF NOT EXISTS scheduled_task_run_attempts'))
 
     expect(taskTableSql).toContain('schedule_type TEXT NOT NULL')
     expect(taskTableSql).toContain('run_count INTEGER NOT NULL DEFAULT 0')
     expect(runTableSql).toContain('UNIQUE (task_id, scheduled_for)')
+    expect(runTableSql).toContain('execution_chat_uuid TEXT')
+    expect(attemptsTableSql).toContain('CREATE TABLE IF NOT EXISTS scheduled_task_run_attempts')
     expect(indexSql).toContain('idx_scheduled_task_runs_one_active')
   })
 

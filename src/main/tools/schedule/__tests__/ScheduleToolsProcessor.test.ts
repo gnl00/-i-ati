@@ -38,7 +38,7 @@ describe('ScheduleToolsProcessor', () => {
     const result = await processSchedule({ action: 'create', chat_uuid: 'chat-1', goal: 'once', run_at: '2026-07-22T01:00:00Z' })
     expect(result.success).toBe(true)
     expect(tasks[0]).toMatchObject({ schedule_type: 'once', cron_expression: null, status: 'pending', max_attempts: 3 })
-    expect(runs[0]).toMatchObject({ task_id: tasks[0].id, scheduled_for: Date.parse('2026-07-22T01:00:00Z'), status: 'pending' })
+    expect(runs[0]).toMatchObject({ task_id: tasks[0].id, scheduled_for: Date.parse('2026-07-22T01:00:00Z'), status: 'pending', execution_chat_uuid: null })
     expect(mocks.wake).toHaveBeenCalledOnce()
   })
 

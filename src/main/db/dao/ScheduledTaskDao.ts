@@ -34,12 +34,21 @@ export interface ScheduledTaskRunRow {
   status: ScheduleRunStatus
   attempt_count: number
   submission_id: string | null
+  execution_chat_uuid: string | null
   started_at: number | null
   finished_at: number | null
   last_error: string | null
   result_message_id: number | null
   created_at: number
   updated_at: number
+}
+
+export interface ScheduledTaskRunAttemptRow {
+  run_id: string
+  attempt: number
+  submission_id: string
+  chat_uuid: string
+  created_at: number
 }
 
 export type ClaimedScheduledRun = { task: ScheduledTaskRow; run: ScheduledTaskRunRow }
@@ -112,6 +121,10 @@ export class ScheduledTaskDao {
     return this.db.prepare('SELECT * FROM scheduled_task_runs WHERE task_id = ? ORDER BY scheduled_for DESC LIMIT ?').all(taskId, limit) as ScheduledTaskRunRow[]
   }
 
+  listRunAttempts(runId: string, limit = 100): ScheduledTaskRunAttemptRow[] {
+    return this.db.prepare('SELECT * FROM scheduled_task_run_attempts WHERE run_id = ? ORDER BY attempt DESC LIMIT ?').all(runId, limit) as ScheduledTaskRunAttemptRow[]
+  }
+
   claimDueRuns(now: number, limit: number): ClaimedScheduledRun[] {
     return this.db.transaction(() => {
       const candidates = this.db.prepare(`SELECT r.id FROM scheduled_task_runs r
@@ -133,9 +146,31 @@ export class ScheduledTaskDao {
   }
 
   startRunAttempt(runId: string, submissionId: string, now: number): ScheduledTaskRunRow | undefined {
-    this.db.prepare(`UPDATE scheduled_task_runs SET attempt_count=attempt_count+1,
-      submission_id=?, started_at=?, updated_at=? WHERE id=? AND status='running'`).run(submissionId, now, now, runId)
-    return this.getRunById(runId)
+    const result = this.db.prepare(`UPDATE scheduled_task_runs SET attempt_count=attempt_count+1,
+      submission_id=?, execution_chat_uuid=NULL, started_at=?, updated_at=? WHERE id=? AND status='running'`).run(submissionId, now, now, runId)
+    if (result.changes !== 1) return undefined
+    const run = this.getRunById(runId)
+    return run?.status === 'running' ? run : undefined
+  }
+
+  bindRunAttempt(runId: string, attempt: number, submissionId: string, chatUuid: string, now: number): ScheduledTaskRunRow | undefined {
+    return this.db.transaction(() => {
+      const run = this.getRunById(runId)
+      if (!run || run.status !== 'running' || run.attempt_count !== attempt || run.submission_id !== submissionId) return undefined
+
+      const existing = this.db.prepare('SELECT * FROM scheduled_task_run_attempts WHERE run_id = ? AND attempt = ?').get(runId, attempt) as ScheduledTaskRunAttemptRow | undefined
+      if (existing) {
+        if (existing.submission_id !== submissionId || existing.chat_uuid !== chatUuid) return undefined
+      } else {
+        this.db.prepare(`INSERT INTO scheduled_task_run_attempts (run_id, attempt, submission_id, chat_uuid, created_at)
+          VALUES (?, ?, ?, ?, ?)`).run(runId, attempt, submissionId, chatUuid, now)
+      }
+
+      const result = this.db.prepare(`UPDATE scheduled_task_runs SET execution_chat_uuid=?, updated_at=?
+        WHERE id=? AND status='running' AND attempt_count=? AND submission_id=?`).run(chatUuid, now, runId, attempt, submissionId)
+      if (result.changes !== 1) return undefined
+      return this.getRunById(runId)
+    })()
   }
 
   deferRun(runId: string, nextAttemptAt: number, now: number): void {
@@ -204,10 +239,10 @@ export class ScheduledTaskDao {
   private insertRun(row: ScheduledTaskRunRow): void {
     this.db.prepare(`INSERT INTO scheduled_task_runs (
       id, task_id, scheduled_for, next_attempt_at, status, attempt_count, submission_id,
-      started_at, finished_at, last_error, result_message_id, created_at, updated_at
+      execution_chat_uuid, started_at, finished_at, last_error, result_message_id, created_at, updated_at
     ) VALUES (
       @id, @task_id, @scheduled_for, @next_attempt_at, @status, @attempt_count, @submission_id,
-      @started_at, @finished_at, @last_error, @result_message_id, @created_at, @updated_at
+      @execution_chat_uuid, @started_at, @finished_at, @last_error, @result_message_id, @created_at, @updated_at
     )`).run(row)
   }
 

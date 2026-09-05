@@ -26,3 +26,4 @@ Use sequential names such as `0001-chat-runtime-host-boundary.md`.
 - [0016: Physical chat branch snapshots](0016-physical-chat-branch-snapshots.md) - Accepted
 - [0017: Emotion stimulus scoring and VAD state projection](0017-emotion-stimulus-scoring.md) - Accepted
 - [0020: Skill installation publication and recovery](0020-skill-install-recovery.md) - Accepted
+- [0021: Fresh execution chats for scheduled attempts](0021-scheduled-fresh-execution-chats.md) - Accepted

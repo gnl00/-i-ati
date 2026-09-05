@@ -5,7 +5,7 @@ export const scheduleTools = [
     type: 'function',
     function: {
       name: 'schedule',
-      description: 'Manage one-time and recurring scheduled tasks. Set action to create, list, cancel, or update; the processor validates action-specific fields and schedule timing rules.',
+      description: 'Manage one-time and recurring scheduled tasks. Each scheduled execution runs in a fresh empty chat, so create and update payload.prompt as a self-contained instruction that names the execution object, constraints, output requirements, and required paths. Set action to create, list, cancel, or update; the processor validates action-specific fields and schedule timing rules.',
       parameters: {
         type: 'object',
         properties: {
@@ -40,7 +40,7 @@ export const scheduleTools = [
           },
           payload: {
             type: 'object',
-            description: 'Optional scheduler payload for action=create or action=update.'
+            description: 'Optional scheduler payload for action=create or action=update. Include prompt as a complete standalone instruction; modelRef may select the execution model. The prompt runs without source chat history, summaries, attachments, skills, fork metadata, or host bindings.'
           },
           max_attempts: {
             type: 'integer',

@@ -6,18 +6,28 @@ import { RunService } from '@main/orchestration/chat/run'
 import { createSchedulerLogger } from '@main/logging/LogService'
 import { SCHEDULE_EVENTS } from '@shared/schedule/events'
 import { resolveLiteModelRef } from '@shared/services/ChatModelResolver'
+import { normalizePermissionApprovalMode } from '@tools/approval'
 import { notifyTerminalRunFailure } from '@main/notifications/AgentNotificationSink'
 import { ScheduleEventEmitter } from './event-emitter'
 import { cronScheduleCalculator } from './CronScheduleCalculator'
+import { createScheduledExecutionChat } from './ScheduledExecutionChat'
 import type { ClaimedScheduledRun, ScheduledTaskRow, ScheduledTaskRunRow } from '@main/db/dao/ScheduledTaskDao'
 
 type ScheduledTaskPayload = { prompt?: string; modelRef?: ModelRef }
 
 const MAX_TIMEOUT_DELAY_MS = 2_147_483_647
 const MIN_DUE_RETRY_DELAY_MS = 1000
-const CHAT_BUSY_DELAY_MS = 30_000
 const RETRY_BASE_DELAY_MS = 30_000
 const RETRY_MAX_DELAY_MS = 15 * 60_000
+
+function isModelRef(value: unknown): value is ModelRef {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const candidate = value as Record<string, unknown>
+  return typeof candidate.accountId === 'string'
+    && candidate.accountId.trim().length > 0
+    && typeof candidate.modelId === 'string'
+    && candidate.modelId.trim().length > 0
+}
 
 export const calculateScheduleRetryDelay = (attempt: number): number =>
   Math.min(RETRY_MAX_DELAY_MS, RETRY_BASE_DELAY_MS * (2 ** Math.max(0, attempt - 1)))
@@ -119,44 +129,90 @@ export class SchedulerService {
   }
 
   private async runTask({ task, run }: ClaimedScheduledRun): Promise<void> {
-    let chat: ChatEntity | undefined
+    let sourceChat: ChatEntity | undefined
+    let executionChat: ChatEntity | undefined
     let activeRun = run
     let executionSucceeded = false
     try {
-      chat = chatDb.getChatByUuid(task.chat_uuid)
-      const emitter = new ScheduleEventEmitter({ chatId: chat?.id, chatUuid: task.chat_uuid })
-      if (this.runService.hasActiveRunForChat(task.chat_uuid)) {
-        const nextAttemptAt = Date.now() + CHAT_BUSY_DELAY_MS
-        planningDb.deferScheduledTaskRun(run.id, nextAttemptAt, Date.now())
-        this.logger.info('task.deferred.chat_busy', { taskId: task.id, runId: run.id, nextAttemptAt })
-        this.emitScheduleUpdated(task.id)
-        return
-      }
-
       const submissionId = uuidv4()
       const started = planningDb.startScheduledTaskRunAttempt(run.id, submissionId, Date.now())
       if (!started) throw new Error(`Scheduled run unavailable: ${run.id}`)
       activeRun = started
-      if (!chat?.id || !chat.uuid) throw new Error(`Chat not found for chat_uuid=${task.chat_uuid}`)
+
+      sourceChat = chatDb.getChatByUuid(task.chat_uuid)
+      if (!sourceChat?.id || !sourceChat.uuid) throw new Error(`Chat not found for chat_uuid=${task.chat_uuid}`)
 
       const payload = this.parsePayload(task.payload)
-      const modelRef = payload.modelRef ?? this.resolveFallbackModelRef() ?? chat.modelRef
-      if (!modelRef) throw new Error(`No modelRef resolved for chat_uuid=${task.chat_uuid}`)
+      if (typeof task.goal !== 'string' || !task.goal.trim()) {
+        throw new Error(`Scheduled task goal must be a non-empty string: ${task.id}`)
+      }
+      const textCtx = payload.prompt?.trim() || task.goal
+      if (typeof textCtx !== 'string' || !textCtx.trim()) {
+        throw new Error(`Scheduled task instruction must be a non-empty string: ${task.id}`)
+      }
+      const modelRef = payload.modelRef ?? this.resolveFallbackModelRef() ?? sourceChat.modelRef
+      if (!isModelRef(modelRef)) throw new Error(`No valid modelRef resolved for chat_uuid=${task.chat_uuid}`)
 
+      const currentTaskBeforeChat = planningDb.getScheduledTaskById(task.id)
+      if (currentTaskBeforeChat?.status === 'cancelled') {
+        throw new Error('Scheduled execution cancelled before chat creation')
+      }
+
+      const sourceChatForAttempt = sourceChat
+      executionChat = await createScheduledExecutionChat({
+        task,
+        scheduledFor: run.scheduled_for,
+        attempt: started.attempt_count,
+        sourceChat: sourceChatForAttempt,
+        modelRef,
+        canContinue: () => {
+          if (!this.isRunRunnable(task.id, run.id)) return false
+          if (!this.isSourceChatCurrent(task.chat_uuid, sourceChatForAttempt)) {
+            throw new Error('Source chat changed before scheduled execution')
+          }
+          return true
+        }
+      })
+
+      if (!this.isSourceChatCurrent(task.chat_uuid, sourceChatForAttempt)) {
+        throw new Error('Source chat changed before scheduled execution')
+      }
+
+      const binding = planningDb.createExecutionChatAndBindAttempt(
+        run.id,
+        started.attempt_count,
+        submissionId,
+        executionChat,
+        Date.now()
+      )
+      executionChat = binding.chat
+      activeRun = binding.run
+
+      const emitter = new ScheduleEventEmitter({ chatId: executionChat.id, chatUuid: executionChat.uuid })
       this.logger.info('task.started', { taskId: task.id, runId: run.id, submissionId, attempt: started.attempt_count })
-      emitter.emit(SCHEDULE_EVENTS.STARTED, { task, run: started, submissionId, attempt: started.attempt_count })
+      emitter.emit(SCHEDULE_EVENTS.STARTED, {
+        task,
+        run: binding.run,
+        submissionId,
+        attempt: started.attempt_count,
+        executionChat
+      })
+
+      if (!this.isRunRunnable(task.id, run.id)) {
+        throw new Error('Scheduled execution cancelled before model execution')
+      }
 
       const result = await this.runService.execute({
         submissionId,
-        chatId: chat.id,
-        chatUuid: chat.uuid,
+        chatId: executionChat.id,
+        chatUuid: executionChat.uuid,
         modelRef,
-        ...(chat.modelRef ? { chatModelRef: chat.modelRef } : {}),
         input: {
-          textCtx: payload.prompt?.trim() || task.goal,
+          textCtx,
           mediaCtx: [],
           source: 'schedule',
           stream: true,
+          permissionApprovalMode: sourceChat.permissionApprovalMode,
           nativeNotification: {
             notifyOnFailure: started.attempt_count >= Math.max(1, task.max_attempts),
             occurrenceKey: run.id
@@ -195,7 +251,7 @@ export class SchedulerService {
       if (retryAt === null) {
         if (currentTask && !executionSucceeded) {
           notifyTerminalRunFailure({
-            title: chat?.title ?? task.goal,
+            title: executionChat?.title ?? sourceChat?.title ?? task.goal,
             body: message,
             occurrenceKey: run.id
           })
@@ -213,7 +269,7 @@ export class SchedulerService {
     const now = Date.now()
     return {
       id: uuidv4(), task_id: task.id, scheduled_for: scheduledFor, next_attempt_at: scheduledFor,
-      status: 'pending', attempt_count: 0, submission_id: null, started_at: null, finished_at: null,
+      status: 'pending', attempt_count: 0, submission_id: null, execution_chat_uuid: null, started_at: null, finished_at: null,
       last_error: null, result_message_id: null, created_at: now, updated_at: now
     }
   }
@@ -240,10 +296,26 @@ export class SchedulerService {
 
   private parsePayload(payload: string | null): ScheduledTaskPayload {
     if (!payload) return {}
+    let parsed: unknown
     try {
-      const parsed = JSON.parse(payload)
-      return parsed && typeof parsed === 'object' ? parsed as ScheduledTaskPayload : {}
+      parsed = JSON.parse(payload)
     } catch { return {} }
+
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+    const candidate = parsed as Record<string, unknown>
+    const prompt = candidate.prompt
+    if (prompt !== undefined && prompt !== null && typeof prompt !== 'string') {
+      throw new Error('Scheduled payload prompt must be a string')
+    }
+    const modelRef = candidate.modelRef
+    if (modelRef !== undefined && modelRef !== null && !isModelRef(modelRef)) {
+      throw new Error('Scheduled payload modelRef must include accountId and modelId strings')
+    }
+
+    return {
+      ...(typeof prompt === 'string' ? { prompt } : {}),
+      ...(isModelRef(modelRef) ? { modelRef: { accountId: modelRef.accountId, modelId: modelRef.modelId } } : {})
+    }
   }
 
   private resolveFallbackModelRef(): ModelRef | undefined {
@@ -251,12 +323,31 @@ export class SchedulerService {
     return config ? resolveLiteModelRef(config) : undefined
   }
 
+  private isRunRunnable(taskId: string, runId: string): boolean {
+    const task = planningDb.getScheduledTaskById(taskId)
+    const run = planningDb.getScheduledTaskRuns(taskId).find(item => item.id === runId)
+    return task?.status === 'running' && run?.status === 'running'
+  }
+
+  private isSourceChatCurrent(chatUuid: string, sourceChat: ChatEntity): boolean {
+    const current = chatDb.getChatByUuid(chatUuid)
+    return Boolean(
+      current?.id
+      && current.uuid === sourceChat.uuid
+      && current.id === sourceChat.id
+      && (current.workspacePath || null) === (sourceChat.workspacePath || null)
+      && normalizePermissionApprovalMode(current.permissionApprovalMode)
+        === normalizePermissionApprovalMode(sourceChat.permissionApprovalMode)
+    )
+  }
+
   private emitRunFinished(taskId: string, runId: string): void {
     const task = planningDb.getScheduledTaskById(taskId)
     const run = planningDb.getScheduledTaskRuns(taskId).find(item => item.id === runId)
     if (!task || !run) return
-    const chat = chatDb.getChatByUuid(task.chat_uuid)
-    new ScheduleEventEmitter({ chatId: chat?.id, chatUuid: task.chat_uuid }).emit(SCHEDULE_EVENTS.RUN_FINISHED, { task, run })
+    const chatUuid = run.execution_chat_uuid ?? task.chat_uuid
+    const chat = chatDb.getChatByUuid(chatUuid)
+    new ScheduleEventEmitter({ chatId: chat?.id, chatUuid }).emit(SCHEDULE_EVENTS.RUN_FINISHED, { task, run })
   }
 
   private emitScheduleUpdated(taskId: string): void {

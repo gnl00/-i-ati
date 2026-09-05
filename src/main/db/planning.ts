@@ -1,8 +1,9 @@
 import DatabaseService from './DatabaseService'
-import type { ClaimedScheduledRun, ScheduledTaskRow, ScheduledTaskRunRow } from './dao/ScheduledTaskDao'
+import type { ClaimedScheduledRun, ScheduledTaskRunAttemptRow, ScheduledTaskRow, ScheduledTaskRunRow } from './dao/ScheduledTaskDao'
 import type { ScheduleTaskStatus } from '@shared/tools/schedule'
 import type { Plan, PlanStatus, PlanStep } from '@shared/task-planner/schemas'
 import type { TodoListFilters, TodoRow } from './dao/TodoDao'
+import type { ScheduledExecutionChatBinding } from './repositories/ScheduledTaskRepository'
 
 export const planningDb = {
   saveTaskPlan: (plan: Plan): void => DatabaseService.saveTaskPlan(plan),
@@ -23,8 +24,10 @@ export const planningDb = {
   getScheduledTasksByStatus: (status: ScheduleTaskStatus, limit: number): ScheduledTaskRow[] => DatabaseService.getScheduledTasksByStatus(status, limit),
   getActiveScheduledTaskRun: (taskId: string): ScheduledTaskRunRow | undefined => DatabaseService.getActiveScheduledTaskRun(taskId),
   getScheduledTaskRuns: (taskId: string, limit?: number): ScheduledTaskRunRow[] => DatabaseService.getScheduledTaskRuns(taskId, limit),
+  getScheduledTaskRunAttempts: (runId: string, limit?: number): ScheduledTaskRunAttemptRow[] => DatabaseService.getScheduledTaskRunAttempts(runId, limit),
   claimDueScheduledTaskRuns: (now: number, limit: number): ClaimedScheduledRun[] => DatabaseService.claimDueScheduledTaskRuns(now, limit),
   startScheduledTaskRunAttempt: (runId: string, submissionId: string, now: number): ScheduledTaskRunRow | undefined => DatabaseService.startScheduledTaskRunAttempt(runId, submissionId, now),
+  createExecutionChatAndBindAttempt: (runId: string, attempt: number, submissionId: string, chat: ChatEntity, now: number): ScheduledExecutionChatBinding => DatabaseService.createExecutionChatAndBindAttempt(runId, attempt, submissionId, chat, now),
   deferScheduledTaskRun: (runId: string, nextAttemptAt: number, now: number): void => DatabaseService.deferScheduledTaskRun(runId, nextAttemptAt, now),
   completeScheduledTaskRun: (runId: string, resultMessageId: number | null, nextRun: ScheduledTaskRunRow | null, now: number): void => DatabaseService.completeScheduledTaskRun(runId, resultMessageId, nextRun, now),
   failScheduledTaskRun: (runId: string, error: string, retryAt: number | null, nextRun: ScheduledTaskRunRow | null, now: number): void => DatabaseService.failScheduledTaskRun(runId, error, retryAt, nextRun, now),

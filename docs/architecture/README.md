@@ -18,4 +18,5 @@ and data flow. Historical implementation summaries live in
 - [Subagent implementation](subagent-mvp.md)
 - [Command execution and workspace security boundaries](sandbox-design.md)
 - [Scheduled tasks](scheduled-tasks.md)
+- [Scheduled fresh execution chat decision](../decisions/0021-scheduled-fresh-execution-chats.md)
 - [Workspace path confinement](sandbox-design.md#workspace-file-operation-confinement)

@@ -157,8 +157,10 @@ export class DbRuntime {
       getTaskPlanRepo: () => this.taskPlanRepo
     })
     this._scheduledTaskRepository = new ScheduledTaskRepository({
-      hasDb: () => Boolean(this.db),
-      getScheduledTaskRepo: () => this.scheduledTaskRepo
+      hasDb: (): boolean => Boolean(this.db),
+      getDb: (): ReturnType<AppDatabase['getDb']> | null => this.db,
+      getScheduledTaskRepo: (): ScheduledTaskDao | undefined => this.scheduledTaskRepo,
+      getChatRepo: (): ChatDao | undefined => this.chatRepo
     })
     this._todoRepository = new TodoRepository({
       hasDb: () => Boolean(this.db),

@@ -2,8 +2,8 @@
 
 Status: Current<br>
 Owner: Main process and chat renderer maintainers<br>
-Last verified: 2026-07-22<br>
-Related decision: [ADR-0010](../decisions/0010-persisted-cron-schedule-occurrences.md)
+Last verified: 2026-09-03<br>
+Related decisions: [ADR-0010](../decisions/0010-persisted-cron-schedule-occurrences.md), [ADR-0021](../decisions/0021-scheduled-fresh-execution-chats.md)
 
 ## Data model
 
@@ -11,19 +11,25 @@ Related decision: [ADR-0010](../decisions/0010-persisted-cron-schedule-occurrenc
 schedule action=create / action=update
   -> CronScheduleCalculator
   -> planningDb facade
-  -> scheduled_tasks 1 ---- N scheduled_task_runs
-                               |
-SchedulerService timer --------+
-  -> atomic claim -> RunService -> schedule.run_finished
-                                      |
-                                      +-> chat renderer
+  -> scheduled_tasks 1 ---- N scheduled_task_runs 1 ---- N scheduled_task_run_attempts
+                               |                            |
+SchedulerService timer --------+                            +-> fresh execution chat
+  -> atomic claim -> attempt -> chat bind -> RunService -> run events
+                                                            +-> chat renderer
 ```
 
 `scheduled_tasks` owns the user-facing definition: `once` or `cron`, goal,
 payload, timezone, expression, next wake time, status, retry limit, last-run
 summary, and run count. `scheduled_task_runs` owns an occurrence's scheduled
 time, retry wake time, claim state, attempt count, submission identity, result,
-and error.
+error, and `execution_chat_uuid`. `scheduled_task_run_attempts` preserves each
+attempt's submission and execution chat association under the stable occurrence
+ID. The association table has a unique `(run_id, attempt)` key and cascades
+when an occurrence is trimmed or its task is deleted.
+
+A new attempt clears `execution_chat_uuid` before preparation; prior attempt
+associations remain queryable. The nullable column and association table are
+added idempotently to the current occurrence schema while preserving its rows.
 
 This feature starts a fresh storage generation. Database initialization detects
 the earlier table shape through the absence of `schedule_type`, removes the old
@@ -59,11 +65,14 @@ The scheduler keeps a fallback interval, an exact next-due timer, and an
 in-process `isTicking` guard. SQLite remains the cross-caller claim authority.
 
 1. Claim up to five due occurrences.
-2. Defer a busy chat by 30 seconds while retaining its attempt count.
-3. Assign a submission ID and increment the occurrence attempt.
-4. Execute through `RunService` with `source: schedule`.
-5. Finish the occurrence and update the parent summary.
-6. For cron, calculate one occurrence strictly after the current wall clock.
+2. Assign a submission ID and increment the occurrence attempt.
+3. Resolve the current source chat and execution model.
+4. Validate the final instruction and model reference, prepare the workspace,
+   recheck the source settings, and atomically insert an empty execution chat
+   with its attempt association and current run chat reference.
+5. Execute through `RunService` with `source: schedule` and the execution chat identity.
+6. Finish the occurrence and update the source task summary.
+7. For cron, calculate one occurrence strictly after the current wall clock.
 
 This produces run-once misfire coalescing after offline periods. The first
 persisted overdue occurrence runs once; the following occurrence lies in the
@@ -74,12 +83,31 @@ cap. `max_attempts` counts total attempts for each occurrence. A final one-time
 failure closes its parent. A final recurring failure records the failed run and
 advances its parent.
 
+Every occurrence attempt creates a new chat after its attempt row is started.
+The source chat supplies the current workspace and normalized permission mode;
+the new chat stores the resolved model, an empty transcript and session
+instruction, and a short goal/time/attempt title. Source history, summaries,
+attachments, skills, fork metadata, and host bindings remain outside the
+execution chat. Cancellation detected during workspace preparation prevents
+chat allocation. Chat insertion and attempt binding share one SQLite
+transaction; errors roll back the entire operation. A bound execution chat
+remains available through normal chat lifecycle controls, including when
+cancellation arrives before model output.
+
+Prompt, model reference, and effective instruction validation precede chat
+allocation. After asynchronous workspace preparation, the scheduler verifies
+that the source chat still exists with the same workspace and permission mode;
+changes settle through the normal failure and retry policy.
+
 ## Cancellation and recovery
 
 Cancellation updates the parent and active occurrence transactionally. A
 running occurrence exposes its persisted `submission_id` to
 `RunService.cancel()`. The execution finalizer reads the parent again before a
-success write, preserving cancellation as the terminal authority.
+success write, preserving cancellation as the terminal authority. Cancellation
+during workspace creation is checked after the await and again by the
+conditional attempt bind, so a cancelled run cannot start a fresh model
+execution.
 
 Application startup scans `running` occurrences. Recovery records them as
 failed with `Interrupted by application restart`. One-time parents finish as
@@ -88,15 +116,25 @@ prioritizes avoiding duplicated external side effects.
 
 ## Events and renderer
 
-- `schedule.started` carries the task, occurrence, submission ID, and attempt.
-- `schedule.run_finished` carries the terminal occurrence and current parent.
-- `schedule.updated` refreshes the plan board definition.
-- message events deliver messages created by the scheduled run.
+- `schedule.started` carries the source task, occurrence, submission ID, attempt,
+  and execution chat entity. Its envelope targets the execution chat.
+- `schedule.run_finished` carries the terminal occurrence and current parent;
+  its envelope targets `run.execution_chat_uuid`, with source-chat fallback for
+  legacy runs.
+- `schedule.updated` targets the source chat and refreshes the plan board
+  definition.
+- message events target the execution chat and deliver its persisted messages.
 
-The renderer clears chat run phase from `schedule.run_finished`, which remains
-stable while a recurring parent returns to `pending`. The task board labels
-recurring definitions and shows expression, timezone, next run, and last-run
-status.
+The renderer binds the normal run event stream after `schedule.started`, routes
+messages and lifecycle state by execution chat UUID, and applies the execution
+chat to the background chat list without changing the selected shell. Normal
+run terminal events clear each attempt, including retryable failures. The task
+board keeps source-chat ownership and labels recurring definitions with
+expression, timezone, next run, and last-run status.
+
+Occurrence completion preserves subscriptions while blocking compression is
+pending. The normal maintenance completion event settles the chat phase;
+background title updates retain their own subscription until completion.
 
 ## Native notifications
 

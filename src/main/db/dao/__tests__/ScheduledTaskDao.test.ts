@@ -22,12 +22,18 @@ describeNative('ScheduledTaskDao native SQLite integration', () => {
       CREATE TABLE scheduled_task_runs (
         id TEXT PRIMARY KEY, task_id TEXT NOT NULL, scheduled_for INTEGER NOT NULL,
         next_attempt_at INTEGER NOT NULL, status TEXT NOT NULL, attempt_count INTEGER NOT NULL,
-        submission_id TEXT, started_at INTEGER, finished_at INTEGER, last_error TEXT,
+        submission_id TEXT, execution_chat_uuid TEXT, started_at INTEGER, finished_at INTEGER, last_error TEXT,
         result_message_id INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
         FOREIGN KEY (task_id) REFERENCES scheduled_tasks(id) ON DELETE CASCADE,
         UNIQUE(task_id, scheduled_for)
       );
       CREATE UNIQUE INDEX one_active ON scheduled_task_runs(task_id) WHERE status IN ('pending','running');
+      CREATE TABLE scheduled_task_run_attempts (
+        run_id TEXT NOT NULL, attempt INTEGER NOT NULL, submission_id TEXT NOT NULL,
+        chat_uuid TEXT NOT NULL, created_at INTEGER NOT NULL,
+        FOREIGN KEY (run_id) REFERENCES scheduled_task_runs(id) ON DELETE CASCADE,
+        UNIQUE(run_id, attempt)
+      );
     `)
     dao = new ScheduledTaskDao(db)
   })
@@ -42,7 +48,7 @@ describeNative('ScheduledTaskDao native SQLite integration', () => {
   })
   const run = (id: string, taskId: string, scheduledFor: number): ScheduledTaskRunRow => ({
     id, task_id: taskId, scheduled_for: scheduledFor, next_attempt_at: scheduledFor,
-    status: 'pending', attempt_count: 0, submission_id: null, started_at: null, finished_at: null,
+    status: 'pending', attempt_count: 0, submission_id: null, execution_chat_uuid: null, started_at: null, finished_at: null,
     last_error: null, result_message_id: null, created_at: scheduledFor, updated_at: scheduledFor
   })
 
@@ -60,6 +66,47 @@ describeNative('ScheduledTaskDao native SQLite integration', () => {
     expect(dao.cancelTask('task-1', 'cancelled', 1100)).toEqual({ submissionId: 'submission-1' })
     expect(dao.getById('task-1')?.status).toBe('cancelled')
     expect(dao.getRunById('run-1')?.status).toBe('cancelled')
+  })
+
+  it('binds each started attempt idempotently and retains its execution chat', () => {
+    dao.insertTaskWithRun(task(), run('run-1', 'task-1', 1000))
+    dao.claimDueRuns(1000, 1)
+    const started = dao.startRunAttempt('run-1', 'submission-1', 1000)!
+    const bound = dao.bindRunAttempt('run-1', started.attempt_count, 'submission-1', 'execution-1', 1100)
+    expect(bound).toMatchObject({ execution_chat_uuid: 'execution-1', attempt_count: 1 })
+    expect(dao.bindRunAttempt('run-1', 1, 'submission-1', 'execution-1', 1200)).toMatchObject({ execution_chat_uuid: 'execution-1' })
+    expect(dao.listRunAttempts('run-1')).toEqual([{
+      run_id: 'run-1', attempt: 1, submission_id: 'submission-1', chat_uuid: 'execution-1', created_at: 1100
+    }])
+    expect(dao.bindRunAttempt('run-1', 1, 'submission-1', 'execution-2', 1300)).toBeUndefined()
+  })
+
+  it('retains prior attempt chats while rebinding the current retry', () => {
+    dao.insertTaskWithRun(task(), run('run-1', 'task-1', 1000))
+    dao.claimDueRuns(1000, 1)
+    const first = dao.startRunAttempt('run-1', 'submission-1', 1000)!
+    dao.bindRunAttempt('run-1', first.attempt_count, 'submission-1', 'execution-1', 1100)
+    dao.failRun('run-1', 'temporary', 2000, null, 1200)
+
+    dao.claimDueRuns(2000, 1)
+    const second = dao.startRunAttempt('run-1', 'submission-2', 2000)!
+    const bound = dao.bindRunAttempt('run-1', second.attempt_count, 'submission-2', 'execution-2', 2100)
+
+    expect(bound).toMatchObject({ attempt_count: 2, execution_chat_uuid: 'execution-2' })
+    expect(dao.listRunAttempts('run-1')).toEqual([
+      { run_id: 'run-1', attempt: 2, submission_id: 'submission-2', chat_uuid: 'execution-2', created_at: 2100 },
+      { run_id: 'run-1', attempt: 1, submission_id: 'submission-1', chat_uuid: 'execution-1', created_at: 1100 }
+    ])
+  })
+
+  it('requires a running row for start and cleans attempt associations with the run', () => {
+    dao.insertTaskWithRun(task(), run('run-1', 'task-1', 1000))
+    expect(dao.startRunAttempt('run-1', 'submission-1', 1000)).toBeUndefined()
+    dao.claimDueRuns(1000, 1)
+    const started = dao.startRunAttempt('run-1', 'submission-1', 1000)!
+    dao.bindRunAttempt('run-1', started.attempt_count, 'submission-1', 'execution-1', 1100)
+    dao.deleteById('task-1')
+    expect(dao.listRunAttempts('run-1')).toEqual([])
   })
 
   it('keeps run summary empty when cancelling a pending occurrence', () => {

@@ -48,6 +48,7 @@ capability is reviewed.
 - [Chat streaming performance P1/P2 optimization](guides/development/chat-streaming-performance-p1-p2-optimization.md)
 - [Chat history first-paint optimization](guides/development/chat-history-first-paint-optimization.md)
 - [ChatWindow 内容层入场动画](guides/development/chat-window-entrance-animation.md)
+- [Schedule 每次尝试创建新会话实施指导](guides/development/schedule-fresh-chat-implementation.md)
 - [Documentation decisions](decisions/README.md)
 - [Active work](work/README.md)
 - [Migration inventory](archive/migration-inventory.md)

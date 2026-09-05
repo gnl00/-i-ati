@@ -127,7 +127,7 @@ function normalizeMaxAttempts(value?: number): number {
 function buildRun(taskId: string, scheduledFor: number, now = Date.now()): ScheduledTaskRunRow {
   return {
     id: uuidv4(), task_id: taskId, scheduled_for: scheduledFor, next_attempt_at: scheduledFor,
-    status: 'pending', attempt_count: 0, submission_id: null, started_at: null, finished_at: null,
+    status: 'pending', attempt_count: 0, submission_id: null, execution_chat_uuid: null, started_at: null, finished_at: null,
     last_error: null, result_message_id: null, created_at: now, updated_at: now
   }
 }

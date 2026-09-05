@@ -98,6 +98,7 @@ class AppDatabase {
 
     this.db = new Database(this.dbPath)
     this.db.pragma('journal_mode = WAL')
+    this.db.pragma('foreign_keys = ON')
     this.db.pragma('trusted_schema = OFF')
 
     this.dropLegacyAssistantsTable()
@@ -513,6 +514,7 @@ class AppDatabase {
         status TEXT NOT NULL,
         attempt_count INTEGER NOT NULL DEFAULT 0,
         submission_id TEXT,
+        execution_chat_uuid TEXT,
         started_at INTEGER,
         finished_at INTEGER,
         last_error TEXT,
@@ -521,6 +523,19 @@ class AppDatabase {
         updated_at INTEGER NOT NULL,
         FOREIGN KEY (task_id) REFERENCES scheduled_tasks(id) ON DELETE CASCADE,
         UNIQUE (task_id, scheduled_for)
+      )
+    `)
+    this.ensureColumn('scheduled_task_runs', 'execution_chat_uuid', 'TEXT')
+
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS scheduled_task_run_attempts (
+        run_id TEXT NOT NULL,
+        attempt INTEGER NOT NULL,
+        submission_id TEXT NOT NULL,
+        chat_uuid TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (run_id) REFERENCES scheduled_task_runs(id) ON DELETE CASCADE,
+        UNIQUE (run_id, attempt)
       )
     `)
 
@@ -599,6 +614,7 @@ class AppDatabase {
       CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_plan_id ON scheduled_tasks(plan_id);
       CREATE INDEX IF NOT EXISTS idx_scheduled_task_runs_due ON scheduled_task_runs(status, next_attempt_at);
       CREATE INDEX IF NOT EXISTS idx_scheduled_task_runs_task ON scheduled_task_runs(task_id, scheduled_for DESC);
+      CREATE INDEX IF NOT EXISTS idx_scheduled_task_run_attempts_run ON scheduled_task_run_attempts(run_id, attempt DESC);
       CREATE UNIQUE INDEX IF NOT EXISTS idx_scheduled_task_runs_one_active
         ON scheduled_task_runs(task_id) WHERE status IN ('pending', 'running');
       CREATE INDEX IF NOT EXISTS idx_todos_chat_uuid ON todos(chat_uuid);
@@ -630,7 +646,7 @@ class AppDatabase {
     if (!table) return
     const columns = this.db.prepare('PRAGMA table_info(scheduled_tasks)').all() as Array<{ name: string }>
     if (columns.some(column => column.name === 'schedule_type')) return
-    this.db.exec('DROP TABLE IF EXISTS scheduled_task_runs; DROP TABLE scheduled_tasks;')
+    this.db.exec('DROP TABLE IF EXISTS scheduled_task_run_attempts; DROP TABLE IF EXISTS scheduled_task_runs; DROP TABLE scheduled_tasks;')
     console.log('[Database] Scheduled task schema generation reset')
   }
 
