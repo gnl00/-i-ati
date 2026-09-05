@@ -246,7 +246,7 @@ Blur 是浅色玻璃材质与特定遮罩的辅助工具。Dark Mode 主 surface
 
 指针选择历史会话成功后，ChatWindow 正文可视容器统一执行一次 180ms 的 `opacity: 0.6 → 1` 过渡，曲线为 `cubic-bezier(0.22, 1, 0.36, 1)`。Header、composer、Artifacts 和任务浮层保持原有呈现；正文容器保持稳定挂载与尺寸。键盘/辅助技术入口和 reduced-motion 使用即时显示，流式更新、历史补载及 disclosure 展开维持既有呈现。具体生命周期见[ChatWindow 入场指南](docs/guides/development/chat-window-entrance-animation.md)。
 
-所有持续动画和位移动效提供 `prefers-reduced-motion` 分支。Tab 切换优先保证首帧内容完整，顶层 tab panel 使用同步显隐。Hover motion 以颜色、边框、阴影、opacity 和小幅 scale 为主。
+所有持续动画和位移动效提供 `prefers-reduced-motion` 分支。Tab 切换优先保证首帧内容完整，顶层 tab panel 使用同步显隐。Hover motion 以颜色、边框、阴影、opacity 和小幅 scale 为主。`hover:translate-x-*` 和 `hover:translate-y-*` 仅用于具有明确布局含义、符合空间关系的交互反馈。
 
 ## 8. 推荐做法与约束
 

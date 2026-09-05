@@ -16,17 +16,13 @@ The application design language and unified Light/Dark Mode direction live in [`
 
 Read it before changing the app shell, Chat, Welcome, sheets, Settings, Artifacts, selectors, overlays, typography, motion, or theme tokens. Keep it synchronized when a shared visual rule or semantic token changes.
 
-## When to Code
+## Before Making Changes
 
-Remember to check code specs if match with these belows:
-
-- Read before you write
-Before adding code, read exports, immediate callers, shared utilities.
-"Looks orthogonal" is dangerous. If unsure why code is structured a way, ask.
-- Add or Design ChatUI, check `docs/guides/development/tailwindcss-v4-syntax-rules.md`, since now we upgrade from Tailwind CSS V3 to V4, you need to follow the V4 syntax and rules
-- For interaction design, keep hover motion subtle and intentional. Prefer opacity, color, shadow, border, and small scale changes for most hover states; use `hover:translate-x-*` and `hover:translate-y-*` only when the movement supports the layout and feels physically grounded.
-- For decorative dots, keep `rounded-full` accents rare and purposeful. One dot motif per section works well; for repeated decoration, use chips, lines, icons, or larger structural shapes.
-- Add a new tool: `docs/guides/development/tool-definition-workflow.md`
+- Read the affected exports, immediate callers, shared utilities, and relevant tests before editing. Resolve unfamiliar structure through code and related documentation first.
+- Make routine implementation choices within the authorized scope independently. Ask a focused question when evidence leaves a product decision, compatibility tradeoff, or high-risk action unresolved; continue independent work while awaiting the answer.
+- Inspect `git status` and relevant diffs before editing. Preserve unrelated staged, unstaged, and untracked work throughout implementation, verification, and commits.
+- For any renderer UI change using Tailwind, read `docs/guides/development/tailwindcss-v4-syntax-rules.md`. Visual and motion rules live in `DESIGN.md`.
+- Before adding a tool, read `docs/guides/development/tool-definition-workflow.md`.
 
 ## Documentation Organization
 
@@ -40,12 +36,9 @@ The `docs/` directory organizes project documentation by type and topic:
 
 See `docs/README.md` for the full index and recommended entry points.
 
-When making substantial changes:
+Read the architecture and guides for the affected area before changing cross-process contracts, database schemas, module dependency directions, public APIs, or key lifecycles. Update the corresponding documentation in the same change.
 
-- Check relevant documentation in `docs/architecture/` and `docs/guides/` first
-- Record important technical decisions as ADRs in `docs/decisions/`
-- Move outdated stage summaries to `docs/archive/` with timestamps
-- Keep architecture docs synchronized with code changes
+Record architectural decisions with lasting tradeoffs, such as ownership, persistence, or compatibility strategy, as ADRs in `docs/decisions/`. Routine implementation choices belong in the change description. Archive only stage summaries directly superseded by the current change, using timestamped names in `docs/archive/`.
 
 ## Build, Test, and Development Commands
 Use `pnpm` for local work.
@@ -54,11 +47,14 @@ Use `pnpm` for local work.
 - `pnpm start`: preview the built app locally.
 - `pnpm build`: run both TypeScript checks, then create production bundles.
 - `pnpm build:mac`, `pnpm build:linux`, `pnpm build:win`: package per platform.
-- `pnpm lint`: run ESLint with autofix.
-- `pnpm test`, `pnpm test:run`, `pnpm test:coverage`: run Vitest interactively, once, or with coverage.
+- `pnpm run typecheck:node`, `pnpm run typecheck:web`: check main/preload/shared or renderer TypeScript. Run `pnpm run typecheck` for both. Run it explicitly for macOS/Linux packaging; those packaging scripts invoke `electron-vite build` directly.
+- `pnpm exec eslint <changed-files>`: check explicitly selected source files; add `--fix` for task-scoped fixes.
+- `pnpm exec eslint . --ext .js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts`: check the full repository without modifying files.
+- `pnpm lint`: run full-repository ESLint with autofix. Use it when repository-wide cleanup is part of the requested task.
+- `pnpm test`: run Vitest interactively. Use `pnpm exec vitest run <test-paths>` for task-scoped verification, `pnpm test:run` for the full suite, and `pnpm test:coverage` for full-suite coverage.
 
 ## Coding Style & Naming Conventions
-Follow `.editorconfig`: UTF-8, LF, spaces, 2-space indentation, and final newlines. ESLint extends the Electron Toolkit TypeScript rules; prefer single quotes and fix lint issues with `pnpm lint` before opening a PR.
+Follow `.editorconfig`: UTF-8, LF, spaces, 2-space indentation, and final newlines. ESLint extends the Electron Toolkit TypeScript rules; prefer single quotes and resolve lint issues in the changed files before opening a PR.
 
 Use `PascalCase` for React components and service classes, `camelCase` for functions and variables, and keep test file names as `*.test.ts`. Match existing folder boundaries: UI code stays in `src/renderer/src`, IPC and system integrations stay in `src/main`.
 
@@ -68,11 +64,11 @@ Renderer code follows the architecture documented in `docs/architecture/renderer
 
 - `app/` is the composition root.
 - `features/` owns domain UI, state, hooks, and services. Cross-feature imports resolve through the target feature `index.ts`.
-- `shared/` owns side-effect-light reusable modules and depends on shared renderer modules.
+- `shared/` owns side-effect-light reusable modules. Its dependencies within the renderer stay inside `shared/`; external packages and contracts follow the architecture checker.
 - `infrastructure/` owns IPC, persistence, configuration orchestration, and renderer tool bridges. It depends on shared renderer modules and external contracts.
 - `dev/` owns experiments and dormant manual test pages.
 
-Run `pnpm run check:renderer-boundaries`, `pnpm run check:renderer-doc-paths`, and `pnpm run test:renderer-architecture` after renderer moves. Update active documentation source paths in the same change.
+After changing renderer directory structure, cross-module imports, or public exports, run `pnpm run check:renderer-boundaries` and `pnpm run test:renderer-architecture`. After moving renderer source files or editing their paths in active documentation, also run `pnpm run check:renderer-doc-paths`. Update affected documentation paths in the same change.
 
 ### Main-process dependency boundaries
 
@@ -84,73 +80,55 @@ Main-process code follows `docs/architecture/main-process-architecture.md`:
 - `tools/` may call reusable services; production `services/` do not import tool processors.
 - Production database callers use the domain facades in `db/`.
 
-Run `pnpm run check:main-boundaries`, `pnpm run check:main-doc-paths`, and `pnpm run test:main-architecture` after main-process moves. Update active documentation source paths in the same change.
+After changing main-process directory structure, cross-module imports, or public exports, run `pnpm run check:main-boundaries` and `pnpm run test:main-architecture`. After moving main-process source files or editing their paths in active documentation, also run `pnpm run check:main-doc-paths`. Update affected documentation paths in the same change.
 
-### Naming: Prefer Convention Over "Projector"
-Do not generate `*Projector` classes or modules unless the transformation is genuinely a unidirectional read-only view projection (same source → multiple derived views). Prefer existing conventions instead:
+### Transformation Naming
 
-| What you're doing | Use this | Instead of |
-|---|---|---|
-| Entity ↔ DTO mapping | `*Mapper`, `*Converter`, `*Transformer` | `*Projector` |
-| Picking a subset of fields | `toSummary()`, `toBrief()`, `*Transformer` | `*Projector` |
-| Type conversion (A → B) | `*Adapter`, `*Serializer`, `*Codec` | `*Projector` |
-| UI-specific data shaping | inline in component, or a named function | `*Projector` |
-| Unidirectional view projection | verb-form `project*()` functions, not a `Projector` class | `*Projector` class |
+Follow the surrounding code's naming conventions: `*Mapper` or `*Transformer` for entity/DTO mapping, `*Adapter`, `*Serializer`, or `*Codec` for type and format conversion, and `toSummary()` or `toBrief()` for field selection. Keep UI-specific shaping inline or in a named function.
 
-When a `project*` function is the right tool, export named functions (verb) in a module file, not a class. A `*Projector.ts` module with standalone `project*()` exports is acceptable only when every export is a genuine read-only projection of the same input source.
+Use named `project*()` functions for unidirectional read-only views derived from the same source. Keep these as standalone exports. Reserve `*Projector.ts` filenames for modules whose exports all perform that projection.
 
-## Testing Guidelines
-Vitest is the test runner, with V8 coverage output in text, JSON, and HTML. Add tests beside the code you change, using the nearest `__tests__` directory. Cover both happy paths and failure cases for IPC, tools, and streaming flows. Run `pnpm test:coverage` for larger refactors.
+## Verification
+
+Choose checks by the affected behavior and dependency surface:
+
+| Change | Required verification |
+|---|---|
+| Documentation only | Review the diff and validate affected links, paths, and command names. Run the documentation path check when its scope applies. |
+| TypeScript implementation | Lint changed files and run the affected Node/web typecheck. Run both when shared contracts affect both processes. |
+| Behavior, bug fix, IPC, tool, or streaming change | Add or update colocated tests under `__tests__` for the changed behavior, including relevant failure cases, and run the affected tests. |
+| Directory, import, or public export change | Run the architecture checks specified for the affected process above. |
+| Refactor spanning multiple features or shared runtime, persistence, or streaming lifecycles | Run affected suites during development and `pnpm test:coverage` before delivery. Vitest uses V8 coverage in text, JSON, and HTML. |
+| Visible UI or Electron interaction change | Check the affected flow in Electron. For visual changes, check Light/Dark and relevant window sizes, and capture screenshots or recordings. |
+
+Use existing checks for copy and spacing changes; add tests when there is a behavioral contract to protect. Report the exact checks run, results, and remaining acceptance gaps. Distinguish automated checks from Electron runtime observations. For failures, establish whether the task introduced them and report baseline or environment blockers separately. Expand verification when a failure, further change, or unresolved concern warrants it.
 
 ## Commit & Pull Request Guidelines
-Recent history uses Conventional Commit prefixes such as `refactor:` and `fix:`. Keep commits focused and descriptive, for example `fix: guard null provider account in model list`.
-
 Use Conventional Commit style for every git commit:
+
 - Format: `<type>(optional-scope): <imperative summary>`.
 - Common types: `fix`, `feat`, `refactor`, `docs`, `test`, `chore`, `style`, `build`, `ci`.
 - Stage/checkpoint commits should include the intended task files only, with unrelated dirty worktree files left untouched.
 
 When creating git commits, use a detailed message:
+
 - Subject: keep the first line concise and use a Conventional Commit prefix.
 - Body: describe the reason for the change, the main implementation points, data/schema/UI impacts, and any operational notes.
 - Testing: include the exact verification commands that passed, or state any verification that remains.
 - Scope: mention intentionally excluded dirty worktree files when leaving unrelated edits uncommitted.
 
-PRs should include a short summary, testing notes, and linked issues when relevant. For renderer changes, attach screenshots or recordings from `screenshot/`-style captures. Call out platform-specific impact if a change affects packaging or Electron behavior.
+PRs should include a short summary, testing notes, and linked issues when relevant. Attach screenshots or recordings for user-visible UI changes, following the verification rules above. Call out platform-specific impact if a change affects packaging or Electron behavior.
 
 ## Security & Configuration Tips
 Do not commit secrets, API keys, or local machine paths. Review preload and IPC changes carefully; anything exposed there becomes part of the app’s trust boundary. When adding new tools or external integrations, keep shared types in sync across `src/main`, `src/preload`, and `src/shared`.
 
 ## Talk Normal
-Be direct and informative. No filler, no fluff, but give enough to be useful.
 
-Your single hardest constraint: prefer direct positive claims. Do not use negation-based contrastive phrasing in any language or position — neither "reject then correct" (不是X，而是Y) nor "correct then reject" (X，而不是Y). If you catch yourself writing a sentence where a negative adverb sets up or follows a positive claim, restructure and state only the positive.
+Accuracy, evidence, and necessary risk or acceptance details take priority over brevity and wording preferences. Apply these style rules to assistant-authored explanations; preserve the exact meaning and content of quotations, logs, code, and protocols.
 
-Examples:
-BAD:  真正的创新者不是"有创意的人"，而是五种特质同时拉满的人
-GOOD: 真正的创新者是五种特质同时拉满的人
-
-BAD:  真正的创新者是五种特质同时拉满的人，而不是单纯"聪明"的人
-GOOD: 真正的创新者是五种特质同时拉满的人
-
-BAD:  这更像创始人筛选框架，不是交易信号
-GOOD: 这是一个创始人筛选框架
-
-BAD:  It's not about intelligence, it's about taste
-GOOD: Taste is what matters
-
-Rules:
-- Lead with the answer, then add context only if it genuinely helps
-- Do not use negation-based contrastive phrasing in any position. This covers any sentence structure where a negative adverb rejects an alternative to set up or append to a positive claim: in any order ("reject then correct" or "correct then reject"), chained ("不是A，不是B，而是C"), symmetric ("适合X，不适合Y"), or with or without an explicit "but / 而 / but rather" conjunction. Just state the positive claim directly. If a genuine distinction needs both sides, name them as parallel positive clauses. Narrow exception: technical statements about necessary or sufficient conditions in logic, math, or formal proofs.
-- End with a concrete recommendation or next step when relevant. Do not use summary-stamp closings — any closing phrase or label that announces "here comes my one-line summary" before delivering it. This covers "In conclusion", "In summary", "Hope this helps", "Feel free to ask", "一句话总结", "一句话落地", "一句话讲", "一句话概括", "一句话说", "一句话收尾", "总结一下", "简而言之", "概括来说", "总而言之", and any structural variant like "一句话X：" or "X一下：" that labels a summary before delivering it. If you have a final punchy claim, just state it as the last sentence without a summary label.
-- Kill all filler: "I'd be happy to", "Great question", "It's worth noting", "Certainly", "Of course", "Let me break this down", "首先我们需要", "值得注意的是", "综上所述", "让我们一起来看看"
-- Never restate the question
-- Yes/no questions: answer first, one sentence of reasoning
-- Comparisons: give your recommendation with brief reasoning, not a balanced essay
-- Code: give the code + usage example if non-trivial. No "Certainly! Here is..."
-- Explanations: 3-5 sentences max for conceptual questions. Cover the essence, not every subtopic. If the user wants more, they will ask.
-- Use structure (numbered steps, bullets) only when the content has natural sequential or parallel structure. Do not use bullets as decoration.
-- Match depth to complexity. Simple question = short answer. Complex question = structured but still tight.
-- Do not end with hypothetical follow-up offers or conditional next-step menus. This includes "If you want, I can also...", "如果你愿意，我还可以...", "If you tell me...", "如果你告诉我...", "如果你说X，我就Y", "我下一步可以...", "If you'd like, my next step could be...". Do not stage menus where the user has to say a magic phrase to unlock the next action. Answer what was asked, give the recommendation, stop. If a real next action is needed, just take it or name it directly without the conditional wrapper.
-- Do not restate the same point in "plain language" or "in human terms" after already explaining it. Say it once clearly. No "翻成人话", "in other words", "简单来说" rewording blocks.
-- When listing pros/cons or comparing options: max 3-4 points per side, pick the most important ones
+- Lead with the answer. Use direct positive claims; avoid negation-based contrastive phrasing in either order. Express necessary comparisons as parallel factual statements. Formal logic and mathematical proofs retain their required conditions.
+- Use plain, precise language. Remove filler, repeated questions, repeated explanations, and summary-stamp closings.
+- Match depth to complexity. Keep simple answers short and give complex decisions enough evidence and tradeoffs to assess them.
+- Give a recommendation with reasons when comparing options. Use lists or tables for naturally parallel or sequential information.
+- For code explanations, focus on the change, its purpose, verification, and material limitations. Include a usage example when it helps.
+- Finish with a concrete result or required next action. Avoid hypothetical follow-up offers and menus that require another prompt to continue already authorized work.
