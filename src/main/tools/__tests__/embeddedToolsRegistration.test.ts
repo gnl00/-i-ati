@@ -36,6 +36,14 @@ describe('main embedded tool handlers', () => {
     expect(missing).toEqual([])
   })
 
+  it('registers only the unified computer_use handler', async () => {
+    const { toolHandlers } = await import('../index')
+    expect(Object.keys(toolHandlers).filter(name => name.startsWith('computer_use'))).toEqual(['computer_use'])
+    await expect(toolHandlers.computer_use({ action: 'invalid' })).resolves.toMatchObject({
+      success: false, action: 'invalid', error: expect.stringContaining('Unsupported')
+    })
+  })
+
   it('keeps consolidated resource handler registration canonical', async () => {
     const { toolHandlers } = await import('../index')
     const resourceHandlerNames = Object.keys(toolHandlers)

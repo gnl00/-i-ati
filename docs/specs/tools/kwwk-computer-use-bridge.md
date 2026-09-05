@@ -165,7 +165,7 @@ The bridge should expose a clear permission error code:
 - `SNAPSHOT_EXPIRED`
 - `ACTION_FAILED`
 
-Runtime diagnostics are exposed through `computer_use_status`. This method does not trigger system permission prompts. Permission prompting is exposed through `computer_use_request_permissions`.
+Runtime diagnostics are exposed through `computer_use(action="status")`. This method does not trigger system permission prompts. Permission prompting is exposed through `computer_use(action="request_permissions")`.
 
 ## Phased Implementation
 
@@ -213,23 +213,33 @@ Phase 3 is implemented:
 - `src/main/tools/computerUse/__tests__/ComputerUseToolsProcessor.test.ts`
 - `src/main/tools/__tests__/embeddedToolsRegistration.test.ts`
 
-Embedded tool names:
+Decision: [ADR-0022](../../decisions/0022-unified-computer-use-tool.md).
 
-- `computer_use_apps`
-- `computer_use_request_permissions`
-- `computer_use_running_apps`
-- `computer_use_status`
-- `computer_use_open_app`
-- `computer_use_windows`
-- `computer_use_state`
-- `computer_use_click_element`
-- `computer_use_click_coordinate`
-- `computer_use_type_text`
-- `computer_use_set_value`
-- `computer_use_press_key`
-- `computer_use_scroll`
-- `computer_use_drag`
-- `computer_use_finish`
+Embedded tool: `computer_use` with a required `action` and flat action-specific fields.
+The former `computer_use_*` names are removed from public definitions and handler registration.
+
+| Actions | Required fields | Optional fields |
+| --- | --- | --- |
+| `status`, `request_permissions`, `apps`, `running_apps`, `finish` | — | — |
+| `open_app`, `windows` | `app` | — |
+| `state` | `app` | `windowTitle`, `windowId`, `includeScreenshot` |
+| `click_element` | `snapshotId`, `elementIndex` | `includeScreenshotAfter` |
+| `click_coordinate` | `snapshotId`, `x`, `y` | `includeScreenshotAfter` |
+| `type_text` | `snapshotId`, `text` | `elementIndex`, `includeScreenshotAfter` |
+| `set_value` | `snapshotId`, `elementIndex`, `value` | `includeScreenshotAfter` |
+| `press_key` | `snapshotId`, `key` | `includeScreenshotAfter` |
+| `scroll` | `snapshotId`, `elementIndex`, `direction` | `pages`, `includeScreenshotAfter` |
+| `drag` | `snapshotId`, `fromX`, `fromY`, `toX`, `toY` | `includeScreenshotAfter` |
+
+Example arguments: `{"action":"state","app":"Finder","includeScreenshot":true}`.
+The shared `actions.ts` contract drives the schema action enum, field documentation and processor field validation.
+Missing required fields, unsupported fields for an action, invalid field types and unknown actions produce structured failures before backend dispatch.
+The common `tool_call_reason` field is added by the registry and removed by ToolExecutor before dispatch.
+The native backend, JSON-RPC method names, snapshot lifecycle and screenshot requirements retain their existing contracts.
+
+Risk metadata uses `actionOverrides`: `status`, `apps`, `running_apps`, `windows`, `finish` are `none`;
+`request_permissions`, `open_app`, `state` are `warning`; interaction actions are `dangerous`.
+The base risk is `dangerous`, and all actions retain `subagent: deny`.
 
 Backend selector:
 
@@ -237,7 +247,7 @@ Backend selector:
 - `ATI_COMPUTER_USE_BACKEND=kwwk`
 - `ATI_KWWK_BRIDGE_COMMAND=/absolute/path/to/kwwk-computer-use-bridge`
 
-The processor returns `{ success, backend, result }` for successful calls and `{ success: false, backend, error }` for backend failures. The main agent has unrestricted access to these tools; subagents are denied by metadata because the tools operate on the user desktop.
+The public processor returns `{ success, backend, action, result }` for successful calls and `{ success: false, backend, action, error }` for validation or backend failures. A missing or non-string action is represented by an absent action value. Main-agent calls follow the existing per-action confirmation policy; subagents are denied by metadata because the tool operates on the user desktop.
 
 Phase 4 is implemented:
 
@@ -250,8 +260,8 @@ Phase 4 is implemented:
 - Swift helper `requestPermissions` method asks macOS for Accessibility and Screen Recording permission prompts.
 - TS backend exposes `diagnostics()` and `requestPermissions()`.
 - Embedded tools expose:
-  - `computer_use_status`
-  - `computer_use_request_permissions`
+  - `computer_use(action="status")`
+  - `computer_use(action="request_permissions")`
 - `native:kwwk:build` produces the local helper binary in `resources/native/kwwk-computer-use-bridge`.
 - `electron-builder.yml` packages `resources/native` as app extra resources.
 
@@ -260,7 +270,7 @@ Signing strategy:
 - `resources/native/kwwk-computer-use-bridge` is generated locally and ignored by git.
 - Packaged builds should run `pnpm run native:kwwk:build` before `electron-builder`.
 - In signed macOS builds, the helper should be signed as part of the app bundle under `Contents/Resources/native/`.
-- `computer_use_status` is the acceptance check for packaged builds: `codeSigning.signed` should be true, and permission prompts should target the packaged app/helper identity.
+- `computer_use(action="status")` is the acceptance check for packaged builds: `codeSigning.signed` should be true, and permission prompts should target the packaged app/helper identity.
 
 Phase 5 is implemented:
 
@@ -320,7 +330,7 @@ Scenarios can also provide `appCandidates`. The runner tries `app` first, then e
 
 Troubleshooting `appNotFound Finder`:
 
-- Run `computer_use_status` or the probe with `--request-permissions`.
+- Run `computer_use(action="status")` or the probe with `--request-permissions`.
 - Check `permissions.accessibilityTrusted` and `permissions.screenCaptureTrusted`.
 - If `apps` and `runningApps` are empty, app discovery has no visible candidates for the helper identity.
 - Prefer bundle ids for system apps, for example `com.apple.finder`.

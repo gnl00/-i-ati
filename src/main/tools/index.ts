@@ -63,23 +63,7 @@ import { processSubagent } from '@main/tools/subagent/SubagentToolsProcessor'
 import { processLogSearch } from '@main/tools/log/LogToolsProcessor'
 import { processWiki } from '@main/tools/wiki/WikiToolsProcessor'
 import { processAskUserQuestion } from '@main/tools/userQuestion/UserQuestionToolsProcessor'
-import {
-  processComputerUseApps,
-  processComputerUseClickCoordinate,
-  processComputerUseClickElement,
-  processComputerUseDrag,
-  processComputerUseFinish,
-  processComputerUseOpenApp,
-  processComputerUsePressKey,
-  processComputerUseRequestPermissions,
-  processComputerUseRunningApps,
-  processComputerUseScroll,
-  processComputerUseSetValue,
-  processComputerUseState,
-  processComputerUseStatus,
-  processComputerUseTypeText,
-  processComputerUseWindows
-} from '@main/tools/computerUse/ComputerUseToolsProcessor'
+import { processComputerUse } from '@main/tools/computerUse/ComputerUseToolsProcessor'
 
 export const toolHandlers: Record<
   string,
@@ -104,21 +88,7 @@ export const toolHandlers: Record<
   memory_save: processMemorySave,
   memory_update: processMemoryUpdate,
   history_search: processHistorySearch,
-  computer_use_status: processComputerUseStatus,
-  computer_use_request_permissions: processComputerUseRequestPermissions,
-  computer_use_apps: processComputerUseApps,
-  computer_use_running_apps: processComputerUseRunningApps,
-  computer_use_open_app: processComputerUseOpenApp,
-  computer_use_windows: processComputerUseWindows,
-  computer_use_state: processComputerUseState,
-  computer_use_click_element: processComputerUseClickElement,
-  computer_use_click_coordinate: processComputerUseClickCoordinate,
-  computer_use_type_text: processComputerUseTypeText,
-  computer_use_set_value: processComputerUseSetValue,
-  computer_use_press_key: processComputerUsePressKey,
-  computer_use_scroll: processComputerUseScroll,
-  computer_use_drag: processComputerUseDrag,
-  computer_use_finish: processComputerUseFinish,
+  computer_use: processComputerUse,
   session_context: processSessionContext,
   exec: processExecuteCommand,
   install_skill: processInstallSkill,

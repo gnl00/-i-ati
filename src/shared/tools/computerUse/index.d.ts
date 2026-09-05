@@ -1,3 +1,5 @@
+import type { ComputerUseAction } from './actions'
+
 export interface ComputerUseBaseResponse {
   success: boolean
   backend: 'kwwk'
@@ -71,6 +73,7 @@ export interface ComputerUseDragArgs {
 }
 
 export interface ComputerUseResultResponse extends ComputerUseBaseResponse {
+  action?: string
   result?: unknown
 }
 
@@ -94,3 +97,22 @@ export interface ComputerUseRuntimeDiagnostics {
     resolvedFrom?: string
   }
 }
+
+/** Flat public arguments, narrowed by action. Backend argument interfaces stay reusable. */
+export type ComputerUseArgs =
+  | {
+      action: Extract<
+        ComputerUseAction,
+        'status' | 'request_permissions' | 'apps' | 'running_apps' | 'finish'
+      >
+    }
+  | ({ action: 'open_app' } & ComputerUseOpenAppArgs)
+  | ({ action: 'windows' } & ComputerUseListWindowsArgs)
+  | ({ action: 'state' } & ComputerUseStateArgs)
+  | ({ action: 'click_element' } & ComputerUseClickElementArgs)
+  | ({ action: 'click_coordinate' } & ComputerUseClickCoordinateArgs)
+  | ({ action: 'type_text' } & ComputerUseTypeTextArgs)
+  | ({ action: 'set_value' } & ComputerUseSetValueArgs)
+  | ({ action: 'press_key' } & ComputerUsePressKeyArgs)
+  | ({ action: 'scroll' } & ComputerUseScrollArgs)
+  | ({ action: 'drag' } & ComputerUseDragArgs)

@@ -1,94 +1,27 @@
 import type { EmbeddedToolMetadataMap } from '../metadata-types'
 
 export const computerUseToolMetadata = {
-  computer_use_status: {
-    capability: 'computer_use',
-    riskLevel: 'none',
-    mutatesWorkspace: false,
-    subagent: 'deny'
-  },
-  computer_use_request_permissions: {
-    capability: 'computer_use',
-    riskLevel: 'warning',
-    mutatesWorkspace: false,
-    subagent: 'deny'
-  },
-  computer_use_apps: {
-    capability: 'computer_use',
-    riskLevel: 'none',
-    mutatesWorkspace: false,
-    subagent: 'deny'
-  },
-  computer_use_running_apps: {
-    capability: 'computer_use',
-    riskLevel: 'none',
-    mutatesWorkspace: false,
-    subagent: 'deny'
-  },
-  computer_use_open_app: {
-    capability: 'computer_use',
-    riskLevel: 'warning',
-    mutatesWorkspace: false,
-    subagent: 'deny'
-  },
-  computer_use_windows: {
-    capability: 'computer_use',
-    riskLevel: 'none',
-    mutatesWorkspace: false,
-    subagent: 'deny'
-  },
-  computer_use_state: {
-    capability: 'computer_use',
-    riskLevel: 'warning',
-    mutatesWorkspace: false,
-    subagent: 'deny'
-  },
-  computer_use_click_element: {
+  computer_use: {
     capability: 'computer_use',
     riskLevel: 'dangerous',
     mutatesWorkspace: false,
-    subagent: 'deny'
-  },
-  computer_use_click_coordinate: {
-    capability: 'computer_use',
-    riskLevel: 'dangerous',
-    mutatesWorkspace: false,
-    subagent: 'deny'
-  },
-  computer_use_type_text: {
-    capability: 'computer_use',
-    riskLevel: 'dangerous',
-    mutatesWorkspace: false,
-    subagent: 'deny'
-  },
-  computer_use_set_value: {
-    capability: 'computer_use',
-    riskLevel: 'dangerous',
-    mutatesWorkspace: false,
-    subagent: 'deny'
-  },
-  computer_use_press_key: {
-    capability: 'computer_use',
-    riskLevel: 'dangerous',
-    mutatesWorkspace: false,
-    subagent: 'deny'
-  },
-  computer_use_scroll: {
-    capability: 'computer_use',
-    riskLevel: 'dangerous',
-    mutatesWorkspace: false,
-    subagent: 'deny'
-  },
-  computer_use_drag: {
-    capability: 'computer_use',
-    riskLevel: 'dangerous',
-    mutatesWorkspace: false,
-    subagent: 'deny'
-  },
-  computer_use_finish: {
-    capability: 'computer_use',
-    riskLevel: 'none',
-    mutatesWorkspace: false,
-    subagent: 'deny'
+    subagent: 'deny',
+    actionOverrides: {
+      status: { riskLevel: 'none' },
+      request_permissions: { riskLevel: 'warning' },
+      apps: { riskLevel: 'none' },
+      running_apps: { riskLevel: 'none' },
+      open_app: { riskLevel: 'warning' },
+      windows: { riskLevel: 'none' },
+      state: { riskLevel: 'warning' },
+      click_element: { riskLevel: 'dangerous' },
+      click_coordinate: { riskLevel: 'dangerous' },
+      type_text: { riskLevel: 'dangerous' },
+      set_value: { riskLevel: 'dangerous' },
+      press_key: { riskLevel: 'dangerous' },
+      scroll: { riskLevel: 'dangerous' },
+      drag: { riskLevel: 'dangerous' },
+      finish: { riskLevel: 'none' }
+    }
   }
 } satisfies EmbeddedToolMetadataMap

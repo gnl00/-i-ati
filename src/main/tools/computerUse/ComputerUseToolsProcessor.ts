@@ -1,3 +1,7 @@
+import {
+  computerUseActions,
+  type ComputerUseAction
+} from '@tools/computerUse/actions'
 import type {
   ComputerUseClickCoordinateArgs,
   ComputerUseClickElementArgs,
@@ -18,9 +22,10 @@ import {
 } from './ComputerUseBackendFactory'
 import type { ComputerUseBackend } from '@main/services/computerUse'
 
-const asObject = (args: unknown): Record<string, unknown> => (
-  args && typeof args === 'object' && !Array.isArray(args) ? args as Record<string, unknown> : {}
-)
+const asObject = (args: unknown): Record<string, unknown> =>
+  args && typeof args === 'object' && !Array.isArray(args)
+    ? (args as Record<string, unknown>)
+    : {}
 
 const requiredString = (args: unknown, key: string): string => {
   const value = asObject(args)[key]
@@ -43,7 +48,7 @@ const optionalString = (args: unknown, key: string): string | undefined => {
 
 const requiredNumber = (args: unknown, key: string): number => {
   const value = asObject(args)[key]
-  if (typeof value !== 'number' || Number.isNaN(value)) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
     throw new Error(`${key} must be a number`)
   }
   return value
@@ -54,7 +59,7 @@ const optionalNumber = (args: unknown, key: string): number | undefined => {
   if (value === undefined || value === null) {
     return undefined
   }
-  if (typeof value !== 'number' || Number.isNaN(value)) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
     throw new Error(`${key} must be a number`)
   }
   return value
@@ -71,16 +76,16 @@ const optionalBoolean = (args: unknown, key: string): boolean | undefined => {
   return value
 }
 
-const optionalScreenshotAfter = (args: unknown): { includeScreenshotAfter?: boolean } => ({
+const optionalScreenshotAfter = (
+  args: unknown
+): { includeScreenshotAfter?: boolean } => ({
   includeScreenshotAfter: optionalBoolean(args, 'includeScreenshotAfter')
 })
 
-const toResponse = async (
-  input: {
-    kind: ComputerUseBackendKind
-    action: () => Promise<unknown>
-  }
-): Promise<ComputerUseResultResponse> => {
+const toResponse = async (input: {
+  kind: ComputerUseBackendKind
+  action: () => Promise<unknown>
+}): Promise<ComputerUseResultResponse> => {
   try {
     return {
       success: true,
@@ -104,6 +109,89 @@ export class ComputerUseToolsProcessor {
     const resolved = resolveComputerUseBackend(options)
     this.backend = resolved.backend
     this.backendKind = resolved.kind
+  }
+
+  async execute(args: unknown): Promise<ComputerUseResultResponse> {
+    const raw = asObject(args)
+    const action = typeof raw.action === 'string' ? raw.action : undefined
+    try {
+      requiredString(args, 'action')
+      if (!action || !Object.hasOwn(computerUseActions, action)) {
+        throw new Error(`Unsupported computer_use action: ${action}`)
+      }
+      const contract = computerUseActions[action as ComputerUseAction]
+      const allowed = new Set<string>([
+        'action',
+        'chat_uuid', // Injected by ToolExecutor; backend inputs remain action-specific.
+        ...contract.required,
+        ...contract.optional
+      ])
+      for (const key of Object.keys(raw)) {
+        if (!allowed.has(key))
+          throw new Error(`${key} is not supported for action ${action}`)
+      }
+      for (const key of contract.required) {
+        if (raw[key] === undefined || raw[key] === null) {
+          throw new Error(`${key} is required for action ${action}`)
+        }
+      }
+      let response: ComputerUseResultResponse
+      switch (action as ComputerUseAction) {
+        case 'status':
+          response = await this.status()
+          break
+        case 'request_permissions':
+          response = await this.requestPermissions()
+          break
+        case 'apps':
+          response = await this.listApps()
+          break
+        case 'running_apps':
+          response = await this.runningApps()
+          break
+        case 'open_app':
+          response = await this.openApp(raw)
+          break
+        case 'windows':
+          response = await this.listWindows(raw)
+          break
+        case 'state':
+          response = await this.state(raw)
+          break
+        case 'click_element':
+          response = await this.clickElement(raw)
+          break
+        case 'click_coordinate':
+          response = await this.clickCoordinate(raw)
+          break
+        case 'type_text':
+          response = await this.typeText(raw)
+          break
+        case 'set_value':
+          response = await this.setValue(raw)
+          break
+        case 'press_key':
+          response = await this.pressKey(raw)
+          break
+        case 'scroll':
+          response = await this.scroll(raw)
+          break
+        case 'drag':
+          response = await this.drag(raw)
+          break
+        case 'finish':
+          response = await this.finish()
+          break
+      }
+      return { ...response, action }
+    } catch (error) {
+      return {
+        success: false,
+        backend: this.backendKind,
+        action,
+        error: error instanceof Error ? error.message : String(error)
+      }
+    }
   }
 
   status(): Promise<ComputerUseResultResponse> {
@@ -277,18 +365,6 @@ export class ComputerUseToolsProcessor {
 
 const defaultProcessor = new ComputerUseToolsProcessor()
 
-export const processComputerUseStatus = (): Promise<ComputerUseResultResponse> => defaultProcessor.status()
-export const processComputerUseRequestPermissions = (): Promise<ComputerUseResultResponse> => defaultProcessor.requestPermissions()
-export const processComputerUseApps = (): Promise<ComputerUseResultResponse> => defaultProcessor.listApps()
-export const processComputerUseRunningApps = (): Promise<ComputerUseResultResponse> => defaultProcessor.runningApps()
-export const processComputerUseOpenApp = (args: unknown): Promise<ComputerUseResultResponse> => defaultProcessor.openApp(args)
-export const processComputerUseWindows = (args: unknown): Promise<ComputerUseResultResponse> => defaultProcessor.listWindows(args)
-export const processComputerUseState = (args: unknown): Promise<ComputerUseResultResponse> => defaultProcessor.state(args)
-export const processComputerUseClickElement = (args: unknown): Promise<ComputerUseResultResponse> => defaultProcessor.clickElement(args)
-export const processComputerUseClickCoordinate = (args: unknown): Promise<ComputerUseResultResponse> => defaultProcessor.clickCoordinate(args)
-export const processComputerUseTypeText = (args: unknown): Promise<ComputerUseResultResponse> => defaultProcessor.typeText(args)
-export const processComputerUseSetValue = (args: unknown): Promise<ComputerUseResultResponse> => defaultProcessor.setValue(args)
-export const processComputerUsePressKey = (args: unknown): Promise<ComputerUseResultResponse> => defaultProcessor.pressKey(args)
-export const processComputerUseScroll = (args: unknown): Promise<ComputerUseResultResponse> => defaultProcessor.scroll(args)
-export const processComputerUseDrag = (args: unknown): Promise<ComputerUseResultResponse> => defaultProcessor.drag(args)
-export const processComputerUseFinish = (): Promise<ComputerUseResultResponse> => defaultProcessor.finish()
+export const processComputerUse = (
+  args: unknown
+): Promise<ComputerUseResultResponse> => defaultProcessor.execute(args)
