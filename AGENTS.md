@@ -19,7 +19,10 @@ Read it before changing the app shell, Chat, Welcome, sheets, Settings, Artifact
 ## Before Making Changes
 
 - Read the affected exports, immediate callers, shared utilities, and relevant tests before editing. Resolve unfamiliar structure through code and related documentation first.
-- Make routine implementation choices within the authorized scope independently. Ask a focused question when evidence leaves a product decision, compatibility tradeoff, or high-risk action unresolved; continue independent work while awaiting the answer.
+- Determine task scope from the current request and confirmed context. For implementation requests, continue through implementation, related documentation, and required verification. For discussion, evaluation, or investigation-only requests, deliver evidence-backed conclusions and recommendations; implementation requires authorization.
+- Make routine implementation choices independently using existing code and project conventions. Ask a focused question when missing information would change external behavior, compatibility commitments, data handling, or authorization scope and cannot be inferred from available evidence. Continue independent work while awaiting the answer.
+- Existing authorization remains valid within the current task scope. When an action still requires approval, first complete the authorized preparation so the user can review a concrete result.
+- Resolve instruction conflicts according to the applicable instruction hierarchy; explicit user requirements take precedence over skill workflow recommendations. If a skill causes a pause or confirmation request, link the exact file read, quote the relevant instruction, and explain why it applies. Distinguish explicit requirements from your interpretation.
 - Inspect `git status` and relevant diffs before editing. Preserve unrelated staged, unstaged, and untracked work throughout implementation, verification, and commits.
 - For any renderer UI change using Tailwind, read `docs/guides/development/tailwindcss-v4-syntax-rules.md`. Visual and motion rules live in `DESIGN.md`.
 - Before adding a tool, read `docs/guides/development/tool-definition-workflow.md`.
@@ -96,12 +99,14 @@ Choose checks by the affected behavior and dependency surface:
 |---|---|
 | Documentation only | Review the diff and validate affected links, paths, and command names. Run the documentation path check when its scope applies. |
 | TypeScript implementation | Lint changed files and run the affected Node/web typecheck. Run both when shared contracts affect both processes. |
-| Behavior, bug fix, IPC, tool, or streaming change | Add or update colocated tests under `__tests__` for the changed behavior, including relevant failure cases, and run the affected tests. |
+| Behavior, bug fix, IPC, tool, or streaming change | Ensure tests cover the changed behavior and relevant failure cases. Reuse sufficient existing coverage; add or update colocated tests under `__tests__` where coverage is missing, and run the affected tests. |
 | Directory, import, or public export change | Run the architecture checks specified for the affected process above. |
-| Refactor spanning multiple features or shared runtime, persistence, or streaming lifecycles | Run affected suites during development and `pnpm test:coverage` before delivery. Vitest uses V8 coverage in text, JSON, and HTML. |
+| Refactor affecting behavior or shared contracts across multiple features, or shared runtime, persistence, or streaming lifecycles | Run affected suites during development and `pnpm test:coverage` before delivery. Vitest uses V8 coverage in text, JSON, and HTML. Pure file moves or import-path updates that preserve these contracts require the applicable architecture checks and affected tests. |
 | Visible UI or Electron interaction change | Check the affected flow in Electron. For visual changes, check Light/Dark and relevant window sizes, and capture screenshots or recordings. |
 
-Use existing checks for copy and spacing changes; add tests when there is a behavioral contract to protect. Report the exact checks run, results, and remaining acceptance gaps. Distinguish automated checks from Electron runtime observations. For failures, establish whether the task introduced them and report baseline or environment blockers separately. Expand verification when a failure, further change, or unresolved concern warrants it.
+Use existing checks for copy and spacing changes. Tests should protect observable behavior and failure cases; avoid tests that merely repeat the implementation. Once all applicable required checks pass, proceed to delivery. Expand or repeat verification only when further changes, failures, or a specific unresolved risk justify it.
+
+Report the exact checks run, results, and remaining acceptance gaps. Distinguish automated checks from Electron runtime observations. For failures, establish whether the task introduced them and report baseline or environment blockers separately. If the environment prevents a required check, complete the independent checks that remain possible and report the blocked check, its cause, and what remains unverified.
 
 ## Commit & Pull Request Guidelines
 Use Conventional Commit style for every git commit:
