@@ -1,6 +1,7 @@
 import { app } from 'electron'
 import pino, { type DestinationStream, type Logger as PinoLogger } from 'pino'
 import type { LogLevel, LogTarget, LogWritePayload } from '@shared/types/logging'
+import { redactSensitiveText } from '@shared/security/SensitiveTextRedactor'
 import { LogFileManager } from './LogFileManager'
 import { sanitizeLogValue, serializeError } from './redact'
 import { localIsoPinoTimestamp } from './time'
@@ -19,6 +20,11 @@ export interface ScopedLogger {
   error: (message: string, errorOrContext?: unknown) => void
 }
 
+type ClosableDestination = DestinationStream & {
+  end?: () => void
+  once?: (event: string, listener: (...args: unknown[]) => void) => void
+}
+
 export class LogService {
   private readonly fileManager = new LogFileManager()
   private initialized = false
@@ -32,6 +38,7 @@ export class LogService {
   private schedulerDateKey: string | null = null
   private schedulerDestination: DestinationStream | null = null
   private schedulerLogger: PinoLogger | null = null
+  private additionalRedactionSecrets: readonly string[] = []
   private pendingWrites: Array<{
     level: LogLevel
     scope: string
@@ -46,7 +53,7 @@ export class LogService {
     if (this.initialized) return
     if (this.initializePromise) return await this.initializePromise
 
-    this.initializePromise = (async () => {
+    this.initializePromise = (async (): Promise<void> => {
       await this.rotateIfNeeded()
       await this.ensurePerfLogger()
       await this.ensureSchedulerLogger()
@@ -59,6 +66,31 @@ export class LogService {
     } finally {
       this.initializePromise = null
     }
+  }
+
+  setAdditionalRedactionSecrets(secrets: readonly string[]): void {
+    this.additionalRedactionSecrets = [...secrets].filter(secret => secret.length > 0)
+  }
+
+  async close(): Promise<void> {
+    this.flushPendingWrites()
+
+    const loggers = [this.fileLogger, this.perfLogger, this.schedulerLogger]
+    await Promise.all(loggers.map(logger => this.flushLogger(logger)))
+
+    const destinations = [this.destination, this.perfDestination, this.schedulerDestination]
+    await Promise.all(destinations.map(destination => this.closeDestination(destination)))
+
+    this.destination = null
+    this.fileLogger = null
+    this.perfDestination = null
+    this.perfLogger = null
+    this.schedulerDestination = null
+    this.schedulerLogger = null
+    this.currentDateKey = null
+    this.perfDateKey = null
+    this.schedulerDateKey = null
+    this.initialized = false
   }
 
   createLogger(scope: string, process: 'main' | 'renderer' = 'main'): ScopedLogger {
@@ -82,7 +114,7 @@ export class LogService {
       debug: (message, context) => this.write({ level: 'debug', scope, process, message, context, target }),
       info: (message, context) => this.write({ level: 'info', scope, process, message, context, target }),
       warn: (message, context) => this.write({ level: 'warn', scope, process, message, context, target }),
-      error: (message, errorOrContext) => {
+      error: (message, errorOrContext): void => {
         const error = errorOrContext instanceof Error ? errorOrContext : undefined
         const context = error ? undefined : errorOrContext
         this.write({ level: 'error', scope, process, message, context, error, target })
@@ -148,7 +180,31 @@ export class LogService {
       payload.err = serializedError
     }
 
-    logger[input.level](payload)
+    logger[input.level](this.redactAdditionalSecrets(payload))
+  }
+
+  private redactAdditionalSecrets(value: unknown): unknown {
+    if (this.additionalRedactionSecrets.length === 0) return value
+
+    if (typeof value === 'string') {
+      let redacted = redactSensitiveText(value).content
+      for (const secret of this.additionalRedactionSecrets) {
+        redacted = redacted.split(secret).join('[REDACTED]')
+      }
+      return redacted
+    }
+
+    if (Array.isArray(value)) {
+      return value.map(item => this.redactAdditionalSecrets(item))
+    }
+
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(
+        Object.entries(value).map(([key, nestedValue]) => [key, this.redactAdditionalSecrets(nestedValue)])
+      )
+    }
+
+    return value
   }
 
   private async ensureReadyForWrite(): Promise<void> {
@@ -182,6 +238,56 @@ export class LogService {
     }
 
     this.flushPendingWrites()
+  }
+
+  private async flushLogger(logger: PinoLogger | null): Promise<void> {
+    if (!logger || typeof logger.flush !== 'function') return
+
+    await new Promise<void>((resolve, reject) => {
+      try {
+        logger.flush((error?: Error) => {
+          if (error) reject(error)
+          else resolve()
+        })
+      } catch (error) {
+        reject(error)
+      }
+    })
+  }
+
+  private async closeDestination(destination: DestinationStream | null): Promise<void> {
+    const stream = destination as ClosableDestination | null
+    const end = stream?.end
+    if (!end) return
+
+    const once = stream.once
+    if (!once) {
+      end.call(stream)
+      return
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      let settled = false
+      const finish = (): void => {
+        if (settled) return
+        settled = true
+        resolve()
+      }
+      const fail = (error: unknown): void => {
+        if (settled) return
+        settled = true
+        reject(error)
+      }
+
+      once.call(stream, 'finish', finish)
+      once.call(stream, 'close', finish)
+      once.call(stream, 'error', fail)
+      try {
+        end.call(stream)
+      } catch (error) {
+        fail(error)
+      }
+    })
   }
 
   private async rotateIfNeeded(): Promise<void> {

@@ -26,6 +26,8 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
+    "cli": "node scripts/run-cli.mjs",
+    "verify:cli": "node scripts/verify-cli.mjs",
     "test:coverage": "vitest run --coverage",
     "start": "electron-vite preview",
     "dev": "electron-vite dev",

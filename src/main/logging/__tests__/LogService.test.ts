@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => {
   const destinations: Array<{ dest: string; flushSync: ReturnType<typeof vi.fn>; end: ReturnType<typeof vi.fn> }> = []
   const loggers: Array<{
     destination: { dest: string }
+    flush: ReturnType<typeof vi.fn>
     debug: ReturnType<typeof vi.fn>
     info: ReturnType<typeof vi.fn>
     warn: ReturnType<typeof vi.fn>
@@ -23,6 +24,7 @@ const mocks = vi.hoisted(() => {
   const pino = vi.fn((_options: unknown, stream: { dest: string }) => {
     const logger = {
       destination: stream,
+      flush: vi.fn((callback?: (error?: Error) => void) => callback?.()),
       debug: vi.fn(),
       info: vi.fn(),
       warn: vi.fn(),
@@ -103,5 +105,39 @@ describe('LogService', () => {
       context: { count: 0 }
     })
     expect(appLogger?.debug).not.toHaveBeenCalled()
+  })
+
+  it('redacts a host-provided secret from structured log strings', async () => {
+    const service = new LogService()
+    service.setAdditionalRedactionSecrets(['provider-secret-789'])
+    await service.initialize()
+
+    service.createLogger('Request').error('request.failed', {
+      detail: 'body contains provider-secret-789',
+      usage: { promptTokens: 100 }
+    })
+
+    const appLogger = mocks.loggers.find(logger => logger.destination.dest.includes('/app-'))
+    expect(appLogger?.error).toHaveBeenCalledWith(expect.objectContaining({
+      context: {
+        detail: 'body contains [REDACTED]',
+        usage: { promptTokens: 100 }
+      }
+    }))
+  })
+
+  it('flushes loggers and closes asynchronous destinations', async () => {
+    const service = new LogService()
+    await service.initialize()
+
+    await service.close()
+
+    expect(mocks.loggers).toHaveLength(3)
+    for (const logger of mocks.loggers) {
+      expect(logger.flush).toHaveBeenCalledOnce()
+    }
+    for (const destination of mocks.destinations) {
+      expect(destination.end).toHaveBeenCalledOnce()
+    }
   })
 })

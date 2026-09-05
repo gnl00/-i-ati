@@ -20,6 +20,7 @@ vi.mock('@main/logging/LogService', () => ({
 
 import {
   ensureLoginShellPath,
+  preserveCallerShellPathForCommands,
   resetLoginShellPathForTests
 } from '../shellEnvironment'
 
@@ -228,5 +229,13 @@ describe('ensureLoginShellPath', () => {
       'shell_environment.login_path_probe_skipped',
       expect.objectContaining({ platform: 'win32' })
     )
+  })
+
+  it('preserves the caller PATH without probing a login shell', async () => {
+    preserveCallerShellPathForCommands()
+
+    await expect(ensureLoginShellPath()).resolves.toBe('/electron/bin:/shared/bin')
+    expect(execFileMock).toHaveBeenCalledTimes(0)
+    expect(process.env.PATH).toBe('/electron/bin:/shared/bin')
   })
 })

@@ -79,7 +79,7 @@ Archive installation extracts to a temporary directory, rejects unsafe archive p
 
 `importSkillsFromFolder(folderPath)` recursively finds skill directories under a configured folder. It overwrites a previously imported skill when `.skill-source.json` points to the same source path. When a new source conflicts by normalized name, it creates a unique name by appending the scanned folder name and, if needed, a numeric suffix.
 
-`initializeFromConfig(config)` runs on app startup from [MainApplication](../../src/main/app/MainApplication.ts), recovers validated stale installation transactions, then imports each path in `config.skills.folders` in configuration order. Source-level exceptions and every item in an import summary's `failed` list are logged before the next source is processed.
+`initializeFromConfig(config)` runs on app startup from [MainApplication](../../src/main/app/MainApplication.ts) or [CliApplication](../../src/main/app/CliApplication.ts), recovers validated stale installation transactions, then imports each path in `config.skills.folders` in configuration order. Source-level exceptions and every item in an import summary's `failed` list are logged before the next source is processed.
 
 ### Installation publication and recovery
 

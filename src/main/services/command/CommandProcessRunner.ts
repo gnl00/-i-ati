@@ -7,6 +7,15 @@ export const COMMAND_OUTPUT_LIMIT_BYTES = 512 * 1024
 export const COMMAND_TERMINATION_GRACE_MS = 2_000
 export const COMMAND_TERMINATION_DEADLINE_MS = 7_000
 
+const pendingProcessGroupCleanups = new Set<Promise<void>>()
+
+/** Wait for delayed process-group escalation scheduled by aborted commands. */
+export async function waitForCommandProcessCleanup(): Promise<void> {
+  while (pendingProcessGroupCleanups.size > 0) {
+    await Promise.all([...pendingProcessGroupCleanups])
+  }
+}
+
 export interface CommandProcessRunOptions {
   executable: string
   args: string[]
@@ -246,9 +255,16 @@ export function runCommandProcess(
       } else if (child.pid) {
         const processGroupId = child.pid
         processGroupCleanupPending = true
+        let resolveCleanup: (() => void) | undefined
+        const cleanupLease = new Promise<void>((resolve) => {
+          resolveCleanup = resolve
+        })
+        pendingProcessGroupCleanups.add(cleanupLease)
+        void cleanupLease.then(() => pendingProcessGroupCleanups.delete(cleanupLease))
         forceKillTimer = setTimeout(() => {
           processGroupCleanupPending = false
           forceKillProcessGroup(processGroupId)
+          resolveCleanup?.()
         }, COMMAND_TERMINATION_GRACE_MS)
       }
 

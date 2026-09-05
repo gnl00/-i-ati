@@ -28,6 +28,16 @@ IPC / Telegram gateway / scheduler / other app services
         -> renderer IPC / telegram bot API / host persistence
 ```
 
+The CLI Host follows the same host boundary with a terminal transport:
+
+```text
+terminal / evaluator
+  -> hosts/cli input and JSONL output contracts
+    -> orchestration/cli single-run lifecycle
+      -> AgentRuntime + ToolExecutor
+        -> output artifacts and task workspace
+```
+
 分层职责：
 
 - `agent`
@@ -79,6 +89,11 @@ host input adapter
 
 - [ChatAgentAdapter.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/ChatAgentAdapter.ts)
 - [TelegramAgentAdapter.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/telegram/TelegramAgentAdapter.ts)
+
+`hosts/cli/` contains the CLI argument/model-config adapter, credential-aware
+JSONL event sink, and fixed profile constants. Runtime composition belongs to
+`orchestration/cli/`, and tool execution stays in the existing runtime/tool
+boundaries.
 
 ### 2. Shared Host State / Controller
 

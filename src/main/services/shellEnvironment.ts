@@ -168,6 +168,17 @@ export function ensureLoginShellPath(): Promise<string | undefined> {
   return loginShellPathPromise
 }
 
+/**
+ * Keep a caller-provided PATH stable for command execution.
+ *
+ * The desktop shell probes a login shell to fill in interactive PATH entries.
+ * Short-lived hosts such as the CLI receive an intentional environment from
+ * their caller, so they can seed the same cache without starting a shell.
+ */
+export function preserveCallerShellPathForCommands(): void {
+  loginShellPathPromise = Promise.resolve(process.env.PATH)
+}
+
 export function resetLoginShellPathForTests(): void {
   loginShellPathPromise = null
 }

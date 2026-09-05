@@ -14,8 +14,8 @@ src/main/
   index.ts                 Electron entry
   app/                     startup, activation, shutdown, protocol registration
   agent/                   runtime contracts and agent execution kernel
-  hosts/                   chat and Telegram host adapters
-  orchestration/           run lifecycle, maintenance, and post-run jobs
+  hosts/                   chat, Telegram, and CLI host adapters
+  orchestration/           run lifecycle, CLI runs, maintenance, and post-run jobs
   services/                reusable main-process capabilities
   tools/                   embedded tool processors and registration
   ipc/                     IPC handler groups
@@ -248,3 +248,22 @@ names such as `infrastructure-next` remain independent.
 
 The documentation check validates active `src/main` path literals and excludes
 archive, reference, and explicitly historical documents.
+
+## CLI Host
+
+The CLI is a separate Electron main entry at `src/main/cli.ts`. The Node
+launcher in `scripts/run-cli.mjs` starts `out/main/cli.js`, forwards arguments
+and termination signals, and returns the CLI exit code. It does not construct
+`MainApplication` or create a renderer window.
+
+The CLI defaults to the desktop application profile and accepts `--profile-dir`
+for an explicitly isolated profile. `CliChatProfile` reuses Chat's
+`RunRequestFactory` for configured tools, prompts, auxiliary models and request
+context. CLI has no separate tool allowlist. Session storage and run artifacts
+remain under the requested output directory.
+
+The CLI shares the strict `ToolExecutor` approval policy with Chat. Its
+toolset fingerprint covers effective names, schemas and sources from the
+central registry and MCP connections. The profile records the final system prompt, prompt/config
+fingerprints, timeout, budget, approval mode, and its differences from the
+desktop profile in `result.json`.

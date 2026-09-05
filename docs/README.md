@@ -36,8 +36,10 @@ capability is reviewed.
 
 - [Renderer architecture](architecture/renderer-architecture.md)
 - [Main process architecture](architecture/main-process-architecture.md)
+- [CLI Host implementation](guides/development/cli-host-implementation.md)
 - [工作区路径与工具失败契约实施指导](guides/development/workspace-path-tool-failure-implementation.md)
 - [技能安装与残缺恢复实施指导](guides/development/skill-install-recovery-implementation.md)
+- [CLI thinking configuration implementation](guides/development/cli-thinking-implementation.md)
 - [Chat runtime architecture](architecture/chat-runtime-architecture-current.md)
 - [Emotion system design](architecture/emotion-system-design.md)
 - [Assistant Think and tool call presentation](chat/assistant-think-tool-call-presentation.md)

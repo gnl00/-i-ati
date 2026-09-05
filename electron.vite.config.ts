@@ -24,7 +24,15 @@ export default defineConfig({
     build: {
       externalizeDeps: false,
       rollupOptions: {
-        external: mainExternal
+        external: mainExternal,
+        input: {
+          index: resolve('src/main/index.ts'),
+          cli: resolve('src/main/cli.ts')
+        },
+        output: {
+          entryFileNames: '[name].js',
+          chunkFileNames: '[name]-[hash].js'
+        }
       }
     },
     resolve: {
