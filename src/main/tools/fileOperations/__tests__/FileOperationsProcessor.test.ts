@@ -299,7 +299,7 @@ describe('FileOperationsProcessor.read_text_file', () => {
     })
 
     expect(result.success).toBe(false)
-    expect(result.error).toContain('PATH_ABSOLUTE_REJECTED')
+    expect(result.error).toContain('PATH_OUTSIDE_WORKSPACE')
     expect(runRipgrepSearchMock).not.toHaveBeenCalled()
   })
 
@@ -690,14 +690,13 @@ describe('FileOperationsProcessor workspace confinement', () => {
     vi.clearAllMocks()
   })
 
-  it('enforces the embedded relative contract and preserves legacy IPC absolute paths', async () => {
+  it('accepts embedded workspace absolute paths and preserves legacy IPC absolute paths', async () => {
     const filePath = join(workspaceRoot, 'nested', 'sample.txt')
     await mkdir(dirname(filePath), { recursive: true })
     await writeFile(filePath, 'safe', 'utf-8')
 
     const embeddedAbsolute = await processRead({ chat_uuid: 'safe-chat', file_path: filePath })
-    expect(embeddedAbsolute).toMatchObject({ success: false })
-    expect(embeddedAbsolute.error).toContain('PATH_ABSOLUTE_REJECTED')
+    expect(embeddedAbsolute).toMatchObject({ success: true, content: 'safe', file_path: 'nested/sample.txt' })
 
     const embeddedMixedSeparators = await processRead({
       chat_uuid: 'safe-chat',

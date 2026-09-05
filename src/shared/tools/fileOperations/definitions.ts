@@ -11,7 +11,7 @@ export const fileOperationsTools = [
         properties: {
           file_path: {
             type: 'string',
-            description: 'Workspace-relative path to the file to read. Use "." for the workspace root.'
+            description: 'Workspace path to the file to read. Accepts a relative path or a native absolute path inside the workspace. Use "." for the workspace root.'
           },
           encoding: {
             type: 'string',
@@ -54,7 +54,7 @@ export const fileOperationsTools = [
         properties: {
           file_path: {
             type: 'string',
-            description: 'Workspace-relative path to the file to write.'
+            description: 'Workspace path to the file to write. Accepts a relative path or a native absolute path inside the workspace.'
           },
           content: {
             type: 'string',
@@ -91,7 +91,7 @@ export const fileOperationsTools = [
         properties: {
           file_path: {
             type: 'string',
-            description: 'Workspace-relative path to the file to edit.'
+            description: 'Workspace path to the file to edit. Accepts a relative path or a native absolute path inside the workspace.'
           },
           search: {
             type: 'string',
@@ -148,7 +148,7 @@ export const fileOperationsTools = [
         properties: {
           path: {
             type: 'string',
-            description: 'Workspace-relative file or directory path to search in.'
+            description: 'Workspace file or directory path to search in. Accepts a relative path or a native absolute path inside the workspace.'
           },
           pattern: {
             type: 'string',
@@ -189,7 +189,7 @@ export const fileOperationsTools = [
         properties: {
           path: {
             type: 'string',
-            description: 'Workspace-relative directory path to list. Use "." for the workspace root.'
+            description: 'Workspace directory path to list. Accepts a relative path or a native absolute path inside the workspace. Use "." for the workspace root.'
           },
           details: {
             type: 'boolean',
@@ -212,7 +212,7 @@ export const fileOperationsTools = [
         properties: {
           path: {
             type: 'string',
-            description: 'Workspace-relative root directory path to search from.'
+            description: 'Workspace root directory path to search from. Accepts a relative path or a native absolute path inside the workspace.'
           },
           pattern: {
             type: 'string',
@@ -239,7 +239,7 @@ export const fileOperationsTools = [
         properties: {
           path: {
             type: 'string',
-            description: 'Workspace-relative root directory path.'
+            description: 'Workspace root directory path. Accepts a relative path or a native absolute path inside the workspace.'
           },
           max_depth: {
             type: 'number',
@@ -261,7 +261,7 @@ export const fileOperationsTools = [
         properties: {
           path: {
             type: 'string',
-            description: 'Workspace-relative path to the target file or directory.'
+            description: 'Workspace path to the target file or directory. Accepts a relative path or a native absolute path inside the workspace.'
           }
         },
         required: ['path'],
@@ -279,7 +279,7 @@ export const fileOperationsTools = [
         properties: {
           directory_path: {
             type: 'string',
-            description: 'Workspace-relative directory path to create.'
+            description: 'Workspace directory path to create. Accepts a relative path or a native absolute path inside the workspace.'
           },
           recursive: {
             type: 'boolean',
@@ -302,11 +302,11 @@ export const fileOperationsTools = [
         properties: {
           source_path: {
             type: 'string',
-            description: 'Workspace-relative source file or directory path.'
+            description: 'Workspace source file or directory path. Accepts a relative path or a native absolute path inside the workspace.'
           },
           destination_path: {
             type: 'string',
-            description: 'Workspace-relative destination file or directory path.'
+            description: 'Workspace destination file or directory path. Accepts a relative path or a native absolute path inside the workspace.'
           },
           overwrite: {
             type: 'boolean',

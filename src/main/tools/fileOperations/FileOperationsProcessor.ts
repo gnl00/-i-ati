@@ -100,7 +100,7 @@ const IGNORED_DIRECTORY_NAMES = new Set([
 type FileToolPathContract = 'embedded' | 'legacy-ipc'
 
 function pathModeForContract(contract: FileToolPathContract): WorkspacePathMode {
-  return contract === 'embedded' ? 'embedded-relative' : 'legacy-compatible'
+  return contract === 'embedded' ? 'workspace-contained' : 'legacy-compatible'
 }
 
 function resolveFilePath(
@@ -1049,7 +1049,7 @@ async function collectSearchCandidateFiles(
 
       if (stats.isSymbolicLink()) return
       const safeItem = resolveWorkspacePath(itemPath, {
-        mode: 'legacy-compatible',
+        mode: 'workspace-contained',
         intent: stats.isDirectory() ? 'traversal' : 'existing',
         workspaceRootOverride: traversalRoot.workspaceRoot
       })
@@ -1176,7 +1176,13 @@ export async function processGrep(args: GrepArgs): Promise<GrepResponse> {
         path: resolvedTarget.relativePath,
         target_type: targetType,
         matches: ripgrepResult.matches.map((match) => {
-          const safeMatch = resolveFilePath(match.file_path, chat_uuid, 'existing', 'legacy-ipc')
+          const safeMatch = resolveFilePath(
+            match.file_path,
+            chat_uuid,
+            'existing',
+            'embedded',
+            resolvedTarget.workspaceRoot
+          )
           const staysWithinTarget = targetType === 'file'
             ? safeMatch.canonicalPath === resolvedTarget.canonicalPath
             : isPathWithin(safeMatch.canonicalPath, resolvedTarget.canonicalPath)
@@ -1415,7 +1421,7 @@ export async function processDirectoryTree(
       }
 
       resolveWorkspacePath(dirPath, {
-        mode: 'legacy-compatible',
+        mode: 'workspace-contained',
         intent: stats.isDirectory() ? 'traversal' : 'existing',
         workspaceRootOverride: resolvedRoot.workspaceRoot
       })
@@ -1497,7 +1503,7 @@ async function collectGlobMatches(
 
     if (entryType !== 'symlink') {
       resolveWorkspacePath(itemPath, {
-        mode: 'legacy-compatible',
+        mode: 'workspace-contained',
         intent: entryType === 'directory' ? 'traversal' : 'existing',
         workspaceRootOverride: options.workspaceRoot
       })
@@ -1559,7 +1565,13 @@ export async function processGlob(args: GlobArgs): Promise<GlobResponse> {
         const emittedAbsolutePath = isAbsolute(filePath)
           ? filePath
           : resolve(absoluteRootPath, filePath)
-        const safeMatch = resolveFilePath(emittedAbsolutePath, chat_uuid, 'existing', 'legacy-ipc')
+        const safeMatch = resolveFilePath(
+          emittedAbsolutePath,
+          chat_uuid,
+          'existing',
+          'embedded',
+          resolvedRoot.workspaceRoot
+        )
         if (!isPathWithin(safeMatch.canonicalPath, resolvedRoot.canonicalPath)) {
           throw new WorkspacePathError(
             'PATH_TRAVERSAL_REJECTED',

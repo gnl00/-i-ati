@@ -241,14 +241,15 @@ pnpm run typecheck:web
 ### Workspace file-operation confinement
 
 文件操作工具通过共享的 `WorkspacePathResolver` 约束 read、write、edit、grep、
-glob、ls、tree、stat、mkdir 和 mv 的访问范围。嵌入式工具使用 workspace-relative
-路径契约；renderer IPC 的兼容适配器接收 workspace 内绝对路径和历史
+glob、ls、tree、stat、mkdir 和 mv 的访问范围。嵌入式文件工具接受 workspace-relative
+路径和当前操作系统原生的 workspace 内绝对路径，并在响应中输出 workspace-relative
+路径；renderer IPC 的兼容适配器继续接收 workspace 内绝对路径和历史
 `workspaces/<chatUuid>/...` 格式，将其转换成相对路径后进入同一解析流程。
 
 解析流程固定为：
 
-1. 拒绝空值、NUL、POSIX/Windows/UNC 绝对路径和任意 `..` 段。
-2. 规范化分隔符并相对 canonical workspace root 解析。
+1. 拒绝空值、NUL、任意 `..` 段和当前平台无法解释的跨平台绝对路径形态。
+2. 相对路径相对 workspace root 解析；原生绝对路径先进行 workspace 词法包含检查。
 3. 通过 `lstat` 定位最长已存在前缀，再用 `realpath` 解析 symlink。
 4. 通过 `path.relative()` 语义验证 canonical target 位于 canonical workspace root。
 
@@ -264,7 +265,9 @@ ripgrep 从已验证的遍历根启动，每条结果路径在进入工具响应
 legacy renderer IPC 保留现有调用方需要的响应路径形态。
 renderer IPC 的 `list_allowed_directories` 返回当前 chat 的有效 canonical workspace root。
 
-mv 分别解析 source 与 destination，destination 通过最长已存在前缀支持新路径。
+普通 workspace 外部目标返回 `PATH_OUTSIDE_WORKSPACE`，词法上位于 workspace 内而
+canonical 解析越界的目标返回 `PATH_SYMLINK_ESCAPE`。mv 分别解析 source 与
+destination，destination 通过最长已存在前缀支持新路径。
 write 在启用 backup 时独立解析 `.backup` destination。`ToolExecutor` 在 embedded
 handler 执行前使用当前 runtime chat UUID 覆盖工具参数中的 `chat_uuid`，workspace
 选择权归属于当前聊天运行时。

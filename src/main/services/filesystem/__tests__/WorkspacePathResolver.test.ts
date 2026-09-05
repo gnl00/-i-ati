@@ -18,6 +18,7 @@ import {
   resolveWorkspacePath,
   resolveWorkspaceRoot,
   WorkspacePathError,
+  type WorkspacePathIntent,
   type ResolvedWorkspacePath
 } from '../WorkspacePathResolver'
 
@@ -48,6 +49,18 @@ describe('WorkspacePathResolver', () => {
   ): ResolvedWorkspacePath =>
     resolveWorkspacePath(path, { chatUuid: 'chat-1', mode: 'embedded-relative', intent })
 
+  const resolveContained = (
+    path: string,
+    intent: WorkspacePathIntent = 'existing',
+    workspaceRootOverride?: string
+  ): ResolvedWorkspacePath =>
+    resolveWorkspacePath(path, {
+      chatUuid: 'chat-1',
+      mode: 'workspace-contained',
+      intent,
+      workspaceRootOverride
+    })
+
   it.each(['/etc/passwd', 'C:\\Windows\\system.ini', 'C:relative.txt', '\\\\server\\share\\file', '\\rooted']) (
     'rejects absolute form %s for embedded tools',
     (path) => {
@@ -66,6 +79,83 @@ describe('WorkspacePathResolver', () => {
     expect(() => resolveEmbedded('file\0.txt')).toThrowError(expect.objectContaining({ code: 'PATH_INVALID_INPUT' }))
     expect(resolveEmbedded('.')).toMatchObject({ relativePath: '.', canonicalWorkspaceRoot: realpathSync(workspaceRoot) })
   })
+
+  it('accepts native absolute paths inside the workspace and normalizes them to relative output', () => {
+    const absolute = resolveContained(join(workspaceRoot, 'src', 'new.ts'), 'creatable')
+    const relativePath = resolveContained('src/new.ts', 'creatable')
+
+    expect(absolute).toMatchObject({
+      absolutePath: join(workspaceRoot, 'src', 'new.ts'),
+      relativePath: 'src/new.ts',
+      legacyInput: false
+    })
+    expect(absolute.canonicalPath).toBe(relativePath.canonicalPath)
+    expect(resolveContained(workspaceRoot, 'traversal').relativePath).toBe('.')
+  })
+
+  it('rejects ordinary absolute paths outside the workspace before canonical resolution', () => {
+    expect(() => resolveContained(join(outsideRoot, 'secret.txt'), 'existing'))
+      .toThrowError(expect.objectContaining({ code: 'PATH_OUTSIDE_WORKSPACE' }))
+    expect(() => resolveContained(`${workspaceRoot}-sibling/file.txt`, 'creatable'))
+      .toThrowError(expect.objectContaining({ code: 'PATH_OUTSIDE_WORKSPACE' }))
+  })
+
+  it('rejects drive-relative input in contained mode', () => {
+    expect(() => resolveContained('C:relative.txt'))
+      .toThrowError(expect.objectContaining({ code: 'PATH_ABSOLUTE_REJECTED' }))
+  })
+
+  it('keeps workspace-relative paths that resolve through an external symlink rejected', async () => {
+    await writeFile(join(outsideRoot, 'secret.txt'), 'secret')
+    await symlink(join(outsideRoot, 'secret.txt'), join(workspaceRoot, 'external-file'))
+
+    expect(() => resolveContained('external-file'))
+      .toThrowError(expect.objectContaining({ code: 'PATH_SYMLINK_ESCAPE' }))
+  })
+
+  it('accepts an absolute path through a canonical workspace root alias', async () => {
+    const configuredRoot = join(userDataDir, 'configured-link')
+    await symlink(workspaceRoot, configuredRoot)
+
+    const resolved = resolveContained(join(realpathSync(workspaceRoot), 'safe.txt'), 'creatable', configuredRoot)
+    expect(resolved).toMatchObject({
+      relativePath: 'safe.txt',
+      canonicalWorkspaceRoot: realpathSync(workspaceRoot),
+      canonicalPath: join(realpathSync(workspaceRoot), 'safe.txt')
+    })
+  })
+
+  it('rejects an external alias pointing into the workspace', async () => {
+    await symlink(workspaceRoot, join(outsideRoot, 'alias'))
+    expect(() => resolveContained(join(outsideRoot, 'alias', 'new.txt'), 'creatable'))
+      .toThrowError(expect.objectContaining({ code: 'PATH_OUTSIDE_WORKSPACE' }))
+  })
+
+  it('rejects symlink escapes through a canonical root alias for new descendants', async () => {
+    const configuredRoot = join(userDataDir, 'configured-link')
+    await symlink(workspaceRoot, configuredRoot)
+    await symlink(outsideRoot, join(workspaceRoot, 'escape'))
+    expect(() => resolveContained(join(realpathSync(workspaceRoot), 'escape/new/file.txt'), 'creatable', configuredRoot))
+      .toThrowError(expect.objectContaining({ code: 'PATH_SYMLINK_ESCAPE' }))
+  })
+
+  it('keeps internal links usable and rejects dangling links in contained mode', async () => {
+    await mkdir(join(workspaceRoot, 'real'))
+    await symlink(join(workspaceRoot, 'real'), join(workspaceRoot, 'link'))
+    await symlink(join(workspaceRoot, 'missing'), join(workspaceRoot, 'dangling'))
+    expect(resolveContained(join(workspaceRoot, 'link/new/file.txt'), 'creatable').relativePath)
+      .toBe('real/new/file.txt')
+    expect(() => resolveContained('dangling/file.txt', 'creatable'))
+      .toThrowError(expect.objectContaining({ code: 'PATH_CANONICALIZATION_FAILED' }))
+  })
+
+  it.each(['C:\\Windows\\system.ini', '//server/share/file', '\\\\server\\share\\file', '\\rooted']) (
+    'rejects non-native absolute form %s for workspace-contained tools',
+    (path) => {
+      if (process.platform === 'win32') return
+      expect(() => resolveContained(path)).toThrowError(expect.objectContaining({ code: 'PATH_ABSOLUTE_REJECTED' }))
+    }
+  )
 
   it('rejects external leaf and missing descendants below an external symlink', async () => {
     await writeFile(join(outsideRoot, 'secret.txt'), 'secret')

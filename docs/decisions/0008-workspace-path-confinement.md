@@ -20,9 +20,11 @@ require validation before they enter a tool response. Creation destinations
 also require canonicalizing the longest existing prefix because the final path
 can be absent at resolution time.
 
-The embedded tool contract benefits from one portable path format. Existing
-renderer IPC callers still submit workspace-contained absolute paths, so the
-migration needs an explicit compatibility boundary.
+The embedded tool contract benefits from one portable response path format.
+Embedded file tools accept native absolute paths produced by the host and model
+workflow when those paths stay inside the active workspace. Existing renderer
+IPC callers still submit workspace-contained absolute paths, so the migration
+keeps an explicit compatibility boundary.
 
 ## Decision
 
@@ -33,14 +35,17 @@ tool. The resolver receives the effective workspace root, an input path, and an
 operation intent. Its result contains an absolute filesystem path for internal
 I/O and a normalized workspace-relative path for tool responses.
 
-The strict embedded-tool path contract accepts workspace-relative paths. The
-lexical validation stage:
+The workspace-contained embedded-tool path contract accepts workspace-relative
+paths and native absolute paths inside the active workspace. The lexical
+validation stage:
 
 - rejects empty or NUL-containing values;
-- rejects POSIX, Windows drive, and UNC absolute paths;
+- rejects absolute path forms that do not match the current platform;
 - treats both slash styles as path separators and rejects every `..` segment;
 - normalizes `.` and repeated separators;
-- resolves the remaining path against the canonical workspace root and checks
+- checks native absolute paths against the configured root or its canonical
+  alias before canonical target containment;
+- resolves the remaining path against the workspace root and checks
   containment with `path.relative()` semantics.
 
 Path shape is validated before filesystem lookup, so equivalent traversal
@@ -50,13 +55,16 @@ spellings share the same outcome across platforms.
 
 The renderer IPC boundary keeps a compatibility adapter for workspace-contained
 absolute paths and the historical `workspaces/<chatUuid>/...` form. The adapter
-converts accepted input into a workspace-relative path and calls the same strict
-resolver. Embedded tool handlers enter the strict resolver directly.
+converts accepted input into a workspace-relative path and calls the same
+resolver. Embedded file tool handlers enter the workspace-contained resolver
+directly. Consumers that require a relative-only contract, including vision and
+workspace web artifact paths, retain their dedicated relative-only mode.
 
 Compatibility is limited to input conversion. Permission checks, canonical
 containment, and errors remain shared across both call paths. Embedded responses
 use workspace-relative paths. Legacy IPC responses preserve the path shapes
-required by existing renderer callers.
+required by existing renderer callers. Vision and workspace web artifact
+consumers keep their relative-only contracts.
 
 ### Canonical and symbolic-link confinement
 
@@ -70,8 +78,10 @@ This rule supports existing targets and creation destinations. A symbolic link
 whose resolved target stays within the workspace can serve direct file
 operations. A symbolic link whose resolved target crosses the workspace
 boundary produces `PATH_SYMLINK_ESCAPE` before the operation reaches
-filesystem I/O. A dangling symbolic link whose target cannot be canonicalized
-produces `PATH_CANONICALIZATION_FAILED`; filesystem I/O remains blocked.
+filesystem I/O. A lexical path outside the workspace produces
+`PATH_OUTSIDE_WORKSPACE`. A dangling symbolic link whose target cannot be
+canonicalized produces `PATH_CANONICALIZATION_FAILED`; filesystem I/O remains
+blocked.
 
 Recursive directory operations use `lstat` for every discovered entry.
 Symbolic-link directories appear as terminal entries, and recursion stops at
@@ -127,6 +137,7 @@ machine-readable `code` and a safe user-facing message. The initial codes are:
 - `PATH_INVALID_INPUT`
 - `PATH_ABSOLUTE_REJECTED`
 - `PATH_TRAVERSAL_REJECTED`
+- `PATH_OUTSIDE_WORKSPACE`
 - `PATH_SYMLINK_ESCAPE`
 - `PATH_CANONICALIZATION_FAILED`
 
@@ -136,7 +147,8 @@ canonical external targets and host filesystem details.
 ## Consequences
 
 - File tools share one audited workspace boundary and one error vocabulary.
-- Embedded tool schemas use workspace-relative paths consistently.
+- Embedded file tools accept workspace-relative or native workspace-contained
+  absolute inputs and return workspace-relative paths.
 - Legacy renderer IPC retains its workspace-contained absolute-path workflow.
 - Direct access through external symbolic links is rejected before I/O.
 - Recursive tools expose symbolic links as leaf metadata and keep traversal
@@ -153,8 +165,9 @@ system sandbox are required to address those classes.
 
 ## Verification
 
-- Embedded tools reject absolute paths, traversal segments, NUL values, Windows
-  drive paths, and UNC paths.
+- Embedded tools accept native workspace-contained absolute paths and normalize
+  them to workspace-relative paths. Traversal segments, NUL values, foreign
+  absolute path forms, and workspace-external paths are rejected.
 - The IPC adapter accepts workspace-contained absolute paths and rejects paths
   outside the active workspace.
 - Existing files, missing leaf targets, and missing nested targets resolve
