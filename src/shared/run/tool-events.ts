@@ -4,6 +4,7 @@ import type {
   PendingToolQuestion,
   ToolUserQuestionResolutionStatus
 } from '@shared/tools/userQuestion'
+import type { ToolFailure } from '@shared/tools/toolFailure'
 
 export interface ToolOutputBatch {
   toolCallId: string
@@ -20,6 +21,7 @@ export type RunToolCall = {
   status: 'pending' | 'executing' | 'success' | 'failed' | 'aborted'
   result?: unknown
   error?: string
+  failure?: ToolFailure
   executionStartedAt?: number
   cost?: number
   latencyCost?: number
@@ -66,6 +68,6 @@ export type RunToolEventPayloads = {
   }
   'tool.execution.started': { toolCallId: string; name: string; timestamp: number; executionStartedAt: number }
   'tool.execution.output': ToolOutputBatch
-  'tool.execution.completed': { toolCallId: string; result: unknown; cost: number; latencyCost?: number; executionStartedAt?: number }
-  'tool.execution.failed': { toolCallId: string; error: import('./lifecycle-events').SerializedError | Error }
+  'tool.execution.completed': { toolCallId: string; result: unknown; cost: number; latencyCost?: number; executionStartedAt?: number; failure?: ToolFailure }
+  'tool.execution.failed': { toolCallId: string; error: import('./lifecycle-events').SerializedError | Error; failure?: ToolFailure }
 }

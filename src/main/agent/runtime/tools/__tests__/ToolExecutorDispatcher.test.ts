@@ -169,6 +169,57 @@ describe('DefaultToolExecutorDispatcher', () => {
     expect(agentEventEmitter.emitToolExecutionStarted).toHaveBeenCalledTimes(1)
   })
 
+  it('preserves a structured processor failure in the runtime fact', async () => {
+    const failure = {
+      category: 'operation' as const,
+      code: 'COMMAND_TIMEOUT',
+      message: 'The command exceeded its time limit.',
+      recovery: {
+        action: 'check_state' as const,
+        message: 'Inspect partial output before continuing.'
+      },
+      termination: 'timeout' as const
+    }
+    executeMock.mockResolvedValueOnce([{
+      id: 'tool-timeout',
+      index: 0,
+      name: 'exec',
+      content: { success: false, error: 'Command timeout after 10ms' },
+      failure,
+      cost: 10,
+      status: 'success'
+    }])
+
+    const agentEventEmitter = createEventEmitter()
+    const dispatcher = new DefaultToolExecutorDispatcher({
+      agentEventEmitter,
+      runtimeClock: { now: (): number => 123 }
+    })
+
+    const outcome = await dispatcher.dispatch({
+      batchId: 'batch-timeout',
+      stepId: 'step-timeout',
+      createdAt: 1,
+      calls: [{
+        toolCallId: 'tool-timeout',
+        stepId: 'step-timeout',
+        index: 0,
+        name: 'exec',
+        arguments: '{}',
+        confirmationPolicy: { mode: 'not_required' },
+        status: 'pending'
+      }]
+    })
+
+    expect(outcome).toMatchObject({
+      status: 'completed',
+      results: [expect.objectContaining({ failure })]
+    })
+    expect(agentEventEmitter.emitToolExecutionCompleted).toHaveBeenCalledWith(
+      expect.objectContaining({ result: expect.objectContaining({ failure }) })
+    )
+  })
+
   it('emits injected execution start only after confirmation resolves', async () => {
     const events: string[] = []
     const agentEventEmitter = createEventEmitter()

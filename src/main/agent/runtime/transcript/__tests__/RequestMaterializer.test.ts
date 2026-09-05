@@ -849,4 +849,51 @@ describe('DefaultRequestMaterializer', () => {
       toolName: 'read'
     })
   })
+
+  it('includes structured tool failures in the model protocol message', () => {
+    const materializer = new DefaultRequestMaterializer()
+    const transcript: AgentTranscript = {
+      transcriptId: 'transcript-failure',
+      createdAt: 1,
+      updatedAt: 2,
+      records: [{
+        recordId: 'tool-failure',
+        kind: 'tool_result',
+        timestamp: 2,
+        stepId: 'step-1',
+        toolCallId: 'call-1',
+        toolCallIndex: 0,
+        toolName: 'exec',
+        status: 'timeout',
+        content: null,
+        error: { message: 'Command timeout after 10ms' },
+        failure: {
+          category: 'operation',
+          code: 'COMMAND_TIMEOUT',
+          message: 'The command exceeded its time limit.',
+          recovery: {
+            action: 'check_state',
+            message: 'Inspect partial output before continuing.'
+          },
+          termination: 'timeout'
+        }
+      }]
+    }
+
+    const request = materializer.materialize({
+      transcript,
+      requestSpec: {
+        adapterPluginId: 'openai-chat-compatible-adapter',
+        baseUrl: 'https://example.invalid/v1',
+        apiKey: 'test-key',
+        model: 'test-model'
+      }
+    })
+
+    expect(request.messages[0]).toMatchObject({
+      role: 'tool',
+      content: expect.stringContaining('code=COMMAND_TIMEOUT')
+    })
+    expect((request.messages[0] as { content: string }).content).toContain('termination=timeout')
+  })
 })

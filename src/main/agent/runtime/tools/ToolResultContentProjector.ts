@@ -3,6 +3,7 @@ import {
   COLD_TOOL_CONTENT_REQUEST_MAX_CHARACTERS,
   compactToolContentForModelRequest
 } from '@shared/tools/toolResultContent'
+import type { ToolFailure } from '@shared/tools/toolFailure'
 import { isNormalizedToolResultContent } from './result-normalization'
 
 export type ToolResultContentReplayMode = 'hot' | 'cold'
@@ -14,6 +15,7 @@ export interface ToolResultProjectionError {
 export interface FormatToolResultForModelInput {
   content: unknown
   error?: ToolResultProjectionError
+  failure?: ToolFailure
   replayMode?: ToolResultContentReplayMode
   contentRepresentation?: ToolResultContentRepresentation
 }
@@ -21,18 +23,31 @@ export interface FormatToolResultForModelInput {
 export interface ProjectToolResultContentForDisplayInput {
   content: unknown
   error?: ToolResultProjectionError
+  failure?: ToolFailure
 }
+
+const formatToolFailure = (failure: ToolFailure): string => [
+  '[tool_failure]',
+  `category=${failure.category}`,
+  `code=${failure.code}`,
+  `message=${failure.message}`,
+  `recovery_action=${failure.recovery.action}`,
+  `recovery=${failure.recovery.message}`,
+  ...(failure.sourceCode !== undefined ? [`source_code=${failure.sourceCode}`] : []),
+  ...(failure.termination ? [`termination=${failure.termination}`] : [])
+].join('\n')
 
 export const projectToolResultContentForDisplay = ({
   content,
-  error
+  error,
+  failure
 }: ProjectToolResultContentForDisplayInput): string => {
   if (typeof content === 'string') {
     return content
   }
 
   if (content == null) {
-    return error?.message || ''
+    return failure ? formatToolFailure(failure) : error?.message || ''
   }
 
   try {
@@ -45,39 +60,42 @@ export const projectToolResultContentForDisplay = ({
 export const formatToolResultForModel = ({
   content,
   error,
+  failure,
   replayMode,
   contentRepresentation
 }: FormatToolResultForModelInput): string => {
+  const failurePrefix = failure ? `${formatToolFailure(failure)}\n` : ''
+
   if (contentRepresentation === 'semantic_compaction') {
-    return projectToolResultContentForDisplay({ content, error })
+    return `${failurePrefix}${projectToolResultContentForDisplay({ content, error })}`
   }
 
   if (isNormalizedToolResultContent(content)) {
-    return content.modelContent
+    return `${failurePrefix}${content.modelContent}`
   }
 
   if (replayMode === 'hot') {
-    return projectToolResultContentForDisplay({ content, error })
+    return `${failurePrefix}${projectToolResultContentForDisplay({ content, error })}`
   }
 
   if (typeof content === 'string') {
-    return compactToolContentForModelRequest(content, {
+    return `${failurePrefix}${compactToolContentForModelRequest(content, {
       maxCharacters: COLD_TOOL_CONTENT_REQUEST_MAX_CHARACTERS
-    })
+    })}`
   }
 
   if (content == null) {
-    return error?.message || ''
+    return failurePrefix || error?.message || ''
   }
 
   try {
-    return compactToolContentForModelRequest(JSON.stringify(content), {
+    return `${failurePrefix}${compactToolContentForModelRequest(JSON.stringify(content), {
       maxCharacters: COLD_TOOL_CONTENT_REQUEST_MAX_CHARACTERS
-    })
+    })}`
   } catch {
-    return compactToolContentForModelRequest(String(content), {
+    return `${failurePrefix}${compactToolContentForModelRequest(String(content), {
       maxCharacters: COLD_TOOL_CONTENT_REQUEST_MAX_CHARACTERS
-    })
+    })}`
   }
 }
 

@@ -23,6 +23,7 @@ import type {
 } from '@tools/command/index.d'
 import { assessCommandFilesystemScope } from './filesystemScope'
 import { assessExecuteCommandReview } from './risk'
+import { createToolFailure, type ToolFailure } from '@shared/tools/toolFailure'
 
 const logger = createLogger('CommandExecutor')
 
@@ -40,6 +41,67 @@ function normalizeCommandTimeout(value: number | undefined): number {
     return DEFAULT_TIMEOUT
   }
   return Math.max(MIN_TIMEOUT, Math.min(MAX_TIMEOUT, Math.floor(value)))
+}
+
+function commandFailureForResult(result: CommandProcessRunResult, timeout: number): ToolFailure | undefined {
+  if (result.timedOut) {
+    return createToolFailure({
+      category: 'operation',
+      code: 'COMMAND_TIMEOUT',
+      message: `The command exceeded its ${timeout}ms time limit.`,
+      recovery: {
+        action: 'check_state',
+        message: 'Inspect partial output and workspace changes before choosing a shorter command.'
+      },
+      termination: 'timeout'
+    })
+  }
+
+  if (result.terminationSignal) {
+    return createToolFailure({
+      category: 'operation',
+      code: 'COMMAND_SIGNAL_TERMINATED',
+      message: `The command was terminated by ${result.terminationSignal}.`,
+      recovery: {
+        action: 'check_state',
+        message: 'Inspect partial output and workspace changes before continuing.'
+      },
+      termination: 'signal'
+    })
+  }
+
+  if (result.exitCode !== 0) {
+    return createToolFailure({
+      category: 'operation',
+      code: 'COMMAND_NONZERO_EXIT',
+      message: `The command exited with code ${result.exitCode ?? -1}.`,
+      recovery: {
+        action: 'change_strategy',
+        message: 'Use the command output to correct the command or choose another operation.'
+      }
+    })
+  }
+
+  return undefined
+}
+
+function commandFailureForError(error: unknown): ToolFailure {
+  const code = (error as { code?: unknown })?.code
+  const environmentFailure = code === 'ENOENT' || code === 'EACCES' || code === 'EPERM' || code === 'ENOSPC'
+  return createToolFailure({
+    category: environmentFailure ? 'environment' : 'internal',
+    code: 'COMMAND_SPAWN_FAILED',
+    message: environmentFailure
+      ? 'The operating system could not start the command.'
+      : 'The command failed before it produced a result.',
+    recovery: {
+      action: environmentFailure ? 'check_environment' : 'check_state',
+      message: environmentFailure
+        ? 'Check the command executable, permissions, and workspace environment.'
+        : 'Check the command state and submit a corrected call when appropriate.'
+    },
+    ...(typeof code === 'string' || typeof code === 'number' ? { sourceCode: code } : {})
+  })
 }
 
 const WINDOWS_COMMAND_META_CHARACTER = /([()\][%!^"`<>&|;, *?])/g
@@ -291,6 +353,19 @@ class CommandExecutor {
     } = args
     const timeout = normalizeCommandTimeout(requestedTimeout)
 
+    if (typeof command !== 'string' || !command.trim()) {
+      return {
+        success: false,
+        error: 'command must be a non-empty string',
+        failure: createToolFailure({
+          category: 'input',
+          code: 'COMMAND_INVALID_INPUT',
+          message: 'command must be a non-empty string.',
+          recovery: { action: 'correct_input', message: 'Provide the command to execute.' }
+        })
+      }
+    }
+
     logger.info('command.execute_start', {
       command,
       cwd: cwd || 'workspace root',
@@ -339,7 +414,16 @@ class CommandExecutor {
           execution_reason,
           possible_risk,
           risk_score: riskAssessment.normalizedRiskScore,
-          error: 'This command requires user confirmation before execution'
+          error: 'This command requires user confirmation before execution',
+          failure: createToolFailure({
+            category: 'policy',
+            code: 'COMMAND_CONFIRMATION_REQUIRED',
+            message: 'The command requires approval before execution.',
+            recovery: {
+              action: 'change_strategy',
+              message: 'Provide an approved command or use a lower risk operation.'
+            }
+          })
         }
       }
 
@@ -426,6 +510,7 @@ class CommandExecutor {
       const success = result.exitCode === 0
         && result.terminationSignal === null
         && !result.timedOut
+      const failure = commandFailureForResult(result, timeout)
 
       logger.info(success ? 'command.execute_success' : 'command.execute_failed', {
         command,
@@ -452,6 +537,7 @@ class CommandExecutor {
         exit_code: result.exitCode ?? -1,
         termination_signal: result.terminationSignal ?? undefined,
         execution_time: result.executionTimeMs,
+        failure,
         error: result.timedOut
           ? `Command timeout after ${timeout}ms`
           : success
@@ -486,7 +572,8 @@ class CommandExecutor {
         exit_code: typeof code === 'number' ? code : -1,
         termination_signal: candidate?.terminationSignal ?? undefined,
         execution_time: candidate?.executionTimeMs ?? 0,
-        error: message
+        error: message,
+        failure: commandFailureForError(error)
       }
     }
   }

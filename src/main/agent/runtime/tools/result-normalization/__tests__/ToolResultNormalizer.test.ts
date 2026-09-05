@@ -83,4 +83,26 @@ describe('DefaultToolResultNormalizer', () => {
     expect(rawArtifact).toBeTruthy()
     expect(gunzipSync(readFileSync(rawArtifact!.path)).toString('utf8')).toBe(raw)
   })
+
+  it('preserves structured failures while cooling large results', () => {
+    const normalizer = createNormalizer(20)
+    const failure = {
+      category: 'operation' as const,
+      code: 'COMMAND_TIMEOUT',
+      message: 'The command exceeded its time limit.',
+      recovery: {
+        action: 'check_state' as const,
+        message: 'Inspect partial output before continuing.'
+      },
+      termination: 'timeout' as const
+    }
+
+    const result = normalizer.normalize({
+      ...createResult('x'.repeat(100)),
+      failure
+    })
+
+    expect(result.failure).toEqual(failure)
+    expect(isNormalizedToolResultContent(result.content)).toBe(true)
+  })
 })

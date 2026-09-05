@@ -72,6 +72,10 @@ import type {
   MvArgs,
   MvResponse
 } from '@tools/fileOperations/index.d'
+import {
+  createToolFailure,
+  type ToolFailure
+} from '@shared/tools/toolFailure'
 
 const logger = createLogger('FileOperationsProcessor')
 const DEFAULT_READ_WINDOW_SIZE = 200
@@ -94,6 +98,121 @@ const IGNORED_DIRECTORY_NAMES = new Set([
   '.cache',
   'coverage'
 ])
+
+interface FileFailureDefaults {
+  code: string
+  message: string
+  category?: ToolFailure['category']
+  recoveryAction?: ToolFailure['recovery']['action']
+  recoveryMessage?: string
+}
+
+function fileErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message ? error.message : fallback
+}
+
+function failureForFileError(error: unknown, defaults: FileFailureDefaults): ToolFailure {
+  if (error instanceof WorkspacePathError) {
+    const pathFailure: Record<WorkspacePathError['code'], {
+      category: ToolFailure['category']
+      recoveryAction: ToolFailure['recovery']['action']
+      recoveryMessage: string
+    }> = {
+      PATH_INVALID_INPUT: {
+        category: 'input',
+        recoveryAction: 'correct_input',
+        recoveryMessage: 'Provide a non-empty workspace path without NUL or parent segments.'
+      },
+      PATH_ABSOLUTE_REJECTED: {
+        category: 'input',
+        recoveryAction: 'correct_input',
+        recoveryMessage: 'Use a path in the native platform format inside the workspace.'
+      },
+      PATH_OUTSIDE_WORKSPACE: {
+        category: 'policy',
+        recoveryAction: 'change_strategy',
+        recoveryMessage: 'Choose a target inside the active workspace.'
+      },
+      PATH_TRAVERSAL_REJECTED: {
+        category: 'input',
+        recoveryAction: 'correct_input',
+        recoveryMessage: 'Remove parent path segments from the workspace path.'
+      },
+      PATH_SYMLINK_ESCAPE: {
+        category: 'policy',
+        recoveryAction: 'change_strategy',
+        recoveryMessage: 'Choose a path whose symlinks resolve inside the active workspace.'
+      },
+      PATH_CANONICALIZATION_FAILED: {
+        category: 'policy',
+        recoveryAction: 'check_state',
+        recoveryMessage: 'Check the workspace path and its existing parent directories.'
+      }
+    }
+    const mapped = pathFailure[error.code]
+    return createToolFailure({
+      category: mapped.category,
+      code: error.code,
+      message: error.message.replace(`${error.code}: `, ''),
+      recovery: {
+        action: mapped.recoveryAction,
+        message: mapped.recoveryMessage
+      },
+      sourceCode: error.code
+    })
+  }
+
+  const errorCode = typeof (error as { code?: unknown })?.code === 'string'
+    ? (error as { code: string }).code
+    : undefined
+  if (errorCode === 'EACCES' || errorCode === 'EPERM') {
+    return createToolFailure({
+      category: 'environment',
+      code: 'FILESYSTEM_ACCESS_DENIED',
+      message: 'The operating system denied access to the file or directory.',
+      recovery: {
+        action: 'check_environment',
+        message: 'Check file permissions and the workspace mount.'
+      },
+      sourceCode: errorCode
+    })
+  }
+  if (errorCode === 'ENOSPC' || errorCode === 'EDQUOT') {
+    return createToolFailure({
+      category: 'environment',
+      code: 'FILESYSTEM_NO_SPACE',
+      message: 'The workspace has insufficient storage for this operation.',
+      recovery: {
+        action: 'check_environment',
+        message: 'Free workspace storage and retry the operation.'
+      },
+      sourceCode: errorCode
+    })
+  }
+
+  return createToolFailure({
+    category: defaults.category ?? (errorCode ? 'operation' : 'internal'),
+    code: defaults.code,
+    message: defaults.message,
+    recovery: {
+      action: defaults.recoveryAction ?? 'check_state',
+      message: defaults.recoveryMessage ?? 'Check the current workspace state and adjust the operation.'
+    },
+    ...(errorCode ? { sourceCode: errorCode } : {})
+  })
+}
+
+function fileNotFoundFailure(message: string, code = 'FILE_NOT_FOUND'): ToolFailure {
+  return createToolFailure({
+    category: 'operation',
+    code,
+    message,
+    recovery: {
+      action: 'check_state',
+      message: 'Check that the target exists inside the workspace.'
+    }
+  })
+}
 
 // ============ Helper Functions ============
 
@@ -308,7 +427,11 @@ export async function processReadTextFile(
 
     if (!existsSync(absolutePath)) {
       logger.warn('read_text_file.not_found', { absolutePath, filePath: file_path })
-      return { success: false, error: `File not found: ${file_path}` }
+      return {
+        success: false,
+        error: `File not found: ${file_path}`,
+        failure: fileNotFoundFailure('The requested file does not exist.')
+      }
     }
 
     const content = await readFile(absolutePath, encoding as BufferEncoding)
@@ -402,7 +525,14 @@ export async function processReadTextFile(
     }
   } catch (error: any) {
     logger.error('read_text_file.failed', error)
-    return { success: false, error: error.message || 'Failed to read file' }
+    return {
+      success: false,
+      error: fileErrorMessage(error, 'Failed to read file'),
+      failure: failureForFileError(error, {
+        code: 'FILE_READ_FAILED',
+        message: 'The file could not be read.'
+      })
+    }
   }
 }
 
@@ -425,13 +555,26 @@ export async function processReadMultipleFiles(args: ReadMultipleFilesArgs): Pro
         try {
           const absolutePath = resolveFilePath(file_path, chat_uuid, 'existing', 'legacy-ipc', baseDir).absolutePath
           if (!existsSync(absolutePath)) {
-            return { file_path, success: false, error: 'File not found' }
+            return {
+              file_path,
+              success: false,
+              error: 'File not found',
+              failure: fileNotFoundFailure('The requested file does not exist.')
+            }
           }
           const content = await readFile(absolutePath, encoding as BufferEncoding)
           const lines = content.split('\n').length
           return { file_path, success: true, content, lines }
         } catch (error: any) {
-          return { file_path, success: false, error: error.message }
+          return {
+            file_path,
+            success: false,
+            error: fileErrorMessage(error, 'Failed to read file'),
+            failure: failureForFileError(error, {
+              code: 'FILE_READ_FAILED',
+              message: 'The file could not be read.'
+            })
+          }
         }
       })
     )
@@ -440,7 +583,14 @@ export async function processReadMultipleFiles(args: ReadMultipleFilesArgs): Pro
     return { success: true, files, total_files: files.length }
   } catch (error: any) {
     logger.error('read_multiple_files.failed', error)
-    return { success: false, error: error.message || 'Failed to read multiple files' }
+    return {
+      success: false,
+      error: fileErrorMessage(error, 'Failed to read multiple files'),
+      failure: failureForFileError(error, {
+        code: 'FILES_READ_FAILED',
+        message: 'The requested files could not be read.'
+      })
+    }
   }
 }
 
@@ -456,6 +606,18 @@ export async function processWriteFile(
 ): Promise<WriteFileResponse> {
   try {
     const { file_path, chat_uuid, content, encoding = 'utf-8', create_dirs = true, backup = false } = args
+    if (typeof content !== 'string') {
+      return {
+        success: false,
+        error: 'content must be a string',
+        failure: createToolFailure({
+          category: 'input',
+          code: 'FILE_CONTENT_INVALID',
+          message: 'content must be a string; an empty string creates an empty file.',
+          recovery: { action: 'correct_input', message: 'Supply the text to write in content.' }
+        })
+      }
+    }
     const resolvedPath = resolveFilePath(file_path, chat_uuid, 'creatable', contract)
     const absolutePath = resolvedPath.absolutePath
     logger.info('write_file.start', { filePath: file_path, absolutePath, backup, createDirs: create_dirs })
@@ -493,7 +655,14 @@ export async function processWriteFile(
     }
   } catch (error: any) {
     logger.error('write_file.failed', error)
-    return { success: false, error: error.message || 'Failed to write file' }
+    return {
+      success: false,
+      error: fileErrorMessage(error, 'Failed to write file'),
+      failure: failureForFileError(error, {
+        code: 'FILE_WRITE_FAILED',
+        message: 'The file could not be written.'
+      })
+    }
   }
 }
 
@@ -876,11 +1045,27 @@ export async function processEditFile(
     })
 
     if (!existsSync(absolutePath)) {
-      return { success: false, error: `File not found: ${file_path}` }
+      return {
+        success: false,
+        error: `File not found: ${file_path}`,
+        failure: fileNotFoundFailure('The requested file does not exist.')
+      }
     }
 
     if (!regex && search.length === 0) {
-      return { success: false, error: 'Search text must not be empty' }
+      return {
+        success: false,
+        error: 'Search text must not be empty',
+        failure: createToolFailure({
+          category: 'input',
+          code: 'EDIT_SEARCH_EMPTY',
+          message: 'The edit search text must not be empty.',
+          recovery: {
+            action: 'correct_input',
+            message: 'Provide the exact text or a regular expression to replace.'
+          }
+        })
+      }
     }
 
     const content = await readFile(absolutePath, 'utf-8')
@@ -905,6 +1090,15 @@ export async function processEditFile(
         file_path: responseFilePath,
         status: 'match_count_mismatch',
         replacements: 0,
+        failure: createToolFailure({
+          category: 'operation',
+          code: 'EDIT_MATCH_COUNT_MISMATCH',
+          message: 'The number of matching ranges differs from the expected replacement count.',
+          recovery: {
+            action: 'change_strategy',
+            message: 'Adjust the search range or expected replacement count, then submit the edit again.'
+          }
+        }),
         diagnostics: {
           message: `Expected ${expectedCount} replacement(s), found ${matches.length}.`,
           matches: matchLocations,
@@ -922,6 +1116,15 @@ export async function processEditFile(
         file_path: responseFilePath,
         status: 'no_match',
         replacements: 0,
+        failure: createToolFailure({
+          category: 'operation',
+          code: 'EDIT_NO_MATCH',
+          message: 'The requested edit text was not found.',
+          recovery: {
+            action: 'change_strategy',
+            message: 'Re-read the file and use an exact current text match.'
+          }
+        }),
         diagnostics: {
           message: 'No exact match found.',
           nearest_matches: findNearestMatches(content, search, editRange, diagnosticsLimit)
@@ -936,6 +1139,15 @@ export async function processEditFile(
         file_path: responseFilePath,
         status: 'multiple_matches',
         replacements: 0,
+        failure: createToolFailure({
+          category: 'operation',
+          code: 'EDIT_MULTIPLE_MATCHES',
+          message: 'The requested edit text matched multiple locations.',
+          recovery: {
+            action: 'change_strategy',
+            message: 'Narrow the search text or explicitly enable all replacements.'
+          }
+        }),
         diagnostics: {
           message: `Found ${matches.length} matches. Use all=true for bulk replacement or narrow the search text.`,
           matches: matchLocations
@@ -968,7 +1180,14 @@ export async function processEditFile(
     }
   } catch (error: any) {
     logger.error('edit_file.failed', error)
-    return { success: false, error: error.message || 'Failed to edit file' }
+    return {
+      success: false,
+      error: fileErrorMessage(error, 'Failed to edit file'),
+      failure: failureForFileError(error, {
+        code: 'FILE_EDIT_FAILED',
+        message: 'The file could not be edited.'
+      })
+    }
   }
 }
 
@@ -993,7 +1212,11 @@ export async function processSearchFile(
     logger.info('search_file.start', { filePath: file_path, absolutePath })
 
     if (!existsSync(absolutePath)) {
-      return { success: false, error: `File not found: ${file_path}` }
+      return {
+        success: false,
+        error: `File not found: ${file_path}`,
+        failure: fileNotFoundFailure('The requested file does not exist.')
+      }
     }
 
     const content = await readFile(absolutePath, 'utf-8')
@@ -1025,7 +1248,14 @@ export async function processSearchFile(
     }
   } catch (error: any) {
     logger.error('search_file.failed', error)
-    return { success: false, error: error.message || 'Failed to search file' }
+    return {
+      success: false,
+      error: fileErrorMessage(error, 'Failed to search file'),
+      failure: failureForFileError(error, {
+        code: 'FILE_SEARCH_FAILED',
+        message: 'The file could not be searched.'
+      })
+    }
   }
 }
 
@@ -1096,7 +1326,11 @@ export async function processSearchFiles(
     logger.info('search_files.start', { directoryPath: directory_path, absoluteDirPath })
 
     if (!existsSync(absoluteDirPath)) {
-      return { success: false, error: `Directory not found: ${directory_path}` }
+      return {
+        success: false,
+        error: `Directory not found: ${directory_path}`,
+        failure: fileNotFoundFailure('The requested directory does not exist.', 'DIRECTORY_NOT_FOUND')
+      }
     }
 
     const matches: FileSearchMatch[] = []
@@ -1142,7 +1376,14 @@ export async function processSearchFiles(
     }
   } catch (error: any) {
     logger.error('search_files.failed', error)
-    return { success: false, error: error.message || 'Failed to search files' }
+    return {
+      success: false,
+      error: fileErrorMessage(error, 'Failed to search files'),
+      failure: failureForFileError(error, {
+        code: 'FILES_SEARCH_FAILED',
+        message: 'The requested directory could not be searched.'
+      })
+    }
   }
 }
 
@@ -1154,7 +1395,11 @@ export async function processGrep(args: GrepArgs): Promise<GrepResponse> {
     logger.info('grep.start', { path, absolutePath })
 
     if (!existsSync(absolutePath)) {
-      return { success: false, error: `Path not found: ${path}` }
+      return {
+        success: false,
+        error: `Path not found: ${path}`,
+        failure: fileNotFoundFailure('The requested path does not exist.', 'PATH_NOT_FOUND')
+      }
     }
 
     const targetStats = await stat(absolutePath)
@@ -1227,7 +1472,8 @@ export async function processGrep(args: GrepArgs): Promise<GrepResponse> {
         })),
         total_matches: fileResult.total_matches,
         files_searched: fileResult.success ? 1 : 0,
-        error: fileResult.error
+        error: fileResult.error,
+        failure: fileResult.failure
       }
     }
 
@@ -1248,11 +1494,19 @@ export async function processGrep(args: GrepArgs): Promise<GrepResponse> {
       matches: directoryResult.matches,
       total_matches: directoryResult.total_matches,
       files_searched: directoryResult.files_searched,
-      error: directoryResult.error
+      error: directoryResult.error,
+      failure: directoryResult.failure
     }
   } catch (error: any) {
     logger.error('grep.failed', error)
-    return { success: false, error: error.message || 'Failed to grep path' }
+    return {
+      success: false,
+      error: fileErrorMessage(error, 'Failed to grep path'),
+      failure: failureForFileError(error, {
+        code: 'GREP_FAILED',
+        message: 'The path could not be searched.'
+      })
+    }
   }
 }
 
@@ -1273,7 +1527,11 @@ export async function processListDirectory(
     logger.info('list_directory.start', { directoryPath: directory_path, absolutePath })
 
     if (!existsSync(absolutePath)) {
-      return { success: false, error: `Directory not found: ${directory_path}` }
+      return {
+        success: false,
+        error: `Directory not found: ${directory_path}`,
+        failure: fileNotFoundFailure('The requested directory does not exist.', 'DIRECTORY_NOT_FOUND')
+      }
     }
 
     const items = await readdir(absolutePath)
@@ -1303,7 +1561,14 @@ export async function processListDirectory(
     }
   } catch (error: any) {
     logger.error('list_directory.failed', error)
-    return { success: false, error: error.message || 'Failed to list directory' }
+    return {
+      success: false,
+      error: fileErrorMessage(error, 'Failed to list directory'),
+      failure: failureForFileError(error, {
+        code: 'DIRECTORY_LIST_FAILED',
+        message: 'The directory could not be listed.'
+      })
+    }
   }
 }
 
@@ -1322,7 +1587,11 @@ export async function processListDirectoryWithSizes(
     logger.info('list_directory_with_sizes.start', { directoryPath: directory_path, absolutePath })
 
     if (!existsSync(absolutePath)) {
-      return { success: false, error: `Directory not found: ${directory_path}` }
+      return {
+        success: false,
+        error: `Directory not found: ${directory_path}`,
+        failure: fileNotFoundFailure('The requested directory does not exist.', 'DIRECTORY_NOT_FOUND')
+      }
     }
 
     const items = await readdir(absolutePath)
@@ -1354,7 +1623,14 @@ export async function processListDirectoryWithSizes(
     }
   } catch (error: any) {
     logger.error('list_directory_with_sizes.failed', error)
-    return { success: false, error: error.message || 'Failed to list directory' }
+    return {
+      success: false,
+      error: fileErrorMessage(error, 'Failed to list directory'),
+      failure: failureForFileError(error, {
+        code: 'DIRECTORY_LIST_FAILED',
+        message: 'The directory could not be listed.'
+      })
+    }
   }
 }
 
@@ -1366,7 +1642,7 @@ export async function processLs(args: LsArgs): Promise<LsResponse> {
       : await processListDirectory({ directory_path: path, chat_uuid }, 'embedded')
 
     if (!result.success) {
-      return { success: false, error: result.error }
+      return { success: false, error: result.error, failure: result.failure }
     }
 
     const entries: LsEntry[] = (result.entries || []).map((entry: DirectoryEntry | DirectoryEntryWithSize) => ({
@@ -1385,7 +1661,14 @@ export async function processLs(args: LsArgs): Promise<LsResponse> {
     }
   } catch (error: any) {
     logger.error('ls.failed', error)
-    return { success: false, error: error.message || 'Failed to list directory' }
+    return {
+      success: false,
+      error: fileErrorMessage(error, 'Failed to list directory'),
+      failure: failureForFileError(error, {
+        code: 'LS_FAILED',
+        message: 'The directory could not be listed.'
+      })
+    }
   }
 }
 
@@ -1404,7 +1687,11 @@ export async function processDirectoryTree(
     logger.info('directory_tree.start', { directoryPath: directory_path, absolutePath, maxDepth: max_depth })
 
     if (!existsSync(absolutePath)) {
-      return { success: false, error: `Directory not found: ${directory_path}` }
+      return {
+        success: false,
+        error: `Directory not found: ${directory_path}`,
+        failure: fileNotFoundFailure('The requested directory does not exist.', 'DIRECTORY_NOT_FOUND')
+      }
     }
 
     const buildTree = async (dirPath: string, depth: number): Promise<TreeNode> => {
@@ -1455,7 +1742,14 @@ export async function processDirectoryTree(
     }
   } catch (error: any) {
     logger.error('directory_tree.failed', error)
-    return { success: false, error: error.message || 'Failed to build directory tree' }
+    return {
+      success: false,
+      error: fileErrorMessage(error, 'Failed to build directory tree'),
+      failure: failureForFileError(error, {
+        code: 'DIRECTORY_TREE_FAILED',
+        message: 'The directory tree could not be built.'
+      })
+    }
   }
 }
 
@@ -1540,12 +1834,28 @@ export async function processGlob(args: GlobArgs): Promise<GlobResponse> {
     logger.info('glob.start', { path, absoluteRootPath, pattern, maxResults: max_results })
 
     if (!existsSync(absoluteRootPath)) {
-      return { success: false, error: `Path not found: ${path}` }
+      return {
+        success: false,
+        error: `Path not found: ${path}`,
+        failure: fileNotFoundFailure('The requested path does not exist.', 'PATH_NOT_FOUND')
+      }
     }
 
     const rootStats = await stat(absoluteRootPath)
     if (!rootStats.isDirectory()) {
-      return { success: false, error: `Path is not a directory: ${path}` }
+      return {
+        success: false,
+        error: `Path is not a directory: ${path}`,
+        failure: createToolFailure({
+          category: 'operation',
+          code: 'PATH_NOT_DIRECTORY',
+          message: 'The requested path is a file rather than a directory.',
+          recovery: {
+            action: 'correct_input',
+            message: 'Provide a directory path for this operation.'
+          }
+        })
+      }
     }
 
     const matcher = globPatternToRegExp(pattern)
@@ -1617,7 +1927,14 @@ export async function processGlob(args: GlobArgs): Promise<GlobResponse> {
     }
   } catch (error: any) {
     logger.error('glob.failed', error)
-    return { success: false, error: error.message || 'Failed to glob path' }
+    return {
+      success: false,
+      error: fileErrorMessage(error, 'Failed to glob path'),
+      failure: failureForFileError(error, {
+        code: 'GLOB_FAILED',
+        message: 'The path could not be searched with the glob pattern.'
+      })
+    }
   }
 }
 
@@ -1638,7 +1955,11 @@ export async function processGetFileInfo(
     logger.info('get_file_info.start', { filePath: file_path, absolutePath })
 
     if (!existsSync(absolutePath)) {
-      return { success: false, error: `File not found: ${file_path}` }
+      return {
+        success: false,
+        error: `File not found: ${file_path}`,
+        failure: fileNotFoundFailure('The requested file does not exist.')
+      }
     }
 
     const stats = await lstat(absolutePath)
@@ -1672,7 +1993,14 @@ export async function processGetFileInfo(
     return { success: true, info }
   } catch (error: any) {
     logger.error('get_file_info.failed', error)
-    return { success: false, error: error.message || 'Failed to get file info' }
+    return {
+      success: false,
+      error: fileErrorMessage(error, 'Failed to get file info'),
+      failure: failureForFileError(error, {
+        code: 'FILE_INFO_FAILED',
+        message: 'The file metadata could not be read.'
+      })
+    }
   }
 }
 
@@ -1694,7 +2022,14 @@ export async function processListAllowedDirectories(args: ListAllowedDirectories
     return { success: true, directories }
   } catch (error: any) {
     logger.error('list_allowed_directories.failed', error)
-    return { success: false, error: error.message || 'Failed to list allowed directories' }
+    return {
+      success: false,
+      error: fileErrorMessage(error, 'Failed to list allowed directories'),
+      failure: failureForFileError(error, {
+        code: 'ALLOWED_DIRECTORIES_FAILED',
+        message: 'The workspace boundary could not be resolved.'
+      })
+    }
   }
 }
 
@@ -1727,7 +2062,14 @@ export async function processCreateDirectory(
     return { success: true, directory_path: responseDirectoryPath, created: true }
   } catch (error: any) {
     logger.error('create_directory.failed', error)
-    return { success: false, error: error.message || 'Failed to create directory' }
+    return {
+      success: false,
+      error: fileErrorMessage(error, 'Failed to create directory'),
+      failure: failureForFileError(error, {
+        code: 'DIRECTORY_CREATE_FAILED',
+        message: 'The directory could not be created.'
+      })
+    }
   }
 }
 
@@ -1758,11 +2100,27 @@ export async function processMoveFile(
     })
 
     if (!existsSync(absoluteSourcePath)) {
-      return { success: false, error: `Source file not found: ${source_path}` }
+      return {
+        success: false,
+        error: `Source file not found: ${source_path}`,
+        failure: fileNotFoundFailure('The move source does not exist.', 'MOVE_SOURCE_NOT_FOUND')
+      }
     }
 
     if (existsSync(absoluteDestPath) && !overwrite) {
-      return { success: false, error: `Destination already exists: ${destination_path}` }
+      return {
+        success: false,
+        error: `Destination already exists: ${destination_path}`,
+        failure: createToolFailure({
+          category: 'operation',
+          code: 'MOVE_DESTINATION_EXISTS',
+          message: 'The move destination already exists.',
+          recovery: {
+            action: 'change_strategy',
+            message: 'Choose another destination or enable overwrite intentionally.'
+          }
+        })
+      }
     }
 
     await rename(absoluteSourcePath, absoluteDestPath)
@@ -1774,7 +2132,14 @@ export async function processMoveFile(
     }
   } catch (error: any) {
     logger.error('move_file.failed', error)
-    return { success: false, error: error.message || 'Failed to move file' }
+    return {
+      success: false,
+      error: fileErrorMessage(error, 'Failed to move file'),
+      failure: failureForFileError(error, {
+        code: 'FILE_MOVE_FAILED',
+        message: 'The file could not be moved.'
+      })
+    }
   }
 }
 

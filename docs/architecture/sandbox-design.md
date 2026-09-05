@@ -271,8 +271,9 @@ destination，destination 通过最长已存在前缀支持新路径。
 write 在启用 backup 时独立解析 `.backup` destination。`ToolExecutor` 在 embedded
 handler 执行前使用当前 runtime chat UUID 覆盖工具参数中的 `chat_uuid`，workspace
 选择权归属于当前聊天运行时。
-所有 confinement 失败使用带稳定 code 的 `WorkspacePathError`，响应省略 canonical
-外部目标和宿主机文件系统细节。详细契约见
+所有 confinement 失败使用带稳定 code 的 `WorkspacePathError`，并由工具响应补充
+`category`、`code`、`message`、`recovery` 结构；响应省略 canonical 外部目标和宿主机
+文件系统细节。详细契约见
 [ADR-0008](../decisions/0008-workspace-path-confinement.md)。
 
 resolver intent 用于记录操作语义，目标存在性与文件类型由各 processor 检查。

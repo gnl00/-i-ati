@@ -13,11 +13,15 @@
  *   - 是否进入 loop terminal
  */
 import type { ToolResultFact } from './ToolResultFact'
+import type { ToolFailure } from '@shared/tools/toolFailure'
 
 export interface ToolDispatchFailure {
   name?: string
   message: string
   code?: string
+  category?: ToolFailure['category']
+  recovery?: ToolFailure['recovery']
+  termination?: ToolFailure['termination']
 }
 
 export interface CompletedToolDispatchOutcome {

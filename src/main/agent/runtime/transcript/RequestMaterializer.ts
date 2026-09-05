@@ -306,6 +306,7 @@ export class DefaultRequestMaterializer implements RequestMaterializer {
             content: formatToolResultForModel({
               content: record.content,
               error: record.error,
+              failure: record.failure,
               contentRepresentation: record.contentRepresentation,
               replayMode: hasFollowingAssistantStep(input.transcript.records, recordIndex)
                 ? 'cold'

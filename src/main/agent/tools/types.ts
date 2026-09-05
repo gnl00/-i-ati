@@ -2,6 +2,7 @@ import type { ToolCallProps } from '@main/agent/contracts'
 import type { AgentConfirmationSource, ResolvedAgentApprovalPolicy } from '@tools/approval'
 import type { ToolOutputBatch } from '@shared/run/tool-events'
 import type { ToolQuestionRequester } from '@main/agent/contracts'
+import type { ToolFailure } from '@shared/tools/toolFailure'
 
 export interface ToolExecutionResult {
   id: string
@@ -10,6 +11,7 @@ export interface ToolExecutionResult {
   content: any
   cost: number
   error?: Error
+  failure?: ToolFailure
   status: 'success' | 'error' | 'timeout' | 'aborted'
 }
 

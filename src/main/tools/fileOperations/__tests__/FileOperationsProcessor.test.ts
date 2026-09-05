@@ -300,6 +300,11 @@ describe('FileOperationsProcessor.read_text_file', () => {
 
     expect(result.success).toBe(false)
     expect(result.error).toContain('PATH_OUTSIDE_WORKSPACE')
+    expect(result.failure).toMatchObject({
+      category: 'policy',
+      code: 'PATH_OUTSIDE_WORKSPACE',
+      recovery: { action: 'change_strategy' }
+    })
     expect(runRipgrepSearchMock).not.toHaveBeenCalled()
   })
 

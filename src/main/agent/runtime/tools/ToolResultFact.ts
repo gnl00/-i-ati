@@ -9,6 +9,9 @@
  * - 它本身不是 transcript record
  * - loop 可以基于它 materialize 出稳定的 `tool_result` record
  */
+
+import type { ToolFailure } from '@shared/tools/toolFailure'
+
 export interface ToolResultError {
   name?: string
   message: string
@@ -23,6 +26,7 @@ export interface ToolResultFactBase {
   executionStartedAt?: number
   cost?: number
   latencyCost?: number
+  failure?: ToolFailure
 }
 
 export interface ToolSuccessFact extends ToolResultFactBase {

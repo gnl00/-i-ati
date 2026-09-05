@@ -5,7 +5,7 @@ export const commandTools = [
     type: 'function',
     function: {
       name: 'exec',
-      description: "Execute a shell command in the workspace directory. Dangerous commands (like 'rm -rf', 'dd', etc.) will require user confirmation before execution. Returns stdout, stderr, exit code, and execution time.",
+      description: "Execute a shell command in the workspace directory. Dangerous commands (like 'rm -rf', 'dd', etc.) will require user confirmation before execution. Returns stdout, stderr, exit code, execution time, and a structured failure with category, code, message, and recovery when execution fails.",
       parameters: {
         type: 'object',
         properties: {

@@ -430,6 +430,80 @@ describe('ToolExecutor runtime context', () => {
     expect(handlerMock).not.toHaveBeenCalled()
   })
 
+  it('classifies invalid JSON arguments as input failures', async () => {
+    const executor = new ToolExecutor()
+
+    const [result] = await executor.execute([{
+      id: 'call-invalid-json',
+      function: 'plan',
+      args: '{invalid'
+    }])
+
+    expect(result.status).toBe('error')
+    expect(result.failure).toMatchObject({
+      category: 'input',
+      code: 'TOOL_ARGUMENTS_INVALID',
+      recovery: { action: 'correct_input' }
+    })
+  })
+
+  it('keeps processor SyntaxError failures internal', async () => {
+    handlerMock.mockRejectedValueOnce(new SyntaxError('Invalid JSON in a tool-owned document'))
+    const [result] = await new ToolExecutor().execute([{
+      id: 'internal-syntax', function: 'plan', args: '{"action":"get_current_chat"}'
+    }])
+    expect(result.failure).toMatchObject({ category: 'internal', code: 'TOOL_EXECUTION_FAILED' })
+    expect(handlerMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('classifies thrown system errors as environment failures and keeps their code', async () => {
+    handlerMock.mockImplementationOnce(async () => {
+      const error = new Error('spawn failed') as Error & { code?: string }
+      error.code = 'ENOENT'
+      throw error
+    })
+    const executor = new ToolExecutor()
+
+    const [result] = await executor.execute([{
+      id: 'call-system-error',
+      function: 'plan',
+      args: JSON.stringify({ action: 'get_current_chat' })
+    }])
+
+    expect(result.status).toBe('error')
+    expect(result.failure).toMatchObject({
+      category: 'environment',
+      code: 'TOOL_ENVIRONMENT_FAILED',
+      sourceCode: 'ENOENT'
+    })
+    expect(result.error).toBeInstanceOf(Error)
+  })
+
+  it('carries processor failures through a successful tool execution result', async () => {
+    const failure = {
+      category: 'policy' as const,
+      code: 'PATH_OUTSIDE_WORKSPACE',
+      message: 'Path must stay inside the workspace.',
+      recovery: {
+        action: 'change_strategy' as const,
+        message: 'Choose a path inside the workspace.'
+      }
+    }
+    handlerMock.mockResolvedValueOnce(
+      { success: false, error: 'legacy error', failure } as unknown as Awaited<ReturnType<typeof handlerMock>>
+    )
+    const executor = new ToolExecutor()
+
+    const [result] = await executor.execute([{
+      id: 'call-structured-result',
+      function: 'plan',
+      args: JSON.stringify({ action: 'get_current_chat' })
+    }])
+
+    expect(result.status).toBe('success')
+    expect(result.failure).toEqual(failure)
+  })
+
   it('requires confirmation for plan action=create under strict approval policy', async () => {
     handlerMock.mockClear()
     const requestConfirmation = vi.fn(async () => ({ approved: true }))

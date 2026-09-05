@@ -27,7 +27,8 @@ const toToolCallState = (
     latencyCost: existing?.latencyCost,
     status: existing?.status ?? 'pending',
     result: existing?.result,
-    error: existing?.error
+    error: existing?.error,
+    failure: existing?.failure
   }
 
   if (options.includeArgs || existing?.args !== undefined) {
@@ -609,7 +610,8 @@ export class AgentRenderStateReducer {
       ...(result.cost !== undefined ? { cost: result.cost } : {}),
       ...(result.latencyCost !== undefined ? { latencyCost: result.latencyCost } : {}),
       result: result.content,
-      error: result.error?.message
+      error: result.error?.message,
+      failure: result.failure
     })
   }
 

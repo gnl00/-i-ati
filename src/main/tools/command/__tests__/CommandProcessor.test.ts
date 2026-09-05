@@ -85,6 +85,47 @@ describe('CommandProcessor.executeCommand filesystem scope', () => {
     }
   })
 
+  it.each([undefined, '', '   '])('rejects invalid command %s before invoking the runner', async (command) => {
+    const { processExecuteCommand } = await import('../CommandProcessor')
+    const result = await processExecuteCommand({
+      command: command as string,
+      execution_reason: 'test', possible_risk: 'none', risk_score: 0
+    })
+    expect(result.failure).toMatchObject({
+      category: 'input', code: 'COMMAND_INVALID_INPUT', recovery: { action: 'correct_input' }
+    })
+    expect(runCommandProcessMock).not.toHaveBeenCalled()
+  })
+
+  it('preserves nonzero exit as an operation result without retry', async () => {
+    const { processExecuteCommand } = await import('../CommandProcessor')
+    runCommandProcessMock.mockResolvedValueOnce({
+      stdout: 'test failed', stderr: '', stdoutBytes: 11, stderrBytes: 0,
+      stdoutTruncated: false, stderrTruncated: false, exitCode: 1,
+      terminationSignal: null, executionTimeMs: 5, timedOut: false, aborted: false
+    })
+    const result = await processExecuteCommand({
+      command: 'test-runner', execution_reason: 'test', possible_risk: 'none', risk_score: 0,
+      filesystem_scope: 'workspace', chat_uuid: 'test', confirmed: true
+    })
+    expect(result).toMatchObject({
+      success: false, exit_code: 1, stdout: 'test failed',
+      failure: { category: 'operation', code: 'COMMAND_NONZERO_EXIT' }
+    })
+    expect(runCommandProcessMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('preserves spawn errno and classifies the environment failure without retry', async () => {
+    const { processExecuteCommand } = await import('../CommandProcessor')
+    runCommandProcessMock.mockRejectedValueOnce(Object.assign(new Error('spawn missing ENOENT'), { code: 'ENOENT' }))
+    const result = await processExecuteCommand({
+      command: 'missing-binary', execution_reason: 'test', possible_risk: 'none', risk_score: 0,
+      filesystem_scope: 'workspace', chat_uuid: 'test', confirmed: true
+    })
+    expect(result.failure).toMatchObject({ category: 'environment', code: 'COMMAND_SPAWN_FAILED', sourceCode: 'ENOENT' })
+    expect(runCommandProcessMock).toHaveBeenCalledTimes(1)
+  })
+
   it('requires confirmation when filesystem scope is missing', async () => {
     const { processExecuteCommand } = await import('../CommandProcessor')
 
@@ -393,7 +434,13 @@ describe('CommandProcessor.executeCommand filesystem scope', () => {
       exit_code: -1,
       termination_signal: 'SIGTERM',
       execution_time: 51,
-      error: 'Command timeout after 50ms'
+      error: 'Command timeout after 50ms',
+      failure: {
+        category: 'operation',
+        code: 'COMMAND_TIMEOUT',
+        recovery: { action: 'check_state' },
+        termination: 'timeout'
+      }
     })
   })
 

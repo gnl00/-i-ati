@@ -135,6 +135,44 @@ describe('ToolResultContentProjector', () => {
     })).toBe('render failed')
   })
 
+  it('keeps structured failures at the head of cold replay content', () => {
+    const projected = formatToolResultForModel({
+      content: 'x'.repeat(20_000),
+      replayMode: 'cold',
+      failure: {
+        category: 'operation',
+        code: 'COMMAND_TIMEOUT',
+        message: 'The command exceeded its time limit.',
+        recovery: {
+          action: 'check_state',
+          message: 'Inspect partial output before continuing.'
+        },
+        termination: 'timeout'
+      }
+    })
+
+    expect(projected.startsWith('[tool_failure]')).toBe(true)
+    expect(projected).toContain('category=operation')
+    expect(projected).toContain('code=COMMAND_TIMEOUT')
+    expect(projected).toContain('recovery_action=check_state')
+    expect(projected).toContain('termination=timeout')
+  })
+
+  it('renders structured failure details when a tool has no content', () => {
+    expect(projectToolResultContentForDisplay({
+      content: null,
+      failure: {
+        category: 'policy',
+        code: 'PATH_OUTSIDE_WORKSPACE',
+        message: 'Path must stay inside the workspace.',
+        recovery: {
+          action: 'change_strategy',
+          message: 'Choose a path inside the workspace.'
+        }
+      }
+    })).toContain('code=PATH_OUTSIDE_WORKSPACE')
+  })
+
   it('serializes display objects and falls back to String on stringify failure', () => {
     expect(projectToolResultContentForDisplay({
       content: { ok: true }

@@ -144,6 +144,11 @@ machine-readable `code` and a safe user-facing message. The initial codes are:
 Logs may include the operation name and error code. User-facing responses omit
 canonical external targets and host filesystem details.
 
+Tool processors additionally expose the shared serializable failure contract
+defined in [ADR-0019](0019-workspace-tool-failure-contract.md). It preserves
+existing success, status, error text, command output, exit code, and signal
+fields while adding a category, stable code, safe message, and recovery action.
+
 ## Consequences
 
 - File tools share one audited workspace boundary and one error vocabulary.

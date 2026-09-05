@@ -182,14 +182,16 @@ export class ChatRenderResponder implements HostRenderEventSink {
             } : {}),
             ...(event.result.latencyCost !== undefined ? {
               latencyCost: event.result.latencyCost
-            } : {})
+            } : {}),
+            ...(event.result.failure ? { failure: event.result.failure } : {})
           })
         } else if (event.result.status !== 'denied') {
           this.emitter.emit(RUN_TOOL_EVENTS.TOOL_EXECUTION_FAILED, {
             toolCallId: event.result.toolCallId,
             error: serializeError(new Error(event.result.error?.message || (
               event.result.status === 'aborted' ? 'Tool execution aborted' : 'Tool execution failed'
-            )))
+            ))),
+            ...(event.result.failure ? { failure: event.result.failure } : {})
           })
         }
         return

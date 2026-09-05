@@ -3,6 +3,8 @@
  * 命令执行工具的类型定义
  */
 
+import type { ToolFailure } from '../toolFailure'
+
 // ============================================
 // Risk Assessment
 // ============================================
@@ -30,6 +32,7 @@ export interface ExecuteCommandArgs {
 
 export interface ExecuteCommandResponse {
   success: boolean
+  failure?: ToolFailure
   command?: string // 执行的命令
   stdout?: string
   stderr?: string

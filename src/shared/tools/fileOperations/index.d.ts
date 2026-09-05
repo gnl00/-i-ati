@@ -3,6 +3,12 @@
  * 文件操作工具的类型定义
  */
 
+import type { ToolFailure } from '../toolFailure'
+
+export interface ToolFailureResponse {
+  failure?: ToolFailure
+}
+
 // ============ Read Text File ============
 export interface ReadTextFileArgs {
   file_path: string
@@ -15,7 +21,7 @@ export interface ReadTextFileArgs {
   window_size?: number
 }
 
-export interface ReadTextFileResponse {
+export interface ReadTextFileResponse extends ToolFailureResponse {
   success: boolean
   file_path?: string
   content?: string
@@ -37,7 +43,7 @@ export interface ReadMultipleFilesArgs {
   encoding?: string
 }
 
-export interface FileContent {
+export interface FileContent extends ToolFailureResponse {
   file_path: string
   success: boolean
   content?: string
@@ -45,7 +51,7 @@ export interface FileContent {
   error?: string
 }
 
-export interface ReadMultipleFilesResponse {
+export interface ReadMultipleFilesResponse extends ToolFailureResponse {
   success: boolean
   files?: FileContent[]
   total_files?: number
@@ -62,7 +68,7 @@ export interface WriteFileArgs {
   backup?: boolean
 }
 
-export interface WriteFileResponse {
+export interface WriteFileResponse extends ToolFailureResponse {
   success: boolean
   file_path?: string
   bytes_written?: number
@@ -113,7 +119,7 @@ export interface EditDiagnostics {
   nearest_matches?: EditNearestMatch[]
 }
 
-export interface EditFileResponse {
+export interface EditFileResponse extends ToolFailureResponse {
   success: boolean
   file_path?: string
   status?: 'replaced' | 'dry_run' | 'no_match' | 'multiple_matches' | 'match_count_mismatch'
@@ -138,7 +144,7 @@ export interface SearchMatch {
   column: number
 }
 
-export interface SearchFileResponse {
+export interface SearchFileResponse extends ToolFailureResponse {
   success: boolean
   file_path?: string
   matches?: SearchMatch[]
@@ -158,7 +164,7 @@ export interface DirectoryEntry {
   path: string
 }
 
-export interface ListDirectoryResponse {
+export interface ListDirectoryResponse extends ToolFailureResponse {
   success: boolean
   directory_path?: string
   entries?: DirectoryEntry[]
@@ -180,7 +186,7 @@ export interface DirectoryEntryWithSize {
   modified?: string
 }
 
-export interface ListDirectoryWithSizesResponse {
+export interface ListDirectoryWithSizesResponse extends ToolFailureResponse {
   success: boolean
   directory_path?: string
   entries?: DirectoryEntryWithSize[]
@@ -202,7 +208,7 @@ export interface TreeNode {
   children?: TreeNode[]
 }
 
-export interface DirectoryTreeResponse {
+export interface DirectoryTreeResponse extends ToolFailureResponse {
   success: boolean
   directory_path?: string
   tree?: TreeNode
@@ -227,7 +233,7 @@ export interface FileSearchMatch {
   column: number
 }
 
-export interface SearchFilesResponse {
+export interface SearchFilesResponse extends ToolFailureResponse {
   success: boolean
   directory_path?: string
   matches?: FileSearchMatch[]
@@ -255,7 +261,7 @@ export interface FileInfo {
   is_writable: boolean
 }
 
-export interface GetFileInfoResponse {
+export interface GetFileInfoResponse extends ToolFailureResponse {
   success: boolean
   info?: FileInfo
   error?: string
@@ -266,7 +272,7 @@ export interface ListAllowedDirectoriesArgs {
   chat_uuid?: string
 }
 
-export interface ListAllowedDirectoriesResponse {
+export interface ListAllowedDirectoriesResponse extends ToolFailureResponse {
   success: boolean
   directories?: string[]
   error?: string
@@ -279,7 +285,7 @@ export interface CreateDirectoryArgs {
   recursive?: boolean
 }
 
-export interface CreateDirectoryResponse {
+export interface CreateDirectoryResponse extends ToolFailureResponse {
   success: boolean
   directory_path?: string
   created?: boolean
@@ -294,7 +300,7 @@ export interface MoveFileArgs {
   overwrite?: boolean
 }
 
-export interface MoveFileResponse {
+export interface MoveFileResponse extends ToolFailureResponse {
   success: boolean
   source_path?: string
   destination_path?: string
@@ -321,7 +327,7 @@ export interface GrepArgs {
   file_pattern?: string
 }
 
-export interface GrepResponse {
+export interface GrepResponse extends ToolFailureResponse {
   success: boolean
   path?: string
   target_type?: 'file' | 'directory'
@@ -339,7 +345,7 @@ export interface LsArgs {
 
 export interface LsEntry extends DirectoryEntryWithSize {}
 
-export interface LsResponse {
+export interface LsResponse extends ToolFailureResponse {
   success: boolean
   path?: string
   entries?: LsEntry[]
@@ -353,7 +359,7 @@ export interface TreeArgs {
   max_depth?: number
 }
 
-export interface TreeResponse {
+export interface TreeResponse extends ToolFailureResponse {
   success: boolean
   path?: string
   tree?: TreeNode
@@ -373,7 +379,7 @@ export interface GlobMatch {
   type: 'file' | 'directory' | 'symlink'
 }
 
-export interface GlobResponse {
+export interface GlobResponse extends ToolFailureResponse {
   success: boolean
   path?: string
   matches?: GlobMatch[]

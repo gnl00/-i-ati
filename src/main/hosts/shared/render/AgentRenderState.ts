@@ -1,4 +1,5 @@
 import type { AgentStepFailureInfo } from '@main/agent/runtime/step/AgentStep'
+import type { ToolFailure } from '@shared/tools/toolFailure'
 
 export type AgentRenderToolCallStatus =
   | 'pending'
@@ -19,6 +20,7 @@ export interface AgentRenderToolCallState {
   status: AgentRenderToolCallStatus
   result?: unknown
   error?: string
+  failure?: ToolFailure
 }
 
 export interface AgentRenderTextBlock {

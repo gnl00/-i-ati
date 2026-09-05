@@ -167,7 +167,8 @@ export class ChatRenderOutput {
   async appendToolResult(result: ToolResultFact): Promise<string> {
     const rawContent = projectToolResultContentForDisplay({
       content: result.content,
-      error: result.error
+      error: result.error,
+      failure: result.failure
     })
     const toolMessage: ChatMessage = {
       role: 'tool',

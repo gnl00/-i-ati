@@ -24,6 +24,12 @@ import type {
 } from './ToolResultFact'
 import type { ToolExecutionProgress, ToolExecutionResult } from '@main/agent/tools'
 import type { RuntimeClock } from '../loop/RuntimeClock'
+import { createToolFailure } from '@shared/tools/toolFailure'
+
+const getErrorCode = (error: Error): string | undefined => {
+  const code = (error as Error & { code?: unknown }).code
+  return typeof code === 'string' ? code : undefined
+}
 
 export interface ToolExecutorDispatcher {
   dispatch(batch: ToolBatch): Promise<ToolDispatchOutcome>
@@ -76,7 +82,16 @@ const toDeniedFact = (
     error: {
       message: call.confirmationPolicy.deniedResult.message,
       code: call.confirmationPolicy.deniedResult.code
-    }
+    },
+    failure: createToolFailure({
+      category: 'policy',
+      code: call.confirmationPolicy.deniedResult.code || 'TOOL_APPROVAL_DENIED',
+      message: 'Tool execution was denied by the approval policy.',
+      recovery: {
+        action: 'change_strategy',
+        message: 'Use an allowed operation or obtain approval for the requested tool call.'
+      }
+    })
   }
 }
 
@@ -107,7 +122,8 @@ const toToolResultFact = (
       toolName: result.name,
       ...timing,
       status: 'success',
-      content: result.content
+      content: result.content,
+      failure: result.failure
     }
   }
 
@@ -122,8 +138,10 @@ const toToolResultFact = (
       content: result.content,
       error: result.error ? {
         name: result.error.name,
-        message: result.error.message
-      } : undefined
+        message: result.error.message,
+        code: getErrorCode(result.error)
+      } : undefined,
+      failure: result.failure
     }
   }
 
@@ -137,8 +155,10 @@ const toToolResultFact = (
     content: result.content,
     error: result.error ? {
       name: result.error.name,
-      message: result.error.message
-    } : undefined
+      message: result.error.message,
+      code: getErrorCode(result.error)
+    } : undefined,
+    failure: result.failure
   }
 }
 

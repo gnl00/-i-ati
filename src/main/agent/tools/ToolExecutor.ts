@@ -21,6 +21,11 @@ import type {
   ToolExecutionProgress,
   ToolExecutionResult
 } from './types'
+import {
+  createToolFailure,
+  isToolFailure,
+  type ToolFailure
+} from '@shared/tools/toolFailure'
 
 const DEFAULT_CONFIG = {
   maxConcurrency: 3
@@ -28,6 +33,78 @@ const DEFAULT_CONFIG = {
 const TOOL_OUTPUT_BATCH_INTERVAL_MS = 100
 const TOOL_OUTPUT_PENDING_STREAM_BYTES = 32 * 1024
 const TOOL_OUTPUT_PENDING_MAX_BYTES = TOOL_OUTPUT_PENDING_STREAM_BYTES * 2
+
+class ToolArgumentsError extends Error {
+  constructor() {
+    super('Tool arguments are not valid JSON.')
+    this.name = 'ToolArgumentsError'
+  }
+}
+
+const getErrorCode = (error: unknown): string | undefined => {
+  const code = (error as { code?: unknown })?.code
+  return typeof code === 'string' ? code : undefined
+}
+
+const getOriginalError = (error: unknown): unknown => (
+  error instanceof ToolExecutionError ? error.originalError : error
+)
+
+const classifyToolError = (error: unknown): ToolFailure => {
+  const originalError = getOriginalError(error)
+  if (isToolFailure((originalError as { failure?: unknown })?.failure)) {
+    return (originalError as { failure: ToolFailure }).failure
+  }
+
+  if (originalError instanceof AbortError || (originalError as { name?: unknown })?.name === 'AbortError') {
+    return createToolFailure({
+      category: 'operation',
+      code: 'TOOL_CANCELLED',
+      message: 'Tool execution was cancelled before it completed.',
+      recovery: {
+        action: 'stop',
+        message: 'Stop the current run and preserve the existing state.'
+      },
+      termination: 'cancelled'
+    })
+  }
+
+  if (originalError instanceof ToolArgumentsError) {
+    return createToolFailure({
+      category: 'input',
+      code: 'TOOL_ARGUMENTS_INVALID',
+      message: 'Tool arguments are not valid JSON.',
+      recovery: {
+        action: 'correct_input',
+        message: 'Submit the tool arguments as a valid JSON object.'
+      }
+    })
+  }
+
+  const errorCode = getErrorCode(originalError)
+  if (errorCode === 'ENOENT' || errorCode === 'EACCES' || errorCode === 'EPERM' || errorCode === 'ENOSPC') {
+    return createToolFailure({
+      category: 'environment',
+      code: 'TOOL_ENVIRONMENT_FAILED',
+      message: 'The operating system could not complete the tool operation.',
+      recovery: {
+        action: 'check_environment',
+        message: 'Check the tool environment and workspace state.'
+      },
+      sourceCode: errorCode
+    })
+  }
+
+  return createToolFailure({
+    category: 'internal',
+    code: 'TOOL_EXECUTION_FAILED',
+    message: 'The tool failed before it produced a usable result.',
+    recovery: {
+      action: 'check_state',
+      message: 'Check the tool state and submit a corrected call when appropriate.'
+    }
+  })
+}
 
 function trimUtf8TailToBytes(text: string, maxBytes: number): string {
   const value = Buffer.from(text, 'utf8')
@@ -304,7 +381,12 @@ export class ToolExecutor implements IToolExecutor {
         name: toolName,
         content,
         cost: Date.now() - executionStartTime,
-        status: 'success'
+        status: 'success',
+        ...(
+          embeddedToolsRegistry.isRegistered(toolName) && isToolFailure(content?.failure)
+            ? { failure: content.failure }
+            : {}
+        )
       }
 
       this.reportProgress({
@@ -464,7 +546,11 @@ export class ToolExecutor implements IToolExecutor {
     if (!trimmed) {
       return {}
     }
-    return JSON.parse(trimmed)
+    try {
+      return JSON.parse(trimmed)
+    } catch {
+      throw new ToolArgumentsError()
+    }
   }
 
   private getDeclaredAction(call: ToolCallProps): string | undefined {
@@ -606,13 +692,14 @@ export class ToolExecutor implements IToolExecutor {
     let status: ToolExecutionResult['status'] = 'error'
     let wrappedError: Error
 
-    if (error instanceof AbortError || error.name === 'AbortError') {
+    if (error instanceof AbortError || (error as { name?: unknown })?.name === 'AbortError') {
       status = 'aborted'
       wrappedError = error
     } else if (error instanceof ToolExecutionError) {
       wrappedError = error
     } else {
-      wrappedError = new ToolExecutionError(toolName, error)
+      const originalError = error instanceof Error ? error : new Error(String(error || 'Unknown tool error'))
+      wrappedError = new ToolExecutionError(toolName, originalError)
     }
 
     return {
@@ -622,12 +709,26 @@ export class ToolExecutor implements IToolExecutor {
       content: null,
       cost,
       error: wrappedError,
+      failure: classifyToolError(error),
       status
     }
   }
 
   private createAbortedResult(call: ToolCallProps): ToolExecutionResult {
-    return this.createAbortedResultWithReason(call, 'Execution aborted')
+    const result = this.createAbortedResultWithReason(call, 'Execution aborted')
+    return {
+      ...result,
+      failure: createToolFailure({
+        category: 'operation',
+        code: 'TOOL_CANCELLED',
+        message: 'Tool execution was cancelled before it completed.',
+        recovery: {
+          action: 'stop',
+          message: 'Stop the current run and preserve the existing state.'
+        },
+        termination: 'cancelled'
+      })
+    }
   }
 
   private createAbortedResultWithReason(call: ToolCallProps, reason?: string): ToolExecutionResult {
@@ -642,6 +743,16 @@ export class ToolExecutor implements IToolExecutor {
       content: null,
       cost: 0,
       error: new AbortError(reason || 'Execution aborted'),
+      failure: createToolFailure({
+        category: 'policy',
+        code: 'TOOL_CONFIRMATION_CANCELLED',
+        message: 'Tool execution was stopped during confirmation.',
+        recovery: {
+          action: 'stop',
+          message: 'Continue with the current state or submit a new tool call.'
+        },
+        termination: 'cancelled'
+      }),
       status: 'aborted'
     }
   }
