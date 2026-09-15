@@ -600,7 +600,9 @@ export class ToolExecutor implements IToolExecutor {
 
     if (toolSource !== 'mcp') {
       nextArgs = { ...nextArgs }
-      if (this.chatUuid) {
+      const needChatUUID = !toolName
+        || embeddedToolsRegistry.getToolMetadata(toolName)?.needChatUUID !== false
+      if (needChatUUID && this.chatUuid) {
         nextArgs.chat_uuid = this.chatUuid
       } else {
         delete nextArgs.chat_uuid

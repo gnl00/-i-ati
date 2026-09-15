@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToolExecutor } from '../ToolExecutor'
+import { processEmotionReport } from '@main/tools/emotion/EmotionToolsProcessor'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 
 const {
@@ -19,23 +20,28 @@ const {
   }))
 }))
 
-vi.mock('@tools/registry', () => ({
-  embeddedToolsRegistry: {
-    isRegistered: vi.fn((name: string) => (
-      name === 'schedule'
-      || name === 'plan'
-      || name === 'activity_journal_append'
-      || name === 'subagent'
-      || name === 'exec'
-      || name === 'wiki'
-      || name === 'write'
-      || name === 'knowledgebase_search'
-      || name === 'run_skill_script'
-      || name === 'vision_analyze'
-    )),
-    getHandler: vi.fn(() => handlerMock)
+vi.mock('@tools/registry', async () => {
+  const { embeddedToolMetadata } = await import('@tools/metadata')
+  return {
+    embeddedToolsRegistry: {
+      isRegistered: vi.fn((name: string) => (
+        name === 'emotion_report'
+        || name === 'schedule'
+        || name === 'plan'
+        || name === 'activity_journal_append'
+        || name === 'subagent'
+        || name === 'exec'
+        || name === 'wiki'
+        || name === 'write'
+        || name === 'knowledgebase_search'
+        || name === 'run_skill_script'
+        || name === 'vision_analyze'
+      )),
+      getHandler: vi.fn(() => handlerMock),
+      getToolMetadata: vi.fn((name: string) => embeddedToolMetadata[name])
+    }
   }
-}))
+})
 
 vi.mock('@main/services/mcpRuntime', () => ({
   mcpRuntimeService: {
@@ -51,6 +57,24 @@ vi.mock('@main/tools/command/risk', () => ({
 describe('ToolExecutor runtime context', () => {
   beforeEach(() => {
     handlerMock.mockClear()
+  })
+
+  it.each([undefined, 'chat-from-llm'])('executes emotion without chat_uuid (%s)', async (chatUuid) => {
+    handlerMock.mockImplementationOnce(async (args) => {
+      const result = await processEmotionReport(args)
+      return { ...result, ok: result.success, args }
+    })
+    const executor = new ToolExecutor({ chatUuid: 'chat-runtime' })
+    const args = { impact: 0, activation: 0, control: 0 }
+
+    await executor.execute([{
+      id: 'call-emotion',
+      function: 'emotion_report',
+      args: JSON.stringify({ ...args, chat_uuid: chatUuid, tool_call_reason: 'Neutral turn' })
+    }])
+
+    expect(handlerMock).toHaveBeenCalledWith(args, expect.objectContaining({ chatUuid: 'chat-runtime' }))
+    await expect(handlerMock.mock.results[0].value).resolves.toMatchObject({ success: true, stimulus: args })
   })
 
   it('passes cancellation and reports bounded output batches from embedded tools', async () => {

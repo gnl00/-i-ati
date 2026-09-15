@@ -22,6 +22,11 @@ For executable embedded tools:
 - Export it with `satisfies ToolDefinition[]`.
 - Add the group to `src/shared/tools/definitions/index.ts`.
 - Add metadata in `src/shared/tools/<tool-group>/metadata.ts` and include it from `src/shared/tools/metadata.ts`.
+- Set `needChatUUID: false` in registered metadata when a tool does not accept
+  runtime `chat_uuid` arguments (for example, `emotion_report`). Omission or
+  `true` preserves injection from the runtime chat UUID. The executor removes
+  model-supplied `chat_uuid` when injection is disabled or no runtime chat exists.
+  `context.chatUuid` remains available separately; MCP arguments are unchanged.
 - Declare `resultCompaction` in metadata when the tool result requires persisted
   cold-replay compaction. Set `enabled`, `level`, `compactorId`, and the
   `modelInputPolicy`; register the matching compactor in the main-process

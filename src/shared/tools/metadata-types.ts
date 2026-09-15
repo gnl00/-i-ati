@@ -37,6 +37,8 @@ export type EmbeddedToolCapability =
   | 'vision'
 
 export interface EmbeddedToolMetadata {
+  /** Inject runtime chat_uuid into arguments; defaults to true for compatibility. */
+  needChatUUID?: boolean
   capability: EmbeddedToolCapability
   riskLevel: EmbeddedToolRiskLevel
   mutatesWorkspace: boolean

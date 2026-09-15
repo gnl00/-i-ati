@@ -16,6 +16,7 @@ vi.mock('@main/db/chat', () => ({
 vi.mock('@main/services/mcpRuntime', () => ({ mcpRuntimeService: {} }))
 vi.mock('@tools/registry', () => ({
   embeddedToolsRegistry: {
+    getToolMetadata: (): undefined => undefined,
     isRegistered: (name: string): boolean => name === 'read',
     getHandler: (): ((args: ReadArgs) => Promise<ReadResponse>) => async (args: ReadArgs): Promise<ReadResponse> => {
       state.calls += 1
