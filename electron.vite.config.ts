@@ -7,6 +7,7 @@ import { visualizer } from 'rollup-plugin-visualizer'
 
 const mainExternalPackages = [
   'electron',
+  '@earendil-works/pi-tui',
   '@xenova/transformers',
   'better-sqlite3',
   'sqlite-vec',
@@ -27,7 +28,8 @@ export default defineConfig({
         external: mainExternal,
         input: {
           index: resolve('src/main/index.ts'),
-          cli: resolve('src/main/cli.ts')
+          cli: resolve('src/main/cli.ts'),
+          tui: resolve('src/main/tui.ts')
         },
         output: {
           entryFileNames: '[name].js',

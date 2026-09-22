@@ -5,7 +5,7 @@ import {
   toUnifiedRequestThinkingOption
 } from '@shared/plugins/requestAdapterThinking'
 import { pluginDb } from '@main/db/plugins'
-import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
+import { MESSAGE_SOURCE, isInteractiveMessageSource } from '@shared/messages/messageSources'
 import { AppConfigStore } from '../config'
 import {
   AwakeContextProvider,
@@ -164,7 +164,7 @@ export class RunRequestFactory {
         model: environment.modelContext.model.id,
         modelType: environment.modelContext.model.type,
         tools: this.toolListBuilder.build(input.tools, {
-          excludedToolNames: input.source ? ['ask_user_question'] : []
+          excludedToolNames: isInteractiveMessageSource(input.source) ? [] : ['ask_user_question']
         }),
         options: this.resolveRequestOptions(environment, input.options),
         stream: input.stream,

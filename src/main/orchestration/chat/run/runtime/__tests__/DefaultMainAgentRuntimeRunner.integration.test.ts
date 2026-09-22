@@ -479,7 +479,7 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     }))
   })
 
-  it('passes submitted permission approval mode into tool execution', async () => {
+  it.each([undefined, 'tui', 'telegram'])('passes approval policy and host question capability (%s)', async (source) => {
     const modelStreamExecutor: ModelStreamExecutor = {
       execute: vi.fn(async ({ request }) => {
         if (request.messages.some(message => message.role === 'tool')) {
@@ -536,7 +536,8 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
         ...input,
         input: {
           ...input.input,
-          permissionApprovalMode: 'auto'
+          permissionApprovalMode: 'auto',
+          source
         }
       },
       prepared,
@@ -545,11 +546,14 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
         setChatMeta: vi.fn()
       } as any,
       signal: new AbortController().signal,
+      toolQuestionRequester: { request: vi.fn(async () => ({ status: 'cancelled' as const })) },
       toolConfirmationRequester: {
         request: vi.fn(async () => ({ approved: true }))
       }
     })
 
+    const options = toolExecutorOptionsMock.mock.calls[0][0]
+    expect(typeof options.requestUserQuestion).toBe(source === 'telegram' ? 'undefined' : 'function')
     expect(toolExecutorOptionsMock).toHaveBeenCalledWith(expect.objectContaining({
       approvalPolicy: {
         mode: 'strict',

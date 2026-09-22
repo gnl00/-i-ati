@@ -122,6 +122,42 @@ describe('DefaultToolResultCompactionScheduler', () => {
     )
   })
 
+  it('waits for active and queued jobs, including failed jobs, before shutdown', async () => {
+    vi.spyOn(embeddedToolsRegistry, 'getToolMetadata').mockReturnValue({
+      capability: 'web', riskLevel: 'none', mutatesWorkspace: false, subagent: 'allow',
+      resultCompaction: { enabled: true, level: 'balanced', compactorId: 'drain' }
+    })
+    let finish!: () => void
+    const compactor: ToolResultCompactor = {
+      id: 'drain', version: 1,
+      compact: vi.fn().mockImplementationOnce(() => new Promise(resolve => {
+        finish = (): void => resolve(undefined)
+      })).mockRejectedValueOnce(new Error('compaction failed'))
+    }
+    const store = {
+      createPendingToolResultCompaction: vi.fn().mockReturnValue(1),
+      markToolResultCompactionRunning: vi.fn().mockReturnValue(true),
+      markToolResultCompactionReady: vi.fn(),
+      markToolResultCompactionFailed: vi.fn()
+    }
+    const scheduler = new DefaultToolResultCompactionScheduler(store, new ToolResultCompactorRegistry([compactor]))
+    for (const id of [1, 2]) scheduler.schedule({
+      messageId: id, rawContent: 'raw',
+      result: { stepId: 'step', toolCallId: String(id), toolCallIndex: 0, toolName: 'test', status: 'success' }
+    })
+    let idle = false
+    const waiting = scheduler.waitForIdle().then(() => { idle = true })
+    await flushAsyncWork()
+    expect(idle).toBe(false)
+    expect(compactor.compact).toHaveBeenCalledTimes(1)
+    finish()
+    await waiting
+    expect(compactor.compact).toHaveBeenCalledTimes(2)
+    expect(store.markToolResultCompactionReady).toHaveBeenCalledTimes(1)
+    expect(store.markToolResultCompactionFailed).toHaveBeenCalledTimes(1)
+    expect(idle).toBe(true)
+  })
+
   it('skips tools whose metadata does not enable compaction', async () => {
     vi.spyOn(embeddedToolsRegistry, 'getToolMetadata').mockReturnValue({
       capability: 'web',

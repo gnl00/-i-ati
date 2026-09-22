@@ -1,3 +1,4 @@
+import { isInteractiveMessageSource } from '@shared/messages/messageSources'
 import { ToolExecutor, type ToolExecutorConfig } from '@main/agent/tools'
 import type { ToolCallProps } from '@main/agent/contracts'
 import { DefaultAgentEventBus } from '@main/agent/runtime/events/AgentEventBus'
@@ -200,7 +201,7 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
       },
       onProgress,
       requestConfirmation: (request) => input.toolConfirmationRequester.request(request),
-      requestUserQuestion: input.runInput.input.source
+      requestUserQuestion: !isInteractiveMessageSource(input.runInput.input.source)
         ? undefined
         : input.toolQuestionRequester
           ? (request) => input.toolQuestionRequester!.request(request)

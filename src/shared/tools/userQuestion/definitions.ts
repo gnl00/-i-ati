@@ -36,7 +36,7 @@ export const userQuestionTools = [
     type: 'function',
     function: {
       name: 'ask_user_question',
-      description: 'Pause and ask the desktop user one to three decision questions. Call this tool by itself in a model step. Mark recommended options or provide recommended_text so the run can continue automatically after timeout.',
+      description: 'Pause and ask the interactive user one to three decision questions. Call this tool by itself in a model step. Mark recommended options or provide recommended_text so the run can continue automatically after timeout.',
       parameters: {
         type: 'object',
         additionalProperties: false,

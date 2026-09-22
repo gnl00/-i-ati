@@ -29,3 +29,4 @@ Use sequential names such as `0001-chat-runtime-host-boundary.md`.
 - [0019: Workspace tool failure contract](0019-workspace-tool-failure-contract.md) - Accepted
 - [0020: Skill installation publication and recovery](0020-skill-install-recovery.md) - Accepted
 - [0021: Fresh execution chats for scheduled attempts](0021-scheduled-fresh-execution-chats.md) - Accepted
+- [0022: Interactive terminal host](0022-interactive-terminal-host.md) - Accepted

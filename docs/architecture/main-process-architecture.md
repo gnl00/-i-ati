@@ -14,8 +14,8 @@ src/main/
   index.ts                 Electron entry
   app/                     startup, activation, shutdown, protocol registration
   agent/                   runtime contracts and agent execution kernel
-  hosts/                   chat, Telegram, and CLI host adapters
-  orchestration/           run lifecycle, CLI runs, maintenance, and post-run jobs
+  hosts/                   chat, Telegram, CLI, and TUI host adapters
+  orchestration/           run lifecycle, CLI/TUI sessions, maintenance, and post-run jobs
   services/                reusable main-process capabilities
   tools/                   embedded tool processors and registration
   ipc/                     IPC handler groups
@@ -267,3 +267,24 @@ toolset fingerprint covers effective names, schemas and sources from the
 central registry and MCP connections. The profile records the final system prompt, prompt/config
 fingerprints, timeout, budget, approval mode, and its differences from the
 desktop profile in `result.json`.
+
+## Interactive terminal host
+
+`src/main/tui.ts` delegates to `src/main/app/TuiApplication.ts`. The launcher
+selects this entry for `pnpm tui`; services run in Electron without a renderer.
+`src/main/orchestration/tui/TuiSession.ts` reuses Chat RunService, persisted chat
+messages, model configuration, cancellation and human tool interactions.
+`src/main/hosts/tui/` owns terminal event projection and Pi-based rendering.
+
+The shared `isInteractiveMessageSource()` predicate treats desktop and `tui` as
+interactive when preparing question tools and registering the question handler.
+Terminal events are scoped by submission ID and chat UUID. Steering stays in the
+visible queue until consumed; failed/interrupted inputs require recovery.
+Drafts and pending inputs use configs keys `tui:input:<chatUuid>` on orderly exit
+or session switch. No new message or database schema is introduced.
+
+RunService exposes `waitForPostRunJobs()` backed by PostRunJobService's pending
+job set. TUI shutdown also awaits toolResultCompactionScheduler.waitForIdle()
+before closing database/logging, so deferred jobs retain their persistence
+resources. See [the TUI guide](../guides/development/ati-tui.md) and
+[ADR 0022](../decisions/0022-interactive-terminal-host.md).

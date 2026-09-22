@@ -53,6 +53,10 @@ export class RunService {
     return await this.runtime.titleGenerationService.generate(data)
   }
 
+  async waitForPostRunJobs(): Promise<void> {
+    await this.runtime.postRunJobService.waitForIdle()
+  }
+
   resolveToolConfirmation(toolCallId: string, decision: ToolConfirmationDecision): void {
     this.runtime.toolConfirmationManager.resolve(toolCallId, decision)
   }

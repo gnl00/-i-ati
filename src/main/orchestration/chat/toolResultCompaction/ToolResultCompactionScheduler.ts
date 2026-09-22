@@ -163,6 +163,10 @@ export class DefaultToolResultCompactionScheduler implements ToolResultCompactio
     return operation
   }
 
+  async waitForIdle(): Promise<void> {
+    while (this.inFlight.size > 0) await Promise.allSettled([...this.inFlight.values()])
+  }
+
   private scheduleDrain(): void {
     if (this.drainScheduled || this.active || this.queue.length === 0) {
       return

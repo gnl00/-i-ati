@@ -7,6 +7,7 @@ import type { PostRunJobInput } from './types'
 import { createPostRunEmitter } from './utils'
 
 export class PostRunJobService {
+  private readonly pending = new Set<Promise<void>>()
   constructor(
     private readonly emitterFactory = new RunEventEmitterFactory(),
     private readonly appConfigStore = new AppConfigStore(),
@@ -38,11 +39,18 @@ export class PostRunJobService {
   }
 
   async run(args: PostRunJobInput, plan: PostRunPlan = this.getPlan(args)): Promise<void> {
-    const config = this.appConfigStore.getConfig()
-    if (!config) {
-      return
-    }
+    const task = this.runJobs(args, plan)
+    this.pending.add(task)
+    try { await task } finally { this.pending.delete(task) }
+  }
 
+  async waitForIdle(): Promise<void> {
+    while (this.pending.size > 0) await Promise.allSettled([...this.pending])
+  }
+
+  private async runJobs(args: PostRunJobInput, plan: PostRunPlan): Promise<void> {
+    const config = this.appConfigStore.getConfig()
+    if (!config) return
     await Promise.allSettled([
       plan.title === 'pending' ? this.titleJobService.run(args, config) : Promise.resolve(),
       plan.compression === 'pending' ? this.compressionJobService.run(args, config) : Promise.resolve()

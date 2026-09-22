@@ -10,7 +10,8 @@ import { fileURLToPath } from 'node:url'
 const require = createRequire(import.meta.url)
 const electronPath = require('electron')
 const scriptDirectory = dirname(fileURLToPath(import.meta.url))
-const entryPath = resolve(scriptDirectory, '..', 'out', 'main', 'cli.js')
+const interactive = process.argv[2] === 'tui'
+const entryPath = resolve(scriptDirectory, '..', 'out', 'main', interactive ? 'tui.js' : 'cli.js')
 
 try {
   await access(entryPath, fsConstants.R_OK)
@@ -20,7 +21,7 @@ try {
   process.exit()
 }
 
-const child = spawn(electronPath, [entryPath, ...process.argv.slice(2)], {
+const child = spawn(electronPath, [entryPath, ...process.argv.slice(interactive ? 3 : 2)], {
   env: process.env,
   stdio: 'inherit'
 })

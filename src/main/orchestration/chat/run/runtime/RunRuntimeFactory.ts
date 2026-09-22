@@ -12,6 +12,7 @@ import { toolResultCompactionScheduler } from '@main/orchestration/chat/toolResu
 import { AgentNotificationSink } from '@main/notifications/AgentNotificationSink'
 
 export type RunRuntimeDeps = {
+  postRunJobService: PostRunJobService
   toolConfirmationManager: ToolConfirmationManager
   toolQuestionManager: ToolQuestionManager
   eventEmitterFactory: RunEventEmitterFactory
@@ -44,6 +45,7 @@ export class RunRuntimeFactory {
     })
 
     return {
+      postRunJobService,
       toolConfirmationManager,
       toolQuestionManager,
       eventEmitterFactory,

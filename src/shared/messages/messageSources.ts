@@ -2,6 +2,7 @@ export const MESSAGE_SOURCE = {
   SCHEDULE: 'schedule',
   STREAM_PREVIEW: 'stream_preview',
   TELEGRAM: 'telegram',
+  TUI: 'tui',
   SYSTEM_PROMPT: 'system_prompt',
   SYSTEM_ENVIRONMENT_CONTEXT: 'system_environment_context',
   SKILLS_CONTEXT: 'skills_context',
@@ -30,3 +31,7 @@ export const HIDDEN_MESSAGE_SOURCES = new Set<string>([
   MESSAGE_SOURCE.RUN_STOPPED,
   MESSAGE_SOURCE.VISION_OBSERVATION
 ])
+
+export function isInteractiveMessageSource(source?: string): boolean {
+  return source === undefined || source === MESSAGE_SOURCE.TUI
+}
