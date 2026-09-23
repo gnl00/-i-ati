@@ -107,7 +107,7 @@ const mapGeminiFinishReason = (reason: unknown): IUnifiedResponse['finishReason'
     case 'FUNCTION_CALL':
       return 'tool_calls'
     default:
-      return 'stop'
+      return reason ? 'error' : undefined
   }
 }
 

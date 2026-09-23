@@ -19,6 +19,8 @@ export class ChatRenderMapper {
       ...baseBody,
       source: MESSAGE_SOURCE.STREAM_PREVIEW,
       content: state.content,
+      workStatus: state.workStatus,
+      workEndedAt: state.workEndedAt,
       segments: this.buildSegments({
         state,
         timestamp,
@@ -59,6 +61,8 @@ export class ChatRenderMapper {
     return {
       ...baseBody,
       content: state.content,
+      workStatus: state.workStatus,
+      workEndedAt: state.workEndedAt,
       segments: this.buildSegments({
         state,
         timestamp,

@@ -204,7 +204,7 @@ describe('mapAssistantMessageIncrementally', () => {
     const secondCache = project(second, context, firstCache)
 
     expectMatchesReference(secondCache, second)
-    expect(secondCache.renderState.transcript.supportUnits[0]?.type).toBe('completedWork')
+    expect(secondCache.renderState.transcript.supportUnits[0]?.type).toBe('toolGroup')
   })
 
   it('uses the complete mapper when transcript visibility changes', () => {

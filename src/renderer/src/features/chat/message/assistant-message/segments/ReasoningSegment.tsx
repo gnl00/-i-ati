@@ -118,24 +118,46 @@ const ReasoningSegmentComponent: React.FC<ReasoningSegmentProps> = ({
   const shouldReduceMotion = useReducedMotion()
   const durationText = useReasoningDurationText(segment, isStreaming)
   const panelId = React.useId()
-  const shouldUseStreamingPresentation = isStreaming && !Boolean(shouldReduceMotion)
+  const shouldUseStreamingPresentation = isStreaming && !shouldReduceMotion
   const { visibleContent } = useReasoningTypewriter({
     segmentId: segment.segmentId,
     content: segment.content,
-    enabled: isStreaming && isOpen && !Boolean(shouldReduceMotion),
+    enabled: isStreaming && (isOpen || nestedDisclosure) && !shouldReduceMotion,
     isStreaming,
     reducedMotion: Boolean(shouldReduceMotion),
     onTypingChange
   })
-  const panelContent = shouldUseStreamingPresentation && isOpen
+  const panelContent = shouldUseStreamingPresentation && (isOpen || nestedDisclosure)
     ? visibleContent
     : segment.content
 
   React.useLayoutEffect(() => {
-    if (wasStreaming.current === isStreaming) return
+    if (nestedDisclosure || wasStreaming.current === isStreaming) return
     wasStreaming.current = isStreaming
     setIsOpen(isStreaming)
-  }, [isStreaming])
+  }, [isStreaming, nestedDisclosure])
+
+  if (nestedDisclosure) {
+    return (
+      <div data-testid="reasoning-segment" className="px-2 py-1 text-[12.5px] leading-6 text-slate-500 dark:text-(--chat-text-secondary)">
+        <div className={cn(!isOpen && (segment.content.length > 240 || segment.content.split('\n').length > 4) && 'line-clamp-4')}>
+          <ReasoningSegmentPanel content={panelContent} streamingPresentation={shouldUseStreamingPresentation} />
+        </div>
+        {(segment.content.length > 240 || segment.content.split('\n').length > 4) && (
+          <button
+            type="button"
+            aria-label={isOpen ? 'Collapse thinking' : 'Expand thinking'}
+            aria-expanded={isOpen}
+            onClick={() => setIsOpen(value => !value)}
+            className="inline-flex cursor-pointer items-center gap-1 rounded-sm text-[11px] hover:underline focus-visible:ring-2 focus-visible:ring-slate-400"
+          >
+            {isOpen ? 'Collapse' : 'Expand'}
+            <ChevronDown aria-hidden="true" className={cn('h-3 w-3', isOpen && 'rotate-180')} />
+          </button>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div

@@ -6,8 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 import { AssistantSupportSegmentList } from '../renderers/AssistantSupportSegmentList'
 import type {
-  SupportSegmentRenderItem,
-  TextSegmentRenderItem
+  SupportSegmentRenderItem
 } from '../model/assistantMessageMapper'
 import { buildSupportRenderUnits } from '../model/assistantSupportGrouping'
 
@@ -133,23 +132,6 @@ const reasoningItem = (args: {
   }
 })
 
-const textItem = (args: {
-  id: string
-  order: number
-  content: string
-}): TextSegmentRenderItem => ({
-  key: args.id,
-  layer: 'committed',
-  sourceIndex: args.order,
-  order: args.order,
-  segment: {
-    type: 'text',
-    segmentId: `segment-${args.id}`,
-    content: args.content,
-    timestamp: 1
-  }
-})
-
 describe('AssistantSupportSegmentList', () => {
   let container: HTMLDivElement
   let root: Root
@@ -268,8 +250,7 @@ describe('AssistantSupportSegmentList', () => {
               reasoningItem({ id: 'completed-thought-2', order: 1, content: 'Two.' }),
               reasoningItem({ id: 'completed-thought-3', order: 2, content: 'Three.' }),
               reasoningItem({ id: 'completed-thought-4', order: 3, content: 'Four.' })
-            ],
-            [textItem({ id: 'completed-answer', order: 4, content: 'Answer' })]
+            ]
           )}
           onTypingChange={completedCallback}
         />
@@ -312,14 +293,8 @@ describe('AssistantSupportSegmentList', () => {
     await act(async () => {
       root.render(
         <AssistantSupportSegmentList
-          units={buildSupportRenderUnits(
-            supportItems,
-            [textItem({
-              id: 'answer-1',
-              order: 4,
-              content: 'Answer'
-            })]
-          )}
+          units={buildSupportRenderUnits(supportItems)}
+          nestedDisclosure
         />
       )
     })
@@ -327,7 +302,7 @@ describe('AssistantSupportSegmentList', () => {
     const trigger = container.querySelector<HTMLButtonElement>(
       'button[aria-label="Expand completed work"]'
     )
-    expect(trigger?.getAttribute('aria-expanded')).toBe('false')
+    expect(trigger).toBeNull()
     expect(container.querySelectorAll('[data-testid="tool-call-group"]')).toHaveLength(1)
     expect(container.textContent).toContain('reasoning')
     expect(container.textContent).toContain('read')
@@ -340,9 +315,5 @@ describe('AssistantSupportSegmentList', () => {
     expect(container.querySelector('[data-testid="tool-call-group"]')
       ?.getAttribute('data-nested-disclosure')).toBe('true')
 
-    await act(async () => trigger?.click())
-    expect(trigger?.getAttribute('aria-expanded')).toBe('true')
-    expect(container.querySelector('[data-testid="completed-work-panel"]')?.getAttribute('data-state'))
-      .toBe('expanded')
   })
 })

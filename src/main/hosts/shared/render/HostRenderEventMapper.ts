@@ -165,6 +165,12 @@ export class HostRenderEventMapper {
 
       case 'loop.completed':
         hostEvents.push({
+          type: 'host.committed.updated',
+          timestamp: event.timestamp,
+          committed: next.committed,
+          previewWasActive: false
+        })
+        hostEvents.push({
           type: 'host.preview.cleared',
           timestamp: event.timestamp
         })
@@ -177,6 +183,12 @@ export class HostRenderEventMapper {
 
       case 'loop.failed':
         hostEvents.push({
+          type: 'host.committed.updated',
+          timestamp: event.timestamp,
+          committed: next.committed,
+          previewWasActive: false
+        })
+        hostEvents.push({
           type: 'host.preview.cleared',
           timestamp: event.timestamp
         })
@@ -188,6 +200,12 @@ export class HostRenderEventMapper {
         return hostEvents
 
       case 'loop.aborted':
+        hostEvents.push({
+          type: 'host.committed.updated',
+          timestamp: event.timestamp,
+          committed: next.committed,
+          previewWasActive: false
+        })
         hostEvents.push({
           type: 'host.preview.cleared',
           timestamp: event.timestamp

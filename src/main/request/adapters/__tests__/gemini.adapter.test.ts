@@ -292,3 +292,9 @@ describe('GeminiAdapter response parsing', () => {
     })
   })
 })
+
+it.each([['STOP', 'stop'], ['MAX_TOKENS', 'length'], ['SAFETY', 'content_filter'], ['OTHER', 'error'], ['MALFORMED_FUNCTION_CALL', 'error']])('preserves Gemini terminal meaning %s', (finishReason, expected) => {
+  const adapter = new GeminiAdapter()
+  const result = adapter.parseStreamResponse(toDataChunk({ candidates: [{ finishReason, content: { parts: [{ text: 'partial' }] } }] }))
+  expect(result?.delta?.finishReason).toBe(expected)
+})

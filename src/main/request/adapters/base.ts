@@ -184,7 +184,13 @@ export abstract class BaseAdapter {
       case 'tool_use':
         return 'tool_calls'
       case 'content_filter':
+      case 'refusal':
         return 'content_filter'
+      case 'model_context_window_exceeded':
+        return 'length'
+      case 'pause_turn':
+      case 'error':
+        return 'error'
       default:
         return 'stop'
     }

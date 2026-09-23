@@ -1,75 +1,91 @@
 import { SizeAnimatedPanel } from '@renderer/shared/components/ui/size-animated-panel'
 import { cn } from '@renderer/shared/lib/utils'
 import { useReducedMotion } from 'framer-motion'
-import { ChevronDown, ListChecks } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import React from 'react'
-import {
-  getSupportDisclosureTriggerClassName,
-  SupportSegmentHeader
-} from './SupportSegmentHeader'
 
 export interface AssistantCompletedWorkGroupProps {
   children: React.ReactNode
+  status?: ChatMessage['workStatus']
+  toolCount?: number
+  startedAt?: number
+  endedAt?: number
   forceReducedMotion?: boolean
+}
+
+const metadataBadgeClassName = 'shrink-0 rounded-md bg-slate-100/80 px-1.5 py-0.5 text-[10.5px] leading-4 tabular-nums text-slate-500 dark:bg-(--chat-surface-raised) dark:text-(--chat-text-secondary)'
+
+const labels = {
+  running: 'Working',
+  completed: 'Work details',
+  incomplete: 'Incomplete',
+  failed: 'Failed',
+  aborted: 'Stopped'
 }
 
 export const AssistantCompletedWorkGroup: React.FC<AssistantCompletedWorkGroupProps> = ({
   children,
+  status = 'completed',
+  toolCount = 0,
+  startedAt,
+  endedAt,
   forceReducedMotion = false
 }) => {
-  const [isOpen, setIsOpen] = React.useState(false)
+  // An explicit user choice survives both streaming updates and completion.
+  const [userExpanded, setUserExpanded] = React.useState<boolean>()
+  const previousStatus = React.useRef(status)
+  React.useLayoutEffect(() => {
+    if (previousStatus.current !== status && ['failed', 'aborted', 'incomplete'].includes(status)) {
+      setUserExpanded(undefined)
+    }
+    previousStatus.current = status
+  }, [status])
+  const isOpen = userExpanded ?? status !== 'completed'
   const prefersReducedMotion = useReducedMotion()
-  const shouldReduceMotion = forceReducedMotion || Boolean(prefersReducedMotion)
   const panelId = React.useId()
+  const [now, setNow] = React.useState(Date.now)
+  React.useEffect(() => {
+    if (status !== 'running' || startedAt == null) return
+    setNow(Date.now())
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
+    return (): void => window.clearInterval(timer)
+  }, [status, startedAt])
+  const duration = startedAt != null && (endedAt != null || status === 'running')
+    ? Math.max(0, Math.floor(((endedAt ?? now) - startedAt) / 1000))
+    : undefined
 
   return (
-    <div
-      data-testid="assistant-completed-work-group"
-      className="my-1.5 w-full max-w-full"
-    >
+    <div data-testid="assistant-completed-work-group" className="my-1.5 w-full min-w-0">
       <button
         type="button"
-        aria-label={isOpen ? 'Collapse completed work' : 'Expand completed work'}
+        aria-label={isOpen ? 'Collapse work details' : 'Expand work details'}
         aria-expanded={isOpen}
         aria-controls={panelId}
-        onClick={() => setIsOpen(current => !current)}
-        className={getSupportDisclosureTriggerClassName(isOpen)}
+        onClick={() => setUserExpanded(!isOpen)}
+        className={cn(
+          'flex max-w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] text-slate-500 outline-hidden',
+          'hover:bg-slate-100/60 active:bg-slate-100 focus-visible:ring-2 focus-visible:ring-slate-400/65',
+          'dark:text-(--chat-text-secondary) dark:hover:bg-(--chat-surface-hover) dark:active:bg-(--chat-surface-raised)'
+        )}
       >
-        <SupportSegmentHeader
-          icon={ListChecks}
-          name="Work completed"
-          isOpen={isOpen}
-          trailing={(
-            <ChevronDown
-              aria-hidden="true"
-              className={cn(
-                'h-3.5 w-3.5 transition-transform duration-200 motion-reduce:transition-none',
-                isOpen && 'rotate-180'
-              )}
-            />
-          )}
-          testIds={{
-            icon: 'completed-work-icon',
-            name: 'completed-work-label',
-            description: 'completed-work-description',
-            duration: 'completed-work-duration',
-            trailing: 'completed-work-chevron'
-          }}
-        />
+        <ChevronRight aria-hidden="true" className={cn('h-3 w-3 shrink-0', isOpen && 'rotate-90')} />
+        <span data-testid="completed-work-label">{labels[status]}</span>
+        {duration != null && <span className={metadataBadgeClassName}>{duration}s</span>}
+        {toolCount > 0 && <span className={metadataBadgeClassName}>{toolCount} {toolCount === 1 ? 'tool call' : 'tool calls'}</span>}
       </button>
       <SizeAnimatedPanel
         id={panelId}
         expanded={isOpen}
-        reducedMotion={shouldReduceMotion}
-        className="mt-1"
+        reducedMotion={forceReducedMotion || Boolean(prefersReducedMotion)}
         data-testid="completed-work-panel"
       >
-        <div className="py-1">
+        <div
+          className="flex min-w-0 flex-col py-1"
+          onFocusCapture={() => setUserExpanded(true)}
+        >
           {children}
         </div>
       </SizeAnimatedPanel>
     </div>
   )
 }
-
-AssistantCompletedWorkGroup.displayName = 'AssistantCompletedWorkGroup'

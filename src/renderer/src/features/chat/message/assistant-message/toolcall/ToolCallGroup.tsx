@@ -11,6 +11,7 @@ import {
   getToolCallHeaderState,
   getToolCallTriggerAriaLabel,
   ToolCallInspectorDetails,
+  ToolCallDuration,
   ToolCallTriggerContent
 } from './ToolCallResult'
 import { TOOL_CALL_RESULT_WIDTH_CLASS_NAME } from './toolCallLayout'
@@ -93,7 +94,7 @@ const ToolCallGroupRow = memo(({
   return (
     <motion.div
       data-testid={`tool-call-group-row-${item.segment.segmentId}`}
-      className="border-t border-slate-200/28 first:border-t-0 dark:border-(--chat-border-subtle)"
+      className={nestedDisclosure ? undefined : "border-t border-slate-200/28 first:border-t-0 dark:border-(--chat-border-subtle)"}
       initial={shouldReduceMotion ? false : { opacity: 0, x: -6, scale: 0.995 }}
       animate={shouldReduceMotion ? undefined : { opacity: 1, x: 0, scale: 1 }}
       transition={shouldReduceMotion
@@ -135,6 +136,7 @@ const ToolCallGroupRow = memo(({
           isPending={isPending}
           isSelected={expanded}
           density="compact"
+          quiet={nestedDisclosure}
           className="w-full"
           durationClassName={nestedDisclosure
             ? cn(
@@ -167,6 +169,12 @@ const ToolCallGroupRow = memo(({
           data-testid={`tool-call-detail-surface-${item.segment.segmentId}`}
           className="border-t border-slate-200/35 bg-gray-100/45 px-1 py-1 dark:border-(--chat-border-subtle) dark:bg-(--chat-surface)"
         >
+          {nestedDisclosure && (hasOpened || expanded) && (
+            <div className="flex items-center gap-2 px-2 py-1 text-[11px] text-slate-500 dark:text-(--chat-text-secondary)">
+              <span>{item.segment.name}</span>
+              <ToolCallDuration cost={item.segment.cost} isRunning={isRunning} runningStartedAt={item.segment.executionStartedAt ?? item.segment.timestamp} />
+            </div>
+          )}
           {hasOpened || expanded ? (
             <ToolCallInspectorDetails
               toolCall={item.segment}
@@ -191,7 +199,7 @@ const ToolCallGroupComponent: React.FC<ToolCallGroupProps> = ({
   const toolItems = useMemo(() => items.filter(isToolCallItem), [items])
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [showAll, setShowAll] = useState(false)
-  const { visible, hiddenCount } = getVisibleToolItems(toolItems, showAll)
+  const { visible, hiddenCount } = getVisibleToolItems(toolItems, showAll || nestedDisclosure)
 
   if (toolItems.length === 0) return null
 
@@ -200,7 +208,7 @@ const ToolCallGroupComponent: React.FC<ToolCallGroupProps> = ({
       data-testid="tool-call-group"
       className={cn(
         fullWidth ? 'w-full max-w-full' : TOOL_CALL_RESULT_WIDTH_CLASS_NAME,
-        'my-2 overflow-hidden rounded-lg border border-slate-200/28 bg-white/30 dark:border-(--chat-border-subtle) dark:bg-(--chat-surface)'
+        nestedDisclosure ? 'my-0.5 overflow-hidden' : 'my-2 overflow-hidden rounded-lg border border-slate-200/28 bg-white/30 dark:border-(--chat-border-subtle) dark:bg-(--chat-surface)'
       )}
     >
       {visible.map(item => (

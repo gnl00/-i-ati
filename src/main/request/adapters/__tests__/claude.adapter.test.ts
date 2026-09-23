@@ -309,3 +309,9 @@ describe('ClaudeAdapter request mapping', () => {
     })
   })
 })
+
+it.each([['end_turn', 'stop'], ['tool_use', 'tool_calls'], ['pause_turn', 'error'], ['max_tokens', 'length'], ['refusal', 'content_filter']])('preserves Claude terminal meaning %s', (stop_reason, expected) => {
+  const adapter = new ClaudeAdapter()
+  const result = adapter.parseStreamResponse(toDataChunk({ type: 'message_delta', delta: { stop_reason } }))
+  expect(result?.delta?.finishReason).toBe(expected)
+})

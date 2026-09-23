@@ -441,6 +441,13 @@ export class AgentRenderStateReducer {
       case 'loop.aborted':
         this.state = {
           ...this.state,
+          committed: {
+            ...this.state.committed,
+            workStatus: event.type === 'loop.completed'
+              ? event.result.finalStep.finishReason === 'stop' ? 'completed' : 'incomplete'
+              : event.type === 'loop.failed' ? 'failed' : 'aborted',
+            workEndedAt: event.timestamp
+          },
           preview: null
         }
         return this.snapshot()
@@ -586,6 +593,7 @@ export class AgentRenderStateReducer {
     this.state = {
       committed: {
         stepId: step.stepId,
+        workStatus: 'running',
         content: appendCommittedContent(this.state.committed.content, step.content),
         blocks: committedBlocks,
         toolCalls: mergedToolCalls,

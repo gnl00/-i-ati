@@ -452,7 +452,7 @@ function getToolCallStatusIconMeta(args: {
   if (args.isRunning || args.isPending) {
     return {
       Icon: Loader2,
-      iconClassName: args.isRunning ? 'animate-spin motion-reduce:animate-none' : undefined
+      iconClassName: 'animate-spin motion-reduce:animate-none'
     }
   }
 
@@ -500,7 +500,8 @@ export const ToolCallTriggerContent = React.memo(({
   density = 'regular',
   className,
   durationClassName,
-  trailing
+  trailing,
+  quiet = false
 }: {
   toolCall: ToolCallSegment
   isError: boolean
@@ -510,6 +511,7 @@ export const ToolCallTriggerContent = React.memo(({
   density?: 'regular' | 'compact'
   className?: string
   durationClassName?: string
+  quiet?: boolean
   trailing?: React.ReactNode
 }) => {
   const reason = getReasonFromToolCall(toolCall)
@@ -522,6 +524,16 @@ export const ToolCallTriggerContent = React.memo(({
     : isRunning || isPending
       ? 'warning'
       : 'success'
+
+  if (quiet) {
+    return (
+      <span className="flex w-full min-w-0 items-center gap-2 text-[12px] text-slate-500 dark:text-(--chat-text-secondary)">
+        <StatusIcon aria-hidden="true" className={cn('h-3.5 w-3.5 shrink-0', iconClassName)} />
+        <span className="min-w-0 flex-1 truncate" title={reason || toolCall.name}>{reason || toolCall.name}</span>
+        {trailing}
+      </span>
+    )
+  }
 
   return (
     <SupportSegmentHeader
@@ -1095,7 +1107,7 @@ export const ToolCallInspectorDetails = React.memo(({
               {visibleParamEntries.map(({ key, displayKey, valueText, isComplex }) => (
                 <div
                   key={key}
-                  className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))] gap-x-3 gap-y-1.5"
+                  className="grid grid-cols-[minmax(0,min(35%,12rem))_minmax(0,1fr)] gap-x-3 gap-y-1.5"
                 >
                   <span className="truncate pt-0.5 font-mono text-[9px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                     {displayKey}

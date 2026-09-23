@@ -162,7 +162,7 @@ export function buildAssistantMessageTranscriptProjection(
   const supportItems = orderedItems
     .filter((entry): entry is { kind: 'support'; item: SupportSegmentRenderItem } => entry.kind === 'support')
     .map(entry => entry.item)
-  const supportUnits = buildSupportRenderUnits(supportItems, textItems)
+  const supportUnits = buildSupportRenderUnits(supportItems)
 
   return {
     isOverlayPreview,

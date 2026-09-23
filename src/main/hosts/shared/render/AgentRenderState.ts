@@ -57,6 +57,8 @@ export type AgentRenderBlock =
 
 export interface AgentRenderMessageState {
   stepId?: string
+  workStatus?: ChatMessage['workStatus']
+  workEndedAt?: number
   content: string
   blocks: AgentRenderBlock[]
   toolCalls: AgentRenderToolCallState[]

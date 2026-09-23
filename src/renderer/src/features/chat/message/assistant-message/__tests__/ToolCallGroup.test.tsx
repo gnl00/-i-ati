@@ -180,7 +180,6 @@ describe('ToolCallGroup', () => {
     const duration = container.querySelector(
       '[data-testid="tool-call-trigger-duration-segment-1"]'
     )
-    const durationSlot = duration?.parentElement
     const chevron = container.querySelector('[data-testid="tool-call-chevron-segment-1"]')
     expect(group?.classList.contains('w-full')).toBe(true)
     expect(group?.classList.contains('w-[90%]')).toBe(false)
@@ -192,19 +191,13 @@ describe('ToolCallGroup', () => {
     expect(chevron?.classList.contains('group-hover/support:opacity-80')).toBe(true)
     expect(chevron?.classList.contains('group-focus-visible/support:opacity-80')).toBe(true)
     expect(chevron?.classList.contains('motion-reduce:transition-none')).toBe(true)
-    expect(durationSlot?.classList.contains('transition-opacity')).toBe(true)
-    expect(durationSlot?.classList.contains('opacity-[0.45]')).toBe(true)
-    expect(durationSlot?.classList.contains('group-hover/support:opacity-80')).toBe(true)
-    expect(durationSlot?.classList.contains('group-focus-visible/support:opacity-80')).toBe(true)
-    expect(durationSlot?.classList.contains('motion-reduce:transition-none')).toBe(true)
 
+    expect(duration).toBeNull()
     await act(async () => row?.click())
     expect(row?.getAttribute('aria-expanded')).toBe('true')
     expect(chevron?.classList.contains('rotate-180')).toBe(true)
     expect(chevron?.classList.contains('opacity-80')).toBe(true)
     expect(chevron?.classList.contains('opacity-[0.45]')).toBe(false)
-    expect(durationSlot?.classList.contains('opacity-80')).toBe(true)
-    expect(durationSlot?.classList.contains('opacity-[0.45]')).toBe(false)
   })
 
   it('uses restrained append motion and disables it for reduced motion', async () => {

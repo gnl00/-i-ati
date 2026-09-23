@@ -274,6 +274,7 @@ const mapResponsesFinishReason = (raw: any): IUnifiedResponse['finishReason'] =>
     return 'content_filter'
   }
 
+  if (raw?.status && raw.status !== 'completed') return 'error'
   return 'stop'
 }
 

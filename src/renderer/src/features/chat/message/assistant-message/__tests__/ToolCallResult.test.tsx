@@ -137,6 +137,16 @@ describe('ToolCallResult', () => {
     expect(container.querySelector('[role="dialog"]')).toBeNull()
   })
 
+  it('animates pending and running tools and stops at terminal states', async () => {
+    for (const status of ['pending', 'running', 'completed', 'failed']) {
+      await act(async () => root.render(<ToolCallResult toolCall={createToolCall(status)} index={0} />))
+      const icon = container.querySelector('[data-testid="tool-call-trigger-status-segment-tool-1"] svg')
+      const active = status === 'pending' || status === 'running'
+      expect(icon?.classList.contains('animate-spin')).toBe(active)
+      expect(icon?.classList.contains('motion-reduce:animate-none')).toBe(active)
+    }
+  })
+
   it('keeps the terminal duration visible in the tool row', async () => {
     await act(async () => root.render(<ToolCallResult toolCall={createToolCall()} index={0} />))
     expect(container.textContent).toContain('0.08s')

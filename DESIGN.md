@@ -177,7 +177,8 @@ Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif
 - 常规卡片使用 12px 圆角，紧凑控件和 disclosure 使用 8px 至 10px 圆角。
 - Settings section 使用 raised surface、standard border 和连续 footer 或 inset region。
 - 连续工具调用与任务列表使用外层容器加 subtle separator，减少重复卡片边框。
-- Think、Work completed 和 tool call header 使用一致宽度、padding、10px 圆角与状态布局。
+- Chat 的整轮处理过程使用无卡片边框的次级文字标题、小箭头与连续列表；执行中展开，正常完成后统一收起。短思考直接展示，工具行突出动作描述；独立工具详情保留原有布局。
+- 处理过程标题与操作使用英文；耗时（如 `9s`）和工具次数（如 `3 tool calls`）使用低对比度浅色 badge，信息之间不使用圆点分隔。
 - 状态图标、duration 和 chevron 保持固定槽位，展开时内容与 header 边界连续。
 
 ### 4.7 Sheet、Settings 与右侧面板
@@ -281,7 +282,7 @@ Dark Mode 的目标是一个连续的 graphite 桌面工作台。应用外壳与
 1. 应用外壳、Header、Chat canvas 和主 composer 统一 `--app-*` 与 `--chat-*`。
 2. Welcome、Chat Sheet、Settings 和 Artifacts 使用相同 canvas、surface、raised、hover、inset 阶梯。
 3. selector、approval menu、tooltip、popover、drawer 和 confirmation 使用统一浮层材料。
-4. tool call、Think、Work completed、任务和列表使用统一 disclosure 与 separator 规则。
+4. 处理过程由单一 disclosure 管理，内部工具和思考使用轻量连续布局；任务和独立详情沿用共享 disclosure 原语。
 5. 局部 `gray`、`slate` 和 `zinc` surface 在改造时映射到语义 token。
 6. 语义色、品牌图标、代码高亮和数据可视化保留各自功能色。
 

@@ -281,20 +281,32 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
     isLatest
   ])
 
-  const bodyModel = useMemo(() => buildAssistantMessageBodyModel({
-    index,
-    isLatest,
-    animateOnMount: shouldAnimateOnMount,
-    onTypingChange,
-    transcriptProjection: renderState.transcript,
-    textPlayback
+  const bodyModel = useMemo(() => ({
+    ...buildAssistantMessageBodyModel({
+      index,
+      isLatest,
+      animateOnMount: shouldAnimateOnMount,
+      onTypingChange,
+      transcriptProjection: renderState.transcript,
+      textPlayback
+    }),
+    workStatus: isLatest && isCurrentTurnResponse && ['submitting', 'streaming', 'cancelling'].includes(runPhase)
+      ? 'running' as const
+      : displayCommittedMessage.workStatus === 'running' ? 'incomplete' as const : displayCommittedMessage.workStatus,
+    workStartedAt: displayCommittedMessage.createdAt,
+    workEndedAt: displayCommittedMessage.workEndedAt
   }), [
     index,
     isLatest,
     shouldAnimateOnMount,
     onTypingChange,
     renderState.transcript,
-    textPlayback
+    textPlayback,
+    isCurrentTurnResponse,
+    runPhase,
+    displayCommittedMessage.workStatus,
+    displayCommittedMessage.createdAt,
+    displayCommittedMessage.workEndedAt
   ])
 
   const footerModel = useMemo(() => buildAssistantMessageFooterModel({

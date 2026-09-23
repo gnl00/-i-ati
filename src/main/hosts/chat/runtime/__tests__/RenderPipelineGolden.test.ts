@@ -241,7 +241,7 @@ describe('render pipeline golden baseline', () => {
     await dispatch(responder, mapper, {
       type: 'loop.completed',
       timestamp: 180,
-      result: {} as any
+      result: { finalStep: { finishReason: 'stop' } } as any
     } as AgentEvent)
 
     // --- 断言 1: IPC 出口 emit 的 channel 序列（增量语义 + 收尾顺序） ---
@@ -259,6 +259,7 @@ describe('render pipeline golden baseline', () => {
       'tool.result.attached', // tool result persisted as tool message
       'preview.cleared', // step-2.completed
       'message.updated', // committed step-2 (final text appended)
+      'message.updated', // persist whole-turn completion before lifecycle notification
       'preview.cleared' // loop.completed
     ])
 
@@ -304,6 +305,8 @@ describe('render pipeline golden baseline', () => {
     // --- 断言 5: 最终 committed message 的稳定形态（收尾正确） ---
     const finalBody = responder.getFinalAssistantMessage().body
     expect(finalBody.content).toBe('Hello\n\nDone.')
+    expect(finalBody.workStatus).toBe('completed')
+    expect(finalBody.workEndedAt).toBe(180)
     expect(finalBody.segments).toEqual([
       expect.objectContaining({
         type: 'reasoning',

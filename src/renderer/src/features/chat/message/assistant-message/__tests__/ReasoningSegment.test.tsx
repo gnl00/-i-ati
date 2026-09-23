@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { act } from 'react'
+import { act, type ReactElement } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ReasoningSegment } from '../segments/ReasoningSegment'
@@ -11,7 +11,7 @@ vi.mock('framer-motion', async (importOriginal) => {
   const actual = await importOriginal<typeof import('framer-motion')>()
   return {
     ...actual,
-    useReducedMotion: () => motionTestState.reducedMotion
+    useReducedMotion: (): boolean => motionTestState.reducedMotion
   }
 })
 
@@ -24,7 +24,7 @@ vi.mock('@renderer/features/chat/message/typewriter/StreamingMarkdownLite', () =
     text: string
     className?: string
     animate?: boolean
-  }) => (
+  }): ReactElement => (
     <div
       data-testid="reasoning-streaming-markdown"
       data-mode="lite"
@@ -263,41 +263,16 @@ describe('ReasoningSegment', () => {
       .toBe(false)
   })
 
-  it('uses the full available width inside a completed-work disclosure', async () => {
-    await act(async () => root.render(
-      <ReasoningSegment
-        segment={createSegment({ endedAt: BASE_TIME.getTime() + 1250 })}
-        fullWidth
-        nestedDisclosure
-      />
-    ))
-
-    const segment = container.querySelector('[data-testid="reasoning-segment"]')
-    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Toggle Thought"]')
-    const duration = container.querySelector('[data-testid="reasoning-duration"]')
-    const chevron = container.querySelector('[data-testid="reasoning-chevron"] svg')
-    expect(segment?.classList.contains('w-full')).toBe(true)
-    expect(segment?.classList.contains('w-[90%]')).toBe(false)
-    expect(chevron?.classList.contains('h-3')).toBe(true)
-    expect(chevron?.classList.contains('w-3')).toBe(true)
-    expect(chevron?.classList.contains('h-3.5')).toBe(false)
-    expect(chevron?.classList.contains('transition-[transform,opacity]')).toBe(true)
-    expect(chevron?.classList.contains('opacity-[0.45]')).toBe(true)
-    expect(chevron?.classList.contains('group-hover/support:opacity-80')).toBe(true)
-    expect(chevron?.classList.contains('group-focus-visible/support:opacity-80')).toBe(true)
-    expect(chevron?.classList.contains('motion-reduce:transition-none')).toBe(true)
-    expect(duration?.classList.contains('transition-opacity')).toBe(true)
-    expect(duration?.classList.contains('opacity-[0.45]')).toBe(true)
-    expect(duration?.classList.contains('group-hover/support:opacity-80')).toBe(true)
-    expect(duration?.classList.contains('group-focus-visible/support:opacity-80')).toBe(true)
-    expect(duration?.classList.contains('motion-reduce:transition-none')).toBe(true)
-
-    await act(async () => trigger?.click())
-    expect(trigger?.getAttribute('aria-expanded')).toBe('true')
-    expect(chevron?.classList.contains('rotate-180')).toBe(true)
-    expect(chevron?.classList.contains('opacity-80')).toBe(true)
-    expect(chevron?.classList.contains('opacity-[0.45]')).toBe(false)
-    expect(duration?.classList.contains('opacity-80')).toBe(true)
-    expect(duration?.classList.contains('opacity-[0.45]')).toBe(false)
+  it('shows reasoning inline without a repeated Thought header inside the process', async () => {
+    await act(async () => root.render(<ReasoningSegment segment={createSegment({ content: 'Reasoning. '.repeat(30) })} fullWidth nestedDisclosure />))
+    expect(container.querySelector('[data-testid="reasoning-label"]')).toBeNull()
+    expect(container.querySelector('[data-testid="reasoning-think-content"]')).not.toBeNull()
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Expand thinking"]')!
+    expect(trigger.textContent).toBe('Expand')
+    expect(trigger.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true')
+    await act(async () => trigger.click())
+    expect(trigger.textContent).toBe('Collapse')
+    expect(trigger.getAttribute('aria-label')).toBe('Collapse thinking')
+    expect(trigger.getAttribute('aria-expanded')).toBe('true')
   })
 })

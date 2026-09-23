@@ -141,4 +141,26 @@ describe('HostRenderEventMapper', () => {
       })
     ])
   })
+  it.each([
+    ['stop', 'completed'], ['length', 'incomplete'], ['content_filter', 'incomplete'],
+    ['error', 'incomplete'], [undefined, 'incomplete'], ['tool_calls', 'incomplete']
+  ])('persists loop completion with finish reason %s as %s', (finishReason, workStatus) => {
+    const mapper = new HostRenderEventMapper()
+    const events = mapper.map({
+      type: 'loop.completed', timestamp: 100,
+      result: { finalStep: { finishReason } }
+    } as unknown as Parameters<HostRenderEventMapper['map']>[0])
+    expect(events[0]).toMatchObject({
+      type: 'host.committed.updated', committed: { workStatus, workEndedAt: 100 }
+    })
+  })
+
+  it.each(['failed', 'aborted'])('persists %s before publishing the terminal lifecycle', status => {
+    const mapper = new HostRenderEventMapper()
+    const events = mapper.map({ type: `loop.${status}`, timestamp: 100, result: {} } as unknown as Parameters<HostRenderEventMapper['map']>[0])
+    expect(events[0]).toMatchObject({
+      type: 'host.committed.updated', committed: { workStatus: status, workEndedAt: 100 }
+    })
+  })
+
 })

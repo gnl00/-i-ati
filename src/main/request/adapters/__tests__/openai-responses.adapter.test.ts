@@ -220,3 +220,8 @@ describe('OpenAIResponsesAdapter response parsing', () => {
     })
   })
 })
+
+it.each(['incomplete', 'failed', 'cancelled'])('does not normalize Responses %s as successful stop', status => {
+  const adapter = new OpenAIResponsesAdapter()
+  expect(adapter.parseResponse({ id: 'response', status, output: [] }).finishReason).toBe('error')
+})

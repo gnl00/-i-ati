@@ -1,10 +1,9 @@
-import { memo } from 'react'
+import { memo, type ReactNode } from 'react'
 import type {
   SupportLeafRenderUnit
 } from '../model/assistantSupportGrouping'
 import type { SupportRenderUnit, SupportSegmentRenderItem } from '../model/assistantMessageMapper'
 import { AssistantSupportSegmentContent } from './AssistantSupportSegmentContent'
-import { AssistantCompletedWorkGroup } from './AssistantCompletedWorkGroup'
 import {
   areSupportSegmentRenderItemListsEqual,
   areSupportSegmentRenderItemsEqual
@@ -56,9 +55,6 @@ const areSupportRenderUnitsEqual = (
       return areSupportSegmentRenderItemListsEqual(unit.items, nextUnit.items)
     }
 
-    if (unit.type === 'completedWork' && nextUnit.type === 'completedWork') {
-      return areSupportRenderUnitsEqual(unit.units, nextUnit.units)
-    }
 
     return false
   })
@@ -101,50 +97,27 @@ const AssistantSupportLeafUnit = memo(({
 ))
 AssistantSupportLeafUnit.displayName = 'AssistantSupportLeafUnit'
 
-const AssistantSupportRenderUnit = memo(({
-  unit,
-  onTypingChange
-}: {
-  unit: SupportRenderUnit
-  onTypingChange?: () => void
-}) => {
-  if (unit.type === 'completedWork') {
-    return (
-      <AssistantCompletedWorkGroup>
-        {unit.units.map(childUnit => (
-          <AssistantSupportLeafUnit
-            key={childUnit.key}
-            unit={childUnit}
-            fullWidth
-            nestedDisclosure
-            onTypingChange={onTypingChange}
-          />
-        ))}
-      </AssistantCompletedWorkGroup>
-    )
-  }
-
-  return <AssistantSupportLeafUnit unit={unit} onTypingChange={onTypingChange} />
-}, (prevProps, nextProps) => (
-  prevProps.onTypingChange === nextProps.onTypingChange
-  && areSupportRenderUnitsEqual([prevProps.unit], [nextProps.unit])
-))
-AssistantSupportRenderUnit.displayName = 'AssistantSupportRenderUnit'
-
-export const AssistantSupportSegmentList = memo(({
-  units,
-  onTypingChange
-}: {
+interface AssistantSupportSegmentListProps {
+  nestedDisclosure?: boolean
   units: SupportRenderUnit[]
   onTypingChange?: () => void
-}) => {
+}
+
+const AssistantSupportSegmentListComponent = ({
+  units,
+  onTypingChange,
+  nestedDisclosure = false
+}: AssistantSupportSegmentListProps): ReactNode => {
   return units.map((unit) => (
     <div key={unit.key} style={{ order: unit.order }}>
-      <AssistantSupportRenderUnit unit={unit} onTypingChange={onTypingChange} />
+      <AssistantSupportLeafUnit unit={unit} fullWidth={nestedDisclosure} nestedDisclosure={nestedDisclosure} onTypingChange={onTypingChange} />
     </div>
   ))
-}, (prevProps, nextProps) => (
+}
+
+export const AssistantSupportSegmentList = memo(AssistantSupportSegmentListComponent, (prevProps, nextProps) => (
   prevProps.onTypingChange === nextProps.onTypingChange
+  && prevProps.nestedDisclosure === nextProps.nestedDisclosure
   && areSupportRenderUnitsEqual(prevProps.units, nextProps.units)
 ))
 AssistantSupportSegmentList.displayName = 'AssistantSupportSegmentList'
