@@ -24,11 +24,12 @@ describe('ChatInputActions store subscriptions', () => {
   let root: Root
   let commitCount: number
 
-  const renderActions = (runPhase: RunPhase = 'idle'): void => {
+  const renderActions = (runPhase: RunPhase = 'idle', variant: 'default' | 'baseline' | 'surface' = 'default'): void => {
     root.render(
       <Profiler id="ChatInputActions" onRender={() => { commitCount += 1 }}>
         <ChatInputActions
           runPhase={runPhase}
+          variant={variant}
           onNewChat={() => undefined}
           onSubmit={() => undefined}
         />
@@ -57,6 +58,45 @@ describe('ChatInputActions store subscriptions', () => {
     container.remove()
     useChatStore.setState(initialChatStoreState, true)
   })
+
+  for (const variant of ['default', 'baseline', 'surface'] as const) {
+    it.each([
+      ['./workspaces/chat-1', 'tmp'],
+      ['/app/workspaces/chat-1/', 'tmp'],
+      ['C:\\app\\workspaces\\chat-1\\', 'tmp'],
+      ['./workspaces/tmp', 'tmp'],
+      ['workspaces/chat-1', 'tmp'],
+      ['/projects/chat-1', 'chat-1'],
+      ['/projects/myworkspaces/chat-1', 'chat-1'],
+      ['./workspaces/chat-2', 'chat-2'],
+      ['./workspaces/824b14dc-e1f8-44d8-9d11-c1dafb39fe7d', 'tmp'],
+      ['/app/workspaces/824b14dc-e1f8-44d8-9d11-c1dafb39fe7d/', 'tmp'],
+      ['C:\\app\\workspaces\\824b14dc-e1f8-44d8-9d11-c1dafb39fe7d\\', 'tmp'],
+      ['/projects/824b14dc-e1f8-44d8-9d11-c1dafb39fe7d', '824b14dc-e1f8-44d8-9d11-c1dafb39fe7d'],
+      ['/projects/myworkspaces/824b14dc-e1f8-44d8-9d11-c1dafb39fe7d', '824b14dc-e1f8-44d8-9d11-c1dafb39fe7d'],
+      ['/projects/example/', 'example'],
+      [undefined, 'Workspace']
+    ])(`shows the workspace label for %s in ${variant}`, async (workspacePath, label) => {
+      useChatStore.setState({
+        chatList: [{
+          id: 1,
+          uuid: 'chat-1',
+          title: 'Chat 1',
+          messages: [],
+          workspacePath,
+          createTime: 1,
+          updateTime: 1
+        }]
+      })
+      await act(async () => {
+        renderActions('idle', variant)
+      })
+      const button = Array.from(container.querySelectorAll('button')).find(button =>
+        button.textContent?.trim() === label
+      )
+      expect(button).toBeDefined()
+    })
+  }
 
   it('does not render for preview-only updates', async () => {
     await act(async () => {

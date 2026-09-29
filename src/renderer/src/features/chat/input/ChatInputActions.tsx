@@ -11,8 +11,8 @@ import { useChatStore, type RunPhase } from '@renderer/features/chat/state/chatS
 import { invokeSelectDirectory } from '@renderer/infrastructure/ipc'
 import { getChatFromList, getChatWorkspacePath } from '@renderer/features/chat/chatWorkspace'
 import { saveChat } from '@renderer/infrastructure/persistence/ChatRepository'
-import { getDefaultWorkspacePath } from '@shared/workspace/workspacePaths'
-import { v4 as uuidv4 } from 'uuid'
+import { DEFAULT_WORKSPACE_DIR, DEFAULT_WORKSPACE_NAME, getDefaultWorkspacePath } from '@shared/workspace/workspacePaths'
+import { v4 as uuidv4, validate as isUuid } from 'uuid'
 import {
   BadgePlus,
   CornerDownLeft,
@@ -52,23 +52,27 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
   const currentWorkspacePath = useMemo(() => {
     return getChatWorkspacePath({ chatUuid: chatUuid ?? undefined, chatId: chatId ?? undefined, chatList })
   }, [chatUuid, chatId, chatList])
-  const isCustomWorkspace = useMemo(() => {
-    if (!currentWorkspacePath || !chatUuid) return false
-    const normalizedPath = currentWorkspacePath.replace(/\\/g, '/')
-    const defaultSuffixes = [`/workspaces/${chatUuid}`, `workspaces/${chatUuid}`]
-    const isDefaultPath = defaultSuffixes.some(suffix => normalizedPath.endsWith(suffix))
-    return !isDefaultPath
+  const isDefaultWorkspace = useMemo(() => {
+    if (!currentWorkspacePath) return false
+    const normalizedPath = currentWorkspacePath.replace(/\\/g, '/').replace(/\/+$/, '')
+    const directoryName = normalizedPath.split('/').pop() || ''
+    const defaultNames = chatUuid ? [chatUuid, DEFAULT_WORKSPACE_NAME] : [DEFAULT_WORKSPACE_NAME]
+    if (isUuid(directoryName)) defaultNames.push(directoryName)
+    return defaultNames.some(name => {
+      const suffix = `${DEFAULT_WORKSPACE_DIR}/${name}`
+      return normalizedPath === suffix || normalizedPath.endsWith(`/${suffix}`)
+    })
   }, [currentWorkspacePath, chatUuid])
-
-  // 获取目录名（路径的最后一部分）
-  const getDirectoryName = (path: string | undefined): string => {
-    if (!path) return 'Workspace'
-    const parts = path.split(/[/\\]/).filter(p => p) // 过滤空字符串
-    return parts[parts.length - 1] || 'Workspace'
-  }
+  const isCustomWorkspace = Boolean(currentWorkspacePath) && !isDefaultWorkspace
+  const workspaceLabel = !currentWorkspacePath
+    ? 'Workspace'
+    : isDefaultWorkspace
+      ? DEFAULT_WORKSPACE_NAME
+      : currentWorkspacePath.split(/[/\\]/).filter(Boolean).pop() || 'Workspace'
+  const workspaceTooltip = currentWorkspacePath || 'Select Workspace'
 
   // 优化的 New Chat 处理逻辑
-  const handleNewChat = async () => {
+  const handleNewChat = async (): Promise<void> => {
     // 如果当前 chat 存在且没有任何消息，直接清空 workspace 复用当前 chat
     if (chatId && chatUuid && messages.length === 0) {
       const currentChat = getChatFromList({ chatId, chatList })
@@ -83,7 +87,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
     onNewChat()
   }
 
-  const handleWorkspaceSelect = async (directPath?: string) => {
+  const handleWorkspaceSelect = async (directPath?: string): Promise<void> => {
     try {
       let selectedPath = directPath
 
@@ -139,7 +143,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
     }
   }, [workspacePathToSelect])
 
-  const handleStopClick = () => {
+  const handleStopClick = (): void => {
     if (onCancel) {
       onCancel()
     } else {
@@ -175,13 +179,13 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
               >
                 <FolderOpen className="h-4 w-4 shrink-0" strokeWidth={1.8} />
                 <span className="max-w-[92px] truncate text-[10.5px] font-medium select-none">
-                  {isCustomWorkspace ? getDirectoryName(currentWorkspacePath) : 'Workspace'}
+                  {workspaceLabel}
                 </span>
               </Button>
             </TooltipTrigger>
             <TooltipContent className="rounded-lg border border-slate-700/50 bg-slate-900/95 px-3 py-1.5 text-xs text-slate-100 shadow-xl shadow-black/20 backdrop-blur-xl dark:border-slate-600/50 dark:bg-slate-800/95">
               <p className="max-w-72 break-words font-medium">
-                {isCustomWorkspace ? currentWorkspacePath : 'Select Workspace'}
+                {workspaceTooltip}
               </p>
             </TooltipContent>
           </Tooltip>
@@ -291,20 +295,20 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
                         'dark:hover:border-(--app-border-standard) dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-primary) dark:hover:shadow-none'
                       ]
                 )}
-                onClick={_ => {handleWorkspaceSelect()}}
+                onClick={() => { void handleWorkspaceSelect() }}
               >
                 {isCustomWorkspace && (
                   <div className="absolute inset-0 bg-linear-to-r from-blue-100/0 via-blue-100/50 to-blue-200/0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 dark:from-blue-900/0 dark:via-blue-900/30 dark:to-blue-900/0" />
                 )}
                 <FolderOpen className="relative z-10 h-4 w-4 shrink-0 transition-transform duration-300 ease-out group-hover:scale-110" strokeWidth={2} />
                 <span className="relative z-10 max-w-[78px] truncate text-[10px] font-medium transition-all duration-300 ease-out select-none">
-                  {isCustomWorkspace ? getDirectoryName(currentWorkspacePath) : 'Workspace'}
+                  {workspaceLabel}
                 </span>
               </Button>
             </TooltipTrigger>
             <TooltipContent className="rounded-lg border border-slate-700/50 bg-slate-900/95 px-3 py-1.5 text-xs text-slate-100 shadow-xl shadow-black/20 backdrop-blur-xl dark:border-(--app-border-standard) dark:bg-(--app-surface-raised) dark:text-(--app-text-primary) dark:backdrop-blur-none">
               <p className="font-medium">
-                {isCustomWorkspace ? currentWorkspacePath : 'Select Workspace'}
+                {workspaceTooltip}
               </p>
             </TooltipContent>
           </Tooltip>
@@ -432,7 +436,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
                         "active:scale-[0.98]"
                       ]
                 )}
-                onClick={_ => {handleWorkspaceSelect()}}
+                onClick={() => { void handleWorkspaceSelect() }}
               >
                 {/* Animated background gradient on hover */}
                 {isCustomWorkspace && (
@@ -457,7 +461,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
                     "transition-all duration-300 ease-out"
                   )}
                 >
-                  {isCustomWorkspace ? getDirectoryName(currentWorkspacePath) : 'Workspace'}
+                  {workspaceLabel}
                 </span>
               </Button>
             </TooltipTrigger>
@@ -471,7 +475,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
               )}
             >
               <p className="font-medium">
-                {isCustomWorkspace ? currentWorkspacePath : 'Select Workspace'}
+                {workspaceTooltip}
               </p>
             </TooltipContent>
           </Tooltip>
