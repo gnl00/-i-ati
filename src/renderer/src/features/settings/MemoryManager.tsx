@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react'
-import { Badge } from '@renderer/shared/components/ui/badge'
+import React, { useEffect, useId, useRef, useState } from 'react'
+import { Brain, RefreshCw } from 'lucide-react'
 import InlineDeleteConfirm from './common/InlineDeleteConfirm'
 import { Label } from '@renderer/shared/components/ui/label'
 import { Switch } from '@renderer/shared/components/ui/switch'
@@ -11,8 +11,7 @@ import {
   SettingsListItem,
   SettingsPageShell,
   SettingsSectionHeader,
-  SettingsToolbar,
-  SettingsToolbarLabel,
+  SettingsSubsectionHeader,
   settingsSecondaryButtonClassName
 } from './common/SettingsLayout'
 
@@ -29,22 +28,54 @@ interface MemoryListEntry {
   context_origin: string
   context_en: string
   timestamp: number
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 }
 
-const roleMeta: Record<string, { label: string; className: string }> = {
-  user: {
-    label: 'User',
-    className: 'text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800/60'
-  },
-  assistant: {
-    label: 'Assistant',
-    className: 'text-violet-600 border-violet-200 bg-violet-50 dark:bg-violet-900/20 dark:text-violet-400 dark:border-violet-800/60'
-  },
-  system: {
-    label: 'System',
-    className: 'text-gray-500 border-gray-200 bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700'
-  }
+const roleLabels: Record<string, string> = {
+  user: 'User',
+  assistant: 'Assistant',
+  system: 'System'
+}
+
+const MemoryContent: React.FC<{ text: string }> = ({ text }) => {
+  const id = useId()
+  const paragraph = useRef<HTMLParagraphElement>(null)
+  const [expanded, setExpanded] = useState(false)
+  const [truncated, setTruncated] = useState(false)
+
+  useEffect(() => {
+    const element = paragraph.current
+    if (!element || expanded) return
+    const measure = (): void =>
+      setTruncated(element.scrollHeight > element.clientHeight)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
+    return (): void => observer.disconnect()
+  }, [text, expanded])
+
+  return (
+    <>
+      <p
+        ref={paragraph}
+        id={id}
+        className={`whitespace-pre-wrap break-words text-[12px] leading-relaxed text-gray-700 dark:text-(--app-text-body) ${expanded ? '' : 'line-clamp-2'}`}
+      >
+        {text}
+      </p>
+      {(truncated || expanded) && (
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-controls={id}
+          onClick={() => setExpanded(!expanded)}
+          className="mt-1 text-[11px] text-gray-500 hover:text-gray-800 dark:text-(--app-text-secondary) dark:hover:text-(--app-text-primary)"
+        >
+          {expanded ? 'Show less' : 'Show more'}
+        </button>
+      )}
+    </>
+  )
 }
 
 const MemoryManager: React.FC<MemoryManagerProps> = ({
@@ -54,7 +85,7 @@ const MemoryManager: React.FC<MemoryManagerProps> = ({
   const [memoryItems, setMemoryItems] = useState<MemoryListEntry[]>([])
   const [isMemoryLoading, setIsMemoryLoading] = useState(false)
 
-  const loadMemories = async () => {
+  const loadMemories = async (): Promise<void> => {
     setIsMemoryLoading(true)
     try {
       const items = await window.electron.ipcRenderer.invoke(MEMORY_GET_ALL)
@@ -67,10 +98,10 @@ const MemoryManager: React.FC<MemoryManagerProps> = ({
     }
   }
 
-  const handleDeleteMemory = async (id: string) => {
+  const handleDeleteMemory = async (id: string): Promise<void> => {
     try {
       await window.electron.ipcRenderer.invoke(MEMORY_DELETE, id)
-      setMemoryItems(prev => prev.filter(item => item.id !== id))
+      setMemoryItems((prev) => prev.filter((item) => item.id !== id))
       toast.success('Memory deleted')
     } catch (error) {
       console.error('[MemoryManager] Failed to delete memory:', error)
@@ -83,72 +114,73 @@ const MemoryManager: React.FC<MemoryManagerProps> = ({
   }, [])
 
   return (
-    <SettingsPageShell contentClassName='gap-1'>
+    <SettingsPageShell contentClassName="gap-2">
       <SettingsSectionHeader
-        className='border rounded-2xl border-gray-100 dark:border-gray-700/50 shadow-xs'
-        title={(
+        className="items-center"
+        title={
           <Label htmlFor="toggle-memory" className="cursor-default">
             Long-term Memory
           </Label>
-        )}
-        badges={(
-          <>
-            <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-indigo-600 border-indigo-200 bg-indigo-50 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-800">
-              MEMORY
-            </Badge>
-          </>
-        )}
-        description="Semantic memory storage and retrieval using vector embeddings. Remembers important context across conversations."
-        actions={(
+        }
+        description="Remembers important context across conversations."
+        actions={
           <Switch
             checked={memoryEnabled}
             onCheckedChange={setMemoryEnabled}
             id="toggle-memory"
-            className="data-[state=checked]:bg-indigo-600 mt-0.5 shrink-0"
           />
-        )}
+        }
       />
 
-      <div className='border rounded-2xl border-gray-100 dark:border-gray-700/50 flex-1 min-h-0 flex flex-col overflow-hidden'>
-        <SettingsToolbar className="flex items-center justify-between gap-3">
-          <SettingsToolbarLabel>Stored Memories ({memoryItems.length} stored)</SettingsToolbarLabel>
-          <button
-            onClick={loadMemories}
-            disabled={isMemoryLoading}
-            className={settingsSecondaryButtonClassName}
-          >
-            <i className={`ri-refresh-line text-[12px] ${isMemoryLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-        </SettingsToolbar>
+      <div className="mx-4 mb-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-gray-100 bg-gray-50/60 dark:border-(--app-border-subtle) dark:bg-(--app-surface-inset)">
+        <SettingsSubsectionHeader
+          title="Stored Memories"
+          className="items-center border-t-0 bg-transparent px-3 dark:bg-transparent"
+          badges={
+            <span className="text-[11px] text-gray-400 dark:text-(--app-text-muted)">
+              {memoryItems.length} stored
+            </span>
+          }
+          actions={
+            <button
+              onClick={() => void loadMemories()}
+              disabled={isMemoryLoading}
+              className={settingsSecondaryButtonClassName}
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${isMemoryLoading ? 'animate-spin' : ''}`}
+              />
+              Refresh
+            </button>
+          }
+        />
 
-        <SettingsList className="bg-transparent dark:bg-transparent border-t-0">
+        <SettingsList className="bg-transparent dark:bg-transparent">
           {memoryItems.length === 0 ? (
             <SettingsEmptyState
-              icon={<i className="ri-brain-line text-[15px] text-gray-400 dark:text-gray-500" />}
-              title={isMemoryLoading ? 'Loading memories…' : 'No memories stored'}
-              description={isMemoryLoading ? undefined : 'Enable memory above and start a conversation.'}
+              icon={<Brain className="h-4 w-4" />}
+              title={
+                isMemoryLoading ? 'Loading memories…' : 'No memories stored'
+              }
+              description={
+                isMemoryLoading
+                  ? undefined
+                  : 'Enable memory above and start a conversation.'
+              }
             />
           ) : (
-            memoryItems.map(item => {
-              const role = roleMeta[item.role] ?? roleMeta.system
+            memoryItems.map((item) => {
+              const role = roleLabels[item.role] ?? roleLabels.system
               return (
-                <SettingsListItem
-                  key={item.id}
-                  className="gap-3"
-                >
-                  <div className="flex-1 min-w-0 space-y-1.5">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9.5px] font-medium border ${role.className}`}>
-                        {role.label}
-                      </span>
-                      <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                <SettingsListItem key={item.id} className="gap-3 px-3">
+                  <div className="min-w-0 flex-1">
+                    <MemoryContent text={item.context_origin} />
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-400 dark:text-(--app-text-muted)">
+                      <span>{role}</span>
+                      <time dateTime={new Date(item.timestamp).toISOString()}>
                         {new Date(item.timestamp).toLocaleString()}
-                      </span>
+                      </time>
                     </div>
-                    <p className="text-[12px] text-gray-700 dark:text-gray-300 leading-relaxed line-clamp-2">
-                      {item.context_origin}
-                    </p>
                   </div>
                   <InlineDeleteConfirm
                     onConfirm={() => handleDeleteMemory(item.id)}
