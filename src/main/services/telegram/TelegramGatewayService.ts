@@ -3,15 +3,13 @@ import { net } from 'electron'
 import { Bot } from 'grammy'
 import { configDb } from '@main/db/config'
 import { RunService } from '@main/orchestration/chat/run'
-import type { RunEventSink } from '@main/agent/contracts'
 import { AppConfigStore } from '@main/hosts/chat/config/AppConfigStore'
 import { ChatModelContextResolver } from '@main/hosts/chat/config/ChatModelContextResolver'
 import { TelegramAgentAdapter, type TelegramInboundEnvelope } from '@main/hosts/telegram'
 import { TelegramRenderResponder } from '@main/hosts/telegram/runtime'
 import { chatDb } from '@main/db/chat'
 import { createLogger } from '@main/logging/LogService'
-import { RUN_TOOL_EVENTS } from '@shared/run/tool-events'
-import type { RunEventEnvelope } from '@shared/run/events'
+import type { ToolConfirmation, TelegramConfirmationTarget } from '@shared/tools/confirmation'
 import { TelegramUpdateMapper } from './TelegramUpdateMapper'
 import { TelegramFileService } from './TelegramFileService'
 import { TelegramCommandService } from './TelegramCommandService'
@@ -46,42 +44,115 @@ export class TelegramGatewayService {
   private static readonly START_TIMEOUT_MS = 30_000
   private static readonly POLLING_START_TIMEOUT_MS = 30_000
 
-  private createToolConfirmationSink(envelope: TelegramInboundEnvelope): RunEventSink {
-    return {
-      handleEvent: async (event: RunEventEnvelope) => {
-        if (event.type !== RUN_TOOL_EVENTS.TOOL_CONFIRMATION_REQUIRED) {
-          return
-        }
+  private readonly confirmationMessages = new Map<string, {
+    descriptor: ToolConfirmation
+    envelope: Pick<TelegramInboundEnvelope, 'chatId' | 'threadId' | 'messageId'>
+    messageId?: number
+    appliedVersion: number
+  }>()
+  private confirmationQueue: Promise<void> = Promise.resolve()
+  private confirmationRetry?: NodeJS.Timeout
 
-        const bot = this.bot
-        if (!bot) {
-          return
-        }
-        const payload = event.payload as RunEventEnvelope<typeof RUN_TOOL_EVENTS.TOOL_CONFIRMATION_REQUIRED>['payload']
+  constructor() {
+    this.runService.subscribeToolConfirmations((descriptor, targets) => {
+      for (const target of targets) {
+        void this.trackConfirmation(descriptor, { chatId: target.peerId, threadId: target.threadId, messageId: '' })
+      }
+    })
+  }
 
-        await bot.api.sendMessage(
-          Number(envelope.chatId),
-          `<blockquote>${this.escapeHtml(`tool ${this.formatToolLabel(payload.name)} needs approval`)}</blockquote>`,
-          {
-            parse_mode: 'HTML',
-            ...(envelope.threadId ? { message_thread_id: Number(envelope.threadId) } : {}),
-            ...(envelope.messageId ? { reply_parameters: { message_id: Number(envelope.messageId) } } : {}),
-            reply_markup: {
-              inline_keyboard: [[
-                {
-                  text: 'Approve',
-                  callback_data: `tgcmd:tool_confirm:approve:${payload.toolCallId}`
-                },
-                {
-                  text: 'Deny',
-                  callback_data: `tgcmd:tool_confirm:deny:${payload.toolCallId}`
-                }
-              ]]
+  private canDeliverApproval(target: TelegramConfirmationTarget): boolean {
+    const config = this.appConfigStore.getConfig()?.telegram
+    if (!config?.enabled || (config.allowedChatIds?.length && !config.allowedChatIds.includes(target.peerId))) return false
+    return target.peerId.startsWith('-') ? config.groupPolicy !== 'disabled' : config.dmPolicy !== 'disabled'
+  }
+
+  private trackConfirmation(
+    descriptor: ToolConfirmation,
+    envelope: Pick<TelegramInboundEnvelope, 'chatId' | 'threadId' | 'messageId'>
+  ): Promise<void> {
+    const key = JSON.stringify([descriptor.confirmationId, envelope.chatId, envelope.threadId ?? null])
+    const existing = this.confirmationMessages.get(key)
+    if (existing && descriptor.version <= existing.descriptor.version) return Promise.resolve()
+    this.confirmationMessages.set(key, {
+      descriptor, envelope, messageId: existing?.messageId, appliedVersion: existing?.appliedVersion ?? 0
+    })
+    return this.queueConfirmationSync()
+  }
+
+  private queueConfirmationSync(): Promise<void> {
+    this.confirmationQueue = this.confirmationQueue.then(() => this.syncConfirmationMessages())
+    return this.confirmationQueue
+  }
+
+  private async syncConfirmationMessages(): Promise<void> {
+    const bot = this.bot
+    if (!bot) return
+    let retry = false
+    for (const [id, entry] of this.confirmationMessages) {
+      if (entry.appliedVersion >= entry.descriptor.version || !this.canDeliverApproval({ peerId: entry.envelope.chatId, threadId: entry.envelope.threadId })) continue
+      try {
+        if (!entry.messageId) {
+          const descriptor = entry.descriptor
+          const sent = await bot.api.sendMessage(
+            Number(entry.envelope.chatId),
+            this.confirmationText(descriptor),
+            {
+              parse_mode: 'HTML',
+              ...(entry.envelope.threadId ? { message_thread_id: Number(entry.envelope.threadId) } : {}),
+              ...(entry.envelope.messageId ? { reply_parameters: { message_id: Number(entry.envelope.messageId) } } : {}),
+              reply_markup: { inline_keyboard: this.confirmationKeyboard(descriptor) }
             }
+          )
+          // A decision may arrive while sendMessage is in flight.
+          const current = this.confirmationMessages.get(id)!
+          current.messageId = sent.message_id
+          current.appliedVersion = descriptor.version
+        }
+        const current = this.confirmationMessages.get(id)!
+        if (current.appliedVersion < current.descriptor.version) {
+          const descriptor = current.descriptor
+          try {
+            await bot.api.editMessageText(Number(current.envelope.chatId), current.messageId!, this.confirmationText(descriptor), {
+              parse_mode: 'HTML', reply_markup: { inline_keyboard: this.confirmationKeyboard(descriptor) }
+            })
+          } catch (error) {
+            if (!(error instanceof Error) || !error.message.toLowerCase().includes('message is not modified')) throw error
           }
-        )
+          current.appliedVersion = descriptor.version
+        }
+      } catch (error) {
+        retry = true
+        this.logger.warn('tool_confirmation.sync_failed', {
+          confirmationId: id, error: error instanceof Error ? error.message : String(error)
+        })
       }
     }
+    const settled = [...this.confirmationMessages.entries()].filter(([, entry]) => (
+      entry.descriptor.status !== 'pending'
+    ))
+    for (const [id] of settled.slice(0, Math.max(0, settled.length - 500))) this.confirmationMessages.delete(id)
+    if (retry && this.bot === bot && !this.confirmationRetry) {
+      this.confirmationRetry = setTimeout(() => {
+        this.confirmationRetry = undefined
+        void this.queueConfirmationSync()
+      }, 5_000)
+      this.confirmationRetry.unref()
+    }
+  }
+
+  private confirmationText(descriptor: ToolConfirmation): string {
+    const status = {
+      pending: 'needs approval', approved: 'approved', denied: 'denied', expired: 'approval expired', cancelled: 'approval cancelled'
+    }[descriptor.status]
+    return `<blockquote>${this.escapeHtml(`tool ${this.formatToolLabel(descriptor.name)} ${status}`)}</blockquote>`
+  }
+
+  private confirmationKeyboard(descriptor: ToolConfirmation): Array<Array<{ text: string; callback_data: string }>> {
+    return descriptor.status === 'pending' ? [[
+      { text: 'Approve', callback_data: `tgcmd:tool_confirm:approve:${descriptor.confirmationId}` },
+      { text: 'Deny', callback_data: `tgcmd:tool_confirm:deny:${descriptor.confirmationId}` }
+    ]] : []
   }
 
   private formatToolLabel(toolName: string): string {
@@ -262,6 +333,8 @@ export class TelegramGatewayService {
       this.logger.error('stop.failed', error)
     })
     this.bot = null
+    if (this.confirmationRetry) clearTimeout(this.confirmationRetry)
+    this.confirmationRetry = undefined
     this.logger.info('stopped')
   }
 
@@ -438,7 +511,6 @@ export class TelegramGatewayService {
       : null
 
     void this.runService.execute(input, {
-      eventSinks: [this.createToolConfirmationSink(envelope)],
       ...(responder ? { hostRenderSinks: [responder] } : {})
     })
       .then(() => {
@@ -597,6 +669,7 @@ export class TelegramGatewayService {
           })
           this.starting = false
           this.running = true
+          void this.queueConfirmationSync()
           this.lastSuccessfulPollAt = Date.now()
           this.logger.info('start.completed', {
             runId,
@@ -735,14 +808,24 @@ export class TelegramGatewayService {
       }
 
       if (callback.type === 'tool_confirmation') {
-        this.runService.resolveToolConfirmation(callback.toolCallId, {
+        const result = this.runService.submitTelegramToolConfirmation(callback.confirmationId, {
           approved: callback.approved,
           reason: callback.approved ? undefined : 'denied from telegram'
+        }, {
+          host: 'telegram', peerId: envelope.chatId, threadId: envelope.threadId, userId: envelope.fromUserId
         })
-        await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } }).catch(() => undefined)
-        await ctx.answerCallbackQuery({
-          text: callback.approved ? 'Approved.' : 'Denied.'
-        }).catch(() => undefined)
+        const descriptor = result.confirmation
+        const text = descriptor
+          ? { pending: 'Pending.', approved: 'Approved.', denied: 'Denied.', expired: 'Approval expired.', cancelled: 'Approval cancelled.' }[descriptor.status]
+          : result.ok ? 'Approved.' : result.reason === 'identity_mismatch'
+            ? 'This approval belongs to another chat or topic.'
+            : 'Approval expired or is no longer available.'
+        await ctx.answerCallbackQuery({ text }).catch(() => undefined)
+        if (descriptor || (!result.ok && result.reason === 'not_found')) {
+          await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } }).catch(() => undefined)
+        }
+        // Resolved events update every host; also reconcile after a duplicate/expired click.
+        void this.queueConfirmationSync()
         return
       }
 

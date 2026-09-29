@@ -3,6 +3,7 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useToolConfirmationStore } from '@renderer/features/chat/state/toolConfirmationStore'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 
 const motionSettings = vi.hoisted(() => ({ reduced: false }))
@@ -70,6 +71,7 @@ describe('ToolCallResult', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
+    useToolConfirmationStore.getState().activate('chat-1')
     clipboardWriteText.mockReset()
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
@@ -90,6 +92,20 @@ describe('ToolCallResult', () => {
     await act(async () => root.unmount())
     container.remove()
     vi.useRealTimers()
+  })
+
+  it('shows remote approval separately from actual tool execution', async () => {
+    const pending = { confirmationId: 'approval', submissionId: 'run', chatUuid: 'chat-1', toolCallId: 'tool-1', name: 'search', status: 'pending' as const, version: 1, createdAt: 1, expiresAt: 300001 }
+    useToolConfirmationStore.getState().apply(pending)
+    await act(async () => root.render(<ToolCallResult toolCall={createToolCall('pending')} index={0} />))
+    expect(container.textContent).toContain('awaiting approval')
+    act(() => useToolConfirmationStore.getState().apply({ ...pending, status: 'approved', version: 2 }))
+    expect(container.textContent).toContain('approved')
+    expect(container.querySelector('button')?.getAttribute('aria-label')).toContain('status approved')
+    await act(async () => root.render(<ToolCallResult toolCall={createToolCall('running')} index={0} />))
+    expect(container.querySelector('button')?.getAttribute('aria-label')).toContain('status running')
+    await act(async () => root.render(<ToolCallResult toolCall={createToolCall('completed')} index={0} />))
+    expect(container.querySelector('button')?.getAttribute('aria-label')).toContain('status completed')
   })
 
   it('opens the Tools tab and stores only the selected identity', async () => {

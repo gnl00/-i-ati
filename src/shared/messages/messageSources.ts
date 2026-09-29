@@ -2,6 +2,7 @@ export const MESSAGE_SOURCE = {
   SCHEDULE: 'schedule',
   STREAM_PREVIEW: 'stream_preview',
   TELEGRAM: 'telegram',
+  TELEGRAM_DELIVERY: 'telegram_delivery',
   TUI: 'tui',
   SYSTEM_PROMPT: 'system_prompt',
   SYSTEM_ENVIRONMENT_CONTEXT: 'system_environment_context',
@@ -34,4 +35,12 @@ export const HIDDEN_MESSAGE_SOURCES = new Set<string>([
 
 export function isInteractiveMessageSource(source?: string): boolean {
   return source === undefined || source === MESSAGE_SOURCE.TUI
+}
+
+// Delivery copies stay visible in the transcript but are not model conversation turns.
+export function isTransportDeliveryMessage(message: ChatMessage): boolean {
+  return message.source === MESSAGE_SOURCE.TELEGRAM_DELIVERY
+    || (message.source === MESSAGE_SOURCE.TELEGRAM && message.role === 'assistant'
+      && message.host?.direction === 'outbound' && !message.model && !message.modelRef
+      && !message.toolCalls?.length)
 }

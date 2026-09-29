@@ -82,7 +82,7 @@ describe('TUI view lifecycle', () => {
       {
         kind: 'approval',
         submissionId: 'run',
-        payload: { toolCallId: 'tool', name: 'exec' }
+        payload: { toolCallId: 'tool', name: 'exec', confirmationId: 'approval', submissionId: 'run', chatUuid: 'chat', status: 'pending', version: 1, createdAt: 1, expiresAt: 300001 }
       }
     ]
     vi.mocked(actions.answer).mockImplementation(() => {

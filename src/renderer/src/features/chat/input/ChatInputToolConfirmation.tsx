@@ -4,6 +4,7 @@ import { CommandConfirmation } from '../message/assistant-message/CommandConfirm
 import { buildToolConfirmationRequest } from '../toolConfirmation/commandConfirmationPresenter'
 import { useToolConfirmationStore } from '@renderer/features/chat/state/toolConfirmationStore'
 import { cn } from '@renderer/shared/lib/utils'
+import { toast } from 'sonner'
 
 interface ChatInputToolConfirmationProps {
   className?: string
@@ -15,7 +16,7 @@ export const ChatInputToolConfirmation: React.FC<ChatInputToolConfirmationProps>
   const pendingToolConfirmCount = useToolConfirmationStore(state => state.pendingRequests.length)
   const confirm = useToolConfirmationStore(state => state.confirm)
   const cancel = useToolConfirmationStore(state => state.cancel)
-  const [settlingToolCallId, setSettlingToolCallId] = React.useState<string | null>(null)
+  const [settlingConfirmationId, setSettlingConfirmationId] = React.useState<string | null>(null)
 
   const toolConfirmationRequest = useMemo(() => {
     return buildToolConfirmationRequest({
@@ -24,30 +25,34 @@ export const ChatInputToolConfirmation: React.FC<ChatInputToolConfirmationProps>
     })
   }, [pendingToolConfirm, pendingToolConfirmCount])
 
-  const isSettling = Boolean(pendingToolConfirm && settlingToolCallId === pendingToolConfirm.toolCallId)
+  const isSettling = Boolean(pendingToolConfirm && settlingConfirmationId === pendingToolConfirm.confirmationId)
   const motionTransition: Transition = shouldReduceMotion
     ? { duration: 0 }
     : { duration: 0.2, ease: [0.22, 1, 0.36, 1] }
   const handleConfirmCommand = useCallback(async () => {
     if (!pendingToolConfirm) return Promise.resolve()
-    setSettlingToolCallId(pendingToolConfirm.toolCallId)
+    setSettlingConfirmationId(pendingToolConfirm.confirmationId)
     try {
-      await confirm(pendingToolConfirm.toolCallId)
+      await confirm(pendingToolConfirm.confirmationId)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Tool approval could not be submitted')
     } finally {
-      setSettlingToolCallId(current => (
-        current === pendingToolConfirm.toolCallId ? null : current
+      setSettlingConfirmationId(current => (
+        current === pendingToolConfirm.confirmationId ? null : current
       ))
     }
   }, [confirm, pendingToolConfirm])
 
   const handleCancelCommand = useCallback(async () => {
     if (!pendingToolConfirm) return Promise.resolve()
-    setSettlingToolCallId(pendingToolConfirm.toolCallId)
+    setSettlingConfirmationId(pendingToolConfirm.confirmationId)
     try {
-      await cancel('user abort', pendingToolConfirm.toolCallId)
+      await cancel('user abort', pendingToolConfirm.confirmationId)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Tool approval could not be submitted')
     } finally {
-      setSettlingToolCallId(current => (
-        current === pendingToolConfirm.toolCallId ? null : current
+      setSettlingConfirmationId(current => (
+        current === pendingToolConfirm.confirmationId ? null : current
       ))
     }
   }, [cancel, pendingToolConfirm])
@@ -56,7 +61,7 @@ export const ChatInputToolConfirmation: React.FC<ChatInputToolConfirmationProps>
     <AnimatePresence initial={false} mode="wait">
       {pendingToolConfirm && toolConfirmationRequest && (
         <motion.div
-          key={pendingToolConfirm.toolCallId}
+          key={pendingToolConfirm.confirmationId}
           data-testid="chat-input-tool-confirmation-frame"
           className={cn(
             'grid max-h-[clamp(168px,38vh,280px)] min-h-0 shrink px-2 pb-1',

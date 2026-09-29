@@ -11,7 +11,7 @@
 import { agent } from '@main/agent'
 import { resolveRequestOverrides } from '@main/request/overrides'
 import { buildCompressionPrompt } from '@shared/prompts'
-import { HIDDEN_MESSAGE_SOURCES } from '@shared/messages/messageSources'
+import { HIDDEN_MESSAGE_SOURCES, isTransportDeliveryMessage } from '@shared/messages/messageSources'
 import { chatDb } from '@main/db/chat'
 import { createLogger } from '@main/logging/LogService'
 import { CompressionTranscriptBuilder } from './CompressionTranscriptBuilder'
@@ -65,6 +65,7 @@ export class MessageCompressionService {
     model: AccountModel,
     config?: CompressionConfig
   ): CompressionStrategy {
+    messages = messages.filter(message => !isTransportDeliveryMessage(message.body))
     // 1. 创建已被压缩的消息 ID 集合
     const compressedIds = this.buildCompressedIdSet(existingSummaries)
 
@@ -356,7 +357,7 @@ export class MessageCompressionService {
 
       // 5. 获取需要压缩的消息
       const messagesToCompress = messages.filter(m =>
-        m.id && strategy.messagesToCompress.includes(m.id)
+        m.id && strategy.messagesToCompress.includes(m.id) && !isTransportDeliveryMessage(m.body)
       )
       const cumulativeMessageIds = this.buildCumulativeMessageIds(
         existingSummaries,

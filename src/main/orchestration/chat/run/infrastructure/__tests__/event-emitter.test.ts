@@ -105,4 +105,15 @@ describe('RunEventEmitter', () => {
     ])
     expect(sink.handleEvent).toHaveBeenCalledTimes(transportOnlyEvents.length + 2)
   })
+  it('continues delivery to TUI when Chat IPC is unavailable', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    webContentsSendMock.mockImplementation(() => { throw new Error('window closed') })
+    const handleEvent = vi.fn()
+    const emitter = new RunEventEmitter({ submissionId: 'run' }, [{ handleEvent }])
+    emitter.emit(RUN_EVENTS.RUN_ACCEPTED, { accepted: true, submissionId: 'run' })
+    expect(saveRunEventMock).toHaveBeenCalledOnce()
+    expect(handleEvent).toHaveBeenCalledOnce()
+    warn.mockRestore()
+  })
+
 })

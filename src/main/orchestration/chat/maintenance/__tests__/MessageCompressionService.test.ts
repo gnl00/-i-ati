@@ -89,6 +89,20 @@ describe('MessageCompressionService', () => {
     agentMock.mockReset()
   })
 
+  it('excludes both legacy and explicitly tagged delivery copies from summary selection', () => {
+    const service = new MessageCompressionService()
+    const history = Array.from({ length: 5 }, (_, index) => [
+      message(index * 2 + 1, 'user', 'request'), message(index * 2 + 2, 'assistant', 'reply', 200)
+    ]).flat()
+    const expected = service.analyzeCompressionStrategy(history, [], model, config)
+    const deliveries = [
+      message(100, 'assistant', 'legacy copy', 900, { source: 'telegram', host: { type: 'telegram', direction: 'outbound', peerId: '123' } }),
+      message(101, 'assistant', 'delivery copy', 900, { source: 'telegram_delivery' })
+    ]
+    const interleaved = [...history.slice(0, 3), ...deliveries, ...history.slice(3)]
+    expect(service.analyzeCompressionStrategy(interleaved, [], model, config)).toEqual(expected)
+  })
+
   it('uses accumulated response tokens against model context window', () => {
     const service = new MessageCompressionService()
 

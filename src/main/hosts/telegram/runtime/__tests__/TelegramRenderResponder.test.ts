@@ -240,7 +240,7 @@ describe('TelegramRenderResponder', () => {
     })
   })
 
-  it('sends tool start immediately and sends tool done with args after result', async () => {
+  it('waits for execution before announcing start and retains args in the result', async () => {
     const sendMessage = vi
       .fn()
       .mockResolvedValueOnce({ message_id: 120 })
@@ -252,6 +252,8 @@ describe('TelegramRenderResponder', () => {
       toolName: 'memory_retrieval',
       toolArgs: '{"query":"latest api"}'
     }))
+    expect(sendMessage).not.toHaveBeenCalled()
+    await responder.handle(toolExecutionStarted({ toolCallId: 'tool-1', toolName: 'memory_retrieval' }))
     await responder.handle(toolResult({
       toolCallId: 'tool-1',
       toolName: 'memory_retrieval',
@@ -316,11 +318,7 @@ describe('TelegramRenderResponder', () => {
     expect(sendMessage).toHaveBeenNthCalledWith(1, 123, 'Looking it up', {
       reply_parameters: { message_id: 55 }
     })
-    expect(sendMessage).toHaveBeenNthCalledWith(2, 123, '<blockquote>tool memory retrieval start</blockquote>', {
-      reply_parameters: { message_id: 55 },
-      parse_mode: 'HTML'
-    })
-    expect(sendMessage).toHaveBeenNthCalledWith(3, 123, '<blockquote>tool memory retrieval done</blockquote>', {
+    expect(sendMessage).toHaveBeenNthCalledWith(2, 123, '<blockquote>tool memory retrieval done</blockquote>', {
       reply_parameters: { message_id: 55 },
       parse_mode: 'HTML'
     })
@@ -371,7 +369,7 @@ describe('TelegramRenderResponder', () => {
     expect(editMessageText).not.toHaveBeenCalled()
   })
 
-  it('sends start and done when result arrives without prior detection', async () => {
+  it('reports a result without inventing an execution start', async () => {
     const sendMessage = vi
       .fn()
       .mockResolvedValueOnce({ message_id: 150 })
@@ -384,11 +382,8 @@ describe('TelegramRenderResponder', () => {
       status: 'error'
     }))
 
-    expect(sendMessage).toHaveBeenNthCalledWith(1, 123, '<blockquote>tool web search start</blockquote>', {
-      reply_parameters: { message_id: 55 },
-      parse_mode: 'HTML'
-    })
-    expect(sendMessage).toHaveBeenNthCalledWith(2, 123, '<blockquote>tool web search failed</blockquote>', {
+    expect(sendMessage).toHaveBeenCalledTimes(1)
+    expect(sendMessage).toHaveBeenNthCalledWith(1, 123, '<blockquote>tool web search failed</blockquote>', {
       reply_parameters: { message_id: 55 },
       parse_mode: 'HTML'
     })
@@ -425,19 +420,15 @@ describe('TelegramRenderResponder', () => {
       ]
     })))
 
-    expect(sendMessage).toHaveBeenCalledTimes(3)
-    expect(sendMessage).toHaveBeenNthCalledWith(1, 123, '<blockquote>tool memory retrieval start</blockquote>', {
-      reply_parameters: { message_id: 55 },
-      parse_mode: 'HTML'
-    })
-    expect(sendMessage).toHaveBeenNthCalledWith(2, 123, [
+    expect(sendMessage).toHaveBeenCalledTimes(2)
+    expect(sendMessage).toHaveBeenNthCalledWith(1, 123, [
       '<blockquote>tool memory retrieval done</blockquote>',
       '<pre>{&quot;query&quot;:&quot;latest api&quot;}</pre>'
     ].join('\n'), {
       reply_parameters: { message_id: 55 },
       parse_mode: 'HTML'
     })
-    expect(sendMessage).toHaveBeenNthCalledWith(3, 123, 'Looking it up', {
+    expect(sendMessage).toHaveBeenNthCalledWith(2, 123, 'Looking it up', {
       reply_parameters: { message_id: 55 }
     })
   })
@@ -486,7 +477,7 @@ describe('TelegramRenderResponder', () => {
       status: 'success'
     }))
 
-    const text = sendMessage.mock.calls[1][1] as string
+    const text = sendMessage.mock.calls[0][1] as string
     expect(text).toMatch(/^<blockquote>tool web search done<\/blockquote>\n<pre>/)
     expect(text).toContain('...</pre>')
     expect(text.length).toBeLessThan(longArgs.length)
@@ -507,7 +498,7 @@ describe('TelegramRenderResponder', () => {
       status: 'success'
     }))
 
-    expect(sendMessage).toHaveBeenNthCalledWith(2, 123, [
+    expect(sendMessage).toHaveBeenNthCalledWith(1, 123, [
       '<blockquote>tool web search done</blockquote>',
       '<pre>{&quot;query&quot;:&quot;&lt;tag&gt;&amp;\\&quot;quote\\&quot;&quot;}</pre>'
     ].join('\n'), {

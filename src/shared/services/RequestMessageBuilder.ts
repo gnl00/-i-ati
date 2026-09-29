@@ -9,7 +9,7 @@
  * 4. 插入系统提示词
  * 5. 验证消息合法性
  */
-import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
+import { MESSAGE_SOURCE, isTransportDeliveryMessage } from '@shared/messages/messageSources'
 import { sanitizeRawImageDataUrls } from '@shared/services/RawImageDataSanitizer'
 
 export interface RequestMessageBuildResult {
@@ -177,6 +177,7 @@ class RequestMessageBuilder {
    */
   private filterInvalidMessages(messages: ChatMessage[]): ChatMessage[] {
     return messages.filter(msg => {
+      if (isTransportDeliveryMessage(msg)) return false
       // 过滤空的 assistant 消息
       if (msg.role === 'assistant') {
         const hasToolCalls = msg.toolCalls && msg.toolCalls.length > 0

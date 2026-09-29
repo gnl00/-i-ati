@@ -110,7 +110,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = memo(
     if (
       message.role === 'assistant' &&
       message.source &&
-      message.source === MESSAGE_SOURCE.TELEGRAM &&
+      (message.source === MESSAGE_SOURCE.TELEGRAM || message.source === MESSAGE_SOURCE.TELEGRAM_DELIVERY) &&
       message.host?.direction === 'outbound'
     ) {
       return (

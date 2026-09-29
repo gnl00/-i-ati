@@ -1,3 +1,4 @@
+import { HostOutputDispatcher } from '@main/hosts/shared/output/HostOutputDispatcher'
 import { isInteractiveMessageSource } from '@shared/messages/messageSources'
 import { ToolExecutor, type ToolExecutorConfig } from '@main/agent/tools'
 import type { ToolCallProps } from '@main/agent/contracts'
@@ -40,6 +41,7 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
     private readonly hostRequestBuilder = new DefaultMainAgentHostRequestBuilder(),
     private readonly completionAdapter = new DefaultAgentRunCompletionAdapter(),
     private readonly options: {
+      hostOutputDispatcher?: HostOutputDispatcher
       modelStreamExecutor?: ModelStreamExecutor
       toolResultCompactionTrigger?: ToolResultCompactionTrigger
       notificationSinkFactory?: (
@@ -85,7 +87,7 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
         chatUuid: input.prepared.runSpec.runtimeContext.chatUuid
       }),
       ...(input.hostRenderSinks || [])
-    ], renderEventMapper))
+    ], renderEventMapper, this.options.hostOutputDispatcher, 2))
 
     // Register notification sink last so render pipeline completes even if notifications fail.
     // Desktop interactive and scheduler runs share native terminal notifications.

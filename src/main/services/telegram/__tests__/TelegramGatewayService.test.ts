@@ -1,6 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import DatabaseService from '@main/db/DatabaseService'
 import { TelegramGatewayService } from '../TelegramGatewayService'
+import { ToolConfirmationManager } from '@main/orchestration/chat/run/infrastructure/tool-confirmation'
+import type { Bot } from 'grammy'
+import type { RunEventEmitter, RunEventSink } from '@main/agent/contracts'
+import type { RunEventEnvelope } from '@shared/run/events'
+import type { ToolConfirmation } from '@shared/tools/confirmation'
 import type { TelegramInboundEnvelope } from '@main/hosts/telegram'
 
 const {
@@ -8,7 +13,8 @@ const {
   chat,
   config,
   logger,
-  modelRef
+  modelRef,
+  subscribeApprovals
 } = vi.hoisted(() => {
   const modelRef = {
     accountId: 'account-openai',
@@ -89,7 +95,8 @@ const {
     warn: vi.fn(),
     error: vi.fn()
     },
-    modelRef
+    modelRef,
+    subscribeApprovals: vi.fn()
   }
 })
 
@@ -106,6 +113,7 @@ vi.mock('@main/logging/LogService', () => ({
 vi.mock('@main/orchestration/chat/run', () => ({
   RunService: vi.fn(function () {
     return {
+    subscribeToolConfirmations: subscribeApprovals,
     execute: vi.fn().mockResolvedValue({ state: 'completed' })
     }
   })
@@ -190,6 +198,7 @@ const createEnvelope = (overrides: Partial<TelegramInboundEnvelope> = {}): Teleg
 const createService = (args: {
   sendChatAction?: ReturnType<typeof vi.fn>
   sendMessage?: ReturnType<typeof vi.fn>
+  editMessageText?: ReturnType<typeof vi.fn>
   runExecute?: ReturnType<typeof vi.fn>
   hasActiveSubmission?: ReturnType<typeof vi.fn>
   attachmentContext?: {
@@ -203,7 +212,8 @@ const createService = (args: {
   ;(service as any).bot = {
     api: {
       sendChatAction: args.sendChatAction ?? vi.fn().mockResolvedValue(true),
-      sendMessage: args.sendMessage ?? vi.fn().mockResolvedValue({ message_id: 77 })
+      sendMessage: args.sendMessage ?? vi.fn().mockResolvedValue({ message_id: 77 }),
+      editMessageText: args.editMessageText ?? vi.fn().mockResolvedValue(true)
     }
   }
   ;(service as any).adapter = {
@@ -254,7 +264,7 @@ const createService = (args: {
     execute: args.runExecute ?? vi.fn().mockResolvedValue({
       state: 'completed'
     }),
-    resolveToolConfirmation: vi.fn()
+    submitTelegramToolConfirmation: vi.fn()
   }
   if (args.hasActiveSubmission) {
     ;(service as any).commandService.hasActiveSubmission = args.hasActiveSubmission
@@ -390,19 +400,41 @@ describe('TelegramGatewayService', () => {
     }))
   })
 
+  it('projects a desktop approval to each bound endpoint once and synchronizes their terminal decisions', async () => {
+    const sendMessage = vi.fn().mockResolvedValue({ message_id: 91 })
+    const editMessageText = vi.fn().mockResolvedValue(true)
+    const service = createService({ sendMessage, editMessageText })
+    const listener = subscribeApprovals.mock.lastCall![0]
+    const targets = [{ peerId: '123', threadId: '9' }, { peerId: '456' }]
+    listener(approval(), targets)
+    listener(approval(), targets)
+    await (service as unknown as GatewayProbe).queueConfirmationSync()
+    expect(sendMessage).toHaveBeenCalledTimes(2)
+    expect(sendMessage.mock.calls.map(([peer]) => peer)).toEqual([123, 456])
+    listener(approval({ status: 'approved', version: 2 }), targets)
+    await (service as unknown as GatewayProbe).queueConfirmationSync()
+    expect(editMessageText).toHaveBeenCalledTimes(2)
+    expect(editMessageText.mock.calls.map(([, , text]) => text)).toEqual(['<blockquote>tool exec approved</blockquote>', '<blockquote>tool exec approved</blockquote>'])
+  })
+
+  it('keeps projections while Telegram delivery is disabled and respects policy when resumed', async () => {
+    const sendMessage = vi.fn().mockResolvedValue({ message_id: 91 })
+    const service = createService({ sendMessage })
+    const policy = { ...config.telegram, enabled: false, allowedChatIds: ['123'] }
+    ;(service as unknown as { appConfigStore: { getConfig: () => unknown } }).appConfigStore.getConfig = (): unknown => ({ telegram: policy })
+    subscribeApprovals.mock.lastCall![0](approval(), [{ peerId: '123' }, { peerId: '456' }])
+    await (service as unknown as GatewayProbe).queueConfirmationSync()
+    expect(sendMessage).not.toHaveBeenCalled()
+    policy.enabled = true
+    await (service as unknown as GatewayProbe).queueConfirmationSync()
+    expect(sendMessage).toHaveBeenCalledTimes(1)
+    expect(sendMessage.mock.calls[0][0]).toBe(123)
+  })
+
   it('sends Telegram approval buttons for tool confirmation events', async () => {
     const sendMessage = vi.fn().mockResolvedValue({ message_id: 91 })
-    const runExecute = vi.fn(async (_input, options) => {
-      await options.eventSinks[0].handleEvent({
-        type: 'tool.confirmation.required',
-        payload: {
-          toolCallId: 'call-1',
-          name: 'exec'
-        },
-        submissionId: 'submission-id',
-        sequence: 1,
-        timestamp: 1
-      })
+    const runExecute = vi.fn(async () => {
+      subscribeApprovals.mock.lastCall![0](approval({ confirmationId: 'approval-1', toolCallId: 'call-1' }), [{ peerId: '123', threadId: '9' }])
       return { state: 'completed' }
     })
     const service = createService({ sendMessage, runExecute })
@@ -416,11 +448,10 @@ describe('TelegramGatewayService', () => {
       expect.objectContaining({
         parse_mode: 'HTML',
         message_thread_id: 9,
-        reply_parameters: { message_id: 55 },
         reply_markup: {
           inline_keyboard: [[
-            { text: 'Approve', callback_data: 'tgcmd:tool_confirm:approve:call-1' },
-            { text: 'Deny', callback_data: 'tgcmd:tool_confirm:deny:call-1' }
+            { text: 'Approve', callback_data: 'tgcmd:tool_confirm:approve:approval-1' },
+            { text: 'Deny', callback_data: 'tgcmd:tool_confirm:deny:approval-1' }
           ]]
         }
       })
@@ -442,5 +473,107 @@ describe('TelegramGatewayService', () => {
       message_thread_id: 9,
       reply_parameters: { message_id: 55 }
     })
+  })
+})
+
+
+type GatewayProbe = {
+  trackConfirmation: (descriptor: ToolConfirmation, envelope: TelegramInboundEnvelope) => Promise<void>
+  queueConfirmationSync: () => Promise<void>
+  bot: Bot | null
+  registerHandlers: (bot: { on: ReturnType<typeof vi.fn> }, modelRef: ModelRef) => void
+  runService: { submitTelegramToolConfirmation: ToolConfirmationManager['submitTelegram'] }
+}
+
+const createApprovalSink = (service: TelegramGatewayService): RunEventSink => ({
+  handleEvent: event => (service as unknown as GatewayProbe).trackConfirmation(event.payload as ToolConfirmation, createEnvelope())
+})
+
+const approval = (patch: Partial<ToolConfirmation> = {}): ToolConfirmation => ({
+  confirmationId: 'approval', submissionId: 'run', chatUuid: 'chat-uuid', toolCallId: 'call', name: 'exec',
+  status: 'pending', version: 1, createdAt: 1, expiresAt: 300001, ...patch
+})
+const approvalEvent = (descriptor: ToolConfirmation): RunEventEnvelope<'tool.confirmation.required' | 'tool.confirmation.resolved'> => ({
+  type: descriptor.status === 'pending' ? 'tool.confirmation.required' : 'tool.confirmation.resolved',
+  payload: descriptor, submissionId: descriptor.submissionId, chatUuid: descriptor.chatUuid,
+  sequence: descriptor.version, timestamp: descriptor.createdAt
+})
+
+afterEach(() => vi.useRealTimers())
+
+describe('Telegram authoritative approval projection', () => {
+  it.each(['approved', 'denied', 'expired', 'cancelled'] as const)('removes buttons for a remote %s decision', async status => {
+    const editMessageText = vi.fn().mockResolvedValue(true)
+    const service = createService({ editMessageText })
+    const sink = createApprovalSink(service)
+    await sink.handleEvent(approvalEvent(approval()))
+    await sink.handleEvent(approvalEvent(approval({ status, version: 2 })))
+    expect(editMessageText).toHaveBeenCalledWith(123, 77, expect.stringContaining(status === 'expired' ? 'expired' : status), {
+      parse_mode: 'HTML', reply_markup: { inline_keyboard: [] }
+    })
+    await sink.handleEvent(approvalEvent(approval()))
+    expect(editMessageText).toHaveBeenCalledTimes(1)
+  })
+
+  it('reconciles a decision arriving while the approval message is being sent', async () => {
+    let resolveSend!: (value: { message_id: number }) => void
+    const sendMessage = vi.fn(() => new Promise(resolve => { resolveSend = resolve }))
+    const editMessageText = vi.fn().mockResolvedValue(true)
+    const service = createService({ sendMessage, editMessageText })
+    const sink = createApprovalSink(service)
+    const first = sink.handleEvent(approvalEvent(approval()))
+    await flushPromises()
+    const second = sink.handleEvent(approvalEvent(approval({ status: 'denied', version: 2 })))
+    resolveSend({ message_id: 91 })
+    await Promise.all([first, second])
+    expect(sendMessage).toHaveBeenCalledTimes(1)
+    expect(editMessageText).toHaveBeenCalledWith(123, 91, '<blockquote>tool exec denied</blockquote>', expect.objectContaining({ reply_markup: { inline_keyboard: [] } }))
+  })
+
+  it('retries failed presentation and keeps the resolved state during gateway downtime', async () => {
+    vi.useFakeTimers()
+    const editMessageText = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue(true)
+    const service = createService({ editMessageText })
+    const sink = createApprovalSink(service)
+    await sink.handleEvent(approvalEvent(approval()))
+    await sink.handleEvent(approvalEvent(approval({ status: 'approved', version: 2 })))
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(editMessageText).toHaveBeenCalledTimes(2)
+    const bot = (service as unknown as GatewayProbe).bot!
+    ;(service as unknown as GatewayProbe).bot = null
+    await sink.handleEvent(approvalEvent(approval({ confirmationId: 'offline-approval', status: 'expired', version: 3 })))
+    ;(service as unknown as GatewayProbe).bot = bot
+    await (service as unknown as GatewayProbe).queueConfirmationSync()
+    expect(bot.api.sendMessage).toHaveBeenLastCalledWith(123, '<blockquote>tool exec approval expired</blockquote>', expect.objectContaining({ reply_markup: { inline_keyboard: [] } }))
+  })
+
+  it('reports the Main winner for a competing callback and invalidates stale buttons after restart', async () => {
+    const service = createService()
+    const manager = new ToolConfirmationManager()
+    const sink = createApprovalSink(service)
+    const emit = vi.fn<RunEventEmitter['emit']>((type, payload) => {
+      expect(type).toMatch(/^tool\.confirmation\.(required|resolved)$/)
+      void sink.handleEvent(approvalEvent(payload as ToolConfirmation))
+    })
+    const promise = manager.request({ submissionId: 'run', chatUuid: 'chat-uuid', emit, setChatMeta: vi.fn() }, { toolCallId: 'call', name: 'exec' }, { peerId: '123', threadId: '9' })
+    const descriptor = manager.snapshot('chat-uuid').confirmations[0]
+    manager.submit({ ...descriptor, approved: false }, { host: 'chat' })
+    await promise
+    ;(service as unknown as GatewayProbe).runService.submitTelegramToolConfirmation = manager.submitTelegram.bind(manager)
+    const on = vi.fn()
+    ;(service as unknown as GatewayProbe).registerHandlers({ on }, modelRef)
+    const callback = on.mock.calls.find(([name]) => name === 'callback_query:data')![1]
+    const ctx = {
+      update: { update_id: 1 }, from: { id: 456 },
+      callbackQuery: { data: `tgcmd:tool_confirm:approve:${descriptor.confirmationId}`, message: { message_id: 77, chat: { id: 123, type: 'supergroup' }, message_thread_id: 9 } },
+      answerCallbackQuery: vi.fn().mockResolvedValue(true), editMessageReplyMarkup: vi.fn().mockResolvedValue(true)
+    }
+    await callback(ctx)
+    expect(ctx.answerCallbackQuery).toHaveBeenLastCalledWith({ text: 'Denied.' })
+    expect(ctx.editMessageReplyMarkup).toHaveBeenCalledWith({ reply_markup: { inline_keyboard: [] } })
+    ctx.callbackQuery.data = 'tgcmd:tool_confirm:approve:obsolete'
+    await callback(ctx)
+    expect(ctx.answerCallbackQuery).toHaveBeenLastCalledWith({ text: 'Approval expired or is no longer available.' })
+    await (service as unknown as GatewayProbe).queueConfirmationSync()
   })
 })

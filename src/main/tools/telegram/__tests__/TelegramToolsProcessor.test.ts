@@ -318,7 +318,7 @@ describe('TelegramToolsProcessor', () => {
       body: expect.objectContaining({
         role: 'assistant',
         content: 'hello from tool',
-        source: 'telegram',
+        source: 'telegram_delivery',
         host: expect.objectContaining({
           direction: 'outbound',
           peerId: '1001',

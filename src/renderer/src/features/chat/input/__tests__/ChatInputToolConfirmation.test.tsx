@@ -78,9 +78,7 @@ describe('ChatInputToolConfirmation', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
-    useToolConfirmationStore.setState({
-      pendingRequests: []
-    })
+    useToolConfirmationStore.getState().activate('chat')
   })
 
   afterEach(async () => {
@@ -94,6 +92,7 @@ describe('ChatInputToolConfirmation', () => {
     useToolConfirmationStore.setState({
       pendingRequests: [
         {
+          confirmationId: 'approval-1', submissionId: 'run', chatUuid: 'chat', status: 'pending', version: 1, createdAt: 1, expiresAt: 300001,
           toolCallId: 'call-1',
           name: 'exec',
           ui: {
@@ -104,6 +103,7 @@ describe('ChatInputToolConfirmation', () => {
           }
         },
         {
+          confirmationId: 'approval-2', submissionId: 'run', chatUuid: 'chat', status: 'pending', version: 1, createdAt: 1, expiresAt: 300001,
           toolCallId: 'call-2',
           name: 'exec',
           args: {
@@ -131,6 +131,7 @@ describe('ChatInputToolConfirmation', () => {
     useToolConfirmationStore.setState({
       pendingRequests: [
         {
+          confirmationId: 'approval-call-wiki', submissionId: 'run', chatUuid: 'chat', status: 'pending', version: 1, createdAt: 1, expiresAt: 300001,
           toolCallId: 'call-wiki',
           name: 'wiki',
           args: {
@@ -170,6 +171,7 @@ describe('ChatInputToolConfirmation', () => {
     useToolConfirmationStore.setState({
       pendingRequests: [
         {
+          confirmationId: 'approval-call-long', submissionId: 'run', chatUuid: 'chat', status: 'pending', version: 1, createdAt: 1, expiresAt: 300001,
           toolCallId: 'call-long',
           name: 'wiki',
           args: {
@@ -206,6 +208,7 @@ describe('ChatInputToolConfirmation', () => {
     useToolConfirmationStore.setState({
       pendingRequests: [
         {
+          confirmationId: 'approval-1', submissionId: 'run', chatUuid: 'chat', status: 'pending', version: 1, createdAt: 1, expiresAt: 300001,
           toolCallId: 'call-1',
           name: 'exec',
           args: {
@@ -224,6 +227,7 @@ describe('ChatInputToolConfirmation', () => {
     })
 
     expect(invokeRunToolConfirm).toHaveBeenCalledWith({
+      confirmationId: 'approval-1', submissionId: 'run', chatUuid: 'chat',
       toolCallId: 'call-1',
       approved: true
     })
@@ -232,6 +236,7 @@ describe('ChatInputToolConfirmation', () => {
       useToolConfirmationStore.setState({
         pendingRequests: [
           {
+            confirmationId: 'approval-2', submissionId: 'run', chatUuid: 'chat', status: 'pending', version: 1, createdAt: 1, expiresAt: 300001,
             toolCallId: 'call-2',
             name: 'exec',
             args: {
@@ -251,6 +256,7 @@ describe('ChatInputToolConfirmation', () => {
     })
 
     expect(invokeRunToolConfirm).toHaveBeenCalledWith({
+      confirmationId: 'approval-2', submissionId: 'run', chatUuid: 'chat',
       toolCallId: 'call-2',
       approved: false,
       reason: 'user abort'
@@ -261,6 +267,7 @@ describe('ChatInputToolConfirmation', () => {
     useToolConfirmationStore.setState({
       pendingRequests: [
         {
+          confirmationId: 'approval-1', submissionId: 'run', chatUuid: 'chat', status: 'pending', version: 1, createdAt: 1, expiresAt: 300001,
           toolCallId: 'call-1',
           name: 'exec',
           args: {
@@ -268,6 +275,7 @@ describe('ChatInputToolConfirmation', () => {
           }
         },
         {
+          confirmationId: 'approval-2', submissionId: 'run', chatUuid: 'chat', status: 'pending', version: 1, createdAt: 1, expiresAt: 300001,
           toolCallId: 'call-2',
           name: 'exec',
           args: {
@@ -287,6 +295,7 @@ describe('ChatInputToolConfirmation', () => {
       useToolConfirmationStore.setState({
         pendingRequests: [
           {
+            confirmationId: 'approval-2', submissionId: 'run', chatUuid: 'chat', status: 'pending', version: 1, createdAt: 1, expiresAt: 300001,
             toolCallId: 'call-2',
             name: 'exec',
             args: {
@@ -309,6 +318,7 @@ describe('ChatInputToolConfirmation', () => {
     useToolConfirmationStore.setState({
       pendingRequests: [
         {
+          confirmationId: 'approval-1', submissionId: 'run', chatUuid: 'chat', status: 'pending', version: 1, createdAt: 1, expiresAt: 300001,
           toolCallId: 'call-1',
           name: 'exec',
           args: {

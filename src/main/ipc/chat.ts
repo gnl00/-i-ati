@@ -3,8 +3,7 @@ import { chatDb } from '@main/db/chat'
 import { createLogger } from '@main/logging/LogService'
 import {
   RunService,
-  type MainAgentRunInput,
-  type ToolConfirmationDecision
+  type MainAgentRunInput
 } from '@main/orchestration/chat/run'
 import type {
   CompressionExecutionInput,
@@ -24,6 +23,7 @@ import {
   RUN_START,
   RUN_CANCEL,
   RUN_TOOL_CONFIRM,
+  RUN_TOOL_CONFIRMATION_SNAPSHOT,
   RUN_TOOL_USER_QUESTION_SUBMIT,
   RUN_TOOL_USER_QUESTION_LIST_PENDING,
   RUN_STEER,
@@ -33,6 +33,7 @@ import {
 } from '@shared/constants'
 import { normalizePermissionApprovalMode, type PermissionApprovalMode } from '@tools/approval'
 import { validateRunSteerRequest } from './runSteerValidation'
+import type { ToolConfirmationSnapshot, ToolConfirmationSubmitResult } from '@shared/tools/confirmation'
 import type { RunCancelRequest } from '@shared/run/cancellation'
 
 const runService = new RunService()
@@ -113,15 +114,15 @@ export function registerChatHandlers(): void {
 
   const handleRunToolConfirm = async (
     _event: Electron.IpcMainInvokeEvent,
-    data: { toolCallId: string; approved: boolean; reason?: string; args?: unknown }
-  ) => {
-    const decision: ToolConfirmationDecision = {
-      approved: data.approved,
-      reason: data.reason,
-      args: data.args
-    }
-    runService.resolveToolConfirmation(data.toolCallId, decision)
-    return { ok: true }
+    data: unknown
+  ): Promise<ToolConfirmationSubmitResult> => runService.submitToolConfirmation(data, 'chat')
+
+  const handleToolConfirmationSnapshot = async (
+    _event: Electron.IpcMainInvokeEvent,
+    data: { chatUuid?: unknown }
+  ): Promise<ToolConfirmationSnapshot> => {
+    if (!isNonEmptyString(data?.chatUuid)) return { version: 0, confirmations: [] }
+    return runService.getToolConfirmationSnapshot(data.chatUuid)
   }
 
   const handleRunToolUserQuestionSubmit = async (
@@ -225,6 +226,7 @@ export function registerChatHandlers(): void {
 
   ipcMain.handle(RUN_TOOL_CONFIRM, handleRunToolConfirm)
   ipcMain.handle(LEGACY_RUN_TOOL_CONFIRM, handleRunToolConfirm)
+  ipcMain.handle(RUN_TOOL_CONFIRMATION_SNAPSHOT, handleToolConfirmationSnapshot)
   ipcMain.handle(RUN_TOOL_USER_QUESTION_SUBMIT, handleRunToolUserQuestionSubmit)
   ipcMain.handle(RUN_TOOL_USER_QUESTION_LIST_PENDING, handleRunToolUserQuestionListPending)
 

@@ -33,6 +33,7 @@ import { LoaderCircle } from 'lucide-react';
 import { TaskPlanBar } from '../task/TaskPlanBar';
 import { useTaskPlan } from '@renderer/features/task-planner';
 import { useSubagentRuntime } from '@renderer/features/subagents';
+import { useToolConfirmationStore } from '@renderer/features/chat/state/toolConfirmationStore';
 import { useToolConfirmations } from '@renderer/features/chat/toolConfirmation/useToolConfirmations';
 import { useToolUserQuestions } from '@renderer/features/chat/toolUserQuestion/useToolUserQuestions';
 import { useScheduleNotifications } from '@renderer/features/chat/schedule/useScheduleNotifications';
@@ -191,13 +192,16 @@ const ChatWindow: React.FC = () => {
   const reducedMotionRef = useRef(false);
   const transcriptEntranceLifecycleRef = useRef(0);
   const chatInputRef = useRef<ChatInputAreaHandle>(null);
+  const pendingApprovals = useToolConfirmationStore(state => state.pendingRequests);
+  const confirmApproval = useToolConfirmationStore(state => state.confirm);
+  const cancelApproval = useToolConfirmationStore(state => state.cancel);
   const {
     activePlans,
     pendingPlanReview,
     approvePlanReview,
     abortPlanReview,
     refreshPlans,
-  } = useTaskPlan(chatUuid);
+  } = useTaskPlan(chatUuid, { pending: pendingApprovals, confirm: confirmApproval, cancel: cancelApproval });
   useToolConfirmations(chatUuid);
   useToolUserQuestions(chatUuid);
   useSubagentRuntime(chatUuid);

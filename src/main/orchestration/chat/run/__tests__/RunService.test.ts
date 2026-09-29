@@ -70,7 +70,8 @@ vi.mock('../infrastructure', () => {
     RunEventEmitterFactory,
     ToolConfirmationManager: class {
       request = vi.fn(async () => ({ approved: true }))
-      resolve = vi.fn()
+      submit = vi.fn()
+      cancelForSubmission = vi.fn()
     },
     ToolQuestionManager: class {
       request = vi.fn(async () => ({ status: 'unavailable' }))

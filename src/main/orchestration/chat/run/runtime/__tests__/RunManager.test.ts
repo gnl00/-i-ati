@@ -17,6 +17,8 @@ const {
   constructorArgsMock: vi.fn()
 }))
 
+vi.mock('@main/services/telegram/TelegramApprovalTargets', () => ({ resolveTelegramApprovalTargets: vi.fn(() => []) }))
+
 vi.mock('../AgentRun', () => ({
   AgentRun: class {
     submissionId: string

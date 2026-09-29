@@ -1,4 +1,4 @@
-import type { AgentConfirmationSource } from '@tools/approval'
+import type { ToolConfirmation } from '@shared/tools/confirmation'
 import type { EmbeddedToolOutputChunk } from '@tools/registry'
 import type {
   PendingToolQuestion,
@@ -31,6 +31,7 @@ export type RunToolCall = {
 export const RUN_TOOL_EVENTS = {
   TOOL_CALL_DETECTED: 'tool.call.detected',
   TOOL_CONFIRMATION_REQUIRED: 'tool.confirmation.required',
+  TOOL_CONFIRMATION_RESOLVED: 'tool.confirmation.resolved',
   TOOL_USER_QUESTION_REQUIRED: 'tool.user_question.required',
   TOOL_USER_QUESTION_RESOLVED: 'tool.user_question.resolved',
   TOOL_EXECUTION_STARTED: 'tool.execution.started',
@@ -41,24 +42,8 @@ export const RUN_TOOL_EVENTS = {
 
 export type RunToolEventPayloads = {
   'tool.call.detected': { toolCall: RunToolCall }
-  'tool.confirmation.required': {
-    toolCallId: string
-    name: string
-    args?: unknown
-    agent?: AgentConfirmationSource
-    ui?: {
-      title?: string
-      riskLevel?: 'risky' | 'dangerous'
-      reason?: string
-      command?: string
-      executionReason?: string
-      possibleRisk?: string
-      riskScore?: number
-      filesystemScope?: 'workspace' | 'outside_workspace' | 'unknown'
-      inferredFilesystemScope?: 'workspace' | 'outside_workspace' | 'unknown'
-      filesystemReason?: string
-    }
-  }
+  'tool.confirmation.required': ToolConfirmation
+  'tool.confirmation.resolved': ToolConfirmation
   'tool.user_question.required': Omit<PendingToolQuestion, 'submissionId' | 'chatUuid'>
   'tool.user_question.resolved': {
     toolCallId: string

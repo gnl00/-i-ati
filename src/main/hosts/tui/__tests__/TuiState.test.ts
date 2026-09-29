@@ -79,9 +79,22 @@ describe('TUI event projection', () => {
     emit('run.steering.returned', { queueItemIds: ['b'] })
     expect(state.queue).toEqual([{ id: 'b', text: 'b', mode: 'returned' }])
   })
+  it('closes a remote approval before tool execution and preserves a newer approval round', () => {
+    const { state, emit } = setup()
+    const pending = { toolCallId: 'tool', name: 'exec', confirmationId: 'approval', submissionId: 'run', chatUuid: 'chat', status: 'pending' as const, version: 1, createdAt: 1, expiresAt: 300001 }
+    emit('tool.confirmation.required', pending)
+    expect(state.tools.get('tool')?.status).toBe('等待审批')
+    emit('tool.confirmation.resolved', { ...pending, status: 'approved', version: 2 })
+    expect(state.interactions).toEqual([])
+    expect(state.tools.get('tool')?.status).toBe('已批准')
+    emit('tool.confirmation.required', { ...pending, confirmationId: 'round-2', version: 3 })
+    emit('tool.confirmation.resolved', { ...pending, status: 'approved', version: 2 })
+    expect(state.interactions).toHaveLength(1)
+    expect(state.tools.get('tool')?.status).toBe('等待审批')
+  })
   it('bounds output and removes an expired approval when a tool finishes', () => {
     const { state, emit } = setup()
-    emit('tool.confirmation.required', { toolCallId: 'tool', name: 'command' })
+    emit('tool.confirmation.required', { toolCallId: 'tool', name: 'command', confirmationId: 'approval', submissionId: 'run', chatUuid: 'chat', status: 'pending', version: 1, createdAt: 1, expiresAt: 300001 })
     emit('tool.execution.output', {
       toolCallId: 'tool',
       sequence: 1,

@@ -6,6 +6,7 @@ import {
   RUN_STEER,
   RUN_TITLE_GENERATE,
   RUN_TOOL_CONFIRM,
+  RUN_TOOL_CONFIRMATION_SNAPSHOT,
   RUN_TOOL_USER_QUESTION_LIST_PENDING,
   RUN_TOOL_USER_QUESTION_SUBMIT
 } from '@shared/constants/index'
@@ -17,6 +18,11 @@ import type {
   ToolUserQuestionSubmitResult
 } from '@shared/tools/userQuestion'
 import { invokeIpc } from './client'
+import type {
+  ToolConfirmationSnapshot,
+  ToolConfirmationSubmitRequest,
+  ToolConfirmationSubmitResult
+} from '@shared/tools/confirmation'
 
 export const invokeRunStart = (data: {
   submissionId: string
@@ -39,8 +45,10 @@ export const invokeRunCancel = (data: RunCancelRequest): Promise<RunCancelResult
   invokeIpc(RUN_CANCEL, data)
 export const invokeRunSteer = (data: RunSteerRequest): Promise<RunSteerResult> =>
   invokeIpc(RUN_STEER, data)
-export const invokeRunToolConfirm = (data: { toolCallId: string; approved: boolean; reason?: string; args?: unknown }): Promise<{ ok: boolean }> =>
+export const invokeRunToolConfirm = (data: ToolConfirmationSubmitRequest): Promise<ToolConfirmationSubmitResult> =>
   invokeIpc(RUN_TOOL_CONFIRM, data)
+export const invokeToolConfirmationSnapshot = (data: { chatUuid: string }): Promise<ToolConfirmationSnapshot> =>
+  invokeIpc(RUN_TOOL_CONFIRMATION_SNAPSHOT, data)
 export const invokeRunToolUserQuestionSubmit = (
   data: ToolUserQuestionSubmitRequest
 ): Promise<ToolUserQuestionSubmitResult> => invokeIpc(RUN_TOOL_USER_QUESTION_SUBMIT, data)

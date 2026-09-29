@@ -16,6 +16,7 @@ export interface RunEventSink {
 
 export interface RunEventEmitter {
   readonly submissionId: string
+  readonly chatUuid?: string
   setChatMeta(chat: { chatId?: number; chatUuid?: string }): void
   emit<T extends RunEventType>(type: T, payload: RunEventPayloads[T]): void
 }

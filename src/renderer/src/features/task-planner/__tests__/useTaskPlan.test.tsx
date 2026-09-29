@@ -4,6 +4,7 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RUN_TOOL_EVENTS } from '@shared/run/tool-events'
+import type { ToolConfirmation } from '@shared/tools/confirmation'
 import { useTaskPlan } from '../useTaskPlan'
 
 const runEventMock = vi.hoisted(() => ({
@@ -35,10 +36,13 @@ const flushPromises = async (): Promise<void> => {
 describe('useTaskPlan', () => {
   let container: HTMLDivElement
   let root: Root
+  let approvals: ToolConfirmation[] = []
+  const confirm = vi.fn(async () => {})
+  const cancel = vi.fn(async () => {})
   let hookResult: ReturnType<typeof useTaskPlan> | undefined
 
   function Probe(): null {
-    hookResult = useTaskPlan('chat-1')
+    hookResult = useTaskPlan('chat-1', { pending: approvals, confirm, cancel })
     return null
   }
 
@@ -52,6 +56,7 @@ describe('useTaskPlan', () => {
     document.body.appendChild(container)
     root = createRoot(container)
     hookResult = undefined
+    approvals = []
   })
 
   afterEach(async () => {
@@ -68,43 +73,23 @@ describe('useTaskPlan', () => {
     })
   }
 
-  it('shows the plan review only for canonical plan action=create', async () => {
+  it('derives plan review from the authoritative approval projection and submits its identity', async () => {
+    const base: ToolConfirmation = {
+      confirmationId: 'approval', submissionId: 'run', chatUuid: 'chat-1', toolCallId: 'call-plan-create', name: 'plan',
+      status: 'pending', version: 1, createdAt: 1, expiresAt: 300001,
+      args: { action: 'update' }
+    }
+    approvals = [base]
     await renderProbe()
-
-    await act(async () => {
-      runEventMock.handler?.({
-        type: RUN_TOOL_EVENTS.TOOL_CONFIRMATION_REQUIRED,
-        payload: {
-          toolCallId: 'call-plan-update',
-          name: 'plan',
-          args: { action: 'update', plan: { id: 'plan-1' } }
-        }
-      })
-    })
     expect(hookResult?.pendingPlanReview).toBeNull()
-
-    await act(async () => {
-      runEventMock.handler?.({
-        type: RUN_TOOL_EVENTS.TOOL_CONFIRMATION_REQUIRED,
-        payload: {
-          toolCallId: 'call-plan-create',
-          name: 'plan',
-          args: {
-            action: 'create',
-            goal: 'Ship feature',
-            steps: [{ id: '2', title: 'Verify', status: 'todo' }]
-          }
-        }
-      })
-    })
-
-    expect(hookResult?.pendingPlanReview).toMatchObject({
-      toolCallId: 'call-plan-create',
-      plan: {
-        goal: 'Ship feature',
-        status: 'pending_review'
-      }
-    })
+    approvals = [{ ...base, args: { action: 'create', goal: 'Ship feature', steps: [{ id: '2', title: 'Verify', status: 'todo' }] } }]
+    await renderProbe()
+    expect(hookResult?.pendingPlanReview).toMatchObject({ toolCallId: 'call-plan-create', plan: { goal: 'Ship feature', status: 'pending_review' } })
+    await act(async () => hookResult?.approvePlanReview())
+    expect(confirm).toHaveBeenCalledWith('approval')
+    approvals = []
+    await renderProbe()
+    expect(hookResult?.pendingPlanReview).toBeNull()
   })
 
   it('refreshes plans after a canonical plan action without a plan result', async () => {
@@ -113,6 +98,7 @@ describe('useTaskPlan', () => {
 
     await act(async () => {
       runEventMock.handler?.({
+        chatUuid: 'chat-1',
         type: RUN_TOOL_EVENTS.TOOL_CALL_DETECTED,
         payload: {
           toolCall: {
@@ -123,6 +109,7 @@ describe('useTaskPlan', () => {
         }
       })
       runEventMock.handler?.({
+        chatUuid: 'chat-1',
         type: RUN_TOOL_EVENTS.TOOL_EXECUTION_COMPLETED,
         payload: {
           toolCallId: 'call-plan-delete',

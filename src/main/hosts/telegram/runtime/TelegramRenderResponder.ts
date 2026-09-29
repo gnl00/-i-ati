@@ -109,11 +109,7 @@ export class TelegramRenderResponder implements HostRenderEventSink {
         return
 
       case 'host.tool.detected':
-        await this.sendToolStart({
-          toolCallId: event.toolCallId,
-          toolName: event.toolName,
-          args: event.toolArgs
-        })
+        this.updateToolState({ toolCallId: event.toolCallId, toolName: event.toolName, args: event.toolArgs })
         return
 
       case 'host.tool.execution.started':
@@ -124,10 +120,7 @@ export class TelegramRenderResponder implements HostRenderEventSink {
         return
 
       case 'host.tool.confirmation.required':
-        await this.sendToolConfirmationRequest({
-          toolCallId: event.toolCallId,
-          toolName: event.toolName
-        })
+        // Approval presentation is owned by the versioned run interaction stream.
         return
 
       case 'host.tool.result.available':
@@ -344,7 +337,11 @@ export class TelegramRenderResponder implements HostRenderEventSink {
     }
 
     const status = content.status || 'pending'
-    if (status === 'pending' || status === 'running') {
+    if (status === 'pending') {
+      this.updateToolState({ toolCallId: segment.toolCallId, toolName: content.toolName || segment.name, args: content.args })
+      return
+    }
+    if (status === 'running') {
       await this.sendToolStart({
         toolCallId: segment.toolCallId,
         toolName: content.toolName || segment.name,
@@ -406,23 +403,6 @@ export class TelegramRenderResponder implements HostRenderEventSink {
       return
     }
 
-    if (!state.startSent) {
-      const startSent = await this.sendMessage({
-        text: this.formatToolStartMessage(state.toolName),
-        parseMode: 'HTML'
-      })
-      this.toolStates.set(args.toolCallId, {
-        ...state,
-        startSent: true
-      })
-      this.logger?.info?.('telegram.render_responder.tool_start_sent', {
-        updateId: this.envelope.updateId,
-        chatId: this.envelope.chatId,
-        messageId: startSent.message_id,
-        toolCallId: args.toolCallId
-      })
-    }
-
     const current = this.toolStates.get(args.toolCallId) || state
     const doneSent = await this.sendMessage({
       text: this.formatToolDoneMessage({
@@ -441,38 +421,6 @@ export class TelegramRenderResponder implements HostRenderEventSink {
       updateId: this.envelope.updateId,
       chatId: this.envelope.chatId,
       messageId: doneSent.message_id,
-      toolCallId: args.toolCallId
-    })
-  }
-
-  private async sendToolConfirmationRequest(args: {
-    toolCallId: string
-    toolName: string
-  }): Promise<void> {
-    if (this.policy.isToolHidden(args.toolName)) {
-      return
-    }
-
-    const state = this.updateToolState(args)
-    const sent = await this.sendMessage({
-      text: `<blockquote>${this.escapeHtml(`tool ${this.formatToolLabel(state.toolName)} needs approval`)}</blockquote>`,
-      parseMode: 'HTML',
-      inlineKeyboard: [[
-        {
-          text: 'Approve',
-          callbackData: `tgcmd:tool_confirm:approve:${args.toolCallId}`
-        },
-        {
-          text: 'Deny',
-          callbackData: `tgcmd:tool_confirm:deny:${args.toolCallId}`
-        }
-      ]]
-    })
-
-    this.logger?.info?.('telegram.render_responder.tool_confirmation_sent', {
-      updateId: this.envelope.updateId,
-      chatId: this.envelope.chatId,
-      messageId: sent.message_id,
       toolCallId: args.toolCallId
     })
   }

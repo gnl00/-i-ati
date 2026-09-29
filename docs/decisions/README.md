@@ -34,3 +34,7 @@ Use sequential names such as `0001-chat-runtime-host-boundary.md`.
 
 - [0024: Unified computer-use tool](0024-unified-computer-use-tool.md) - Accepted
 - [0025: New chat approval default](0025-new-chat-approval-default.md) - Accepted
+
+- [0026: Main-owned tool confirmation lifecycle](0026-main-owned-tool-confirmation-lifecycle.md) - Accepted
+
+- [0027: 统一 Host 输出分发](0027-unified-host-output-dispatch.md)

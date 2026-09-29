@@ -88,6 +88,14 @@ Key implementation files:
 - `infrastructure/tool-question.ts`: pending structured questions, validated
   answers, cancellation, and recommended-answer timeout resolution.
 
+Default `RunService` entry points in one Main process share the same lazily
+created runtime dependencies; injected runtimes remain isolated. Tool approvals
+use a Main-owned versioned lifecycle, full interaction identity, resolved events
+and snapshot reconciliation across Chat, Telegram and TUI. Approval state and
+execution state are separate. See
+[the confirmation flow](command-confirmation-flow.md) and
+[ADR-0026](../decisions/0026-main-owned-tool-confirmation-lifecycle.md).
+
 The mutable runtime context currently carries `permissionApprovalMode`. Renderer
 updates reach the active run through `run:permission-approval-mode:update`.
 Pending confirmation is released when the updated mode permits automatic
@@ -247,3 +255,9 @@ event-emitter implementation -> run-event db facade + Electron window
 
 `RunRuntimeFactory` remains a local composition root for the complex run path.
 The process-wide IPC and tool registries remain explicit central registries.
+
+Telegram approvals subscribe to the shared Main approval manager independently of the initiating host. Targets are frozen from active chat bindings and trusted run host metadata when the approval is created. Telegram delivery copies use a separate source and are excluded from model request and compression projections while remaining visible in the transcript.
+
+### Host output 分发
+
+`RunRuntimeFactory` 创建单一 `HostOutputDispatcher`，普通回复经 `HostRenderEventMapper` 后与 Run envelope、canonical confirmation 共用该分发器。Chat IPC、TUI run sinks、run 挂载的 Telegram responder 和注册的审批 adapter 都使用同一错误隔离与顺序规则。消息持久化和 Chat side effects 仍是 required consumer。审批广播按冻结目标选择，普通回复按 run 挂载的 adapter 选择。详见 [ADR 0027](../decisions/0027-unified-host-output-dispatch.md)。

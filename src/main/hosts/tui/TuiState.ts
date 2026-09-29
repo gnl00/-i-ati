@@ -1,6 +1,7 @@
 import type { RunEvent, RunEventEnvelope } from '@shared/run/events'
 import { applyMessageSegmentPatchToEntity } from '@shared/run/messagePatch'
 import type { PendingToolQuestion } from '@shared/tools/userQuestion'
+import type { ToolConfirmation } from '@shared/tools/confirmation'
 import type { RunToolEventPayloads } from '@shared/run/tool-events'
 
 export type TuiInteraction =
@@ -55,6 +56,7 @@ export class TuiState {
   tools = new Map<string, TuiTool>()
   queue: TuiQueueItem[] = []
   interactions: TuiInteraction[] = []
+  private readonly approvalVersions = new Map<string, number>()
   activeRun?: string
   status = '就绪'
   notice = ''
@@ -70,6 +72,7 @@ export class TuiState {
     this.preview = undefined
     this.tools.clear()
     this.interactions = []
+    this.approvalVersions.clear()
     this.trimmed = false
     this.trim()
     this.onChange(true)
@@ -134,11 +137,18 @@ export class TuiState {
         break
       }
       case 'tool.confirmation.required':
+        if ((this.approvalVersions.get(event.payload.confirmationId) ?? 0) >= event.payload.version) return
+        this.approvalVersions.set(event.payload.confirmationId, event.payload.version)
+        this.clearApproval(event.payload.toolCallId)
+        this.updateTool(event.payload.toolCallId, { name: event.payload.name, status: '等待审批' })
         this.interactions.push({
           kind: 'approval',
           submissionId: event.submissionId,
           payload: event.payload
         })
+        break
+      case 'tool.confirmation.resolved':
+        this.resolveApproval(event.payload)
         break
       case 'tool.user_question.required':
         this.interactions.push({
@@ -219,6 +229,22 @@ export class TuiState {
     }
     this.trim()
     this.onChange(immediate)
+  }
+
+  resolveApproval(confirmation: ToolConfirmation): void {
+    if ((this.approvalVersions.get(confirmation.confirmationId) ?? 0) >= confirmation.version) return
+    this.approvalVersions.set(confirmation.confirmationId, confirmation.version)
+    this.interactions = this.interactions.filter(i => (
+      i.kind !== 'approval' || i.payload.confirmationId !== confirmation.confirmationId
+    ))
+    const tool = this.tools.get(confirmation.toolCallId)
+    const awaitingAnotherRound = this.interactions.some(i => i.kind === 'approval' && i.payload.toolCallId === confirmation.toolCallId)
+    if (!awaitingAnotherRound && (!tool || ['准备', '等待审批', '已批准'].includes(tool.status))) {
+      this.updateTool(confirmation.toolCallId, {
+        name: confirmation.name,
+        status: { pending: '等待审批', approved: '已批准', denied: '已拒绝', expired: '已过期', cancelled: '已取消' }[confirmation.status]
+      })
+    }
   }
 
   clearApproval(id: string): void {

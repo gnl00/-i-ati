@@ -1,3 +1,4 @@
+import { useToolConfirmationStore } from '@renderer/features/chat/state/toolConfirmationStore'
 import { cn } from '@renderer/shared/lib/utils'
 import { useSubagentRuntimeStore } from '@renderer/features/subagents'
 import { Bot, CheckCircle2, Clock3, Loader2, ShieldAlert, XCircle } from 'lucide-react'
@@ -84,7 +85,10 @@ export const SubagentResults: React.FC<SubagentResultsProps> = React.memo(({ act
   const message = typeof payload?.message === 'string' ? payload.message : undefined
   const success = typeof payload?.success === 'boolean' ? payload.success : undefined
 
-  const status = subagent?.status ?? (action === 'spawn' ? 'queued' : undefined)
+  const waitingForApproval = useToolConfirmationStore(state => state.pendingRequests.some(item => item.agent?.subagentId === baseSubagent?.id && item.agent?.kind === 'subagent'))
+  const status = waitingForApproval && (subagent?.status === 'running' || subagent?.status === 'queued')
+    ? 'waiting_for_confirmation'
+    : subagent?.status ?? (action === 'spawn' ? 'queued' : undefined)
   const statusMeta = getStatusMeta(status)
   const StatusIcon = statusMeta.icon
   const toolsUsed = subagent?.artifacts?.tools_used ?? []

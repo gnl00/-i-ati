@@ -20,7 +20,7 @@ const execute = vi.fn((_input: MainAgentRunInput, options: { eventSinks: RunEven
 })
 const cancel = vi.fn(() => ({ cancelled: true }))
 const steer = vi.fn(() => ({ accepted: true }))
-const resolveToolConfirmation = vi.fn()
+const submitToolConfirmation = vi.fn((request) => ({ ok: true as const, confirmation: { ...request, name: 'command', status: request.approved ? 'approved' as const : 'denied' as const, createdAt: 1, expiresAt: 300001, version: 2 } }))
 const submitToolUserQuestion = vi.fn(() => ({ ok: true as const }))
 function setup(): TuiSession {
   const session = new TuiSession(
@@ -30,7 +30,7 @@ function setup(): TuiSession {
       execute,
       cancel,
       steer,
-      resolveToolConfirmation,
+      submitToolConfirmation,
       submitToolUserQuestion
     },
     {
@@ -157,13 +157,14 @@ describe('TUI session lifecycle', () => {
     await session.submit('first')
     expect(() => session.newChat()).toThrow()
     expect(() => session.setModel(ref)).toThrow()
-    await emit(session, 'tool.confirmation.required', { toolCallId: 'tool', name: 'command' })
+    await emit(session, 'tool.confirmation.required', { toolCallId: 'tool', name: 'command', confirmationId: 'approval', submissionId: session.state.activeRun!, chatUuid: session.state.chat!.uuid, status: 'pending', version: 1, createdAt: 1, expiresAt: 300001 })
     const interaction = session.state.interactions[0]
     session.answer(interaction, false)
-    expect(resolveToolConfirmation).toHaveBeenCalledWith('tool', {
+    expect(submitToolConfirmation).toHaveBeenCalledWith({
+      confirmationId: 'approval', submissionId: session.state.activeRun, chatUuid: session.state.chat!.uuid, toolCallId: 'tool',
       approved: false,
       reason: 'user_denied'
-    })
+    }, 'tui')
     expect(() => session.answer(interaction, true)).toThrow()
     finish({ state: 'completed' })
     await session.close()

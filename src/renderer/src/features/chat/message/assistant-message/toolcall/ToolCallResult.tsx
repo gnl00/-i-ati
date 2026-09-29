@@ -3,7 +3,7 @@ import { cn } from '@renderer/shared/lib/utils'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 import { motion, useReducedMotion } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
-import { Check, FileText, List, Loader2, PanelRightOpen, PencilLine, Search, Trash2, X } from 'lucide-react'
+import { Check, FileText, List, Loader2, PanelRightOpen, PencilLine, Search, ShieldAlert, Trash2, X } from 'lucide-react'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { WebSearchResults, type WebSearchResult } from './WebSearchResults'
 import { SubagentResults } from './SubagentResults'
@@ -16,6 +16,8 @@ import { getReasonFromToolCall } from '../model/toolCallReason'
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
 import type { ToolLiveOutput } from '@renderer/features/chat/state/chatRunUiStore'
 import { TOOL_CALL_RESULT_WIDTH_CLASS_NAME } from './toolCallLayout'
+import { findToolConfirmation, useToolConfirmationStore } from '@renderer/features/chat/state/toolConfirmationStore'
+import type { ToolConfirmationStatus } from '@shared/tools/confirmation'
 
 export interface ToolCallResultProps {
   toolCall: ToolCallSegment
@@ -38,7 +40,7 @@ export interface ToolCallHeaderState {
   isError: boolean
   isPending: boolean
   isRunning: boolean
-  statusLabel: 'completed' | 'failed' | 'pending' | 'running'
+  statusLabel: 'completed' | 'failed' | 'pending' | 'running' | 'awaiting approval' | 'approved' | 'denied' | 'expired' | 'cancelled'
   tone: SupportSegmentHeaderTone
 }
 type WikiAction = 'list' | 'read' | 'write' | 'delete' | 'search'
@@ -260,19 +262,23 @@ export function getNormalizedStatus(status: unknown): string | undefined {
   return typeof status === 'string' ? status.toLowerCase() : undefined
 }
 
-export function getToolCallHeaderState(segment: ToolCallSegment): ToolCallHeaderState {
+export function getToolCallHeaderState(segment: ToolCallSegment, approval?: ToolConfirmationStatus): ToolCallHeaderState {
   const toolResponse = segment.content as ToolCallResponse | undefined
   const status = getNormalizedStatus(toolResponse?.status)
+  const approvalLabel = status === 'pending' && approval
+    ? approval === 'pending' ? 'awaiting approval' : approval
+    : undefined
   const isError = Boolean(segment.isError) || Boolean(status && TOOL_CALL_ERROR_STATUSES.has(status))
+    || approvalLabel === 'denied' || approvalLabel === 'expired' || approvalLabel === 'cancelled'
   const isPending = !isError && status === 'pending'
   const isRunning = !isError && status === 'running'
-  const statusLabel = isError
+  const statusLabel = approvalLabel ?? (isError
     ? 'failed'
     : isRunning
       ? 'running'
       : isPending
         ? 'pending'
-        : 'completed'
+        : 'completed')
   const tone: SupportSegmentHeaderTone = isError
     ? 'danger'
     : isRunning || isPending
@@ -288,6 +294,10 @@ export function getToolCallHeaderState(segment: ToolCallSegment): ToolCallHeader
     statusLabel,
     tone
   }
+}
+
+export function useToolCallApproval(toolCallId?: string): ToolConfirmationStatus | undefined {
+  return useToolConfirmationStore(state => findToolConfirmation(state.confirmations, toolCallId)?.status)
 }
 
 export function getToolCallTriggerAriaLabel(
@@ -514,11 +524,18 @@ export const ToolCallTriggerContent = React.memo(({
   quiet?: boolean
   trailing?: React.ReactNode
 }) => {
+  const approval = useToolCallApproval(toolCall.toolCallId)
+  const approvalLabel = getToolCallHeaderState(toolCall, approval).statusLabel
+  const approvalDescription = approval && (toolCall.content as ToolCallResponse)?.status === 'pending'
+    ? approvalLabel
+    : undefined
   const reason = getReasonFromToolCall(toolCall)
   const {
-    Icon: StatusIcon,
+    Icon: ExecutionIcon,
     iconClassName
   } = getToolCallStatusIconMeta({ isError, isRunning, isPending })
+  const StatusIcon = approvalDescription ? approval === 'pending' ? ShieldAlert : approval === 'approved' ? Check : X : ExecutionIcon
+  const statusIconClassName = approvalDescription ? undefined : iconClassName
   const tone: SupportSegmentHeaderTone = isError
     ? 'danger'
     : isRunning || isPending
@@ -528,8 +545,8 @@ export const ToolCallTriggerContent = React.memo(({
   if (quiet) {
     return (
       <span className="flex w-full min-w-0 items-center gap-2 text-[12px] text-slate-500 dark:text-(--chat-text-secondary)">
-        <StatusIcon aria-hidden="true" className={cn('h-3.5 w-3.5 shrink-0', iconClassName)} />
-        <span className="min-w-0 flex-1 truncate" title={reason || toolCall.name}>{reason || toolCall.name}</span>
+        <StatusIcon aria-hidden="true" className={cn('h-3.5 w-3.5 shrink-0', statusIconClassName)} />
+        <span className="min-w-0 flex-1 truncate" title={reason || toolCall.name}>{[reason || toolCall.name, approvalDescription].filter(Boolean).join(' · ')}</span>
         {trailing}
       </span>
     )
@@ -540,7 +557,7 @@ export const ToolCallTriggerContent = React.memo(({
       dataTestId={`tool-call-trigger-content-${toolCall.segmentId}`}
       icon={StatusIcon}
       name={toolCall.name}
-      description={reason}
+      description={[reason, approvalDescription].filter(Boolean).join(' · ')}
       duration={(
         <ToolCallDuration
           cost={toolCall.cost}
@@ -555,7 +572,7 @@ export const ToolCallTriggerContent = React.memo(({
       isOpen={isSelected}
       className={className}
       durationClassName={durationClassName}
-      iconClassName={iconClassName}
+      iconClassName={statusIconClassName}
       testIds={{
         icon: `tool-call-trigger-status-${toolCall.segmentId}`,
         name: `tool-call-trigger-name-${toolCall.segmentId}`,
@@ -1221,6 +1238,7 @@ export const ToolCallInspectorDetails = React.memo(({
 ToolCallInspectorDetails.displayName = 'ToolCallInspectorDetails'
 
 const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }) => {
+  const approval = useToolCallApproval(tc.toolCallId)
   const currentChatUuid = useChatStore(state => state.currentChatUuid)
   const inspectToolCall = useChatStore(state => state.inspectToolCall)
   const isSelected = useChatStore(state => (
@@ -1233,7 +1251,7 @@ const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }
     isPending,
     isRunning,
     statusLabel
-  } = getToolCallHeaderState(tc)
+  } = getToolCallHeaderState(tc, approval)
 
   return (
     <motion.div

@@ -9,6 +9,7 @@ import {
   RUN_STEER,
   RUN_TITLE_GENERATE,
   RUN_TOOL_CONFIRM,
+  RUN_TOOL_CONFIRMATION_SNAPSHOT,
   RUN_TOOL_USER_QUESTION_LIST_PENDING,
   RUN_TOOL_USER_QUESTION_SUBMIT
 } from '@shared/constants'
@@ -16,6 +17,8 @@ import {
 const {
   ipcMainHandleMock,
   runServiceCancelMock,
+  runServiceConfirmMock,
+  runServiceSnapshotMock,
   runServiceSteerMock,
   runServiceSubmitQuestionMock,
   runServiceListQuestionsMock,
@@ -23,6 +26,8 @@ const {
 } = vi.hoisted(() => ({
   ipcMainHandleMock: vi.fn(),
   runServiceCancelMock: vi.fn(),
+  runServiceConfirmMock: vi.fn(),
+  runServiceSnapshotMock: vi.fn(),
   runServiceSteerMock: vi.fn(),
   runServiceSubmitQuestionMock: vi.fn(),
   runServiceListQuestionsMock: vi.fn(),
@@ -39,7 +44,8 @@ vi.mock('@main/orchestration/chat/run', () => ({
   RunService: class {
     start = vi.fn()
     cancel = runServiceCancelMock
-    resolveToolConfirmation = vi.fn()
+    submitToolConfirmation = runServiceConfirmMock
+    getToolConfirmationSnapshot = runServiceSnapshotMock
     submitToolUserQuestion = runServiceSubmitQuestionMock
     listPendingToolUserQuestions = runServiceListQuestionsMock
     steer = runServiceSteerMock
@@ -78,10 +84,29 @@ describe('registerChatHandlers', () => {
   beforeEach(() => {
     ipcMainHandleMock.mockReset()
     runServiceCancelMock.mockReset()
+    runServiceConfirmMock.mockReset()
+    runServiceSnapshotMock.mockReset()
     runServiceSteerMock.mockReset()
     runServiceSubmitQuestionMock.mockReset()
     runServiceListQuestionsMock.mockReset()
     forkChatMock.mockReset()
+  })
+
+  it('routes approval identity and returns the Main decision and snapshot', async () => {
+    const { registerChatHandlers } = await import('../chat')
+    registerChatHandlers()
+    const submit = ipcMainHandleMock.mock.calls.find(([channel]) => channel === RUN_TOOL_CONFIRM)![1]
+    const snapshot = ipcMainHandleMock.mock.calls.find(([channel]) => channel === RUN_TOOL_CONFIRMATION_SNAPSHOT)![1]
+    const request = { confirmationId: 'approval', submissionId: 'run', chatUuid: 'chat', toolCallId: 'call', approved: true }
+    const result = { ok: false, reason: 'already_resolved', confirmation: { status: 'denied' } }
+    runServiceConfirmMock.mockReturnValue(result)
+    expect(await submit({}, request)).toEqual(result)
+    expect(runServiceConfirmMock).toHaveBeenCalledWith(request, 'chat')
+    runServiceSnapshotMock.mockReturnValue({ version: 2, confirmations: [] })
+    expect(await snapshot({}, { chatUuid: 'chat' })).toEqual({ version: 2, confirmations: [] })
+    expect(runServiceSnapshotMock).toHaveBeenCalledWith('chat')
+    expect(await snapshot({}, { chatUuid: '' })).toEqual({ version: 0, confirmations: [] })
+    expect(runServiceSnapshotMock).toHaveBeenCalledTimes(1)
   })
 
   it('routes user-question submit and hydration requests through RunService', async () => {

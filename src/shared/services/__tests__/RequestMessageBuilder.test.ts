@@ -3,6 +3,22 @@ import { RequestMessageBuilder } from '../RequestMessageBuilder'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 
 describe('RequestMessageBuilder', () => {
+  it.each(['telegram', 'telegram_delivery'])('excludes %s delivery copies without breaking tool pairs or removing real Telegram turns', source => {
+    const call = (id: string): NonNullable<ChatMessage['toolCalls']>[number] => ({ id, type: 'function', function: { name: 'test', arguments: '{}' } })
+    const messages = [
+      { body: { role: 'user', source: 'telegram', content: 'request', segments: [] } },
+      { body: { role: 'assistant', model: 'model', source: 'telegram', host: { direction: 'outbound' }, content: 'reply', toolCalls: [call('a'), call('b')], segments: [] } },
+      { body: { role: 'tool', toolCallId: 'a', content: 'result a', segments: [] } },
+      { body: { role: 'assistant', source, host: { direction: 'outbound' }, content: 'delivery copy', segments: [] } },
+      { body: { role: 'tool', toolCallId: 'b', content: 'result b', segments: [] } },
+      { body: { role: 'user', content: 'continue', segments: [] } }
+    ] as MessageEntity[]
+    const result = new RequestMessageBuilder().setMessages(messages).build()
+    expect(result.chatMessages.map(message => message.content)).toEqual(['request', 'reply', 'result a', 'result b', 'continue'])
+    expect(result.chatMessages[1].toolCalls).toHaveLength(2)
+    expect(messages).toHaveLength(6)
+  })
+
   it('keeps only the latest user image payload and degrades older image history to text', () => {
     const messages = [
       {

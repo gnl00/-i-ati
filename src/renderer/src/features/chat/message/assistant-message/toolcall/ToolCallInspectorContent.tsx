@@ -6,6 +6,7 @@ import { useChatStore } from '../../../state/chatStore'
 import { buildToolLiveOutputKey } from '../../../state/chatRunUiStore'
 import {
   getToolCallHeaderState,
+  useToolCallApproval,
   ToolCallDuration,
   ToolCallInspectorDetails
 } from './ToolCallResult'
@@ -99,6 +100,8 @@ export const ToolCallInspectorContent: React.FC = () => {
     ]
   })
 
+  const approval = useToolCallApproval(toolCall?.toolCallId)
+
   if (!selection) return <ToolInspectorEmptyState />
   if (!currentChatUuid || selection.chatUuid !== currentChatUuid) {
     return (
@@ -123,7 +126,7 @@ export const ToolCallInspectorContent: React.FC = () => {
     isPending,
     isRunning,
     statusLabel
-  } = getToolCallHeaderState(toolCall)
+  } = getToolCallHeaderState(toolCall, approval)
   const reason = getReasonFromToolCall(toolCall)
   const StatusIcon = isError ? X : isRunning || isPending ? Loader2 : Check
 

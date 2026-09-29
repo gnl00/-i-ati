@@ -21,7 +21,7 @@ export class TuiSession {
       | 'execute'
       | 'steer'
       | 'cancel'
-      | 'resolveToolConfirmation'
+      | 'submitToolConfirmation'
       | 'submitToolUserQuestion'
     > = new RunService(),
     private readonly chats: Pick<
@@ -257,11 +257,16 @@ export class TuiSession {
     )
       throw new Error('此请求已结束。')
     if (interaction.kind === 'approval') {
-      this.runs.resolveToolConfirmation(interaction.payload.toolCallId, {
+      const result = this.runs.submitToolConfirmation({
+        confirmationId: interaction.payload.confirmationId,
+        submissionId: interaction.submissionId,
+        chatUuid: interaction.payload.chatUuid,
+        toolCallId: interaction.payload.toolCallId,
         approved: answer === true,
         ...(answer !== true ? { reason: 'user_denied' } : {})
-      })
-      this.state.clearApproval(interaction.payload.toolCallId)
+      }, 'tui')
+      if (!result.ok && !result.confirmation) throw new Error(result.reason)
+      if (result.confirmation) this.state.resolveApproval(result.confirmation)
     } else {
       const result = this.runs.submitToolUserQuestion({
         ...interaction.payload,

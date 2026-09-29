@@ -1,3 +1,4 @@
+import { resolveTelegramApprovalTargets } from '@main/services/telegram/TelegramApprovalTargets'
 import { AbortError } from './errors'
 import type { ToolConfirmationRequester, ToolQuestionRequester } from '@main/agent/contracts'
 import { AgentRun } from './AgentRun'
@@ -50,6 +51,7 @@ export class RunManager {
     const run = this.createRun(input, eventSinks, hostRenderSinks)
     run.emitAccepted()
     void run.run().catch(() => undefined).finally(() => {
+      this.cancelPendingInteractions(input.submissionId)
       this.registry.delete(input.submissionId)
     })
 
@@ -84,6 +86,7 @@ export class RunManager {
       }
       return result
     } finally {
+      this.cancelPendingInteractions(input.submissionId)
       this.registry.delete(input.submissionId)
     }
   }
@@ -176,7 +179,11 @@ export class RunManager {
       submissionId: input.submissionId
     }, eventSinks)
     const toolConfirmationRequester: ToolConfirmationRequester = {
-      request: (request) => this.deps.toolConfirmationManager.request(emitter, request)
+      request: (request) => this.deps.toolConfirmationManager.request(
+        emitter,
+        request,
+        resolveTelegramApprovalTargets(emitter.chatUuid, input.input.host)
+      )
     }
     const toolQuestionRequester: ToolQuestionRequester = {
       request: (request) => this.deps.toolQuestionManager

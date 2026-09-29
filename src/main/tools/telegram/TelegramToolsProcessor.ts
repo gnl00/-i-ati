@@ -1,3 +1,4 @@
+import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 import { configDb } from '@main/db/config'
 import { chatDb } from '@main/db/chat'
 import { telegramGatewayService } from '@main/services/telegram'
@@ -226,7 +227,7 @@ const persistTelegramOutboundMessage = (args: {
       content: args.text,
       segments: [],
       typewriterCompleted: true,
-      source: 'telegram',
+      source: MESSAGE_SOURCE.TELEGRAM_DELIVERY,
       host: {
         type: 'telegram',
         direction: 'outbound',

@@ -28,7 +28,8 @@
 ```text
 runtime facts
   -> shared/render state fold (HostRenderEventMapper)
-    -> host-specific mapper / transport policy
+    -> HostOutputDispatcher (run targets / failure policy)
+      -> host-specific mapper / transport policy
       -> host output protocol
 ```
 
@@ -191,3 +192,9 @@ TelegramRenderResponder
 最后 bug 会在不同 host 中重复出现，而且很难确认哪一份状态才是真源。
 
 `shared/render` 的存在，就是为了把这些真源收回来。
+
+## Unified output routing
+
+Main runtime 的组合根向 forwarder、Run emitter factory 和 confirmation manager 注入同一个 `HostOutputDispatcher`。render 输出、Run 协议、canonical approval 都通过该分发器选择 adapter。当前 Chat responder / tool side effects 是 required consumer；其他投递失败独立记录。分发器保持每个 transport adapter 的异步顺序；Telegram 重试及 Chat snapshot 恢复由各 adapter 保持。
+
+见 [ADR 0027](../../../../../docs/decisions/0027-unified-host-output-dispatch.md)。

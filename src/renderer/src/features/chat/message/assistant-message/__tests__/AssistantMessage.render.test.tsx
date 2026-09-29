@@ -128,6 +128,7 @@ vi.mock('../toolcall/ToolCallResult', async () => {
     ToolCallTriggerContent,
     getToolCallTriggerButtonClassName: () => 'tool-call-trigger-button',
     getNormalizedStatus: (status: unknown) => typeof status === 'string' ? status.toLowerCase() : undefined,
+    useToolCallApproval: (): undefined => undefined,
     getToolCallHeaderState: (segment: ToolCallSegment) => {
       const status = typeof segment.content?.status === 'string' ? segment.content.status.toLowerCase() : undefined
       const isError = Boolean(segment.isError) || status === 'error' || status === 'failed'

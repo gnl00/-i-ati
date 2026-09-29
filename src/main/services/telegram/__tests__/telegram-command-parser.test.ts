@@ -48,12 +48,12 @@ describe('telegram-command-parser', () => {
   it('parses tool confirmation callback data', () => {
     expect(parseTelegramCommandCallback('tgcmd:tool_confirm:approve:call-1')).toEqual({
       type: 'tool_confirmation',
-      toolCallId: 'call-1',
+      confirmationId: 'call-1',
       approved: true
     })
     expect(parseTelegramCommandCallback('tgcmd:tool_confirm:deny:call-1')).toEqual({
       type: 'tool_confirmation',
-      toolCallId: 'call-1',
+      confirmationId: 'call-1',
       approved: false
     })
   })

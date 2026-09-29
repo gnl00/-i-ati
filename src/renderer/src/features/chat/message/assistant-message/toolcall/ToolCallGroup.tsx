@@ -9,6 +9,7 @@ import type { SupportSegmentRenderItem } from '../model/assistantMessageMapper'
 import {
   areToolCallSegmentsEqual,
   getToolCallHeaderState,
+  useToolCallApproval,
   getToolCallTriggerAriaLabel,
   ToolCallInspectorDetails,
   ToolCallDuration,
@@ -83,7 +84,8 @@ const ToolCallGroupRow = memo(({
     if (!currentChatUuid || !item.segment.toolCallId) return undefined
     return state.toolLiveOutputs[buildToolLiveOutputKey(currentChatUuid, item.segment.toolCallId)]
   })
-  const { isError, isPending, isRunning, statusLabel, toolResponse } = getToolCallHeaderState(item.segment)
+  const approval = useToolCallApproval(item.segment.toolCallId)
+  const { isError, isPending, isRunning, statusLabel, toolResponse } = getToolCallHeaderState(item.segment, approval)
   const detailsId = `tool-call-inline-details-${item.segment.segmentId}`
   const [hasOpened, setHasOpened] = useState(expanded)
 

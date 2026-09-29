@@ -1,3 +1,4 @@
+import type { ToolConfirmationListener } from '@main/agent/contracts/ToolConfirmation'
 import {
   type CompressionExecutionInput,
   type TitleGenerationInput
@@ -7,6 +8,11 @@ import type { MainAgentRunInput } from '@main/hosts/chat/preparation/types'
 import type { HostRenderEventSink } from '@main/hosts/shared/render'
 import type { PermissionApprovalMode } from '@tools/approval'
 import type { ToolConfirmationDecision } from './infrastructure'
+import type {
+  ToolConfirmationActor,
+  ToolConfirmationSnapshot,
+  ToolConfirmationSubmitResult
+} from '@shared/tools/confirmation'
 import type {
   PendingToolQuestion,
   ToolUserQuestionSubmitResult
@@ -24,11 +30,14 @@ type RunExecutionOptions = {
   hostRenderSinks?: HostRenderEventSink[]
 }
 
+// All desktop entry points coordinate the same active runs and interactions.
+let defaultRuntime: RunRuntimeDeps | undefined
+
 export class RunService {
   private readonly runtime: RunRuntimeDeps
 
-  constructor(runtime: RunRuntimeDeps = new RunRuntimeFactory().create()) {
-    this.runtime = runtime
+  constructor(runtime?: RunRuntimeDeps) {
+    this.runtime = runtime ?? (defaultRuntime ??= new RunRuntimeFactory().create())
   }
 
   // Interactive entry: accept immediately and continue the run in the background.
@@ -57,8 +66,24 @@ export class RunService {
     await this.runtime.postRunJobService.waitForIdle()
   }
 
-  resolveToolConfirmation(toolCallId: string, decision: ToolConfirmationDecision): void {
-    this.runtime.toolConfirmationManager.resolve(toolCallId, decision)
+  submitToolConfirmation(request: unknown, host: 'chat' | 'tui'): ToolConfirmationSubmitResult {
+    return this.runtime.toolConfirmationManager.submit(request, { host })
+  }
+
+  submitTelegramToolConfirmation(
+    confirmationId: string,
+    decision: ToolConfirmationDecision,
+    actor: Extract<ToolConfirmationActor, { host: 'telegram' }>
+  ): ToolConfirmationSubmitResult {
+    return this.runtime.toolConfirmationManager.submitTelegram(confirmationId, decision, actor)
+  }
+
+  subscribeToolConfirmations(listener: ToolConfirmationListener): () => void {
+    return this.runtime.toolConfirmationManager.subscribe(listener)
+  }
+
+  getToolConfirmationSnapshot(chatUuid: string): ToolConfirmationSnapshot {
+    return this.runtime.toolConfirmationManager.snapshot(chatUuid)
   }
 
   submitToolUserQuestion(request: unknown): ToolUserQuestionSubmitResult {

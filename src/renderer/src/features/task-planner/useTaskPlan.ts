@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { invokeRunToolConfirm, subscribeRunEvents } from '@renderer/infrastructure/ipc'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { subscribeRunEvents } from '@renderer/infrastructure/ipc'
 import { taskPlannerService } from '@renderer/features/task-planner/TaskPlannerService'
 import { RUN_TOOL_EVENTS } from '@shared/run/tool-events'
+import type { ToolConfirmation } from '@shared/tools/confirmation'
 import type { Plan } from '@shared/task-planner/schemas'
 
 const sortPlanStepsById = (plan: Plan): Plan => ({
@@ -37,9 +38,25 @@ function readToolAction(args: unknown): string | undefined {
   return typeof action === 'string' ? action.trim() : undefined
 }
 
-export function useTaskPlan(chatUuid: string | null | undefined): UseTaskPlanResult {
+export function useTaskPlan(chatUuid: string | null | undefined, approvals: {
+  pending: ToolConfirmation[]
+  confirm: (confirmationId: string) => Promise<void>
+  cancel: (reason: string | undefined, confirmationId: string) => Promise<void>
+}): UseTaskPlanResult {
   const [activePlans, setActivePlans] = useState<Plan[]>([])
-  const [pendingPlanReview, setPendingPlanReview] = useState<{ toolCallId: string; plan: Plan } | null>(null)
+  const { pending, confirm, cancel } = approvals
+  const pendingApproval = pending.find(item => item.chatUuid === chatUuid && item.name === 'plan' && readToolAction(item.args) === 'create')
+  const pendingPlanReview = useMemo(() => {
+    if (!pendingApproval) return null
+    const args = pendingApproval.args as Partial<Plan>
+    return { toolCallId: pendingApproval.toolCallId, plan: sortPlanStepsById({
+      id: pendingApproval.toolCallId, chatUuid: pendingApproval.chatUuid,
+      goal: typeof args?.goal === 'string' ? args.goal : 'Untitled plan',
+      context: args?.context, constraints: args?.constraints, status: 'pending_review',
+      steps: Array.isArray(args?.steps) ? args.steps : [],
+      createdAt: pendingApproval.createdAt, updatedAt: pendingApproval.createdAt
+    }) }
+  }, [pendingApproval])
   const toolCallMapRef = useRef<Map<string, DetectedToolCall>>(new Map())
 
   const refreshPlans = useCallback(() => {
@@ -62,54 +79,21 @@ export function useTaskPlan(chatUuid: string | null | undefined): UseTaskPlanRes
     refreshPlans()
   }, [refreshPlans])
 
-  useEffect(() => {
-    setPendingPlanReview(null)
-  }, [chatUuid])
-
   const approvePlanReview = useCallback(async () => {
-    if (!pendingPlanReview) return
-    await invokeRunToolConfirm({
-      toolCallId: pendingPlanReview.toolCallId,
-      approved: true
-    })
-    setPendingPlanReview(null)
+    if (!pendingApproval) return
+    await confirm(pendingApproval.confirmationId)
     refreshPlans()
-  }, [pendingPlanReview, refreshPlans])
+  }, [pendingApproval, confirm, refreshPlans])
 
   const abortPlanReview = useCallback(async (reason?: string) => {
-    if (!pendingPlanReview) return
-    await invokeRunToolConfirm({
-      toolCallId: pendingPlanReview.toolCallId,
-      approved: false,
-      reason
-    })
-    setPendingPlanReview(null)
-  }, [pendingPlanReview])
+    if (!pendingApproval) return
+    await cancel(reason, pendingApproval.confirmationId)
+  }, [pendingApproval, cancel])
 
   useEffect(() => {
     const unsubscribe = subscribeRunEvents((event) => {
-      if (chatUuid && event.chatUuid && event.chatUuid !== chatUuid) {
+      if (event.chatUuid !== chatUuid) {
         return
-      }
-
-      if (event.type === RUN_TOOL_EVENTS.TOOL_CONFIRMATION_REQUIRED) {
-        const payload = event.payload
-        const args = payload?.args as Partial<Plan> & { action?: unknown; steps?: Plan['steps'] }
-        if (payload?.name === 'plan' && readToolAction(args) === 'create' && payload.toolCallId) {
-          const steps = Array.isArray(args?.steps) ? args.steps : []
-          const draftPlan: Plan = {
-            id: payload.toolCallId,
-            chatUuid: chatUuid ?? undefined,
-            goal: typeof args?.goal === 'string' ? args.goal : 'Untitled plan',
-            context: args?.context,
-            constraints: args?.constraints,
-            status: 'pending_review',
-            steps,
-            createdAt: Date.now(),
-            updatedAt: Date.now()
-          }
-          setPendingPlanReview({ toolCallId: payload.toolCallId, plan: sortPlanStepsById(draftPlan) })
-        }
       }
 
       if (event.type === RUN_TOOL_EVENTS.TOOL_CALL_DETECTED) {
@@ -128,9 +112,6 @@ export function useTaskPlan(chatUuid: string | null | undefined): UseTaskPlanRes
       ) {
         const toolCallId = event.payload.toolCallId
         if (!toolCallId) return
-        if (pendingPlanReview?.toolCallId === toolCallId) {
-          setPendingPlanReview(null)
-        }
         const toolCall = toolCallMapRef.current.get(toolCallId)
         if (toolCall?.name !== 'plan' || !toolCall.action) {
           return
