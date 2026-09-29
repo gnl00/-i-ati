@@ -8,7 +8,7 @@ Unify the visual language under `src/renderer/src/features/settings` while prese
 
 Settings pages used several local visual patterns before this normalization pass:
 
-- Tools, Knowledge Base, and Data & Log use stacked section cards.
+- Tools and Data & Log use stacked section cards. Knowledge Base uses two compact sections: source management and recall testing with collapsed advanced settings.
 - Memory, Skills, and Plugins use a shared page shell with header/toolbar/list composition and no extra duplicated root surface.
 - MCP Servers keeps its drawer workflow while using the resource-list two-card layout: a compact header/status card for page explanation and low-noise runtime summary above an internal scrolling list/editor card whose toolbar owns the mode tabs and current-mode actions. Server items use flat full-width resource rows with soft separators, compact metadata, status, and right-aligned actions.
 - Providers uses a master-detail workspace with a provider list, configuration detail panel, and model list region.
@@ -105,7 +105,7 @@ The provider workflow should keep its sidebar/detail structure. Shared settings 
 2. Migrate Memory and Skills first to validate the resource-list template.
 3. Migrate Data & Log to validate the section-stack template.
 4. Migrate Tools to validate field rows, control groups, and switch-driven expandable regions.
-5. Migrate Knowledge Base outer status, Recall Test, source list, and index parameter sections to validate metrics, notices, search, and result lists.
+5. Knowledge Base follows the source-first layout described below, reusing settings controls, notices, search, and section surfaces.
 6. Migrate Plugins to the resource-list template with `SettingsSubsectionHeader` for installed and remote collections.
 7. Migrate MCP Servers drawer and tab content to the resource-list two-card template with shared toolbar, empty/loading, button, tab, card, and editor-region language.
 8. Migrate Providers to the master-detail template with shared side/detail panels, input styles, buttons, scrollbars, and empty states.
@@ -114,3 +114,13 @@ The provider workflow should keep its sidebar/detail structure. Shared settings 
 ## `.impeccable.md`
 
 Settings design language is a cross-component design constraint, so the repository-level design context should include it. Keep detailed implementation rules in this document and keep `.impeccable.md` focused on durable product and visual principles.
+
+## Knowledge Base
+
+- Order: compact runtime summary and a description-free Retrieval Mode row, Knowledge Sources, Knowledge Search, then collapsed Advanced Settings. Keep the settings shell, 13.5px headings, 12.5px field labels, compact buttons, and graphite semantic tokens.
+- Runtime counts share one wrapping summary row. Status is refreshed on page load, every 1.5 seconds while indexing, and after index updates, rebuilds, and clears; no manual status refresh action is shown. Normal idle and completed status labels are omitted. Loading, indexing progress, and failures appear only when relevant; source availability remains on each source row. Base and source statuses use colored text without status dots; active indexing retains its loading indicator.
+- Sources are continuous rows with one folder name and one full path (truncated with a full-path tooltip). Use separators and the shared row hover surface, without individual cards or icon tiles.
+- The Knowledge Sources heading owns Add Source (outline), Update Index (primary), and the maintenance menu. There is no separate bottom action bar. Update Index is the single incremental indexing action. Validate Sources, Rebuild Index, and Clear Index live in the keyboard-accessible maintenance menu; all indexing controls stay disabled while indexing or clearing. Index operations continue to use draft configuration.
+- Recall shares the same `ExpandableSearchInput` as Skills, including click-to-expand, Enter submission, Escape clearing/collapse, and an inline loading indicator. The surrounding Settings popover retains its existing Escape-to-dismiss behavior. The search control and text-only outline Search action sit on the right of the Knowledge Search heading, with the shared 32px toolbar height. Recall uses saved configuration and the current built index. Unsaved drafts show a local save instruction and retain the existing search guard. The result count follows the Knowledge Search heading. Clear follows Search in the right-aligned action group and resets the query, results, and search feedback; there is no separate summary row. Clear is disabled while searching to prevent in-flight results from repopulating a cleared view. Results show filename, path, score, and the excerpt; native Details disclosures hold similarity, chunk number, character range, token estimate, and file extension.
+- Chunk Size, Chunk Overlap, and Max Results remain mounted in a native, initially collapsed Advanced Settings disclosure. Inputs keep a fixed width on focus. Retrieval Mode stays directly visible.
+- The page has one outer vertical scroll region. Toolbars and fields wrap at compact widths; paths truncate, excerpts wrap, and row action hit areas remain stable. Light and Dark share the same hierarchy.

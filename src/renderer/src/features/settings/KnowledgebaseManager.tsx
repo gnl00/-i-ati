@@ -1,7 +1,18 @@
-import { Badge } from '@renderer/shared/components/ui/badge'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from '@renderer/shared/components/ui/dropdown-menu'
 import { Input } from '@renderer/shared/components/ui/input'
 import { Label } from '@renderer/shared/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@renderer/shared/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@renderer/shared/components/ui/select'
 import { Switch } from '@renderer/shared/components/ui/switch'
 import {
   invokeCheckIsDirectory,
@@ -15,28 +26,36 @@ import {
 } from '@renderer/infrastructure/ipc'
 import { cn } from '@renderer/shared/lib/utils'
 import { useAppConfigStore } from '@renderer/infrastructure/config/appConfig'
-import { AlertCircle, BookOpen, Database, FileText, FolderOpen, LoaderCircle, RefreshCw, Search, Trash2 } from 'lucide-react'
-import React, { useEffect, useMemo, useState } from 'react'
+import {
+  AlertCircle,
+  BookOpen,
+  ChevronRight,
+  Database,
+  FileText,
+  FolderOpen,
+  LoaderCircle,
+  MoreHorizontal,
+  RefreshCw,
+  Search,
+  Trash2
+} from 'lucide-react'
+import React, { useEffect, useState } from 'react'
 import { toast } from 'sonner'
+import ExpandableSearchInput from './common/ExpandableSearchInput'
 import {
   SettingsControlGroup,
   SettingsEmptyState,
   SettingsFieldRow,
   SettingsLoadingState,
-  SettingsMetricGrid,
-  SettingsMetricItem,
   SettingsNotice,
   SettingsPageShell,
   SettingsSection,
   SettingsSectionHeader,
-  SettingsToolbar,
-  SettingsToolbarLabel,
-  settingsDangerButtonClassName,
   settingsIconButtonClassName,
   settingsInputClassName,
   settingsOutlineButtonClassName,
   settingsPrimaryButtonClassName,
-  settingsSearchInputClassName
+  settingsSecondaryButtonClassName
 } from './common/SettingsLayout'
 
 interface KnowledgebaseManagerProps {
@@ -57,7 +76,8 @@ interface KnowledgebaseManagerProps {
 }
 
 type FolderHealthState = 'checking' | 'ready' | 'invalid'
-type KnowledgebaseRuntimeState = 'idle' | 'scanning' | 'chunking' | 'embedding' | 'completed' | 'failed'
+type KnowledgebaseRuntimeState =
+  'idle' | 'scanning' | 'chunking' | 'embedding' | 'completed' | 'failed'
 
 type KnowledgebaseRuntimeStatus = {
   state: KnowledgebaseRuntimeState
@@ -92,24 +112,12 @@ type KnowledgebaseSearchResult = {
   token_estimate: number
 }
 
-const getFolderDisplayParts = (folder: string): { parent?: string; name: string } => {
-  const segments = folder.split(/[\\/]/).filter(Boolean)
-
-  if (segments.length === 0) {
-    return { name: folder }
-  }
-
-  if (segments.length === 1) {
-    return { name: segments[0] }
-  }
-
-  return {
-    parent: segments[segments.length - 2],
-    name: segments[segments.length - 1]
-  }
-}
-
-const clampNumber = (value: number, fallback: number, min: number, max: number): number => {
+const clampNumber = (
+  value: number,
+  fallback: number,
+  min: number,
+  max: number
+): number => {
   if (!Number.isFinite(value)) {
     return fallback
   }
@@ -137,47 +145,42 @@ const formatScore = (value: number): string => {
   return Number.isFinite(value) ? value.toFixed(3) : '0.000'
 }
 
-const getStatusPresentation = (state: KnowledgebaseRuntimeState): {
+const getStatusPresentation = (
+  state: KnowledgebaseRuntimeState
+): {
   label: string
-  badgeClassName: string
   toneClassName: string
 } => {
   switch (state) {
     case 'scanning':
       return {
         label: 'Scanning',
-        badgeClassName: 'text-sky-600 border-sky-200 bg-sky-50 dark:bg-sky-900/20 dark:text-sky-400 dark:border-sky-800',
         toneClassName: 'text-sky-600 dark:text-sky-400'
       }
     case 'chunking':
       return {
         label: 'Chunking',
-        badgeClassName: 'text-violet-600 border-violet-200 bg-violet-50 dark:bg-violet-900/20 dark:text-violet-400 dark:border-violet-800',
         toneClassName: 'text-violet-600 dark:text-violet-400'
       }
     case 'embedding':
       return {
         label: 'Embedding',
-        badgeClassName: 'text-amber-600 border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800',
         toneClassName: 'text-amber-600 dark:text-amber-400'
       }
     case 'completed':
       return {
         label: 'Completed',
-        badgeClassName: 'text-emerald-600 border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800',
         toneClassName: 'text-emerald-600 dark:text-emerald-400'
       }
     case 'failed':
       return {
         label: 'Failed',
-        badgeClassName: 'text-rose-600 border-rose-200 bg-rose-50 dark:bg-rose-900/20 dark:text-rose-400 dark:border-rose-800',
         toneClassName: 'text-rose-600 dark:text-rose-400'
       }
     case 'idle':
     default:
       return {
         label: 'Idle',
-        badgeClassName: 'text-slate-600 border-slate-200 bg-slate-50 dark:bg-slate-900/20 dark:text-slate-300 dark:border-slate-700',
         toneClassName: 'text-slate-600 dark:text-slate-300'
       }
   }
@@ -199,24 +202,28 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
   setMaxResults
 }) => {
   const { appConfig } = useAppConfigStore()
-  const [folderHealth, setFolderHealth] = useState<Record<string, FolderHealthState>>({})
+  const [folderHealth, setFolderHealth] = useState<
+    Record<string, FolderHealthState>
+  >({})
   const [refreshing, setRefreshing] = useState(false)
   const [runtimeLoading, setRuntimeLoading] = useState(true)
-  const [runtimeRefreshing, setRuntimeRefreshing] = useState(false)
   const [reindexing, setReindexing] = useState(false)
   const [clearing, setClearing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searching, setSearching] = useState(false)
-  const [searchResults, setSearchResults] = useState<KnowledgebaseSearchResult[]>([])
+  const [searchResults, setSearchResults] = useState<
+    KnowledgebaseSearchResult[]
+  >([])
   const [searchMessage, setSearchMessage] = useState<string>()
-  const [runtimeStatus, setRuntimeStatus] = useState<KnowledgebaseRuntimeStatus>({
-    state: 'idle',
-    totalFiles: 0,
-    processedFiles: 0,
-    totalChunks: 0,
-    processedChunks: 0,
-    updatedAt: 0
-  })
+  const [runtimeStatus, setRuntimeStatus] =
+    useState<KnowledgebaseRuntimeStatus>({
+      state: 'idle',
+      totalFiles: 0,
+      processedFiles: 0,
+      totalChunks: 0,
+      processedChunks: 0,
+      updatedAt: 0
+    })
   const [runtimeStats, setRuntimeStats] = useState<KnowledgebaseRuntimeStats>({
     documentCount: 0,
     chunkCount: 0,
@@ -224,48 +231,50 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
   })
 
   const savedKnowledgebase = appConfig?.knowledgebase
-  const hasUnsavedConfig = enabled !== (savedKnowledgebase?.enabled ?? false)
-    || retrievalMode !== (savedKnowledgebase?.retrievalMode ?? 'tool-first')
-    || autoIndexOnStartup !== (savedKnowledgebase?.autoIndexOnStartup ?? true)
-    || chunkSize !== (savedKnowledgebase?.chunkSize ?? 1200)
-    || chunkOverlap !== (savedKnowledgebase?.chunkOverlap ?? 200)
-    || maxResults !== (savedKnowledgebase?.maxResults ?? 8)
-    || JSON.stringify(folders) !== JSON.stringify(savedKnowledgebase?.folders ?? [])
+  const hasUnsavedConfig =
+    enabled !== (savedKnowledgebase?.enabled ?? false) ||
+    retrievalMode !== (savedKnowledgebase?.retrievalMode ?? 'tool-first') ||
+    autoIndexOnStartup !== (savedKnowledgebase?.autoIndexOnStartup ?? true) ||
+    chunkSize !== (savedKnowledgebase?.chunkSize ?? 1200) ||
+    chunkOverlap !== (savedKnowledgebase?.chunkOverlap ?? 200) ||
+    maxResults !== (savedKnowledgebase?.maxResults ?? 8) ||
+    JSON.stringify(folders) !==
+      JSON.stringify(savedKnowledgebase?.folders ?? [])
 
-  const indexingActive = runtimeStatus.state === 'scanning'
-    || runtimeStatus.state === 'chunking'
-    || runtimeStatus.state === 'embedding'
-  const savedFoldersCount = savedKnowledgebase?.folders?.length ?? 0
+  const indexingActive =
+    runtimeStatus.state === 'scanning' ||
+    runtimeStatus.state === 'chunking' ||
+    runtimeStatus.state === 'embedding'
   const statusPresentation = getStatusPresentation(runtimeStatus.state)
 
-  const validFoldersCount = useMemo(() => {
-    return folders.filter(folder => folderHealth[folder] === 'ready').length
-  }, [folderHealth, folders])
-
-  const invalidFoldersCount = useMemo(() => {
-    return folders.filter(folder => folderHealth[folder] === 'invalid').length
-  }, [folderHealth, folders])
-
-  const validateFolders = async (targetFolders: string[]): Promise<Record<string, FolderHealthState>> => {
+  const validateFolders = async (
+    targetFolders: string[]
+  ): Promise<Record<string, FolderHealthState>> => {
     if (targetFolders.length === 0) {
       setFolderHealth({})
       return {}
     }
 
-    setFolderHealth(current => {
+    setFolderHealth((current) => {
       const next: Record<string, FolderHealthState> = {}
-      targetFolders.forEach(folder => {
+      targetFolders.forEach((folder) => {
         next[folder] = current[folder] === 'ready' ? 'ready' : 'checking'
       })
       return next
     })
 
-    const results = await Promise.allSettled(targetFolders.map(folder => invokeCheckIsDirectory(folder)))
+    const results = await Promise.allSettled(
+      targetFolders.map((folder) => invokeCheckIsDirectory(folder))
+    )
     const nextHealth: Record<string, FolderHealthState> = {}
 
     results.forEach((result, index) => {
       const folder = targetFolders[index]
-      if (result.status === 'fulfilled' && result.value.success && result.value.isDirectory) {
+      if (
+        result.status === 'fulfilled' &&
+        result.value.success &&
+        result.value.isDirectory
+      ) {
         nextHealth[folder] = 'ready'
         return
       }
@@ -304,10 +313,16 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
       }
     })
 
-    return () => {
+    return (): void => {
       disposed = true
     }
-  }, [savedKnowledgebase?.enabled, savedKnowledgebase?.folders, savedKnowledgebase?.chunkSize, savedKnowledgebase?.chunkOverlap, savedKnowledgebase?.maxResults])
+  }, [
+    savedKnowledgebase?.enabled,
+    savedKnowledgebase?.folders,
+    savedKnowledgebase?.chunkSize,
+    savedKnowledgebase?.chunkOverlap,
+    savedKnowledgebase?.maxResults
+  ])
 
   useEffect(() => {
     if (!indexingActive) {
@@ -318,32 +333,24 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
       void Promise.all([
         invokeKnowledgebaseStatus(),
         invokeKnowledgebaseStats()
-      ]).then(([status, stats]) => {
-        setRuntimeStatus(status)
-        setRuntimeStats(stats)
-      }).catch(() => undefined)
+      ])
+        .then(([status, stats]) => {
+          setRuntimeStatus(status)
+          setRuntimeStats(stats)
+        })
+        .catch(() => undefined)
     }, 1500)
 
-    return () => window.clearInterval(timer)
+    return (): void => window.clearInterval(timer)
   }, [indexingActive])
 
-  const refreshRuntimeState = async (silent = false): Promise<void> => {
-    if (!silent) {
-      setRuntimeRefreshing(true)
-    }
-
-    try {
-      const [status, stats] = await Promise.all([
-        invokeKnowledgebaseStatus(),
-        invokeKnowledgebaseStats()
-      ])
-      setRuntimeStatus(status)
-      setRuntimeStats(stats)
-    } finally {
-      if (!silent) {
-        setRuntimeRefreshing(false)
-      }
-    }
+  const refreshRuntimeState = async (): Promise<void> => {
+    const [status, stats] = await Promise.all([
+      invokeKnowledgebaseStatus(),
+      invokeKnowledgebaseStats()
+    ])
+    setRuntimeStatus(status)
+    setRuntimeStats(stats)
   }
 
   const buildEffectiveKnowledgebaseConfig = (): KnowledgebaseConfig => {
@@ -383,7 +390,10 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
       return false
     }
 
-    if (runtimeStats.chunkCount <= 0 && runtimeStats.indexedDocumentCount <= 0) {
+    if (
+      runtimeStats.chunkCount <= 0 &&
+      runtimeStats.indexedDocumentCount <= 0
+    ) {
       toast.warning('Run indexing before testing recall')
       return false
     }
@@ -406,7 +416,7 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
   }
 
   const handleRemoveFolder = (folder: string): void => {
-    setFolders(folders.filter(item => item !== folder))
+    setFolders(folders.filter((item) => item !== folder))
   }
 
   const handleOpenFolder = async (folder: string): Promise<void> => {
@@ -427,9 +437,13 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
         return
       }
 
-      const invalidCount = folders.filter(folder => nextHealth[folder] === 'invalid').length
+      const invalidCount = folders.filter(
+        (folder) => nextHealth[folder] === 'invalid'
+      ).length
       if (invalidCount > 0) {
-        toast.warning(`Found ${invalidCount} unavailable source${invalidCount > 1 ? 's' : ''}`)
+        toast.warning(
+          `Found ${invalidCount} unavailable source${invalidCount > 1 ? 's' : ''}`
+        )
         return
       }
 
@@ -451,8 +465,12 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
         force,
         configOverride
       })
-      await refreshRuntimeState(true)
-      toast.success(force ? 'Knowledge base rebuild completed' : 'Knowledge base indexing completed')
+      await refreshRuntimeState()
+      toast.success(
+        force
+          ? 'Knowledge base rebuild completed'
+          : 'Knowledge base indexing completed'
+      )
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       toast.error(message || 'Failed to run knowledge base indexing')
@@ -465,7 +483,7 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
     setClearing(true)
     try {
       await invokeKnowledgebaseClear()
-      await refreshRuntimeState(true)
+      await refreshRuntimeState()
       toast.success('Knowledge base index cleared')
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -503,7 +521,10 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
       }
 
       setSearchResults(result.results)
-      setSearchMessage(result.message)
+      setSearchMessage(
+        result.message ||
+          (result.results.length === 0 ? 'No recall result found' : undefined)
+      )
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setSearchResults([])
@@ -520,444 +541,510 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
 
   return (
     <SettingsPageShell scrollable contentClassName="space-y-2">
-        <SettingsSection>
-          <SettingsSectionHeader
-            title={(
-              <Label htmlFor="toggle-knowledgebase" className="cursor-default">
-                Knowledge Base
-              </Label>
-            )}
-            badges={(
-              <>
-                <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-amber-700 border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">
-                  RAG
-                </Badge>
-                <Badge variant="outline" className={`select-none text-[10px] h-5 px-1.5 font-normal ${statusPresentation.badgeClassName}`}>
-                  {statusPresentation.label}
-                </Badge>
-                {hasUnsavedConfig && (
-                  <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-amber-700 border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">
-                    Unsaved Config
-                  </Badge>
+      <SettingsSection>
+        <SettingsSectionHeader
+          title={<Label htmlFor="toggle-knowledgebase">Knowledge Base</Label>}
+          actions={
+            <Switch
+              checked={enabled}
+              onCheckedChange={setEnabled}
+              id="toggle-knowledgebase"
+            />
+          }
+        />
+        <div className="px-4 pb-3">
+          <div
+            className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-gray-500 dark:text-(--app-text-secondary)"
+            aria-live="polite"
+          >
+            {(runtimeLoading ||
+              indexingActive ||
+              runtimeStatus.state === 'failed') && (
+              <span
+                className={cn(
+                  'flex items-center gap-1.5',
+                  statusPresentation.toneClassName
                 )}
-              </>
+              >
+                {indexingActive && (
+                  <LoaderCircle className="h-3 w-3 animate-spin" />
+                )}
+                {runtimeLoading ? 'Loading' : statusPresentation.label}
+              </span>
             )}
-            description="Configure local knowledge sources for future retrieval, grounding, and problem diagnosis workflows."
-            actions={(
-              <Switch
-                checked={enabled}
-                onCheckedChange={setEnabled}
-                id="toggle-knowledgebase"
-                className="data-[state=checked]:bg-amber-500 mt-0.5 shrink-0"
-              />
-            )}
-          />
-
-          <div className="flex items-center gap-2 flex-wrap px-4 pb-2">
-            <button
-              onClick={() => void refreshRuntimeState()}
-              className={cn(settingsOutlineButtonClassName, 'h-8 rounded-lg')}
-              disabled={runtimeLoading || runtimeRefreshing}
-              title='Refresh status and statistics from the current knowledge base index'
-              aria-label='Refresh knowledge base status'
-            >
-              {runtimeRefreshing ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-              Refresh
-            </button>
-            <button
-              onClick={() => void handleRunIndex(false)}
-              className={cn(settingsOutlineButtonClassName, 'h-8 rounded-lg')}
-              disabled={reindexing || clearing || indexingActive}
-              title='Incrementally index changed files and remove deleted files from the current sources'
-              aria-label='Incrementally reindex knowledge base'
-            >
-              {(reindexing && !indexingActive) ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
-              Reindex
-            </button>
-            <button
-              onClick={() => void handleRunIndex(true)}
-              className={cn(settingsOutlineButtonClassName, 'h-8 rounded-lg')}
-              disabled={reindexing || clearing || indexingActive}
-              title='Force a full rebuild of all indexed files from the current sources'
-              aria-label='Fully rebuild knowledge base index'
-            >
-              <Database className="w-3.5 h-3.5" />
-              Rebuild
-            </button>
-            <button
-              onClick={() => void handleClearIndex()}
-              className={cn(settingsDangerButtonClassName, 'h-8 rounded-lg')}
-              disabled={clearing || indexingActive}
-              title='Delete all indexed knowledge base documents and chunks'
-              aria-label='Clear knowledge base index'
-            >
-              {clearing ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-              Clear
-            </button>
+            <span className="tabular-nums">
+              {runtimeStats.documentCount} files
+            </span>
+            <span className="tabular-nums">
+              {runtimeStats.chunkCount} chunks
+            </span>
+            <span>
+              Last indexed: {formatDateTime(runtimeStats.lastIndexedAt)}
+            </span>
           </div>
-
-          <SettingsToolbar className="space-y-3 py-3">
-            <SettingsMetricGrid>
-              <SettingsMetricItem label="Sources" value={folders.length} />
-              <SettingsMetricItem
-                label="Ready / Unavailable"
-                value={(
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-emerald-600 dark:text-emerald-400">{validFoldersCount}</span>
-                    <span className="text-[12px] text-gray-400 dark:text-gray-500">/</span>
-                    <span className="text-rose-600 dark:text-rose-400">{invalidFoldersCount}</span>
-                  </div>
-                )}
-              />
-              <SettingsMetricItem label="Files" value={runtimeStats.documentCount} />
-              <SettingsMetricItem label="Chunks" value={runtimeStats.chunkCount} />
-            </SettingsMetricGrid>
-
-            <SettingsNotice tone={runtimeStatus.state === 'failed' ? 'danger' : 'neutral'} className="space-y-3">
-              <div className="flex items-start justify-between gap-4">
-                <p>
-                  {runtimeStatus.message || 'Knowledge base runtime is ready'} · Last update: {formatDateTime(runtimeStatus.updatedAt)} · Last indexed: {formatDateTime(runtimeStats.lastIndexedAt)}
-                </p>
-                {runtimeStatus.state === 'failed' && (
-                  <AlertCircle className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0 mt-0.5" />
-                )}
-              </div>
-              {hasUnsavedConfig && (
-                <p className="text-amber-600 dark:text-amber-400">
-                  Current draft differs from saved configuration. Build Index uses the draft values. Recall testing still reflects the latest built index.
-                </p>
+          {(indexingActive || runtimeStatus.state === 'failed') && (
+            <SettingsNotice
+              tone={runtimeStatus.state === 'failed' ? 'danger' : 'neutral'}
+              className="mt-2 flex items-start gap-2"
+              role="status"
+            >
+              {runtimeStatus.state === 'failed' && (
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
               )}
+              <span>
+                {runtimeStatus.message || statusPresentation.label}
+                {indexingActive && (
+                  <span className="ml-2 tabular-nums">
+                    Files {runtimeStatus.processedFiles}/
+                    {runtimeStatus.totalFiles} · Chunks{' '}
+                    {runtimeStatus.processedChunks}/{runtimeStatus.totalChunks}
+                  </span>
+                )}
+              </span>
             </SettingsNotice>
-          </SettingsToolbar>
-        </SettingsSection>
-
-        <SettingsSection>
-          <SettingsSectionHeader
-            title={<Label className="cursor-default">Recall Test</Label>}
-            badges={(
-              <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-emerald-600 border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800">
-                SEARCH
-              </Badge>
-            )}
-            description="Search the saved knowledge base index directly from settings to inspect recall quality, file hits, and chunk snippets."
+          )}
+        </div>
+        <div className="px-4">
+          <SettingsFieldRow
+            title="Retrieval Mode"
+            className="flex-wrap border-t border-gray-100 dark:border-(--app-border-subtle)"
+            control={
+              <Select
+                value={retrievalMode}
+                onValueChange={(value) =>
+                  setRetrievalMode(value as KnowledgebaseRetrievalMode)
+                }
+              >
+                <SelectTrigger
+                  onClick={(event) => event.stopPropagation()}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  className={cn(
+                    settingsInputClassName,
+                    'h-8 w-[180px] text-[12px]'
+                  )}
+                  aria-label="Retrieval mode"
+                >
+                  <SelectValue placeholder="Select retrieval mode">
+                    {retrievalMode === 'tool-first'
+                      ? 'Tool First'
+                      : retrievalMode === 'auto'
+                        ? 'Auto Inject'
+                        : 'Off'}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="rounded-lg border-gray-200 bg-white font-medium dark:border-(--app-border-standard) dark:bg-(--app-surface-raised) dark:text-(--app-text-body)">
+                  <SelectItem
+                    value="tool-first"
+                    textValue="Tool First"
+                    className="text-[11px] tracking-tight dark:focus:bg-(--app-surface-hover) dark:focus:text-(--app-text-primary)"
+                  >
+                    <span className="inline-flex flex-wrap items-baseline gap-x-2">
+                      <span>Tool First</span>
+                      <span className="text-[10px] font-normal text-gray-400 dark:text-(--app-text-secondary)">
+                        Search via tool when needed
+                      </span>
+                    </span>
+                  </SelectItem>
+                  <SelectItem
+                    value="auto"
+                    textValue="Auto Inject"
+                    className="text-[11px] tracking-tight dark:focus:bg-(--app-surface-hover) dark:focus:text-(--app-text-primary)"
+                  >
+                    <span className="inline-flex flex-wrap items-baseline gap-x-2">
+                      <span>Auto Inject</span>
+                      <span className="text-[10px] font-normal text-gray-400 dark:text-(--app-text-secondary)">
+                        Add matching context automatically
+                      </span>
+                    </span>
+                  </SelectItem>
+                  <SelectItem
+                    value="off"
+                    textValue="Off"
+                    className="text-[11px] tracking-tight dark:focus:bg-(--app-surface-hover) dark:focus:text-(--app-text-primary)"
+                  >
+                    Off
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            }
           />
+        </div>
+        <div className="border-t border-gray-100 dark:border-(--app-border-subtle)">
+          <SettingsSectionHeader
+            title="Knowledge Sources"
+            badges={
+              <span className="text-[11px] text-gray-400 dark:text-(--app-text-muted)">
+                {folders.length} sources
+              </span>
+            }
+            className="items-center"
+            actions={
+              <>
+                <button
+                  onClick={() => void handleAddFolder()}
+                  className={settingsOutlineButtonClassName}
+                >
+                  <BookOpen className="h-3.5 w-3.5" />
+                  Add Source
+                </button>
+                <button
+                  onClick={() => void handleRunIndex(false)}
+                  className={settingsPrimaryButtonClassName}
+                  disabled={reindexing || clearing || indexingActive}
+                >
+                  {reindexing || indexingActive ? (
+                    <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Database className="h-3.5 w-3.5" />
+                  )}
+                  Update Index
+                </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className={settingsIconButtonClassName}
+                      aria-label="Index maintenance"
+                      title="Index maintenance"
+                      disabled={reindexing || clearing || indexingActive}
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    className="rounded-lg border-gray-200 bg-white dark:border-(--app-border-standard) dark:bg-(--app-surface-raised) dark:text-(--app-text-body)"
+                  >
+                    <DropdownMenuItem
+                      className="text-[11px] dark:focus:bg-(--app-surface-hover) dark:focus:text-(--app-text-primary)"
+                      disabled={refreshing}
+                      onSelect={() => void handleRefresh()}
+                    >
+                      <RefreshCw className={cn(refreshing && 'animate-spin')} />
+                      Validate Sources
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-[11px] dark:focus:bg-(--app-surface-hover) dark:focus:text-(--app-text-primary)"
+                      onSelect={() => void handleRunIndex(true)}
+                    >
+                      <Database />
+                      Rebuild Index
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-[11px] text-rose-600 focus:text-rose-600 dark:text-rose-400 dark:focus:bg-(--app-surface-hover) dark:focus:text-rose-400"
+                      onSelect={() => void handleClearIndex()}
+                    >
+                      <Trash2 />
+                      Clear Index
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            }
+          />
+          {hasUnsavedConfig && (
+            <p className="px-4 pb-3 text-[11px] text-amber-600 dark:text-amber-400">
+              Update Index and Rebuild Index use the current draft settings.
+              Save settings before testing recall.
+            </p>
+          )}
+          {folders.length === 0 ? (
+            <SettingsEmptyState
+              icon={<BookOpen className="h-4 w-4" />}
+              title="No knowledge sources configured"
+              description="Add a folder to index local documents."
+              className="px-4 py-6"
+            />
+          ) : (
+            folders.map((folder) => {
+              const name = folder.split(/[\\/]/).filter(Boolean).pop() || folder
+              const health = folderHealth[folder] || 'checking'
+              return (
+                <div
+                  key={folder}
+                  className="flex flex-wrap items-center gap-3 border-t border-gray-100 px-4 py-3 dark:border-(--app-border-subtle) hover:bg-gray-50/60 dark:hover:bg-(--app-surface-hover)"
+                >
+                  <FolderOpen className="h-4 w-4 shrink-0 text-gray-400 dark:text-(--app-text-secondary)" />
+                  <div className="min-w-0 flex-1 basis-32">
+                    <p className="truncate text-[12.5px] font-medium text-gray-800 dark:text-(--app-text-primary)">
+                      {name}
+                    </p>
+                    <p
+                      className="mt-0.5 truncate text-[11px] text-gray-400 dark:text-(--app-text-muted)"
+                      title={folder}
+                    >
+                      {folder}
+                    </p>
+                  </div>
+                  <span
+                    className={cn(
+                      'flex items-center gap-1.5 text-[11px]',
+                      health === 'ready'
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : health === 'invalid'
+                          ? 'text-rose-600 dark:text-rose-400'
+                          : 'text-gray-400 dark:text-(--app-text-muted)'
+                    )}
+                  >
+                    {health === 'ready'
+                      ? 'Ready'
+                      : health === 'invalid'
+                        ? 'Unavailable'
+                        : 'Checking'}
+                  </span>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      onClick={() => void handleOpenFolder(folder)}
+                      className={settingsIconButtonClassName}
+                      aria-label={`Open ${folder}`}
+                      title="Open folder"
+                    >
+                      <FolderOpen className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleRemoveFolder(folder)}
+                      className={settingsIconButtonClassName}
+                      aria-label={`Remove ${folder}`}
+                      title="Remove source"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+      </SettingsSection>
 
-          <SettingsToolbar className="space-y-3 py-3">
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="relative min-w-[220px] flex-1">
-                <Search className="w-4 h-4 text-gray-400 dark:text-gray-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <Input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      void handleSearch()
-                    }
-                  }}
-                  placeholder='Search knowledge base snippets, errors, modules, APIs...'
-                  className={settingsSearchInputClassName}
-                />
-              </div>
+      <SettingsSection>
+        <SettingsSectionHeader
+          title="Knowledge Search"
+          badges={
+            <span className="text-[11px] text-gray-400 dark:text-(--app-text-muted)">
+              {searchResults.length} results
+            </span>
+          }
+          className="items-center"
+          actions={
+            <div className="flex min-w-0 items-center gap-2">
+              <ExpandableSearchInput
+                value={searchQuery}
+                onChange={setSearchQuery}
+                onSubmit={() => void handleSearch()}
+                placeholder="Search indexed documents..."
+                loading={searching}
+                disabled={searching}
+                className="min-w-0 max-w-full"
+              />
               <button
                 onClick={() => void handleSearch()}
-                className={cn(settingsPrimaryButtonClassName, 'h-9 rounded-lg')}
+                className={cn(settingsOutlineButtonClassName, 'h-8 shrink-0')}
                 disabled={searching}
               >
-                {searching ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
                 Search
               </button>
-            </div>
-
-            <SettingsNotice className="flex items-center justify-between gap-3 flex-wrap">
-              <span>Saved folders: {savedFoldersCount} · Indexed docs: {runtimeStats.indexedDocumentCount} · Chunks: {runtimeStats.chunkCount}</span>
-              <span>Top K: {savedKnowledgebase?.maxResults ?? 8}</span>
-            </SettingsNotice>
-
-            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white/90 dark:bg-gray-800/60">
-              {searchQuery.trim().length === 0 && searchResults.length === 0 ? (
-                <SettingsEmptyState
-                  icon={<Search className="w-4 h-4 text-gray-400 dark:text-gray-500" />}
-                  title="Enter a query to inspect retrieval results"
-                  description="This panel shows matched files, scores, and retrieved chunk excerpts."
-                  className="py-8"
-                />
-              ) : searching ? (
-                <SettingsLoadingState className="py-8">
-                  Searching indexed chunks...
-                </SettingsLoadingState>
-              ) : searchResults.length === 0 ? (
-                <SettingsEmptyState
-                  icon={<FileText className="w-4 h-4 text-gray-400 dark:text-gray-500" />}
-                  title={searchMessage || 'No recall result found'}
-                  description="Try a more specific phrase, a scope name, or reindex after saving knowledge base changes."
-                  className="py-8"
-                />
-              ) : (
-                <div className="p-2 space-y-2">
-                  <div className="px-2 pt-1 text-[11px] text-gray-400 dark:text-gray-500">
-                    {searchMessage || `Found ${searchResults.length} recall results`}
-                  </div>
-                  {searchResults.map((result) => (
-                    <div key={result.chunk_id} className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-900/20 px-3 py-3">
-                      <div className="flex items-start gap-3">
-                        <div className="w-9 h-9 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center shrink-0">
-                          <FileText className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                        </div>
-                        <div className="min-w-0 flex-1 space-y-2">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-[12.5px] font-medium text-gray-900 dark:text-gray-100 truncate">{result.file_name}</p>
-                            <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-sky-600 border-sky-200 bg-sky-50 dark:bg-sky-900/20 dark:text-sky-400 dark:border-sky-800">
-                              {result.ext || 'file'}
-                            </Badge>
-                            <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-emerald-600 border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800">
-                              score {formatScore(result.score)}
-                            </Badge>
-                            <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-violet-600 border-violet-200 bg-violet-50 dark:bg-violet-900/20 dark:text-violet-400 dark:border-violet-800">
-                              sim {formatScore(result.similarity)}
-                            </Badge>
-                          </div>
-
-                          <p className="text-[11px] text-gray-500 dark:text-gray-400 break-all">{result.file_path}</p>
-
-                          <div className="flex items-center gap-3 text-[11px] text-gray-400 dark:text-gray-500">
-                            <span>chunk #{result.chunk_index}</span>
-                            <span>range {result.char_start}-{result.char_end}</span>
-                            <span>{result.token_estimate} tokens</span>
-                          </div>
-
-                          <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2.5">
-                            <pre className="whitespace-pre-wrap break-words text-[11px] leading-relaxed text-gray-700 dark:text-gray-300 font-mono">
-                              {result.text}
-                            </pre>
-                          </div>
-                        </div>
-
-                        <button
-                          onClick={() => void handleOpenFolder(result.file_path)}
-                          className={cn(settingsIconButtonClassName, 'shrink-0')}
-                          aria-label={`Open ${result.file_path}`}
-                          title="Open file"
-                        >
-                          <FolderOpen className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </SettingsToolbar>
-        </SettingsSection>
-
-        <SettingsSection>
-          <SettingsSectionHeader
-            title={<Label className="cursor-default">Knowledge Sources</Label>}
-            badges={(
-              <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-sky-600 border-sky-200 bg-sky-50 dark:bg-sky-900/20 dark:text-sky-400 dark:border-sky-800">
-                PATH
-              </Badge>
-            )}
-            description="Add one or more directories as source roots. The current phase stores and validates sources for later indexing work."
-          />
-          <SettingsToolbar className="flex items-center justify-between gap-3 flex-wrap">
-            <SettingsToolbarLabel>Source Directories</SettingsToolbarLabel>
-            <div className="flex items-center gap-2 flex-wrap justify-end min-w-0">
               <button
-                onClick={() => void handleRunIndex(false)}
-                className={settingsOutlineButtonClassName}
-                disabled={reindexing || clearing || indexingActive}
-                title='Incrementally index changed files and remove deleted files from the current sources'
-                aria-label='Build knowledge base index'
+                className={cn(settingsSecondaryButtonClassName, 'h-8 shrink-0')}
+                disabled={
+                  searching ||
+                  (!searchQuery && searchResults.length === 0 && !searchMessage)
+                }
+                onClick={() => {
+                  setSearchQuery('')
+                  setSearchResults([])
+                  setSearchMessage(undefined)
+                }}
               >
-                {(reindexing && !indexingActive) ? <LoaderCircle className="w-3.5 h-3.5 animate-spin" /> : <Database className="w-3.5 h-3.5" />}
-                Build Index
-              </button>
-              <button
-                onClick={() => void handleRefresh()}
-                className={settingsOutlineButtonClassName}
-                title='Validate current source directories and refresh their availability status'
-                aria-label='Validate knowledge base source directories'
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-                Validate
-              </button>
-              <button
-                onClick={() => void handleAddFolder()}
-                className={settingsPrimaryButtonClassName}
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-                Add Source
+                Clear
               </button>
             </div>
-          </SettingsToolbar>
-          <div className="px-4 py-3 space-y-2">
-            {folders.length === 0 ? (
-              <SettingsEmptyState
-                icon={<BookOpen className="w-4 h-4 text-gray-400 dark:text-gray-500" />}
-                title="No knowledge sources configured"
-                description="Add a folder to prepare local documents for future indexing."
-                className="py-8"
-              />
-            ) : (
-              folders.map(folder => {
-                const parts = getFolderDisplayParts(folder)
-                const healthState = folderHealth[folder] || 'checking'
-                const healthLabel = healthState === 'ready'
-                  ? 'Ready'
-                  : healthState === 'invalid'
-                    ? 'Unavailable'
-                    : 'Checking'
-                const healthClassName = healthState === 'ready'
-                  ? 'text-emerald-600 border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800'
-                  : healthState === 'invalid'
-                    ? 'text-rose-600 border-rose-200 bg-rose-50 dark:bg-rose-900/20 dark:text-rose-400 dark:border-rose-800'
-                    : 'text-slate-600 border-slate-200 bg-slate-50 dark:bg-slate-900/20 dark:text-slate-300 dark:border-slate-700'
-
-                return (
-                  <div key={folder} className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/20 px-3 py-3 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center shrink-0">
-                      <BookOpen className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <p className="text-[12.5px] font-medium text-gray-800 dark:text-gray-100 truncate">{parts.name}</p>
-                        <Badge variant="outline" className={`select-none text-[10px] h-5 px-1.5 font-normal ${healthClassName}`}>
-                          {healthLabel}
-                        </Badge>
-                      </div>
-                      <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400 truncate">
-                        {parts.parent ? `${parts.parent} / ${parts.name}` : folder}
-                      </p>
-                      <p className="mt-0.5 text-[11px] text-gray-400 dark:text-gray-500 truncate">{folder}</p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button
-                        onClick={() => void handleOpenFolder(folder)}
-                        className={settingsIconButtonClassName}
-                        aria-label={`Open ${folder}`}
-                        title="Open folder"
-                      >
-                        <FolderOpen className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleRemoveFolder(folder)}
-                        className={settingsIconButtonClassName}
-                        aria-label={`Remove ${folder}`}
-                        title="Remove source"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                )
-              })
-            )}
-          </div>
-        </SettingsSection>
-
-        <SettingsSection>
-          <SettingsSectionHeader
-            title={<Label className="cursor-default">Index Parameters</Label>}
-            badges={(
-              <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-violet-600 border-violet-200 bg-violet-50 dark:bg-violet-900/20 dark:text-violet-400 dark:border-violet-800">
-                INDEX
-              </Badge>
-            )}
-            description="Tune chunking and retrieval defaults used by manual knowledge base indexing and search."
-          />
-          <div className="border-t border-gray-100 dark:border-gray-700/50 px-4 py-1">
-            <SettingsFieldRow
-              title="Retrieval Mode"
-              description="Choose whether chat uses automatic snippet injection, tool-directed retrieval, or disables knowledge base retrieval during chat preparation."
-              className="border-b border-gray-100 dark:border-gray-800/60"
-              control={(
-                <Select
-                  value={retrievalMode}
-                  onValueChange={(value) => setRetrievalMode(value as KnowledgebaseRetrievalMode)}
-                >
-                  <SelectTrigger
-                    onClick={(event) => event.stopPropagation()}
-                    onPointerDown={(event) => event.stopPropagation()}
-                    className="h-9 w-[180px] text-[12px] bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                  >
-                    <SelectValue placeholder="Select retrieval mode" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white/95 dark:bg-gray-900/95 rounded-lg shadow-lg backdrop-blur font-medium">
-                    <SelectItem value="tool-first" className='text-[11px] tracking-tight'>Tool First</SelectItem>
-                    <SelectItem value="auto" className='text-[11px] tracking-tight'>Auto Inject</SelectItem>
-                    <SelectItem value="off" className='text-[11px] tracking-tight'>Off</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
+          }
+        />
+        {hasUnsavedConfig && (
+          <p className="px-4 pb-3 text-[11px] text-amber-600 dark:text-amber-400">
+            Save settings before testing recall against the current index.
+          </p>
+        )}
+        <div aria-live="polite">
+          {searching ? (
+            <SettingsLoadingState className="py-6">
+              Searching indexed chunks...
+            </SettingsLoadingState>
+          ) : searchResults.length === 0 ? (
+            <SettingsEmptyState
+              icon={<Search className="h-4 w-4" />}
+              title={
+                searchMessage || 'Enter a query to inspect retrieval results'
+              }
+              description="Inspect matched files and retrieved excerpts."
+              className="px-4 py-6"
             />
-
+          ) : (
+            searchResults.map((result) => (
+              <div
+                key={result.chunk_id}
+                className="border-t border-gray-100 px-4 py-3 dark:border-(--app-border-subtle)"
+              >
+                <div className="flex items-start gap-2">
+                  <FileText className="mt-0.5 h-4 w-4 shrink-0 text-gray-400 dark:text-(--app-text-secondary)" />
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className="truncate text-[12.5px] font-medium text-gray-800 dark:text-(--app-text-primary)"
+                      title={result.file_name}
+                    >
+                      {result.file_name}
+                    </p>
+                    <p
+                      className="mt-0.5 truncate text-[11px] text-gray-400 dark:text-(--app-text-muted)"
+                      title={result.file_path}
+                    >
+                      {result.file_path}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-[11px] tabular-nums text-gray-500 dark:text-(--app-text-secondary)">
+                    score {formatScore(result.score)}
+                  </span>
+                  <button
+                    onClick={() => void handleOpenFolder(result.file_path)}
+                    className={settingsIconButtonClassName}
+                    aria-label={`Open ${result.file_path}`}
+                    title="Open file"
+                  >
+                    <FolderOpen className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <pre className="mt-2 whitespace-pre-wrap break-words rounded-lg bg-gray-50 px-3 py-2 text-[11px] leading-relaxed text-gray-700 dark:bg-(--app-surface-inset) dark:text-(--app-text-body) font-mono">
+                  {result.text}
+                </pre>
+                <details className="group mt-2 text-[11px] text-gray-500 dark:text-(--app-text-secondary)">
+                  <summary className="flex w-fit cursor-pointer list-none items-center gap-1 rounded focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 [&::-webkit-details-marker]:hidden">
+                    <ChevronRight className="h-3 w-3 group-open:rotate-90" />
+                    Details
+                  </summary>
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 tabular-nums">
+                    <span>Similarity {formatScore(result.similarity)}</span>
+                    <span>Chunk #{result.chunk_index}</span>
+                    <span>
+                      Range {result.char_start}–{result.char_end}
+                    </span>
+                    <span>{result.token_estimate} tokens</span>
+                    <span>{result.ext || 'file'}</span>
+                  </div>
+                </details>
+              </div>
+            ))
+          )}
+        </div>
+        <details className="group border-t border-gray-100 dark:border-(--app-border-subtle)">
+          <summary className="flex cursor-pointer list-none flex-wrap items-center gap-2 px-4 py-3 text-[12.5px] font-medium text-gray-700 dark:text-(--app-text-body) focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-2px] [&::-webkit-details-marker]:hidden">
+            <ChevronRight className="h-3.5 w-3.5 group-open:rotate-90" />
+            Advanced Settings
+            <span className="ml-auto text-[11px] font-normal text-gray-400 dark:text-(--app-text-muted)">
+              Chunking and retrieval limits
+            </span>
+          </summary>
+          <div className="border-t border-gray-100 px-4 py-1 dark:border-(--app-border-subtle)">
             <SettingsFieldRow
               title="Chunk Size"
-              description="Target characters per chunk for future document segmentation."
-              className="border-b border-gray-100 dark:border-gray-800/60"
-              control={(
+              description="Target characters per chunk for document segmentation."
+              className="flex-wrap border-b border-gray-100 dark:border-(--app-border-subtle)"
+              control={
                 <SettingsControlGroup>
                   <Input
                     type="number"
+                    aria-label="Chunk Size"
                     min={200}
                     max={4000}
                     value={chunkSize}
                     onChange={(e) => {
-                      const value = clampNumber(parseInt(e.target.value, 10), 1200, 200, 4000)
+                      const value = clampNumber(
+                        parseInt(e.target.value, 10),
+                        1200,
+                        200,
+                        4000
+                      )
                       setChunkSize(value)
                     }}
-                    className={cn(settingsInputClassName, 'text-center px-0 h-8 w-20 transition-all focus:w-24 font-mono font-medium [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none')}
+                    className={cn(
+                      settingsInputClassName,
+                      'text-center px-0 h-8 w-20 font-mono font-medium [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
+                    )}
                   />
-                  <span className="text-xs font-medium text-gray-400 pr-2">chars</span>
+                  <span className="text-xs font-medium text-gray-400 pr-2">
+                    chars
+                  </span>
                 </SettingsControlGroup>
-              )}
+              }
             />
 
             <SettingsFieldRow
               title="Chunk Overlap"
               description="Shared characters between adjacent chunks to preserve local context."
-              className="border-b border-gray-100 dark:border-gray-800/60"
-              control={(
+              className="flex-wrap border-b border-gray-100 dark:border-(--app-border-subtle)"
+              control={
                 <SettingsControlGroup>
                   <Input
                     type="number"
+                    aria-label="Chunk Overlap"
                     min={0}
                     max={1000}
                     value={chunkOverlap}
                     onChange={(e) => {
-                      const value = clampNumber(parseInt(e.target.value, 10), 200, 0, 1000)
+                      const value = clampNumber(
+                        parseInt(e.target.value, 10),
+                        200,
+                        0,
+                        1000
+                      )
                       setChunkOverlap(value)
                     }}
-                    className={cn(settingsInputClassName, 'text-center px-0 h-8 w-20 transition-all focus:w-24 font-mono font-medium [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none')}
+                    className={cn(
+                      settingsInputClassName,
+                      'text-center px-0 h-8 w-20 font-mono font-medium [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
+                    )}
                   />
-                  <span className="text-xs font-medium text-gray-400 pr-2">chars</span>
+                  <span className="text-xs font-medium text-gray-400 pr-2">
+                    chars
+                  </span>
                 </SettingsControlGroup>
-              )}
+              }
             />
 
             <SettingsFieldRow
               title="Max Results"
-              description="Default upper bound for future retrieval result count."
-              control={(
+              className="flex-wrap"
+              description="Default upper bound for retrieval result count."
+              control={
                 <SettingsControlGroup>
                   <Input
                     type="number"
+                    aria-label="Max Results"
                     min={1}
                     max={20}
                     value={maxResults}
                     onChange={(e) => {
-                      const value = clampNumber(parseInt(e.target.value, 10), 8, 1, 20)
+                      const value = clampNumber(
+                        parseInt(e.target.value, 10),
+                        8,
+                        1,
+                        20
+                      )
                       setMaxResults(value)
                     }}
-                    className={cn(settingsInputClassName, 'text-center px-0 h-8 w-20 transition-all focus:w-24 font-mono font-medium [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none')}
+                    className={cn(
+                      settingsInputClassName,
+                      'text-center px-0 h-8 w-20 font-mono font-medium [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
+                    )}
                   />
-                  <span className="text-xs font-medium text-gray-400 pr-2">items</span>
+                  <span className="text-xs font-medium text-gray-400 pr-2">
+                    items
+                  </span>
                 </SettingsControlGroup>
-              )}
+              }
             />
           </div>
-        </SettingsSection>
+        </details>
+      </SettingsSection>
     </SettingsPageShell>
   )
 }
