@@ -337,3 +337,7 @@ Light/Dark 同步切换语义色，不映射桌面 surface 材料。工具输出
 工具名称／状态与参数摘要分行，优先显示命令、路径、查询；详细结果按需展开，错误保持可见。
 编辑器下方分为模型／审批上下文和状态相关快捷键，窄屏按完整提示项收敛，保留审批状态。
 帮助与选择列表使用同一可搜索面板，支持 ↑↓、Enter、Esc，退出面板恢复输入焦点。
+
+### Settings model selector material
+
+Settings 模型选择弹层使用半透明白色 / graphite raised 背景与 backdrop blur，保持文字清晰；搜索框用 inset 底色建立层次，透明边框和轻微的焦点底色变化代替强调轮廓。Provider 分组标题保留半透明 sticky 背景。

@@ -55,19 +55,37 @@ describe('SettingsInlineModelSelector', () => {
   })
 
   it('keeps the settings variant on semantic graphite surfaces', () => {
-    expect(settingsModelSelectorClassNames.content).toContain('w-[min(380px,calc(100vw-2rem))]')
-    expect(settingsModelSelectorClassNames.content).toContain('dark:bg-(--app-surface-raised)')
-    expect(settingsModelSelectorClassNames.content).toContain('dark:backdrop-blur-none')
-    expect(settingsModelSelectorClassNames.command).toContain('dark:[&_[cmdk-input-wrapper]]:bg-(--app-surface-inset)')
-    expect(settingsModelSelectorClassNames.group).toContain('**:[[cmdk-group-heading]]:sticky')
-    expect(settingsModelSelectorClassNames.item).toContain('dark:data-[selected=true]:bg-(--app-surface-hover)')
+    expect(settingsModelSelectorClassNames.content).toContain(
+      'w-[min(380px,calc(100vw-2rem))]'
+    )
+    expect(settingsModelSelectorClassNames.content).toContain(
+      'dark:bg-(--app-surface-raised)'
+    )
+    expect(settingsModelSelectorClassNames.content).toContain(
+      'dark:backdrop-blur-xl'
+    )
+    expect(settingsModelSelectorClassNames.command).toContain(
+      'dark:[&_[cmdk-input-wrapper]]:bg-(--app-surface-inset)'
+    )
+    expect(settingsModelSelectorClassNames.group).toContain(
+      '**:[[cmdk-group-heading]]:sticky'
+    )
+    expect(settingsModelSelectorClassNames.item).toContain(
+      'dark:data-[selected=true]:bg-(--app-surface-hover)'
+    )
     expect(settingsModelSelectorClassNames.visionIcon).not.toContain('animate-')
   })
 
   it('matches the current option by both account and model', () => {
-    expect(isModelSelectorOptionSelected(selectedModel, 'account-1', 'model-current')).toBe(true)
-    expect(isModelSelectorOptionSelected(selectedModel, 'account-2', 'model-current')).toBe(false)
-    expect(isModelSelectorOptionSelected(selectedModel, 'account-1', 'model-other')).toBe(false)
+    expect(
+      isModelSelectorOptionSelected(selectedModel, 'account-1', 'model-current')
+    ).toBe(true)
+    expect(
+      isModelSelectorOptionSelected(selectedModel, 'account-2', 'model-current')
+    ).toBe(false)
+    expect(
+      isModelSelectorOptionSelected(selectedModel, 'account-1', 'model-other')
+    ).toBe(false)
   })
 
   it('renders the open settings state and marks the current model', async () => {
@@ -84,13 +102,22 @@ describe('SettingsInlineModelSelector', () => {
       )
     })
 
-    const trigger = container.querySelector<HTMLButtonElement>('[role="combobox"]')
-    const popover = document.body.querySelector<HTMLElement>('[data-model-selector-variant="settings"]')
-    const currentItem = popover?.querySelector<HTMLElement>('[data-current="true"]')
-    const visionIcon = currentItem?.querySelector<HTMLElement>('[aria-label="Vision capable"]')
+    const trigger =
+      container.querySelector<HTMLButtonElement>('[role="combobox"]')
+    const popover = document.body.querySelector<HTMLElement>(
+      '[data-model-selector-variant="settings"]'
+    )
+    const currentItem = popover?.querySelector<HTMLElement>(
+      '[data-current="true"]'
+    )
+    const visionIcon = currentItem?.querySelector<HTMLElement>(
+      '[aria-label="Vision capable"]'
+    )
 
     expect(trigger?.getAttribute('aria-expanded')).toBe('true')
-    expect(trigger?.className).toContain('dark:aria-expanded:bg-(--app-surface-hover)')
+    expect(trigger?.className).toContain(
+      'dark:aria-expanded:bg-(--app-surface-hover)'
+    )
     expect(popover?.className).toContain('dark:bg-(--app-surface-raised)')
     expect(currentItem?.textContent).toContain(model.label)
     expect(currentItem?.className).toContain('dark:bg-(--app-surface-hover)')

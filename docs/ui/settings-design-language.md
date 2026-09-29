@@ -25,7 +25,7 @@ Use this template for pages made of independent settings blocks:
 - Knowledge Base
 - Data & Log
 
-Each block should use a `SettingsSection` with a `SettingsSectionHeader`. Optional controls sit in a footer/action bar with a subtle tinted background and top border.
+Tools uses flat section headings and continuous settings rows, with subtle inset regions for grouped model controls and expanded Telegram configuration. Legacy section stacks may use `SettingsSection` with `SettingsSectionHeader`; the Tools section below defines its current layout.
 
 ### Resource List
 
@@ -57,7 +57,7 @@ The provider workflow should keep its sidebar/detail structure. Shared settings 
 - Panel header uses two compact rows: `Settings` on the left and save status plus a fixed-height Save button on the right, followed by the category tabs. Omit branding, version, subtitle, save-group surface, and vertical divider. Dirty state uses a static amber dot; the disabled Save button uses an inset surface and muted text. Title, tabs, and content shells share a 4px outer inset. Tabs retain their labels and icons with subtle borders and no active shadow.
 - Content surfaces live inside the settings frame as internal structure. Keep sibling outer cards for separate workflows outside the main settings panel.
 - Dark surfaces use the app semantic graphite tokens: popover canvas (`--app-canvas`), settings frame (`--app-surface`), content panels (`--app-surface-raised`), row hover (`--app-surface-hover`), and form/list inset (`--app-surface-inset`). Borders and text use the matching app semantic tokens.
-- Shared model selectors expose an explicit settings variant. Settings triggers read as raised selects; Model Routing pairs use transparent layout groups so the selector and clear button own the enclosure. Their popovers use the raised graphite surface, inset search controls, quiet sticky provider headers, and compact current/keyboard selection states. Drawer and chat selector variants keep their own established material and interaction language.
+- Shared model selectors expose an explicit settings variant. Settings triggers read as raised selects; Model Routing pairs use transparent layout groups so the selector and clear button own the enclosure. Their popovers use translucent raised surfaces with backdrop blur, background-led search controls with transparent borders and a subtle focus background, quiet sticky provider headers, and compact current/keyboard selection states. Drawer and chat selector variants keep their own established material and interaction language.
 - Light surfaces remain white or light gray, `rounded-xl`, with a subtle border and `shadow-xs`.
 - Header title: `text-[13.5px] font-semibold tracking-tight`.
 - Header description: `text-[12px] text-gray-400 dark:text-gray-500 leading-relaxed`.
@@ -150,3 +150,10 @@ Settings design language is a cross-component design constraint, so the reposito
 - Plugins uses a flat overview with a short description and plain installed/active counts. Installed Plugins and Registry each use a subtle inset region with a fine border, small corners, and no shadow.
 - Refresh and Import Local belong to the installed toolbar; the registry has its own Refresh action. Both collections scroll internally, with installed plugins capped to preserve registry space. Toolbars wrap at compact widths.
 - Names and descriptions lead each row. Source, version, capability, and status use quiet text instead of colored badges; errors and available upgrades retain semantic emphasis. Installed enable/uninstall actions form a centered vertical group, while registry install/upgrade stays right-aligned. Built-in adapters remain excluded from the installed collection.
+
+## Tools
+
+- Tools uses four flat sections: Model Routing, General, Telegram Channel, and Maintenance. The page scrolls as one continuous settings surface. Category badges and duplicate action bars are omitted.
+- Model Routing places its three selectors in one subtle inset region and retains route/fallback explanations. General groups continuous Web Search Limit, Emotion Pack, and Message Compression rows in a subtle inset region matching Model Routing; compression parameters expand below their switch.
+- Telegram keeps its configuration switch in the heading and reveals an inset token/gateway area when enabled. Runtime status is plain semantic text, distinct from the configuration switch. Errors and existing save-before-start behavior remain visible.
+- Maintenance groups Backup, Logs, and Debug rows in the same subtle inset region, with actions beside their descriptions. General and Maintenance headings remain flat; their shared child surface uses a fine border, small corners, and no shadow. Shared switches use the app theme; compact windows stack row controls below labels and wrap action groups. Selectors retain their existing popover ownership and behavior.
