@@ -10,7 +10,7 @@ Settings pages used several local visual patterns before this normalization pass
 
 - Tools and Data & Log use stacked section cards. Knowledge Base uses two compact flat sections: source management and recall testing with collapsed advanced settings.
 - Memory, Skills, and Plugins use a shared page shell with header/toolbar/list composition and no extra duplicated root surface.
-- MCP Servers keeps its drawer workflow while using the resource-list two-card layout: a compact header/status card for page explanation and low-noise runtime summary above an internal scrolling list/editor card whose toolbar owns the mode tabs and current-mode actions. Server items use flat full-width resource rows with soft separators, compact metadata, status, and right-aligned actions.
+- MCP Servers keeps its drawer workflow while using a flat overview and inset resource-list layout: a flat overview and runtime summary above an inset list/editor region whose toolbar owns the mode tabs and current-mode actions. Server items use flat full-width resource rows with soft separators, compact metadata, status, and right-aligned actions.
 - Providers uses a master-detail workspace with a provider list, configuration detail panel, and model list region.
 
 Provider-specific detail panels and advanced editor surfaces share the same dark material ladder as the settings frame. Feature-specific semantic tones remain local to their workflows.
@@ -37,7 +37,7 @@ Use this template for pages centered on a collection:
 - MCP Servers
 
 The page should use `SettingsPageShell`, followed by a header, toolbar/filter rows, and a `SettingsList` or equivalent internal scrolling region. Rows use the same density, hover, border, and text hierarchy. Parent tabs that host resource-list content should expose the same shell boundary and loading states.
-The resource-list template can also split content into two stacked cards when needed: an upper card for title/description and lightweight status, and a lower card for mode tabs, mode-specific actions, list content, editor content, and internal scrolling. MCP Servers uses this split: the upper card footer hosts compact status chips such as connected servers, available tools, and registry cache state. The lower card toolbar hosts the installed/registry tab switcher on the left and active-mode controls on the right: local clipboard import plus JSON toggle for installed servers, or registry search for discovery. The body hosts installed rows, registry rows, loading/empty states, infinite-scroll sentinel, and the JSON editor. MCP Server rows follow the Memory/Skills density: name and `@name` lead the row, description/config/runtime errors stay in the text column, runtime status and Added state lead the row meta line beside connection type/tool count/version, and right-aligned actions stay limited to install/copy/remove with compact row action sizing. Registry install buttons use a low-saturation ghost action style that gains emphasis on hover.
+The resource-list template can also split content into two stacked cards when needed: an upper card for title/description and lightweight status, and a lower card for mode tabs, mode-specific actions, list content, editor content, and internal scrolling. MCP Servers uses a flat overview with plain connected/tool counts and an inset management region. Registry cache state appears beside registry search. The management toolbar hosts the installed/registry tab switcher on the left and active-mode controls on the right: local clipboard import plus JSON toggle for installed servers, or registry search for discovery. The body hosts installed rows, registry rows, loading/empty states, infinite-scroll sentinel, and the JSON editor. MCP Server rows follow the Memory/Skills density: name and `@name` lead the row, description/config/runtime errors stay in the text column, runtime status and Added state lead the row meta line beside connection type/tool count/version, and right-aligned actions stay limited to install/copy/remove with compact row action sizing. Registry install buttons use a low-saturation ghost action style that gains emphasis on hover.
 
 ### Master Detail
 
@@ -107,7 +107,7 @@ The provider workflow should keep its sidebar/detail structure. Shared settings 
 4. Migrate Tools to validate field rows, control groups, and switch-driven expandable regions.
 5. Knowledge Base follows the source-first layout described below, reusing settings controls, notices, search, and section surfaces.
 6. Migrate Plugins to the resource-list template with `SettingsSubsectionHeader` for installed and remote collections.
-7. Migrate MCP Servers drawer and tab content to the resource-list two-card template with shared toolbar, empty/loading, button, tab, card, and editor-region language.
+7. Migrate MCP Servers drawer and tab content to the flat overview and inset management template with shared toolbar, empty/loading, button, tab, card, and editor-region language.
 8. Migrate Providers to the master-detail template with shared side/detail panels, input styles, buttons, scrollbars, and empty states.
 9. Keep changes behavior-preserving unless the current component has an existing layout defect.
 
@@ -131,3 +131,10 @@ Settings design language is a cross-component design constraint, so the reposito
 - Long-term Memory sits flat on the Settings surface with a shared switch and one short description. Stored Memories groups its lower-level heading, count, Refresh, and continuous list in one inset region with aligned side margins, a subtle background, small rounded corners, and a fine border without shadow.
 - Continuous rows lead with memory content and follow with quiet role/time metadata. Content wraps safely, clamps to two lines, and offers accessible Show more/Show less only when actually truncated. Row hover and inline delete confirmation use the existing shared controls.
 - The list retains its internal scroll region so the heading and refresh remain visible. Light and Dark use the same hierarchy and shared semantic tokens.
+
+## MCP Servers
+
+- The overview is flat on the Settings surface, with a short description and plain Connected/Tools counts aligned to its right on the same row, wrapping at compact widths. “Using cache” appears beside registry search when valid cached browse results are available; it stays hidden during searches, fetching, or without valid cache.
+- Installed/Registry switching, mode-specific actions, and content share one inset region with side margins, a subtle background, small corners, a fine border, and no shadow. The toolbar wraps on compact windows and stays outside the internally scrolling list.
+- Server rows stay continuous. Connection status leads quieter transport, version, and tool-count metadata without separate colored enclosures. Existing connection, install, clipboard, copy, and removal interactions remain.
+- JSON mode fills the same content region directly, with a compact footer for editing state rather than nested editor and status cards.

@@ -11,14 +11,7 @@ import { useMcpConnection } from '@renderer/features/settings/mcps/useMcpConnect
 import { useMcpRuntimeStore } from '@renderer/features/settings/mcps/mcpRuntimeStore'
 import CodeMirror from '@uiw/react-codemirror'
 import { json } from '@codemirror/lang-json'
-import {
-  Code,
-  Clipboard,
-  Globe,
-  Loader2,
-  Search,
-  Server
-} from 'lucide-react'
+import { Code, Clipboard, Globe, Loader2, Search, Server } from 'lucide-react'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import ExpandableSearchInput from '../common/ExpandableSearchInput'
@@ -43,7 +36,8 @@ import {
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 const API_BASE_URL = 'https://registry.modelcontextprotocol.io/v0.1/servers'
 const REGISTRY_PAGE_SIZE = 15
-const MCP_CLIPBOARD_EXAMPLE = '{"mcpServers":{"my-server":{"command":"npx","args":["-y","@scope/server"]}}}'
+const MCP_CLIPBOARD_EXAMPLE =
+  '{"mcpServers":{"my-server":{"command":"npx","args":["-y","@scope/server"]}}}'
 
 type MCPServersTabValue = 'registry' | 'local'
 
@@ -84,9 +78,7 @@ const MCPServersTabContent: React.FC<MCPServersTabContentProps> = ({
         ) : empty ? (
           emptyState
         ) : (
-          <div className={cn('min-w-0', contentClassName)}>
-            {children}
-          </div>
+          <div className={cn('min-w-0', contentClassName)}>{children}</div>
         )}
       </div>
     </TabsContent>
@@ -100,14 +92,15 @@ export interface MCPServersManagerContentProps {
 }
 
 // Extracted core component that can be used standalone or in a drawer
-export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> = ({
-  mcpServerConfig,
-  setMcpServerConfig
-}) => {
+export const MCPServersManagerContent: React.FC<
+  MCPServersManagerContentProps
+> = ({ mcpServerConfig, setMcpServerConfig }) => {
   // State
   const [activeTab, setActiveTab] = useState<MCPServersTabValue>('local')
   const [isFetching, setIsFetching] = useState(false)
-  const [registryServers, setRegistryServers] = useState<RegistryServerItem[]>([])
+  const [registryServers, setRegistryServers] = useState<RegistryServerItem[]>(
+    []
+  )
   const [searchQuery, setSearchQuery] = useState('')
   const [serversCache, setServersCache] = useState<CachedServers | null>(null)
   const [nextCursor, setNextCursor] = useState<string | undefined>(undefined)
@@ -117,10 +110,18 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
   const [isSearching, setIsSearching] = useState(false)
   const [searchResults, setSearchResults] = useState<RegistryServerItem[]>([])
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
-  const connectedServerNames = useMcpRuntimeStore(state => state.selectedServerNames)
-  const connectingServerNames = useMcpRuntimeStore(state => state.connectingServerNames)
-  const availableMcpTools = useMcpRuntimeStore(state => state.availableMcpTools)
-  const lastErrorByServer = useMcpRuntimeStore(state => state.lastErrorByServer)
+  const connectedServerNames = useMcpRuntimeStore(
+    (state) => state.selectedServerNames
+  )
+  const connectingServerNames = useMcpRuntimeStore(
+    (state) => state.connectingServerNames
+  )
+  const availableMcpTools = useMcpRuntimeStore(
+    (state) => state.availableMcpTools
+  )
+  const lastErrorByServer = useMcpRuntimeStore(
+    (state) => state.lastErrorByServer
+  )
   const {
     disconnect: disconnectMcpServer,
     hydrateFromRuntime,
@@ -154,15 +155,19 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
 
       const data: RegistryResponse = await response.json()
 
-      setRegistryServers((prev) => (cursor ? [...prev, ...data.servers] : data.servers))
+      setRegistryServers((prev) =>
+        cursor ? [...prev, ...data.servers] : data.servers
+      )
       setNextCursor(data.metadata.nextCursor)
       setHasMore(!!data.metadata.nextCursor)
 
       if (!cursor) {
         setServersCache({ servers: data.servers, timestamp: Date.now() })
       }
-    } catch (error: any) {
-      toast.error(`Failed to fetch MCP servers: ${error.message}`)
+    } catch (error) {
+      toast.error(
+        `Failed to fetch MCP servers: ${error instanceof Error ? error.message : String(error)}`
+      )
     } finally {
       setIsFetching(false)
     }
@@ -183,8 +188,10 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
       if (!response.ok) throw new Error(`Search failed: ${response.statusText}`)
       const data: RegistryResponse = await response.json()
       setSearchResults(data.servers)
-    } catch (error: any) {
-      toast.error(`Search failed: ${error.message}`)
+    } catch (error) {
+      toast.error(
+        `Search failed: ${error instanceof Error ? error.message : String(error)}`
+      )
       setSearchResults([])
     } finally {
       setIsSearching(false)
@@ -205,7 +212,12 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
   }
 
   useEffect(() => {
-    if (activeTab !== 'registry' || searchQuery.trim() || !hasMore || isFetching) {
+    if (
+      activeTab !== 'registry' ||
+      searchQuery.trim() ||
+      !hasMore ||
+      isFetching
+    ) {
       return
     }
 
@@ -214,18 +226,21 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
       return
     }
 
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting && nextCursor && !isFetching) {
-        fetchServers(nextCursor)
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && nextCursor && !isFetching) {
+          fetchServers(nextCursor)
+        }
+      },
+      {
+        root: null,
+        rootMargin: '120px 0px',
+        threshold: 0
       }
-    }, {
-      root: null,
-      rootMargin: '120px 0px',
-      threshold: 0
-    })
+    )
 
     observer.observe(node)
-    return () => observer.disconnect()
+    return (): void => observer.disconnect()
   }, [activeTab, searchQuery, hasMore, isFetching, nextCursor])
 
   const isInstalled = (serverName: string): boolean => {
@@ -238,17 +253,34 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
 
     if (item.server.remotes?.[0]) {
       const remote = item.server.remotes[0]
-      config = { type: remote.type === 'sse' ? 'sse' : 'streamableHttp', url: remote.url, description: item.server.description, version: item.server.version }
+      config = {
+        type: remote.type === 'sse' ? 'sse' : 'streamableHttp',
+        url: remote.url,
+        description: item.server.description,
+        version: item.server.version
+      }
     } else if (item.server.packages?.[0]) {
       const pkg = item.server.packages[0]
       if (pkg.registryType === 'npm') {
-        config = { command: 'npx', args: ['-y', pkg.identifier], description: item.server.description, version: item.server.version }
+        config = {
+          command: 'npx',
+          args: ['-y', pkg.identifier],
+          description: item.server.description,
+          version: item.server.version
+        }
       } else if (pkg.registryType === 'oci') {
-        config = { command: 'docker', args: ['run', '-i', pkg.identifier], description: item.server.description, version: item.server.version }
+        config = {
+          command: 'docker',
+          args: ['run', '-i', pkg.identifier],
+          description: item.server.description,
+          version: item.server.version
+        }
       }
     } else {
       config = {}
-      toast.warning(`${serverName} has no auto-config. Please configure manually.`)
+      toast.warning(
+        `${serverName} has no auto-config. Please configure manually.`
+      )
     }
 
     setMcpServerConfig({
@@ -259,7 +291,10 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
   }
 
   const handleUninstallServer = async (serverName: string): Promise<void> => {
-    if (connectedServerNames.includes(serverName) || availableMcpTools.has(serverName)) {
+    if (
+      connectedServerNames.includes(serverName) ||
+      availableMcpTools.has(serverName)
+    ) {
       await disconnectMcpServer(serverName)
     }
 
@@ -274,7 +309,9 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
     try {
       const parsed = JSON.parse(newJson)
       setMcpServerConfig({ ...mcpServerConfig, mcpServers: parsed })
-    } catch (error) { }
+    } catch {
+      // Keep incomplete JSON in the editor until it parses successfully.
+    }
   }
 
   const handleAddFromClipboard = async (): Promise<void> => {
@@ -307,11 +344,16 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
 
       setMcpServerConfig({
         ...mcpServerConfig,
-        mcpServers: { ...(mcpServerConfig.mcpServers || {}), ...(servers as Record<string, LocalMcpServerConfig>) }
+        mcpServers: {
+          ...(mcpServerConfig.mcpServers || {}),
+          ...(servers as Record<string, LocalMcpServerConfig>)
+        }
       })
       toast.success('Imported from clipboard')
-    } catch (error: any) {
-      toast.error(`Failed to import from clipboard: ${error.message}`)
+    } catch (error) {
+      toast.error(
+        `Failed to import from clipboard: ${error instanceof Error ? error.message : String(error)}`
+      )
     }
   }
 
@@ -340,12 +382,15 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
 
   useEffect(() => {
     if (activeTab === 'registry') {
-      if (isCacheValid() && serversCache) setRegistryServers(serversCache.servers)
+      if (isCacheValid() && serversCache)
+        setRegistryServers(serversCache.servers)
       else if (registryServers.length === 0) fetchServers()
     }
   }, [activeTab])
 
-  const getRuntimeStatus = (serverName: string): 'connected' | 'connecting' | 'error' | 'idle' => {
+  const getRuntimeStatus = (
+    serverName: string
+  ): 'connected' | 'connecting' | 'error' | 'idle' => {
     if (connectingServerNames.includes(serverName)) {
       return 'connecting'
     }
@@ -363,8 +408,10 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
     (total, tools) => total + tools.length,
     0
   )
-  const registryCacheLabel = serversCache && isCacheValid() ? 'Cached' : 'Uncached'
-  const shouldShowRegistryLoading = (isFetching && registryServers.length === 0) || isSearching
+  const usingCachedResults =
+    !!serversCache && isCacheValid() && !searchQuery.trim() && !isFetching
+  const shouldShowRegistryLoading =
+    (isFetching && registryServers.length === 0) || isSearching
   const isRegistryEmpty = filteredServers.length === 0
   const isInstalledEmpty = installedServers.length === 0
 
@@ -416,35 +463,27 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
   )
 
   return (
-    <SettingsPageShell contentClassName="gap-1">
-      <div className="border rounded-2xl border-gray-100 dark:border-gray-700/50 shadow-xs overflow-hidden">
-        <SettingsSectionHeader
-          title="MCP Servers"
-          description="Manage installed servers, registry discovery, and manual JSON configuration."
-        />
-
-        <SettingsToolbar className="flex min-h-[40px] items-center gap-2 border-t border-gray-100 dark:border-gray-700/50">
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <span className="rounded-md bg-white/70 px-2 py-1 text-[11px] font-medium text-gray-500 ring-1 ring-gray-200/70 dark:bg-gray-800/70 dark:text-gray-400 dark:ring-gray-700/60">
-              Connected {connectedServerNames.length}
-            </span>
-            <span className="rounded-md bg-white/70 px-2 py-1 text-[11px] font-medium text-gray-500 ring-1 ring-gray-200/70 dark:bg-gray-800/70 dark:text-gray-400 dark:ring-gray-700/60">
-              Tools {availableToolCount}
-            </span>
-            <span className="rounded-md bg-white/70 px-2 py-1 text-[11px] font-medium text-gray-500 ring-1 ring-gray-200/70 dark:bg-gray-800/70 dark:text-gray-400 dark:ring-gray-700/60">
-              Registry cache {registryCacheLabel}
-            </span>
+    <SettingsPageShell contentClassName="gap-2">
+      <div>
+        <SettingsSectionHeader title="MCP Servers" className="pb-2" />
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 px-4 pb-3">
+          <p className="text-[12px] leading-relaxed text-gray-400 dark:text-(--app-text-muted)">
+            Manage servers and discover integrations.
+          </p>
+          <div className="ml-auto flex shrink-0 items-center gap-4 text-[11px] text-gray-500 dark:text-(--app-text-secondary)">
+            <span>Connected {connectedServerNames.length}</span>
+            <span>Tools {availableToolCount}</span>
           </div>
-        </SettingsToolbar>
+        </div>
       </div>
 
-      <div className="border rounded-2xl border-gray-100 dark:border-gray-700/50 flex-1 min-h-0 flex flex-col overflow-hidden shadow-xs">
+      <div className="mx-4 mb-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-gray-100 bg-gray-50/60 dark:border-(--app-border-subtle) dark:bg-(--app-surface-inset)">
         <Tabs
           value={activeTab}
           onValueChange={(value) => setActiveTab(value as MCPServersTabValue)}
           className="flex-1 min-h-0 flex flex-col overflow-hidden"
         >
-          <SettingsToolbar className="flex min-h-[42px] items-center justify-between gap-3 border-b border-gray-100 dark:border-gray-700/50">
+          <SettingsToolbar className="flex min-h-[42px] flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-3 dark:border-(--app-border-subtle)">
             <MCPTabSwitcher
               value={activeTab}
               installedCount={installedServers.length}
@@ -457,14 +496,16 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                   onClick={handleAddFromClipboard}
                   variant="ghost"
                   size="xs"
-                  className='shrink-0 flex items-center gap-1 justify-center px-2 text-[11px] h-7 font-semibold text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-all duration-200'
+                  className="shrink-0 flex items-center gap-1 justify-center px-2 text-[11px] h-7 font-semibold text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-all duration-200"
                 >
                   <Clipboard className="h-3 w-3" />
                   From Clipboard
                 </Button>
                 <button
                   type="button"
-                  onClick={() => setEditMode(editMode === 'json' ? 'visual' : 'json')}
+                  onClick={() =>
+                    setEditMode(editMode === 'json' ? 'visual' : 'json')
+                  }
                   aria-pressed={editMode === 'json'}
                   className={cn(
                     settingsOutlineButtonClassName,
@@ -480,7 +521,12 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
             )}
 
             {activeTab === 'registry' && (
-              <div className="flex min-w-0 flex-1 justify-end">
+              <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-3">
+                {usingCachedResults && (
+                  <span className="text-[10px] text-gray-400 dark:text-(--app-text-muted)">
+                    Using cache
+                  </span>
+                )}
                 <ExpandableSearchInput
                   value={searchQuery}
                   onChange={setSearchQuery}
@@ -504,7 +550,8 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
           >
             {filteredServers.map((item, idx) => {
               const installed = isInstalled(item.server.name)
-              const installedConfig = mcpServerConfig.mcpServers?.[item.server.name]
+              const installedConfig =
+                mcpServerConfig.mcpServers?.[item.server.name]
 
               return (
                 <MCPServerCard
@@ -512,14 +559,21 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                   mode="registry"
                   item={item}
                   installed={installed}
-                  runtimeStatus={installed ? getRuntimeStatus(item.server.name) : 'idle'}
+                  runtimeStatus={
+                    installed ? getRuntimeStatus(item.server.name) : 'idle'
+                  }
                   runtimeError={lastErrorByServer[item.server.name]}
                   toolCount={availableMcpTools.get(item.server.name)?.length}
-                  onConnectionToggle={installedConfig
-                    ? async () => {
-                        await toggleMcpConnection(item.server.name, installedConfig)
-                      }
-                    : undefined}
+                  onConnectionToggle={
+                    installedConfig
+                      ? async (): Promise<void> => {
+                          await toggleMcpConnection(
+                            item.server.name,
+                            installedConfig
+                          )
+                        }
+                      : undefined
+                  }
                   onInstall={() => handleInstallServer(item)}
                   onUninstall={() => handleUninstallServer(item.server.name)}
                   animationDelay={idx * 50}
@@ -546,21 +600,31 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
             value="local"
             empty={editMode === 'visual' && isInstalledEmpty}
             emptyState={installedEmptyState}
-            contentClassName={editMode === 'visual' ? 'pb-3' : 'h-full min-h-0 flex flex-col gap-3 p-3'}
+            contentClassName={
+              editMode === 'visual' ? 'pb-3' : 'h-full min-h-0 flex flex-col'
+            }
             scrollable={editMode === 'visual'}
           >
             {editMode === 'visual' ? (
               installedServers.map(([name, config], index) => {
                 const fallbackDescription =
                   config.description ||
-                  registryServers.find((item) => item.server.name === name)?.server.description ||
-                  searchResults.find((item) => item.server.name === name)?.server.description ||
-                  serversCache?.servers.find((item) => item.server.name === name)?.server.description
+                  registryServers.find((item) => item.server.name === name)
+                    ?.server.description ||
+                  searchResults.find((item) => item.server.name === name)
+                    ?.server.description ||
+                  serversCache?.servers.find(
+                    (item) => item.server.name === name
+                  )?.server.description
                 const fallbackVersion =
                   config.version ||
-                  registryServers.find((item) => item.server.name === name)?.server.version ||
-                  searchResults.find((item) => item.server.name === name)?.server.version ||
-                  serversCache?.servers.find((item) => item.server.name === name)?.server.version
+                  registryServers.find((item) => item.server.name === name)
+                    ?.server.version ||
+                  searchResults.find((item) => item.server.name === name)
+                    ?.server.version ||
+                  serversCache?.servers.find(
+                    (item) => item.server.name === name
+                  )?.server.version
 
                 return (
                   <MCPServerCard
@@ -579,7 +643,9 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                       await toggleMcpConnection(name, config)
                     }}
                     onCopyConfig={() => {
-                      navigator.clipboard.writeText(JSON.stringify(config, null, 2))
+                      navigator.clipboard.writeText(
+                        JSON.stringify(config, null, 2)
+                      )
                       toast.success('Configuration copied to clipboard')
                     }}
                     onUninstall={() => handleUninstallServer(name)}
@@ -589,7 +655,7 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
               })
             ) : (
               <>
-                <div className="flex-1 min-h-0 rounded-xl overflow-hidden border border-gray-200/80 dark:border-gray-700/60 shadow-xs bg-white dark:bg-gray-900/60 relative">
+                <div className="relative min-h-0 flex-1 overflow-hidden">
                   <CodeMirror
                     value={configJson}
                     height="100%"
@@ -622,19 +688,24 @@ export const MCPServersManagerContent: React.FC<MCPServersManagerContentProps> =
                       lintKeymap: true
                     }}
                     style={{
-                      fontFamily: 'JetBrains Mono, Fira Code, ui-monospace, monospace',
+                      fontFamily:
+                        'JetBrains Mono, Fira Code, ui-monospace, monospace',
                       fontSize: '13px',
                       height: '100%'
                     }}
                   />
                 </div>
 
-                <div className="shrink-0 flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-800/60 border border-gray-200/60 dark:border-gray-700/40">
+                <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-gray-100 px-3 py-2 text-[11px] dark:border-(--app-border-subtle)">
                   <div className="flex items-center gap-2">
                     <Code className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500" />
-                    <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400">JSON Edit Mode</span>
+                    <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                      JSON Edit Mode
+                    </span>
                   </div>
-                  <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">Auto-saved</span>
+                  <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                    Auto-saved
+                  </span>
                 </div>
               </>
             )}
@@ -659,7 +730,12 @@ const MCPServersManager: React.FC<MCPServersManagerProps> = ({
           title="MCP Servers"
           description="Manage installed servers, registry discovery, and manual JSON configuration."
           actions={
-            <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} className="rounded-md hover:bg-gray-100 dark:hover:bg-gray-900">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onOpenChange(false)}
+              className="rounded-md hover:bg-gray-100 dark:hover:bg-gray-900"
+            >
               <i className="ri-close-line text-[18px] text-gray-500 dark:text-gray-400" />
             </Button>
           }
