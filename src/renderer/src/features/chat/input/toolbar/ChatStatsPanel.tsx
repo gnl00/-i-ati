@@ -72,6 +72,13 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
   const triggerPercent = formatProgressPercent(stats.triggerTokenRatio)
   const hasInitialSnapshot = currentChatId === null || persistedStats.hasSnapshot
 
+  const statusLabel = {
+    enabled: 'Enabled',
+    compacting: 'Compacting',
+    disabled: 'Disabled',
+    'context-unavailable': 'Unknown context'
+  }[stats.status]
+
   const statsContent = (
     <div
       className={cn(
@@ -80,32 +87,38 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
       )}
     >
       <section
-        className={cn(
-          'shrink-0 border-b border-zinc-200/80 dark:border-(--app-border-subtle)',
-          variant === 'inline' ? 'px-2 py-2 sm:px-4 sm:py-4' : 'px-1.5 py-1.5'
-        )}
+        className="shrink-0 border-b border-(--app-border-subtle) p-4"
         aria-labelledby="auto-compact-heading"
       >
-        <div className="flex items-center gap-2">
-          <div className="flex min-w-0 items-center gap-2">
-            <h2
-              id="auto-compact-heading"
-              className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:tracking-[0.11em] dark:text-(--app-text-secondary)"
-            >
-              Auto Compact
-            </h2>
-          </div>
+        <div className="flex items-center justify-between gap-2">
+          <h2
+            id="auto-compact-heading"
+            className="text-[11px] font-semibold text-(--app-text-secondary)"
+          >
+            Auto Compact
+          </h2>
+          <span
+            className={cn(
+              'text-[10px]',
+              stats.status === 'compacting'
+                ? 'text-amber-600 dark:text-amber-400'
+                : 'text-(--app-text-muted)'
+            )}
+            aria-label={`Automatic compaction: ${statusLabel}`}
+          >
+            {statusLabel}
+          </span>
         </div>
 
-        <div className="mt-6 flex items-end justify-between gap-2 dark:mt-5 dark:gap-3">
+        <div className="mt-3 flex items-baseline justify-between gap-3">
           <div className="min-w-0">
-            <p className="mt-1 truncate font-mono text-base font-semibold tracking-tight tabular-nums text-zinc-900 dark:text-(--app-text-primary)">
+            <p className="font-mono text-sm font-semibold tracking-tight tabular-nums text-zinc-900 dark:text-(--app-text-primary)">
               {hasInitialSnapshot ? formatCompactTokenCount(stats.accumulatedTokens) : '—'}
-              <span className="px-1.5 font-sans text-xs font-normal text-zinc-400 dark:text-(--app-text-muted)">
+              <span className="px-1.5 font-sans text-xs font-normal text-(--app-text-muted)">
                 /
               </span>
               {stats.thresholdTokens
-                ? `${formatCompactTokenCount(stats.thresholdTokens)} trigger`
+                ? formatCompactTokenCount(stats.thresholdTokens)
                 : 'trigger unavailable'}
             </p>
           </div>
@@ -114,7 +127,7 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
               'shrink-0 font-mono text-sm font-semibold tabular-nums',
               stats.status === 'compacting'
                 ? 'text-amber-600 dark:text-amber-400'
-                : 'text-indigo-600 dark:text-(--app-accent-strong)'
+                : 'text-(--app-accent-strong)'
             )}
             aria-label={progressPercent === undefined
               ? 'Compaction progress unavailable'
@@ -125,7 +138,7 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
         </div>
 
         <div
-          className="relative mt-4 h-1.5 overflow-hidden rounded-sm bg-zinc-200/80 dark:bg-(--app-surface-inset) dark:ring-1 dark:ring-(--app-border-subtle) dark:ring-inset"
+          className="relative mt-3 h-1.5 overflow-hidden rounded-sm bg-(--app-surface-inset) ring-1 ring-(--app-border-subtle) ring-inset"
           role="progressbar"
           aria-label="Progress to automatic compaction"
           aria-valuemin={0}
@@ -140,7 +153,7 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
                 ? 'bg-amber-500 dark:bg-amber-400'
                 : stats.status === 'disabled' || stats.status === 'context-unavailable'
                   ? 'bg-zinc-400 dark:bg-(--app-text-muted)'
-                  : 'bg-indigo-500 dark:bg-(--app-accent)'
+                  : 'bg-(--app-accent)'
             )}
             style={{
               width: '100%',
@@ -153,68 +166,67 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
           />
         </div>
 
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[10px] text-zinc-500 dark:text-(--app-text-muted)">
-          {stats.contextWindowTokens ? (
-            <>
-              <span>
-                Model window{' '}
-                <span className="font-mono tabular-nums text-zinc-600 dark:text-(--app-text-body)">
-                  {formatCompactTokenCount(stats.contextWindowTokens)}
-                </span>
+        {stats.contextWindowTokens && (
+          <div
+            title="Progress is measured against the automatic compaction threshold."
+            className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-[10px] text-zinc-500 dark:text-(--app-text-muted)"
+          >
+            <span>
+              Model window{' '}
+              <span className="font-mono tabular-nums text-zinc-600 dark:text-(--app-text-body)">
+                {formatCompactTokenCount(stats.contextWindowTokens)}
               </span>
-              <span>
-                Trigger at{' '}
-                <span className="font-mono tabular-nums text-zinc-600 dark:text-(--app-text-body)">
-                  {triggerPercent}
-                </span>
+            </span>
+            <span>
+              Trigger at{' '}
+              <span className="font-mono tabular-nums text-zinc-600 dark:text-(--app-text-body)">
+                {triggerPercent}
               </span>
-            </>
-          ) : (
-            <span>Set a context window for the active model to calculate progress.</span>
-          )}
-        </div>
+            </span>
+          </div>
+        )}
       </section>
 
       <section
-        className={cn(
-          'shrink-0',
-          variant === 'inline'
-            ? 'px-5 py-5 sm:px-6 sm:py-6 dark:px-4 dark:py-4'
-            : 'px-4 py-4'
-        )}
+        className="shrink-0 p-4"
         aria-labelledby="chat-activity-heading"
       >
         <h2
           id="chat-activity-heading"
-          className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:tracking-[0.11em] dark:text-(--app-text-secondary)"
+          className="text-[11px] font-semibold text-(--app-text-secondary)"
         >
           Activity
         </h2>
-        <dl className="mt-4 grid grid-cols-3 dark:mt-3 dark:overflow-hidden dark:rounded-lg dark:border dark:border-(--app-border-subtle) dark:bg-(--app-surface-inset)">
-          <div className="min-w-0 pr-3 dark:px-3 dark:py-2.5">
+        <dl className="mt-3 grid grid-cols-3">
+          <div className="min-w-0 pr-3">
             <dt className="flex items-center gap-1.5 text-[10px] text-zinc-500 dark:text-(--app-text-muted)">
               <TokensIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
               Tokens
             </dt>
-            <dd className="mt-2 truncate font-mono text-xs font-semibold tabular-nums text-zinc-800 dark:text-(--app-text-primary)">
+            <dd className="mt-1.5 font-mono text-xs font-semibold tabular-nums text-zinc-800 dark:text-(--app-text-primary)">
               {formatCompactTokenCount(stats.totalConversationTokens)}
             </dd>
           </div>
-          <div className="min-w-0 border-l border-zinc-200/80 px-3 dark:border-(--app-border-subtle) dark:py-2.5">
+          <div className="min-w-0 border-l border-(--app-border-subtle) px-3">
             <dt className="flex items-center gap-1.5 text-[10px] text-zinc-500 dark:text-(--app-text-muted)">
               <Wrench className="h-3 w-3 shrink-0" aria-hidden="true" />
               Tools
             </dt>
-            <dd className="mt-2 truncate font-mono text-xs font-semibold tabular-nums text-zinc-800 dark:text-(--app-text-primary)">
-              {stats.toolCallCount}/{stats.toolResultCount}
+            <dd className="mt-1.5 font-mono text-xs font-semibold tabular-nums text-zinc-800 dark:text-(--app-text-primary)">
+              <span
+                aria-label={`${stats.toolCallCount} tool calls, ${stats.toolResultCount} tool results`}
+                title="Tool calls / tool results"
+              >
+                {stats.toolCallCount} / {stats.toolResultCount}
+              </span>
             </dd>
           </div>
-          <div className="min-w-0 border-l border-zinc-200/80 pl-3 dark:border-(--app-border-subtle) dark:px-3 dark:py-2.5">
+          <div className="min-w-0 border-l border-(--app-border-subtle) pl-3">
             <dt className="flex items-center gap-1.5 text-[10px] text-zinc-500 dark:text-(--app-text-muted)">
               <Sparkles className="h-3 w-3 shrink-0" aria-hidden="true" />
               Skills
             </dt>
-            <dd className="mt-2 truncate font-mono text-xs font-semibold tabular-nums text-zinc-800 dark:text-(--app-text-primary)">
+            <dd className="mt-1.5 font-mono text-xs font-semibold tabular-nums text-zinc-800 dark:text-(--app-text-primary)">
               {persistedStats.activeSkills.length}
             </dd>
           </div>
@@ -225,7 +237,7 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
 
   if (variant === 'inline') {
     return (
-      <div className="h-full min-h-0 overflow-y-auto bg-zinc-50/40 dark:bg-(--app-surface)">
+      <div className="h-full min-h-0 overflow-y-auto bg-(--app-surface)">
         {statsContent}
       </div>
     )

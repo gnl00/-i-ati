@@ -99,17 +99,47 @@ describe('ChatStatsPanel', () => {
     expect(progress?.getAttribute('aria-valuenow')).toBe('99.9')
     expect(progress?.getAttribute('aria-label')).toBe('Progress to automatic compaction')
     expect(container.querySelector('[aria-label="99.9% to compact"]')).not.toBeNull()
+    expect(container.querySelector('[aria-label="Automatic compaction: Enabled"]')).not.toBeNull()
+    expect(container.querySelector('[aria-label="0 tool calls, 0 tool results"]')).not.toBeNull()
     expect(container.textContent).toContain('699')
-    expect(container.textContent).toContain('700 trigger')
+    expect(container.textContent).toContain('700')
     expect(container.textContent).toContain('Model window 1K')
     expect(container.textContent).toContain('Trigger at 70%')
     expect(container.textContent).not.toContain('3 compressions')
-    expect(container.textContent).not.toContain('Context unavailable')
+    expect(container.textContent).not.toContain('Unknown context')
 
     const terms = Array.from(container.querySelectorAll('dt')).map(term => term.textContent)
     expect(terms).toEqual(['Tokens', 'Tools', 'Skills'])
     expect(container.querySelectorAll('section')).toHaveLength(2)
     expect(container.querySelector('article')).toBeNull()
+  })
+
+  it.each<[string, boolean, string, number, string]>([
+    ['disabled', false, 'idle', 1000, 'Disabled'],
+    ['pending', true, 'pending', 1000, 'Compacting'],
+    ['missing context', true, 'idle', 0, 'Unknown context']
+  ])('shows the %s compaction state', async (_name, enabled, compression, window, label) => {
+    const previousEnabled = configState.appConfig.compression.autoCompress
+    const previousCompression = chatState.postRunJobs.compression
+    configState.appConfig.compression.autoCompress = enabled
+    chatState.postRunJobs.compression = compression
+    configState.resolveModelRef.mockReturnValue({ model: { id: 'model-1', contextWindowTokens: window } })
+    try {
+      await act(async () => root.render(<ChatStatsPanel variant="inline" />))
+      expect(container.querySelector(`[aria-label="Automatic compaction: ${label}"]`)).not.toBeNull()
+      if (!enabled) {
+        expect(container.querySelector('[role="progressbar"]')?.getAttribute('aria-disabled')).toBe('true')
+      }
+      if (!window) {
+        expect(container.querySelector('[role="progressbar"]')?.hasAttribute('aria-valuenow')).toBe(false)
+        expect(container.textContent).not.toContain('Set a context window')
+        expect(container.textContent).not.toContain('Model window')
+      }
+    } finally {
+      configState.appConfig.compression.autoCompress = previousEnabled
+      chatState.postRunJobs.compression = previousCompression
+      configState.resolveModelRef.mockReturnValue({ model: { id: 'model-1', contextWindowTokens: 1000 } })
+    }
   })
 
   it('labels the popover entry as the chat overview', async () => {

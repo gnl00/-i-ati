@@ -106,7 +106,7 @@ Overview tab 分开呈现两个 token 指标：
 - `Auto Compact` 顶部读数：active summary 覆盖范围之外的 token 累计量，用于计算自动压缩进度。
 - `Activity > Tokens`：当前会话完整历史的 token 累计量，用于观察会话活动。
 
-`Auto Compact` 状态使用与 runtime 一致的 `compression.enabled && compression.autoCompress` 条件。压缩进入 pending 后展示 `Compacting`；模型缺少有效 `contextWindowTokens` 时展示 context unavailable 说明。
+`Auto Compact` 状态使用与 runtime 一致的 `compression.enabled && compression.autoCompress` 条件。压缩进入 pending 后展示 `Compacting`；模型缺少有效 `contextWindowTokens` 时仅显示 `Unknown context` 状态标签，省略配置引导提示。
 
 renderer 在 `compression.completed` 创建新 summary 后递增当前 chat 的 summary revision。Overview tab 据此重新读取 active summary 覆盖范围，并通过请求序号避免会话快速切换时的异步结果串写。
 

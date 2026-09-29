@@ -190,6 +190,7 @@ Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif
 - Settings 内容采用四阶材料：popover canvas、settings surface、raised content panel、inset input/list。
 - Providers 保留低幅蓝色 selection rail 和品牌图标反馈，表单与列表继续使用 graphite token。
 - 右侧 Artifacts panel 使用 surface 外壳、raised tab bar 和 compact tabs。Overview、Tools、Preview、Files 共享一致的切换体验；窄宽度下标签保持紧凑并允许横向滚动。任务更新保持当前标签和侧栏开关状态。
+- Overview 内容统一使用 16px section padding、11px 次级标题和 12px 标题到数据间距。Auto Compact 标题右侧显示当前状态，数值与百分比同行；Activity 使用无独立卡片背景的三列数据和细分隔线，Light/Dark 保持相同结构。
 
 ## 5. 布局与空间原则
 
