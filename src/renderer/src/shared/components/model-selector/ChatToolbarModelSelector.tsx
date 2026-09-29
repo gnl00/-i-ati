@@ -54,23 +54,23 @@ interface ChatToolbarModelSelectorProps {
 
 type ThinkingCapability = NonNullable<ReturnType<typeof getRequestAdapterThinkingCapability>>
 
-const getModelKey = (option: ModelOption) => `${option.account.id}/${option.model.id}`
+const getModelKey = (option: ModelOption): string => `${option.account.id}/${option.model.id}`
 
-const modelHasVision = (option: ModelOption) => {
+const modelHasVision = (option: ModelOption): boolean => {
   return option.model.type === 'vlm' || option.model.type === 'mllm'
 }
 
-const getThinkingLabel = (value: ThinkingLevel | undefined) => {
-  return value ? value : undefined
+const getThinkingLabel = (value: ThinkingLevel | undefined): string | undefined => {
+  return value === 'xhigh' ? 'Extra high' : value
 }
 
-const getMenuCollisionProps = () => ({
+const getMenuCollisionProps = (): { avoidCollisions: boolean; collisionPadding: number; sticky: 'always' } => ({
   avoidCollisions: true,
   collisionPadding: 16,
   sticky: 'always' as const
 })
 
-const getSubMenuCollisionProps = () => ({
+const getSubMenuCollisionProps = (): { avoidCollisions: boolean; collisionPadding: number; sticky: 'always' } => ({
   avoidCollisions: true,
   collisionPadding: 12,
   sticky: 'always' as const
@@ -318,7 +318,7 @@ const ModelOptionContent: React.FC<ModelOptionContentProps> = ({
         {capability && (
           <span className="inline-flex h-5 items-center rounded-md bg-muted px-1.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground dark:bg-(--chat-surface-hover) dark:text-(--chat-text-secondary)">
             <Lightbulb className="mr-1 size-3!" />
-            {getThinkingLabel(levelValue) ?? 'think'}
+            {selected ? getThinkingLabel(levelValue) ?? 'Thinking' : 'Thinking'}
           </span>
         )}
       </span>
@@ -369,9 +369,13 @@ const ThinkingLevelSubMenu: React.FC<ThinkingLevelSubMenuProps> = ({
   levelValue,
   onSelect
 }) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const triggerRef = React.useRef<HTMLDivElement>(null)
+
   return (
-    <DropdownMenuSub>
+    <DropdownMenuSub open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuSubTrigger
+        ref={triggerRef}
         className={cn(
           'my-0.5 rounded-lg border border-transparent px-2 py-2 text-xs font-medium text-foreground cursor-pointer',
           'transition-[background-color,border-color,color,box-shadow] duration-150',
@@ -390,49 +394,54 @@ const ThinkingLevelSubMenu: React.FC<ThinkingLevelSubMenuProps> = ({
         />
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent
+        onEscapeKeyDown={(event) => {
+          event.preventDefault()
+          setIsOpen(false)
+          triggerRef.current?.focus()
+        }}
         sideOffset={2}
         alignOffset={-5}
         {...getSubMenuCollisionProps()}
         className={cn(
-          'w-56 overflow-visible rounded-[14px] border border-border/60 bg-popover/95 p-1.5 text-popover-foreground',
+          'w-[184px] overflow-y-auto rounded-[10px] border border-(--app-border-standard) bg-(--app-surface-raised) p-1 text-popover-foreground',
           'shadow-xl shadow-black/10 backdrop-blur-xl',
           'dark:border-(--chat-border-standard) dark:bg-(--chat-surface-raised) dark:text-(--chat-text-primary) dark:shadow-black/30 dark:backdrop-blur-none'
         )}
         style={{
-          maxWidth: 'var(--radix-dropdown-menu-content-available-width)'
+          maxWidth: 'var(--radix-dropdown-menu-content-available-width)',
+          maxHeight: 'var(--radix-dropdown-menu-content-available-height)'
         }}
       >
-        <DropdownMenuLabel className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/75 dark:text-(--chat-text-muted)">
-          Thinking level
-        </DropdownMenuLabel>
         <DropdownMenuRadioGroup
-          value={levelValue}
+          aria-label="Thinking level"
+          value={selected ? levelValue : ''}
           onValueChange={(value) => onSelect(option, value as ThinkingLevel)}
         >
           {capability.levels.map(level => (
             <DropdownMenuPrimitive.RadioItem
               key={level}
               value={level}
+              data-default={!selected && level === levelValue ? true : undefined}
               className={cn(
-                'relative my-0.5 flex cursor-pointer select-none items-center gap-2 rounded-lg border border-transparent px-2 py-2 text-xs font-medium text-foreground outline-hidden',
-                'transition-[background-color,border-color,color] duration-150 focus:bg-accent/70 data-[state=checked]:bg-foreground/[0.035]',
-                'dark:text-(--chat-text-body) dark:focus:border-(--chat-border-standard) dark:focus:bg-(--chat-surface-hover) dark:focus:text-(--chat-text-primary)',
-                'dark:data-[state=checked]:border-(--chat-border-standard) dark:data-[state=checked]:bg-(--chat-surface-hover) dark:data-[state=checked]:text-(--chat-text-primary)'
+                'relative flex h-8 cursor-pointer select-none items-center gap-2 rounded-md px-2.5 text-xs font-medium text-foreground outline-hidden',
+                'transition-colors duration-150 motion-reduce:transition-none focus:bg-(--app-surface-hover) data-[state=checked]:bg-(--app-surface-hover) data-[default=true]:bg-(--app-surface-hover)',
+                'dark:text-(--chat-text-body) dark:focus:text-(--chat-text-primary) dark:data-[state=checked]:text-(--chat-text-primary)'
               )}
             >
-              <span className="min-w-0 flex-1 truncate capitalize select-none">{level}</span>
-              <span
-                className={cn(
-                  'ml-2 grid h-5 w-5 shrink-0 place-items-center rounded-md border text-foreground shadow-xs',
-                  level === levelValue
-                    ? 'border-border/60 bg-background/85 opacity-100 dark:border-(--chat-border-standard) dark:bg-(--chat-surface) dark:text-(--chat-accent-strong) dark:shadow-none'
-                    : 'border-transparent bg-transparent opacity-0'
-                )}
-              >
-                <DropdownMenuPrimitive.ItemIndicator>
-                  <Check className="h-3 w-3" strokeWidth={2.25} />
-                </DropdownMenuPrimitive.ItemIndicator>
+              <span className="min-w-0 flex-1 truncate">
+                {level === 'xhigh' ? 'Extra high' : level.charAt(0).toUpperCase() + level.slice(1)}
               </span>
+              {selected ? (
+                <span className="grid size-4 shrink-0 place-items-center text-foreground dark:text-(--chat-text-primary)">
+                  <DropdownMenuPrimitive.ItemIndicator>
+                    <Check className="size-3.5" strokeWidth={2.25} />
+                  </DropdownMenuPrimitive.ItemIndicator>
+                </span>
+              ) : level === levelValue && (
+                <span className="shrink-0 text-[10px] font-normal text-muted-foreground dark:text-(--chat-text-secondary)">
+                  Default
+                </span>
+              )}
             </DropdownMenuPrimitive.RadioItem>
           ))}
         </DropdownMenuRadioGroup>
@@ -455,7 +464,7 @@ const ChatToolbarModelSelector: React.FC<ChatToolbarModelSelectorProps> = (props
     return filterModelSelectorGroups(groupedOptions, searchQuery)
   }, [groupedOptions, searchQuery])
 
-  const getThinkingCapability = (option: ModelOption) => {
+  const getThinkingCapability = (option: ModelOption): ThinkingCapability | undefined => {
     const capability = getRequestAdapterThinkingCapability({
       plugins: props.plugins,
       pluginId: option.definition.adapterPluginId,
@@ -470,17 +479,17 @@ const ChatToolbarModelSelector: React.FC<ChatToolbarModelSelectorProps> = (props
     ? getThinkingCapability(props.selectedModel)
     : undefined
 
-  const handleModelSelect = (option: ModelOption, thinkingLevel?: ThinkingLevel) => {
+  const handleModelSelect = (option: ModelOption, thinkingLevel?: ThinkingLevel): void => {
     const selection = resolveChatToolbarModelSelection(option, props.plugins, thinkingLevel)
     props.onModelSelect(selection.ref, selection.thinkingLevel)
   }
 
-  const isSelectedModel = (option: ModelOption) => {
+  const isSelectedModel = (option: ModelOption): boolean => {
     return props.selectedModel?.account.id === option.account.id
       && props.selectedModel?.model.id === option.model.id
   }
 
-  const handleOpenChange = (open: boolean) => {
+  const handleOpenChange = (open: boolean): void => {
     props.onOpenChange(open)
     if (!open) {
       setSearchQuery('')

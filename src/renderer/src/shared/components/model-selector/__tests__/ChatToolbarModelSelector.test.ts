@@ -1,11 +1,15 @@
-import { describe, expect, it } from 'vitest'
+// @vitest-environment happy-dom
+
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { act, createElement } from 'react'
+import { createRoot, type Root } from 'react-dom/client'
 import type { ModelOption } from '@renderer/shared/config/modelTypes'
 import {
   filterModelSelectorGroups,
   groupModelSelectorOptions,
   resolveChatToolbarModelSelection
 } from '../ChatToolbarModelSelector.utils'
-import { getChatToolbarModelSelectorTriggerClassName } from '../ChatToolbarModelSelector'
+import ChatToolbarModelSelector, { getChatToolbarModelSelectorTriggerClassName } from '../ChatToolbarModelSelector'
 
 const plugin: PluginEntity = {
   pluginId: 'openai-chat-compatible-adapter',
@@ -158,5 +162,87 @@ describe('getChatToolbarModelSelectorTriggerClassName', () => {
     expect(baseline).toContain('dark:bg-(--app-surface)')
     expect(baseline).toContain('dark:hover:bg-(--app-surface-hover)')
     expect(selectedBaseline).toContain('dark:bg-(--app-surface-hover)')
+  })
+})
+
+
+globalThis.IS_REACT_ACT_ENVIRONMENT = true
+
+describe('thinking level menu interaction', () => {
+  let root: Root | undefined
+  let container: HTMLDivElement | undefined
+
+  afterEach(async () => {
+    await act(async () => root?.unmount())
+    container?.remove()
+  })
+
+  const openSubMenu = async (selected: boolean): Promise<{ onModelSelect: ReturnType<typeof vi.fn>; onOpenChange: ReturnType<typeof vi.fn> }> => {
+    const option = createModelOption({ capabilities: ['reasoning'] })
+    const onModelSelect = vi.fn()
+    const onOpenChange = vi.fn()
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+    await act(async () => {
+      root?.render(createElement(ChatToolbarModelSelector, {
+        selectedModel: selected ? option : undefined,
+        modelOptions: [option],
+        plugins: [{ ...plugin, capabilities: [{
+          kind: 'request-adapter',
+          data: { providerType: 'openai', modelTypes: ['llm'], thinking: {
+            levels: ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'],
+            defaultLevel: 'medium'
+          } }
+        }] }],
+        selectedThinkingLevel: selected ? 'high' : undefined,
+        isOpen: true,
+        onOpenChange,
+        onModelSelect
+      }))
+    })
+    const trigger = document.body.querySelector<HTMLElement>('[role="menuitem"][aria-haspopup="menu"]')
+    expect(trigger?.textContent).toContain(selected ? 'high' : 'Thinking')
+    await act(async () => trigger?.click())
+    expect(onModelSelect).not.toHaveBeenCalled()
+    return { onModelSelect, onOpenChange }
+  }
+
+  it('marks only the current model level as checked and selects another level', async () => {
+    const { onModelSelect, onOpenChange } = await openSubMenu(true)
+    const group = document.body.querySelector('[aria-label="Thinking level"]')
+    const items = Array.from(group?.querySelectorAll<HTMLElement>('[role="menuitemradio"]') ?? [])
+    expect(items.map(item => item.textContent)).toEqual(['None', 'Minimal', 'Low', 'Medium', 'High', 'Extra high'])
+    expect(items.filter(item => item.getAttribute('aria-checked') === 'true').map(item => item.textContent)).toEqual(['High'])
+    expect(group?.textContent).not.toContain('Default')
+    expect(document.body.textContent).not.toContain('Thinking level')
+    await act(async () => items[5].click())
+    expect(onModelSelect).toHaveBeenCalledWith({ accountId: 'account-1', modelId: 'gpt-5' }, 'xhigh')
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
+
+  it('returns to the model list on Escape without selecting or closing the parent menu', async () => {
+    const { onModelSelect, onOpenChange } = await openSubMenu(false)
+    const item = document.body.querySelector<HTMLElement>('[role="menuitemradio"]')
+    await act(async () => {
+      item?.focus()
+      item?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    })
+    expect(document.body.querySelector('[role="menuitemradio"]')).toBeNull()
+    expect(document.activeElement?.getAttribute('aria-haspopup')).toBe('menu')
+    expect(onModelSelect).not.toHaveBeenCalled()
+    expect(onOpenChange).not.toHaveBeenCalled()
+  })
+
+  it('labels the default without marking another model as selected and allows choosing it', async () => {
+    const { onModelSelect, onOpenChange } = await openSubMenu(false)
+    const items = Array.from(document.body.querySelectorAll<HTMLElement>('[role="menuitemradio"]'))
+    expect(items.every(item => item.getAttribute('aria-checked') === 'false')).toBe(true)
+    const defaultItem = items.find(item => item.textContent === 'MediumDefault')
+    expect(defaultItem).toBeDefined()
+    expect(defaultItem?.querySelector('.lucide-check')).toBeNull()
+    await act(async () => defaultItem?.click())
+    expect(onModelSelect).toHaveBeenCalledWith({ accountId: 'account-1', modelId: 'gpt-5' }, 'medium')
+    expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 })

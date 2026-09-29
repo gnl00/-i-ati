@@ -162,6 +162,7 @@ Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif
 - popover 使用 10px 圆角、raised surface、standard border 和受控阴影。
 - search 区使用 inset surface，provider header 使用安静的 sticky 分组样式。
 - hover 与键盘 current state 使用 `--app-surface-hover`，selected state 同时显示 check 或明确图标。
+- Chat 模型 selector 的 thinking 子菜单使用 184px 宽度、10px 圆角与 32px 选项高度，直接从档位列表开始；当前模型档位使用轻背景与右侧裸勾，其他模型的默认档位使用 `Default` 标记。模型列表仅为当前模型显示具体档位，其他支持思考的模型显示 `Thinking`；`xhigh` 展示为 `Extra high`。档位选择一次确认模型与档位，并关闭菜单。
 - Settings selector 使用独立 `variant="settings"`，Chat 与 drawer variant 保持各自密度和交互契约。
 - Dark Mode 浮层使用清晰材质边界，backdrop blur 收敛到 0。
 
