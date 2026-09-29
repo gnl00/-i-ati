@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { listAvailableSkills } from '@renderer/features/settings/skills/SkillService'
 import { getChatSkills } from '@renderer/infrastructure/persistence/ChatSkillRepository'
 import { useChatStore } from '@renderer/features/chat'
@@ -13,7 +13,7 @@ import {
 import { useAppConfigStore } from '@renderer/infrastructure/config/appConfig'
 import { toast } from 'sonner'
 import InlineDeleteConfirm from '../common/InlineDeleteConfirm'
-import { FolderOpen, Search, X } from 'lucide-react'
+import { ChevronRight, FolderOpen, Search, X } from 'lucide-react'
 import ExpandableSearchInput from '../common/ExpandableSearchInput'
 import { cn } from '@renderer/shared/lib/utils'
 import {
@@ -80,6 +80,62 @@ const getFolderDisplayParts = (
     parent: segments[segments.length - 2],
     name: segments[segments.length - 1]
   }
+}
+
+const SkillSummary: React.FC<{ name: string; text: string }> = ({
+  name,
+  text
+}) => {
+  const id = useId()
+  const paragraph = useRef<HTMLParagraphElement>(null)
+  const [expanded, setExpanded] = useState(false)
+  const [truncated, setTruncated] = useState(false)
+
+  useEffect(() => {
+    const element = paragraph.current
+    if (!element || expanded) return
+    const measure = (): void =>
+      setTruncated(element.scrollHeight > element.clientHeight)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
+    return (): void => observer.disconnect()
+  }, [text, expanded])
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-start gap-1">
+        <p className="min-w-0 break-all text-[13px] font-medium tracking-tight text-gray-900 dark:text-(--app-text-primary)">
+          {name}
+        </p>
+        {(truncated || expanded) && (
+          <button
+            type="button"
+            aria-label={`${expanded ? 'Collapse' : 'Expand'} description for ${name}`}
+            title={expanded ? 'Collapse description' : 'Expand description'}
+            aria-expanded={expanded}
+            aria-controls={id}
+            onClick={() => setExpanded(!expanded)}
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 dark:text-(--app-text-muted) dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-primary) dark:focus-visible:outline-(--app-accent) active:scale-95"
+          >
+            <ChevronRight className={cn('h-3 w-3', expanded && 'rotate-90')} />
+          </button>
+        )}
+      </div>
+      {text && (
+        <p
+          ref={paragraph}
+          id={id}
+          className={cn(
+            'whitespace-pre-wrap break-words text-[11.5px] leading-relaxed text-gray-500 dark:text-(--app-text-secondary)',
+            !expanded && 'line-clamp-2'
+          )}
+        >
+          {text}
+        </p>
+      )}
+    </div>
+  )
 }
 
 const SkillsManager: React.FC = () => {
@@ -308,7 +364,6 @@ const SkillsManager: React.FC = () => {
         toast.error(result.error || `Failed to open skill: ${name}`)
         return
       }
-      toast.success('Skill file shown')
     } catch (error: unknown) {
       console.error('[SkillsManager] Failed to reveal skill:', error)
       toast.error(
@@ -327,7 +382,7 @@ const SkillsManager: React.FC = () => {
       <div className="mx-4 shrink-0 overflow-hidden rounded-lg border border-gray-100 bg-gray-50/60 dark:border-(--app-border-subtle) dark:bg-(--app-surface-inset)">
         <SettingsSubsectionHeader
           title="Folders"
-          className="flex-wrap items-center border-t-0 bg-transparent px-3 dark:bg-transparent [&>div:last-child]:max-w-full"
+          className="flex-wrap items-center border-t-0 bg-transparent px-3 py-2 dark:bg-transparent [&>div:last-child]:max-w-full"
           badges={
             <span className="text-[11px] text-gray-400 dark:text-(--app-text-muted)">
               {folders.length} folders
@@ -370,7 +425,7 @@ const SkillsManager: React.FC = () => {
           }
         />
 
-        <SettingsToolbar className="flex max-h-32 min-w-0 flex-wrap items-center gap-2 overflow-y-auto border-t border-gray-100 bg-transparent px-3 dark:border-(--app-border-subtle) dark:bg-transparent">
+        <SettingsToolbar className="flex max-h-32 min-w-0 flex-wrap items-center gap-2 overflow-y-auto border-t border-gray-100 bg-transparent px-3 py-1.5 dark:border-(--app-border-subtle) dark:bg-transparent">
           {folders.length === 0 ? (
             <span className="text-[11px] text-gray-400 dark:text-(--app-text-muted)">
               Add a folder to scan for skills.
@@ -382,37 +437,35 @@ const SkillsManager: React.FC = () => {
                 const display = getFolderDisplayParts(folder)
                 return (
                   <div
-                    role="button"
-                    tabIndex={0}
                     key={folder}
-                    title={folder}
-                    onClick={() => void handleOpenFolder(folder)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault()
-                        void handleOpenFolder(folder)
-                      }
-                    }}
-                    className="group/f flex items-center gap-1.5 pl-2 pr-1 py-0.5 rounded-md bg-white/80 dark:bg-(--app-surface-raised) border border-gray-200/80 dark:border-(--app-border-standard) max-w-[240px] cursor-pointer transition-colors duration-150 hover:border-gray-300 dark:hover:border-(--app-border-standard) hover:bg-gray-50 dark:hover:bg-(--app-surface-hover) active:scale-[0.98]"
+                    className="group/f flex max-w-[240px] min-w-0 items-center rounded-md border border-gray-200/80 bg-white/80 dark:border-(--app-border-standard) dark:bg-(--app-surface-raised)"
                   >
-                    <i
-                      className={`ri-folder-3-line text-[12px] shrink-0 ${isPending ? 'text-amber-500' : 'text-gray-400 dark:text-(--app-text-muted)'}`}
-                    />
-                    <span className="min-w-0 flex items-baseline gap-1 truncate font-mono text-[10.5px]">
-                      {display.parent && (
-                        <span className="truncate text-gray-400 dark:text-(--app-text-muted)">
-                          {display.parent}
+                    <button
+                      type="button"
+                      title={folder}
+                      aria-label={`Open folder ${folder}`}
+                      onClick={() => void handleOpenFolder(folder)}
+                      className="flex h-6 min-w-0 flex-1 items-center gap-1.5 rounded-l-md px-2 text-left hover:bg-gray-50 dark:hover:bg-(--app-surface-hover) active:scale-[0.98]"
+                    >
+                      <i
+                        className={`ri-folder-3-line shrink-0 text-[12px] ${isPending ? 'text-amber-500' : 'text-gray-400 dark:text-(--app-text-muted)'}`}
+                      />
+                      <span className="flex min-w-0 items-baseline gap-1 font-mono text-[10.5px]">
+                        {display.parent && (
+                          <>
+                            <span className="truncate text-gray-400 dark:text-(--app-text-muted)">
+                              {display.parent}
+                            </span>
+                            <span className="shrink-0 text-gray-300 dark:text-(--app-text-muted)">
+                              /
+                            </span>
+                          </>
+                        )}
+                        <span className="truncate text-gray-700 dark:text-(--app-text-body)">
+                          {display.name}
                         </span>
-                      )}
-                      {display.parent && (
-                        <span className="shrink-0 text-gray-300 dark:text-gray-600">
-                          /
-                        </span>
-                      )}
-                      <span className="truncate text-gray-700 dark:text-(--app-text-body)">
-                        {display.name}
                       </span>
-                    </span>
+                    </button>
                     {isPending ? (
                       <span className="text-[9px] text-amber-500 shrink-0 pr-1">
                         …
@@ -425,8 +478,8 @@ const SkillsManager: React.FC = () => {
                           event.stopPropagation()
                           handleRemoveFolder(folder)
                         }}
-                        className="h-4 w-4 flex items-center justify-center rounded text-gray-400 hover:text-rose-500 dark:hover:text-rose-400 opacity-0 group-hover/f:opacity-100 group-focus-within/f:opacity-100 transition-[color,opacity,transform] duration-150 active:scale-95 shrink-0"
-                        aria-label="Remove folder"
+                        className="h-6 w-6 flex items-center justify-center rounded text-gray-400 hover:text-rose-500 dark:hover:text-rose-400 opacity-0 group-hover/f:opacity-100 group-focus-within/f:opacity-100 transition-[color,opacity,transform] duration-150 active:scale-95 shrink-0"
+                        aria-label={`Remove folder ${folder}`}
                       >
                         <X className="h-2.5 w-2.5" />
                       </button>
@@ -446,7 +499,7 @@ const SkillsManager: React.FC = () => {
           badges={
             <span className="text-[11px] text-gray-400 dark:text-(--app-text-muted)">
               {searchQuery.trim()
-                ? `${filteredSkills.length} of ${skills.length} skills`
+                ? `${filteredSkills.length} results`
                 : `${skills.length} skills`}
             </span>
           }
@@ -525,56 +578,79 @@ const SkillsManager: React.FC = () => {
           {filteredSkills.map((skill) => {
             const isActive = activeSkills.includes(skill.name)
             const isBuiltIn = skill.source === 'built-in'
+            const hasDetails =
+              !!skill.allowedTools?.length || !!skill.compatibility
+            const metadata = (
+              <>
+                {isActive && (
+                  <span
+                    className="text-emerald-600 dark:text-emerald-400"
+                    title="Active in the current chat"
+                  >
+                    Active
+                  </span>
+                )}
+                {isBuiltIn && <span>Built-in</span>}
+                {!!skill.allowedTools?.length && (
+                  <span>{skill.allowedTools.length} tools</span>
+                )}
+              </>
+            )
             return (
-              <SettingsListItem key={skill.name} className="px-3 py-3">
-                <div className="flex-1 space-y-1.5 min-w-0">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[13px] font-medium text-gray-900 dark:text-(--app-text-primary) tracking-tight">
-                      {skill.name}
-                    </span>
-                    {isActive && (
-                      <span
-                        className="text-[10.5px] text-emerald-600 dark:text-emerald-400"
-                        title="Active in the current chat"
-                      >
-                        Active
-                      </span>
-                    )}
-                    {isBuiltIn && (
-                      <span className="text-[10.5px] text-gray-400 dark:text-(--app-text-muted)">
-                        Built-in
-                      </span>
-                    )}
-                    {skill.allowedTools && skill.allowedTools.length > 0 && (
-                      <span className="text-[10.5px] text-gray-400 dark:text-(--app-text-muted)">
-                        {skill.allowedTools.length} tools
-                      </span>
-                    )}
-                  </div>
-                  {skill.description && (
-                    <p className="text-[11.5px] text-gray-500 dark:text-(--app-text-secondary) leading-relaxed break-words">
-                      {skill.description}
-                    </p>
-                  )}
-                  {skill.allowedTools && skill.allowedTools.length > 0 && (
-                    <div className="flex flex-wrap gap-x-3 gap-y-1 pt-0.5 min-w-0 max-w-full">
-                      {skill.allowedTools.map((tool) => (
-                        <span
-                          key={tool}
-                          className="inline-flex max-w-full break-all font-mono text-[10.5px] text-gray-400 dark:text-(--app-text-muted)"
-                        >
-                          {tool}
+              <SettingsListItem key={skill.name} className="gap-3 px-3 py-3">
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <SkillSummary
+                    name={skill.name}
+                    text={skill.description || ''}
+                  />
+                  {hasDetails ? (
+                    <details className="group/details text-[10.5px] text-gray-400 dark:text-(--app-text-muted)">
+                      <summary className="flex w-fit max-w-full cursor-pointer select-none list-none flex-wrap items-center gap-x-3 gap-y-1 rounded hover:text-gray-600 dark:hover:text-(--app-text-secondary) [&::-webkit-details-marker]:hidden">
+                        {metadata}
+                        <span className="inline-flex items-center gap-1">
+                          <ChevronRight className="h-3 w-3 group-open/details:rotate-90" />
+                          Details
                         </span>
-                      ))}
-                    </div>
-                  )}
-                  {skill.compatibility && (
-                    <p className="text-[10.5px] text-gray-400 dark:text-(--app-text-muted) italic break-words">
-                      {skill.compatibility}
-                    </p>
+                      </summary>
+                      <div className="mt-2 space-y-2 border-l border-gray-200 pl-3 dark:border-(--app-border-subtle)">
+                        {!!skill.allowedTools?.length && (
+                          <div>
+                            <p className="mb-1 font-medium text-gray-500 dark:text-(--app-text-secondary)">
+                              Allowed tools
+                            </p>
+                            <div className="flex min-w-0 flex-wrap gap-x-3 gap-y-1 font-mono">
+                              {skill.allowedTools.map((tool) => (
+                                <span
+                                  key={tool}
+                                  className="max-w-full break-all"
+                                >
+                                  {tool}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {skill.compatibility && (
+                          <div>
+                            <p className="mb-1 font-medium text-gray-500 dark:text-(--app-text-secondary)">
+                              Compatibility
+                            </p>
+                            <p className="break-words leading-relaxed">
+                              {skill.compatibility}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </details>
+                  ) : (
+                    (isActive || isBuiltIn) && (
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10.5px] text-gray-400 dark:text-(--app-text-muted)">
+                        {metadata}
+                      </div>
+                    )
                   )}
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex w-[66px] shrink-0 self-center flex-col items-center gap-1">
                   <button
                     type="button"
                     onClick={() => void handleRevealSkill(skill.name)}
