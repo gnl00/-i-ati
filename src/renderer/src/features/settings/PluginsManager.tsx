@@ -1,12 +1,17 @@
 import React from 'react'
 import type { RemotePluginCatalogItem } from '@shared/plugins/remoteRegistry'
-import { Badge } from '@renderer/shared/components/ui/badge'
 import InlineDeleteConfirm from './common/InlineDeleteConfirm'
 import { Label } from '@renderer/shared/components/ui/label'
 import { Switch } from '@renderer/shared/components/ui/switch'
 import { invokeSelectDirectory } from '@renderer/infrastructure/ipc'
 import { cn } from '@renderer/shared/lib/utils'
-import { Download, FolderInput, PackageOpen, Puzzle, RefreshCw } from 'lucide-react'
+import {
+  Download,
+  FolderInput,
+  PackageOpen,
+  Puzzle,
+  RefreshCw
+} from 'lucide-react'
 import { toast } from 'sonner'
 import {
   SettingsEmptyState,
@@ -45,39 +50,47 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
   importLocalPlugin,
   uninstallLocalPlugin
 }) => {
-  const compareVersions = React.useCallback((left?: string, right?: string): number => {
-    if (!left && !right) return 0
-    if (!left) return -1
-    if (!right) return 1
+  const compareVersions = React.useCallback(
+    (left?: string, right?: string): number => {
+      if (!left && !right) return 0
+      if (!left) return -1
+      if (!right) return 1
 
-    const leftParts = left.split('.').map(part => Number.parseInt(part, 10) || 0)
-    const rightParts = right.split('.').map(part => Number.parseInt(part, 10) || 0)
-    const length = Math.max(leftParts.length, rightParts.length)
+      const leftParts = left
+        .split('.')
+        .map((part) => Number.parseInt(part, 10) || 0)
+      const rightParts = right
+        .split('.')
+        .map((part) => Number.parseInt(part, 10) || 0)
+      const length = Math.max(leftParts.length, rightParts.length)
 
-    for (let index = 0; index < length; index += 1) {
-      const leftValue = leftParts[index] ?? 0
-      const rightValue = rightParts[index] ?? 0
-      if (leftValue > rightValue) return 1
-      if (leftValue < rightValue) return -1
-    }
+      for (let index = 0; index < length; index += 1) {
+        const leftValue = leftParts[index] ?? 0
+        const rightValue = rightParts[index] ?? 0
+        if (leftValue > rightValue) return 1
+        if (leftValue < rightValue) return -1
+      }
 
-    return 0
-  }, [])
+      return 0
+    },
+    []
+  )
 
   const installedPlugins = React.useMemo(
-    () => plugins.filter(plugin => plugin.source !== 'built-in'),
+    () => plugins.filter((plugin) => plugin.source !== 'built-in'),
     [plugins]
   )
   const visibleRemotePlugins = remotePlugins
-  const activeCount = installedPlugins.filter(plugin => plugin.enabled).length
+  const activeCount = installedPlugins.filter((plugin) => plugin.enabled).length
   const [isRefreshing, setIsRefreshing] = React.useState(false)
   const [isRefreshingRemote, setIsRefreshingRemote] = React.useState(false)
   const [isImporting, setIsImporting] = React.useState(false)
-  const [installingRemotePluginId, setInstallingRemotePluginId] = React.useState<string | null>(null)
+  const [installingRemotePluginId, setInstallingRemotePluginId] =
+    React.useState<string | null>(null)
 
   const handleToggle = (pluginId: string, enabled: boolean): void => {
     setPlugins(
-      plugins.map(plugin => {
+      plugins.map((plugin) => {
         if (plugin.pluginId !== pluginId) {
           return plugin
         }
@@ -167,10 +180,19 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
     try {
       setInstallingRemotePluginId(plugin.pluginId)
       await installRemotePlugin(plugin.pluginId)
-      toast.success(mode === 'upgrade' ? 'Remote plugin upgraded' : 'Remote plugin installed')
+      toast.success(
+        mode === 'upgrade'
+          ? 'Remote plugin upgraded'
+          : 'Remote plugin installed'
+      )
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      toast.error(message || (mode === 'upgrade' ? 'Failed to upgrade remote plugin' : 'Failed to install remote plugin'))
+      toast.error(
+        message ||
+          (mode === 'upgrade'
+            ? 'Failed to upgrade remote plugin'
+            : 'Failed to install remote plugin')
+      )
     } finally {
       setInstallingRemotePluginId(null)
     }
@@ -180,254 +202,309 @@ const PluginsManager: React.FC<PluginsManagerProps> = ({
     <SettingsPageShell>
       <SettingsSectionHeader
         title={<Label className="cursor-default">Plugins</Label>}
-        badges={(
-          <>
-            <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-gray-500 border-gray-200 bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700">
-              {pluginsLoaded ? `${installedPlugins.length} installed` : 'Loading...'}
-            </Badge>
-            {activeCount > 0 && (
-              <Badge variant="outline" className="select-none text-[10px] h-5 px-1.5 font-normal text-amber-600 border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">
-                {activeCount} active
-              </Badge>
-            )}
-          </>
-        )}
-        description="Built-in adapters are app capabilities. This page is mainly for importing and managing local plugins."
-        actions={(
-          <>
+        description={
+          <span className="flex flex-wrap items-center justify-between gap-2">
+            <span>Manage local plugins and discover integrations.</span>
+            <span>
+              {pluginsLoaded
+                ? `${installedPlugins.length} installed · ${activeCount} active`
+                : 'Loading...'}
+            </span>
+          </span>
+        }
+      />
+
+      <section
+        aria-label="Installed plugins"
+        className="mx-4 mb-4 flex min-h-0 max-h-[45%] shrink-0 flex-col overflow-hidden rounded-lg border border-gray-100 bg-gray-50/60 dark:border-(--app-border-subtle) dark:bg-(--app-surface-inset)"
+      >
+        <SettingsSubsectionHeader
+          title="Installed Plugins"
+          badges={
+            <span className="text-[11px] font-normal text-gray-400 dark:text-(--app-text-muted)">
+              {installedPlugins.length} plugins
+            </span>
+          }
+          actions={
+            <>
+              <button
+                type="button"
+                onClick={() => void handleRefresh()}
+                disabled={isRefreshing}
+                className={settingsOutlineButtonClassName}
+              >
+                <RefreshCw
+                  className={cn('w-3.5 h-3.5', isRefreshing && 'animate-spin')}
+                />
+                {isRefreshing ? 'Refreshing...' : 'Refresh'}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleImport()}
+                disabled={isImporting}
+                className={settingsPrimaryButtonClassName}
+              >
+                <FolderInput className="w-3.5 h-3.5" />
+                {isImporting ? 'Importing...' : 'Import Local'}
+              </button>
+            </>
+          }
+          className="flex-wrap items-center border-t-0 bg-transparent px-3 dark:bg-transparent [&>div:last-child]:max-w-full"
+        />
+
+        <SettingsList className="bg-transparent dark:bg-transparent">
+          {installedPlugins.length === 0 &&
+            (pluginsLoaded ? (
+              <SettingsEmptyState
+                icon={
+                  <Puzzle className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                }
+                title="No installed plugins yet"
+                description="Import a local plugin or install one from the registry."
+                className="py-8"
+              />
+            ) : (
+              <SettingsLoadingState className="py-8">
+                Loading installed plugins...
+              </SettingsLoadingState>
+            ))}
+
+          {installedPlugins.map((plugin) => {
+            const remotePlugin = remotePlugins.find(
+              (item) => item.pluginId === plugin.pluginId
+            )
+            const hasRemoteUpdate =
+              remotePlugin &&
+              compareVersions(remotePlugin.version, plugin.version) > 0
+            const payloadExtensionCapabilities = plugin.capabilities
+              .filter(
+                (capability) => capability.kind === 'request-payload-extension'
+              )
+              .map((capability) => capability.data ?? {})
+
+            return (
+              <SettingsListItem
+                key={plugin.pluginId}
+                className="items-center px-3 py-3"
+              >
+                <div className="flex-1 space-y-1.5 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[13px] font-medium text-gray-900 dark:text-gray-100 tracking-tight">
+                      {plugin.name}
+                    </span>
+                    {plugin.enabled && (
+                      <span className="text-[10px] font-normal text-emerald-600 dark:text-emerald-400">
+                        Active
+                      </span>
+                    )}
+                    <span className="text-[10px] font-normal text-gray-400 dark:text-(--app-text-muted)">
+                      {plugin.source}
+                    </span>
+                    {payloadExtensionCapabilities.length > 0 && (
+                      <span className="text-[10px] font-normal text-gray-400 dark:text-(--app-text-muted)">
+                        payload-extension
+                      </span>
+                    )}
+                    {plugin.version && (
+                      <span className="text-[10px] font-normal text-gray-400 dark:text-(--app-text-muted)">
+                        v{plugin.version}
+                      </span>
+                    )}
+                    {hasRemoteUpdate && (
+                      <span className="text-[10px] font-normal text-sky-600 dark:text-sky-400">
+                        Upgrade available
+                      </span>
+                    )}
+                    {plugin.status !== 'installed' && (
+                      <span className="text-[10px] font-normal text-rose-500 dark:text-rose-400">
+                        {plugin.status}
+                      </span>
+                    )}
+                  </div>
+
+                  {plugin.description && (
+                    <p className="text-[11.5px] text-gray-500 dark:text-gray-400 leading-relaxed">
+                      {plugin.description}
+                    </p>
+                  )}
+
+                  {plugin.lastError && (
+                    <p className="text-[11px] text-rose-500 dark:text-rose-400 leading-relaxed">
+                      {plugin.lastError}
+                    </p>
+                  )}
+
+                  <p
+                    title={plugin.pluginId}
+                    className="font-mono text-[10px] text-gray-400 dark:text-(--app-text-muted) tracking-tight truncate"
+                  >
+                    {plugin.pluginId}
+                  </p>
+                </div>
+
+                <div className="flex w-[66px] shrink-0 flex-col items-center justify-center gap-2">
+                  <InlineDeleteConfirm
+                    onConfirm={() => handleUninstall(plugin)}
+                    ariaLabel="Uninstall plugin"
+                    revealOnGroupHover
+                  />
+                  <Switch
+                    checked={plugin.enabled}
+                    onCheckedChange={(checked) =>
+                      handleToggle(plugin.pluginId, checked)
+                    }
+                    aria-label={`Enable ${plugin.name}`}
+                    className="scale-90 origin-center"
+                  />
+                </div>
+              </SettingsListItem>
+            )
+          })}
+        </SettingsList>
+      </section>
+
+      <section
+        aria-label="Plugin registry"
+        className="mx-4 mb-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-gray-100 bg-gray-50/60 dark:border-(--app-border-subtle) dark:bg-(--app-surface-inset)"
+      >
+        <SettingsSubsectionHeader
+          title="Registry"
+          badges={
+            <span className="text-[11px] font-normal text-gray-400 dark:text-(--app-text-muted)">
+              {remotePluginsLoaded
+                ? `${visibleRemotePlugins.length} plugins`
+                : 'Loading...'}
+            </span>
+          }
+          actions={
             <button
               type="button"
-              onClick={() => void handleRefresh()}
-              disabled={isRefreshing}
+              onClick={() => void handleRefreshRemote()}
+              disabled={isRefreshingRemote}
               className={settingsOutlineButtonClassName}
             >
-              <RefreshCw className={cn('w-3.5 h-3.5', isRefreshing && 'animate-spin')} />
-              {isRefreshing ? 'Refreshing...' : 'Refresh Installed'}
+              <RefreshCw
+                className={cn(
+                  'w-3.5 h-3.5',
+                  isRefreshingRemote && 'animate-spin'
+                )}
+              />
+              {isRefreshingRemote ? 'Refreshing...' : 'Refresh'}
             </button>
-            <button
-              type="button"
-              onClick={() => void handleImport()}
-              disabled={isImporting}
-              className={settingsPrimaryButtonClassName}
-            >
-              <FolderInput className="w-3.5 h-3.5" />
-              {isImporting ? 'Importing...' : 'Import Local'}
-            </button>
-          </>
-        )}
-        className="border-b border-gray-100 dark:border-gray-700/50"
-      />
+          }
+          className="flex-wrap items-center border-t-0 bg-transparent px-3 dark:bg-transparent [&>div:last-child]:max-w-full"
+        />
 
-      <SettingsSubsectionHeader
-        title="Installed Plugins"
-        badges={(
-          <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-gray-400 border-gray-200/80 bg-transparent dark:text-gray-500 dark:border-gray-700 font-normal">
-            external
-          </Badge>
-        )}
-        description="Plugins installed from local folders or the official remote registry. Built-in adapters are managed separately."
-        className="border-t-0"
-      />
+        <SettingsList className="bg-transparent dark:bg-transparent">
+          {visibleRemotePlugins.length === 0 &&
+            (remotePluginsLoaded ? (
+              <SettingsEmptyState
+                icon={
+                  <PackageOpen className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                }
+                title="No remote plugins available"
+                description="Refresh the registry to check for updated catalog data."
+                className="py-8"
+              />
+            ) : (
+              <SettingsLoadingState className="py-8">
+                Loading registry...
+              </SettingsLoadingState>
+            ))}
 
-      <SettingsList className="flex-none max-h-[220px]">
-        {installedPlugins.length === 0 && (
-          pluginsLoaded ? (
-            <SettingsEmptyState
-              icon={<Puzzle className="w-4 h-4 text-gray-400 dark:text-gray-500" />}
-              title="No installed plugins yet"
-              description="Import a local plugin or install one from the registry."
-              className="py-8"
-            />
-          ) : (
-            <SettingsLoadingState className="py-8">
-              Loading installed plugins...
-            </SettingsLoadingState>
-          )
-        )}
+          {visibleRemotePlugins.map((plugin) => {
+            const installedPlugin = plugins.find(
+              (item) => item.pluginId === plugin.pluginId
+            )
+            const hasUpdateAvailable = installedPlugin
+              ? compareVersions(plugin.version, installedPlugin.version) > 0
+              : false
+            const payloadExtensionCapabilities = plugin.capabilities.filter(
+              (capability) => capability.kind === 'request-payload-extension'
+            )
 
-        {installedPlugins.map((plugin) => {
-          const remotePlugin = remotePlugins.find(item => item.pluginId === plugin.pluginId)
-          const hasRemoteUpdate = remotePlugin
-            && compareVersions(remotePlugin.version, plugin.version) > 0
-          const payloadExtensionCapabilities = plugin.capabilities
-            .filter(capability => capability.kind === 'request-payload-extension')
-            .map(capability => capability.data ?? {})
-
-          return (
-            <SettingsListItem key={plugin.pluginId} className="px-4 py-4">
-              <div className="flex-1 space-y-2 min-w-0">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[13px] font-medium text-gray-900 dark:text-gray-100 tracking-tight">{plugin.name}</span>
-                  {plugin.enabled && (
-                    <Badge variant="secondary" className="text-[9.5px] h-[18px] px-1.5 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border-0">
-                      Active
-                    </Badge>
-                  )}
-                  <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-gray-400 border-gray-200/80 bg-transparent dark:text-gray-500 dark:border-gray-700 font-normal">
-                    {plugin.source}
-                  </Badge>
-                  {payloadExtensionCapabilities.length > 0 && (
-                    <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:text-blue-300 dark:border-blue-900/50 font-normal">
-                      payload-extension
-                    </Badge>
-                  )}
-                  {plugin.version && (
-                    <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-emerald-600 border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:text-emerald-300 dark:border-emerald-900/50 font-normal">
+            return (
+              <SettingsListItem
+                key={plugin.pluginId}
+                className="items-center px-3 py-3"
+              >
+                <div className="flex-1 space-y-1.5 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[13px] font-medium text-gray-900 dark:text-gray-100 tracking-tight">
+                      {plugin.name}
+                    </span>
+                    <span className="text-[10px] font-normal text-gray-400 dark:text-(--app-text-muted)">
+                      remote
+                    </span>
+                    {payloadExtensionCapabilities.length > 0 && (
+                      <span className="text-[10px] font-normal text-gray-400 dark:text-(--app-text-muted)">
+                        payload-extension
+                      </span>
+                    )}
+                    <span className="text-[10px] font-normal text-gray-400 dark:text-(--app-text-muted)">
                       v{plugin.version}
-                    </Badge>
-                  )}
-                  {hasRemoteUpdate && (
-                    <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-sky-600 border-sky-200 bg-sky-50 dark:bg-sky-950/20 dark:text-sky-300 dark:border-sky-900/50 font-normal">
-                      Upgrade available
-                    </Badge>
-                  )}
-                  {plugin.status !== 'installed' && (
-                    <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-rose-500 border-rose-200 bg-rose-50 dark:bg-rose-950/20 dark:text-rose-300 dark:border-rose-900/50 font-normal">
-                      {plugin.status}
-                    </Badge>
-                  )}
-                </div>
+                    </span>
+                    {hasUpdateAvailable ? (
+                      <span className="text-[10px] font-normal text-sky-600 dark:text-sky-400">
+                        Upgrade available
+                      </span>
+                    ) : installedPlugin ? (
+                      <span className="text-[10px] font-normal text-emerald-600 dark:text-emerald-400">
+                        Installed
+                      </span>
+                    ) : null}
+                  </div>
 
-                {plugin.description && (
-                  <p className="text-[11.5px] text-gray-500 dark:text-gray-400 leading-relaxed">{plugin.description}</p>
-                )}
+                  {plugin.description && (
+                    <p className="text-[11.5px] text-gray-500 dark:text-gray-400 leading-relaxed">
+                      {plugin.description}
+                    </p>
+                  )}
 
-                {plugin.lastError && (
-                  <p className="text-[11px] text-rose-500 dark:text-rose-400 leading-relaxed">
-                    {plugin.lastError}
+                  <p
+                    title={plugin.pluginId}
+                    className="font-mono text-[10px] text-gray-400 dark:text-(--app-text-muted) tracking-tight truncate"
+                  >
+                    {plugin.pluginId}
                   </p>
-                )}
-
-                <p className="font-mono text-[10px] text-gray-400/60 dark:text-gray-600 tracking-tight truncate">{plugin.pluginId}</p>
-              </div>
-
-              <div className="flex items-center gap-2 pt-0.5 shrink-0">
-                <InlineDeleteConfirm
-                  onConfirm={() => handleUninstall(plugin)}
-                  ariaLabel="Uninstall plugin"
-                  revealOnGroupHover
-                />
-                <Switch
-                  checked={plugin.enabled}
-                  onCheckedChange={(checked) => handleToggle(plugin.pluginId, checked)}
-                  className="data-[state=checked]:bg-amber-500 scale-90 origin-center"
-                />
-              </div>
-            </SettingsListItem>
-          )
-        })}
-      </SettingsList>
-
-      <SettingsSubsectionHeader
-        title="Remote Plugins"
-        badges={(
-          <>
-            <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-gray-400 border-gray-200/80 bg-transparent dark:text-gray-500 dark:border-gray-700 font-normal">
-              registry
-            </Badge>
-            <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 font-normal text-gray-500 border-gray-200 bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700">
-              {remotePluginsLoaded ? `${visibleRemotePlugins.length} available` : 'Loading...'}
-            </Badge>
-          </>
-        )}
-        description="Official remote catalog from the atiapp plugins registry."
-        actions={(
-          <button
-            type="button"
-            onClick={() => void handleRefreshRemote()}
-            disabled={isRefreshingRemote}
-            className={settingsOutlineButtonClassName}
-          >
-            <RefreshCw className={cn('w-3.5 h-3.5', isRefreshingRemote && 'animate-spin')} />
-            {isRefreshingRemote ? 'Refreshing...' : 'Refresh Registry'}
-          </button>
-        )}
-      />
-
-      <SettingsList>
-        {visibleRemotePlugins.length === 0 && (
-          remotePluginsLoaded ? (
-            <SettingsEmptyState
-              icon={<PackageOpen className="w-4 h-4 text-gray-400 dark:text-gray-500" />}
-              title="No remote plugins available"
-              description="Refresh the registry to check for updated catalog data."
-              className="py-8"
-            />
-          ) : (
-            <SettingsLoadingState className="py-8">
-              Loading registry...
-            </SettingsLoadingState>
-          )
-        )}
-
-        {visibleRemotePlugins.map((plugin) => {
-          const installedPlugin = plugins.find(item => item.pluginId === plugin.pluginId)
-          const hasUpdateAvailable = installedPlugin
-            ? compareVersions(plugin.version, installedPlugin.version) > 0
-            : false
-          const payloadExtensionCapabilities = plugin.capabilities
-            .filter(capability => capability.kind === 'request-payload-extension')
-
-          return (
-            <SettingsListItem key={plugin.pluginId} className="px-4 py-4">
-              <div className="flex-1 space-y-2 min-w-0">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[13px] font-medium text-gray-900 dark:text-gray-100 tracking-tight">{plugin.name}</span>
-                  <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-violet-600 border-violet-200 bg-violet-50 dark:bg-violet-950/20 dark:text-violet-300 dark:border-violet-900/50 font-normal">
-                    remote
-                  </Badge>
-                  {payloadExtensionCapabilities.length > 0 && (
-                    <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:text-blue-300 dark:border-blue-900/50 font-normal">
-                      payload-extension
-                    </Badge>
-                  )}
-                  <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-emerald-600 border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 dark:text-emerald-300 dark:border-emerald-900/50 font-normal">
-                    v{plugin.version}
-                  </Badge>
-                  {hasUpdateAvailable ? (
-                    <Badge variant="outline" className="text-[9.5px] h-[18px] px-1.5 text-sky-600 border-sky-200 bg-sky-50 dark:bg-sky-950/20 dark:text-sky-300 dark:border-sky-900/50 font-normal">
-                      Upgrade available
-                    </Badge>
-                  ) : installedPlugin ? (
-                    <Badge variant="secondary" className="text-[9.5px] h-[18px] px-1.5 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 border-0">
-                      Installed
-                    </Badge>
-                  ) : null}
                 </div>
 
-                {plugin.description && (
-                  <p className="text-[11.5px] text-gray-500 dark:text-gray-400 leading-relaxed">{plugin.description}</p>
-                )}
-
-                <p className="font-mono text-[10px] text-gray-400/60 dark:text-gray-600 tracking-tight truncate">{plugin.pluginId}</p>
-              </div>
-
-              <div className="pt-0.5 shrink-0">
-                <button
-                  type="button"
-                  disabled={(Boolean(installedPlugin) && !hasUpdateAvailable) || installingRemotePluginId === plugin.pluginId}
-                  onClick={() => void handleRemoteInstall(plugin, hasUpdateAvailable ? 'upgrade' : 'install')}
-                  className={cn(
-                    settingsOutlineButtonClassName,
-                    hasUpdateAvailable && 'border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 hover:text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/20 dark:text-sky-300 dark:hover:bg-sky-950/35'
-                  )}
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  {installingRemotePluginId === plugin.pluginId
-                    ? hasUpdateAvailable
-                      ? 'Upgrading...'
-                      : 'Installing...'
-                    : hasUpdateAvailable
-                      ? 'Upgrade'
-                      : installedPlugin
-                        ? 'Installed'
-                        : 'Install'}
-                </button>
-              </div>
-            </SettingsListItem>
-          )
-        })}
-      </SettingsList>
+                <div className="shrink-0">
+                  <button
+                    type="button"
+                    disabled={
+                      (Boolean(installedPlugin) && !hasUpdateAvailable) ||
+                      installingRemotePluginId === plugin.pluginId
+                    }
+                    onClick={() =>
+                      void handleRemoteInstall(
+                        plugin,
+                        hasUpdateAvailable ? 'upgrade' : 'install'
+                      )
+                    }
+                    className={cn(
+                      settingsOutlineButtonClassName,
+                      hasUpdateAvailable &&
+                        'border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 hover:text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/20 dark:text-sky-300 dark:hover:bg-sky-950/35'
+                    )}
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    {installingRemotePluginId === plugin.pluginId
+                      ? hasUpdateAvailable
+                        ? 'Upgrading...'
+                        : 'Installing...'
+                      : hasUpdateAvailable
+                        ? 'Upgrade'
+                        : installedPlugin
+                          ? 'Installed'
+                          : 'Install'}
+                  </button>
+                </div>
+              </SettingsListItem>
+            )
+          })}
+        </SettingsList>
+      </section>
     </SettingsPageShell>
   )
 }
