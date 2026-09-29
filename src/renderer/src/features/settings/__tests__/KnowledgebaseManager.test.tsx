@@ -80,7 +80,7 @@ const clickButton = async (text: string): Promise<void> => {
   )!
   await act(async () => button.click())
 }
-const search = async (): Promise<void> => {
+const search = async (query = 'session'): Promise<void> => {
   const input = container.querySelector<HTMLInputElement>(
     '[placeholder="Search indexed documents..."]'
   )!
@@ -88,10 +88,10 @@ const search = async (): Promise<void> => {
     Object.getOwnPropertyDescriptor(
       HTMLInputElement.prototype,
       'value'
-    )!.set!.call(input, 'session')
+    )!.set!.call(input, query)
     input.dispatchEvent(new Event('input', { bubbles: true }))
   })
-  await clickButton('Search')
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 350)))
 }
 beforeEach(() => {
   vi.clearAllMocks()
@@ -124,7 +124,11 @@ afterEach(async () => {
 it('places sources before recall, keeps advanced controls collapsed, and indexes draft values once', async () => {
   await render({ chunkSize: 1600 })
   const text = container.textContent!
-  expect(text.indexOf('Knowledge Sources')).toBeLessThan(
+  expect(text.indexOf('Sources')).toBeLessThan(text.indexOf('Knowledge Search'))
+  expect(text.indexOf('Sources')).toBeLessThan(
+    text.indexOf('Index & Retrieval Settings')
+  )
+  expect(text.indexOf('Index & Retrieval Settings')).toBeLessThan(
     text.indexOf('Knowledge Search')
   )
   expect(container.querySelector('details')?.open).toBe(false)
@@ -146,9 +150,7 @@ it('blocks recall for unsaved drafts and exposes indexing errors', async () => {
   await render({ chunkSize: 1600 })
   await search()
   expect(mocks.search).not.toHaveBeenCalled()
-  expect(toast.warning).toHaveBeenCalledWith(
-    'Save knowledge base settings before testing recall'
-  )
+  expect(container.textContent).toContain('Save settings before testing recall')
   mocks.reindex.mockRejectedValueOnce(new Error('Index failed'))
   await clickButton('Update Index')
   expect(toast.error).toHaveBeenCalledWith('Index failed')
@@ -206,7 +208,7 @@ it('shows no-hit and failed-search feedback and disables indexing while active',
     success: false,
     message: 'Search unavailable'
   })
-  await search()
+  await search('session retry')
   expect(container.textContent).toContain('Search unavailable')
   await clickButton('Clear')
   expect(container.textContent).not.toContain('Search unavailable')
@@ -265,7 +267,7 @@ it('validates sources, rebuilds and clears from the maintenance menu', async () 
   expect(mocks.clear).toHaveBeenCalledTimes(1)
 })
 
-it('uses the shared expandable search and submits with Enter', async () => {
+it('uses the shared expandable search and automatically searches after typing', async () => {
   await render()
   const input = container.querySelector<HTMLInputElement>(
     '[placeholder="Search indexed documents..."]'
@@ -280,11 +282,8 @@ it('uses the shared expandable search and submits with Enter', async () => {
     )!.set!.call(input, 'session')
     input.dispatchEvent(new Event('input', { bubbles: true }))
   })
-  await act(async () =>
-    input.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
-    )
-  )
+  expect(mocks.search).not.toHaveBeenCalled()
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 350)))
   expect(mocks.search).toHaveBeenCalledOnce()
   expect(mocks.search).toHaveBeenCalledWith(
     expect.objectContaining({ query: 'session' })
@@ -296,4 +295,28 @@ it('uses the shared expandable search and submits with Enter', async () => {
   )
   expect(input.value).toBe('')
   expect(input.className).toContain('opacity-0')
+})
+
+it('ignores an in-flight response after clearing the query', async () => {
+  let finish!: (value: {
+    success: boolean
+    results: never[]
+    message: string
+  }) => void
+  mocks.search.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve
+      })
+  )
+  await render()
+  await search()
+  await clickButton('Clear')
+  await act(async () =>
+    finish({ success: true, results: [], message: 'Stale response' })
+  )
+  expect(container.textContent).not.toContain('Stale response')
+  expect(container.textContent).toContain(
+    'Enter a query to inspect retrieval results'
+  )
 })

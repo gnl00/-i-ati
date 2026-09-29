@@ -39,7 +39,7 @@ import {
   Search,
   Trash2
 } from 'lucide-react'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import ExpandableSearchInput from './common/ExpandableSearchInput'
 import {
@@ -49,8 +49,8 @@ import {
   SettingsLoadingState,
   SettingsNotice,
   SettingsPageShell,
-  SettingsSection,
   SettingsSectionHeader,
+  SettingsSubsectionHeader,
   settingsIconButtonClassName,
   settingsInputClassName,
   settingsOutlineButtonClassName,
@@ -210,6 +210,7 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
   const [reindexing, setReindexing] = useState(false)
   const [clearing, setClearing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const searchRequest = useRef(0)
   const [searching, setSearching] = useState(false)
   const [searchResults, setSearchResults] = useState<
     KnowledgebaseSearchResult[]
@@ -504,6 +505,7 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
       return
     }
 
+    const request = ++searchRequest.current
     setSearching(true)
     try {
       const result = await invokeKnowledgebaseSearch({
@@ -512,6 +514,8 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
         top_k: savedKnowledgebase?.maxResults ?? 8,
         folders: savedKnowledgebase?.folders
       })
+
+      if (request !== searchRequest.current) return
 
       if (!result.success) {
         setSearchResults([])
@@ -526,22 +530,31 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
           (result.results.length === 0 ? 'No recall result found' : undefined)
       )
     } catch (error) {
+      if (request !== searchRequest.current) return
       const message = error instanceof Error ? error.message : String(error)
       setSearchResults([])
       setSearchMessage(message || 'Knowledge base search failed')
       toast.error(message || 'Knowledge base search failed')
     } finally {
-      setSearching(false)
+      if (request === searchRequest.current) setSearching(false)
     }
   }
 
-  const handleSearch = async (): Promise<void> => {
-    await executeSearch()
-  }
+  useEffect(() => {
+    setSearching(false)
+    setSearchResults([])
+    setSearchMessage(undefined)
+    if (!searchQuery.trim() || hasUnsavedConfig) return
+    const timer = window.setTimeout(() => void executeSearch(searchQuery), 300)
+    return (): void => {
+      window.clearTimeout(timer)
+      searchRequest.current += 1
+    }
+  }, [searchQuery, hasUnsavedConfig, savedKnowledgebase])
 
   return (
     <SettingsPageShell scrollable contentClassName="space-y-2">
-      <SettingsSection>
+      <div>
         <SettingsSectionHeader
           title={<Label htmlFor="toggle-knowledgebase">Knowledge Base</Label>}
           actions={
@@ -669,15 +682,15 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
             }
           />
         </div>
-        <div className="border-t border-gray-100 dark:border-(--app-border-subtle)">
-          <SettingsSectionHeader
-            title="Knowledge Sources"
+        <div className="mx-4 mb-4 overflow-hidden rounded-lg border border-gray-100 bg-gray-50/60 dark:border-(--app-border-subtle) dark:bg-(--app-surface-inset)">
+          <SettingsSubsectionHeader
+            title="Sources"
             badges={
               <span className="text-[11px] text-gray-400 dark:text-(--app-text-muted)">
                 {folders.length} sources
               </span>
             }
-            className="items-center"
+            className="items-center border-t-0 bg-transparent px-3 py-3 dark:bg-transparent"
             actions={
               <>
                 <button
@@ -742,7 +755,7 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
             }
           />
           {hasUnsavedConfig && (
-            <p className="px-4 pb-3 text-[11px] text-amber-600 dark:text-amber-400">
+            <p className="px-3 pb-3 text-[11px] text-amber-600 dark:text-amber-400">
               Update Index and Rebuild Index use the current draft settings.
               Save settings before testing recall.
             </p>
@@ -752,7 +765,7 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
               icon={<BookOpen className="h-4 w-4" />}
               title="No knowledge sources configured"
               description="Add a folder to index local documents."
-              className="px-4 py-6"
+              className="px-3 py-6"
             />
           ) : (
             folders.map((folder) => {
@@ -761,7 +774,7 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
               return (
                 <div
                   key={folder}
-                  className="flex flex-wrap items-center gap-3 border-t border-gray-100 px-4 py-3 dark:border-(--app-border-subtle) hover:bg-gray-50/60 dark:hover:bg-(--app-surface-hover)"
+                  className="flex flex-wrap items-center gap-3 border-t border-gray-200/60 px-3 py-2.5 dark:border-(--app-border-subtle) hover:bg-gray-50/60 dark:hover:bg-(--app-surface-hover)"
                 >
                   <FolderOpen className="h-4 w-4 shrink-0 text-gray-400 dark:text-(--app-text-secondary)" />
                   <div className="min-w-0 flex-1 basis-32">
@@ -814,9 +827,118 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
             })
           )}
         </div>
-      </SettingsSection>
+        <details className="group mx-4 mb-4 overflow-hidden rounded-lg border border-gray-100 open:bg-gray-50/60 dark:border-(--app-border-subtle) dark:open:bg-(--app-surface-inset)">
+          <summary className="flex cursor-pointer select-none list-none flex-wrap items-center gap-2 px-3 py-3 text-[12px] font-medium text-gray-700 dark:text-(--app-text-body) focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-2px] [&::-webkit-details-marker]:hidden">
+            <ChevronRight className="h-3.5 w-3.5 group-open:rotate-90" />
+            Index &amp; Retrieval Settings
+            <span className="ml-auto text-[11px] font-normal text-gray-400 dark:text-(--app-text-muted)">
+              Chunking and retrieval limits
+            </span>
+          </summary>
+          <div className="border-t border-gray-100 px-3 py-1 dark:border-(--app-border-subtle)">
+            <SettingsFieldRow
+              title="Chunk Size"
+              description="Target characters per chunk for document segmentation."
+              className="flex-wrap py-3 border-b border-gray-100 dark:border-(--app-border-subtle)"
+              control={
+                <SettingsControlGroup>
+                  <Input
+                    type="number"
+                    aria-label="Chunk Size"
+                    min={200}
+                    max={4000}
+                    value={chunkSize}
+                    onChange={(e) => {
+                      const value = clampNumber(
+                        parseInt(e.target.value, 10),
+                        1200,
+                        200,
+                        4000
+                      )
+                      setChunkSize(value)
+                    }}
+                    className={cn(
+                      settingsInputClassName,
+                      'text-center px-0 h-8 w-20 font-mono font-medium [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
+                    )}
+                  />
+                  <span className="text-xs font-medium text-gray-400 pr-2">
+                    chars
+                  </span>
+                </SettingsControlGroup>
+              }
+            />
 
-      <SettingsSection>
+            <SettingsFieldRow
+              title="Chunk Overlap"
+              description="Shared characters between adjacent chunks to preserve local context."
+              className="flex-wrap py-3 border-b border-gray-100 dark:border-(--app-border-subtle)"
+              control={
+                <SettingsControlGroup>
+                  <Input
+                    type="number"
+                    aria-label="Chunk Overlap"
+                    min={0}
+                    max={1000}
+                    value={chunkOverlap}
+                    onChange={(e) => {
+                      const value = clampNumber(
+                        parseInt(e.target.value, 10),
+                        200,
+                        0,
+                        1000
+                      )
+                      setChunkOverlap(value)
+                    }}
+                    className={cn(
+                      settingsInputClassName,
+                      'text-center px-0 h-8 w-20 font-mono font-medium [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
+                    )}
+                  />
+                  <span className="text-xs font-medium text-gray-400 pr-2">
+                    chars
+                  </span>
+                </SettingsControlGroup>
+              }
+            />
+
+            <SettingsFieldRow
+              title="Max Results"
+              className="flex-wrap py-3"
+              description="Default upper bound for retrieval result count."
+              control={
+                <SettingsControlGroup>
+                  <Input
+                    type="number"
+                    aria-label="Max Results"
+                    min={1}
+                    max={20}
+                    value={maxResults}
+                    onChange={(e) => {
+                      const value = clampNumber(
+                        parseInt(e.target.value, 10),
+                        8,
+                        1,
+                        20
+                      )
+                      setMaxResults(value)
+                    }}
+                    className={cn(
+                      settingsInputClassName,
+                      'text-center px-0 h-8 w-20 font-mono font-medium [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
+                    )}
+                  />
+                  <span className="text-xs font-medium text-gray-400 pr-2">
+                    items
+                  </span>
+                </SettingsControlGroup>
+              }
+            />
+          </div>
+        </details>
+      </div>
+
+      <div className="border-t border-gray-100 dark:border-(--app-border-subtle)">
         <SettingsSectionHeader
           title="Knowledge Search"
           badges={
@@ -830,24 +952,14 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
               <ExpandableSearchInput
                 value={searchQuery}
                 onChange={setSearchQuery}
-                onSubmit={() => void handleSearch()}
                 placeholder="Search indexed documents..."
                 loading={searching}
-                disabled={searching}
                 className="min-w-0 max-w-full"
               />
               <button
-                onClick={() => void handleSearch()}
-                className={cn(settingsOutlineButtonClassName, 'h-8 shrink-0')}
-                disabled={searching}
-              >
-                Search
-              </button>
-              <button
                 className={cn(settingsSecondaryButtonClassName, 'h-8 shrink-0')}
                 disabled={
-                  searching ||
-                  (!searchQuery && searchResults.length === 0 && !searchMessage)
+                  !searchQuery && searchResults.length === 0 && !searchMessage
                 }
                 onClick={() => {
                   setSearchQuery('')
@@ -935,116 +1047,7 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
             ))
           )}
         </div>
-        <details className="group border-t border-gray-100 dark:border-(--app-border-subtle)">
-          <summary className="flex cursor-pointer list-none flex-wrap items-center gap-2 px-4 py-3 text-[12.5px] font-medium text-gray-700 dark:text-(--app-text-body) focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-2px] [&::-webkit-details-marker]:hidden">
-            <ChevronRight className="h-3.5 w-3.5 group-open:rotate-90" />
-            Advanced Settings
-            <span className="ml-auto text-[11px] font-normal text-gray-400 dark:text-(--app-text-muted)">
-              Chunking and retrieval limits
-            </span>
-          </summary>
-          <div className="border-t border-gray-100 px-4 py-1 dark:border-(--app-border-subtle)">
-            <SettingsFieldRow
-              title="Chunk Size"
-              description="Target characters per chunk for document segmentation."
-              className="flex-wrap border-b border-gray-100 dark:border-(--app-border-subtle)"
-              control={
-                <SettingsControlGroup>
-                  <Input
-                    type="number"
-                    aria-label="Chunk Size"
-                    min={200}
-                    max={4000}
-                    value={chunkSize}
-                    onChange={(e) => {
-                      const value = clampNumber(
-                        parseInt(e.target.value, 10),
-                        1200,
-                        200,
-                        4000
-                      )
-                      setChunkSize(value)
-                    }}
-                    className={cn(
-                      settingsInputClassName,
-                      'text-center px-0 h-8 w-20 font-mono font-medium [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
-                    )}
-                  />
-                  <span className="text-xs font-medium text-gray-400 pr-2">
-                    chars
-                  </span>
-                </SettingsControlGroup>
-              }
-            />
-
-            <SettingsFieldRow
-              title="Chunk Overlap"
-              description="Shared characters between adjacent chunks to preserve local context."
-              className="flex-wrap border-b border-gray-100 dark:border-(--app-border-subtle)"
-              control={
-                <SettingsControlGroup>
-                  <Input
-                    type="number"
-                    aria-label="Chunk Overlap"
-                    min={0}
-                    max={1000}
-                    value={chunkOverlap}
-                    onChange={(e) => {
-                      const value = clampNumber(
-                        parseInt(e.target.value, 10),
-                        200,
-                        0,
-                        1000
-                      )
-                      setChunkOverlap(value)
-                    }}
-                    className={cn(
-                      settingsInputClassName,
-                      'text-center px-0 h-8 w-20 font-mono font-medium [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
-                    )}
-                  />
-                  <span className="text-xs font-medium text-gray-400 pr-2">
-                    chars
-                  </span>
-                </SettingsControlGroup>
-              }
-            />
-
-            <SettingsFieldRow
-              title="Max Results"
-              className="flex-wrap"
-              description="Default upper bound for retrieval result count."
-              control={
-                <SettingsControlGroup>
-                  <Input
-                    type="number"
-                    aria-label="Max Results"
-                    min={1}
-                    max={20}
-                    value={maxResults}
-                    onChange={(e) => {
-                      const value = clampNumber(
-                        parseInt(e.target.value, 10),
-                        8,
-                        1,
-                        20
-                      )
-                      setMaxResults(value)
-                    }}
-                    className={cn(
-                      settingsInputClassName,
-                      'text-center px-0 h-8 w-20 font-mono font-medium [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none'
-                    )}
-                  />
-                  <span className="text-xs font-medium text-gray-400 pr-2">
-                    items
-                  </span>
-                </SettingsControlGroup>
-              }
-            />
-          </div>
-        </details>
-      </SettingsSection>
+      </div>
     </SettingsPageShell>
   )
 }
