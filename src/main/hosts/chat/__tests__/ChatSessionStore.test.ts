@@ -1,16 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { updateChatMock, getChatByIdMock, getMessagesByChatUuidMock } = vi.hoisted(() => ({
+const { updateChatMock, getChatByIdMock, getMessagesByChatUuidMock, saveChatMock } = vi.hoisted(() => ({
   updateChatMock: vi.fn(),
   getChatByIdMock: vi.fn(),
-  getMessagesByChatUuidMock: vi.fn()
+  getMessagesByChatUuidMock: vi.fn(),
+  saveChatMock: vi.fn()
 }))
+
+vi.mock('electron', () => ({ app: { getPath: (): string => '/tmp/approval-mode-test' } }))
+vi.mock('node:fs/promises', () => ({ default: { mkdir: vi.fn().mockResolvedValue(undefined) } }))
 
 vi.mock('@main/db/DatabaseService', () => ({
   default: {
     updateChat: updateChatMock,
     getChatById: getChatByIdMock,
-    getMessagesByChatUuid: getMessagesByChatUuidMock
+    getMessagesByChatUuid: getMessagesByChatUuidMock,
+    saveChat: saveChatMock
   }
 }))
 
@@ -21,6 +26,28 @@ describe('ChatSessionStore', () => {
     updateChatMock.mockReset()
     getChatByIdMock.mockReset()
     getMessagesByChatUuidMock.mockReset()
+    saveChatMock.mockReset().mockReturnValue(1)
+  })
+
+  it.each(['manual', 'auto'] as const)('persists the selected %s mode as a new chat snapshot', async mode => {
+    const result = await new ChatSessionStore().resolveOrCreateChat({
+      submissionId: 'submission-1',
+      input: { textCtx: 'hello', permissionApprovalMode: mode },
+      modelRef: { accountId: 'account-1', modelId: 'model-1' }
+    } as never)
+    expect(saveChatMock).toHaveBeenCalledWith(expect.objectContaining({ permissionApprovalMode: mode }))
+    expect(result.permissionApprovalMode).toBe(mode)
+  })
+
+  it('preserves an existing chat mode when resolving a run', async () => {
+    const existing = { id: 1, uuid: 'chat-1', permissionApprovalMode: 'manual' } as ChatEntity
+    getChatByIdMock.mockReturnValue(existing)
+    const result = await new ChatSessionStore().resolveOrCreateChat({
+      chatId: 1,
+      input: { permissionApprovalMode: 'auto' }
+    } as never)
+    expect(result).toBe(existing)
+    expect(saveChatMock).not.toHaveBeenCalled()
   })
 
   it('loads raw persisted tool-result history', () => {

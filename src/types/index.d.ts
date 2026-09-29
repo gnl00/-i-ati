@@ -74,6 +74,7 @@ declare interface McpServerConfig {
 }
 
 declare interface IAppConfig {
+  defaultPermissionApprovalMode?: PermissionApprovalMode
   providerDefinitions?: ProviderDefinition[]
   accounts?: ProviderAccount[]
   tools?: {

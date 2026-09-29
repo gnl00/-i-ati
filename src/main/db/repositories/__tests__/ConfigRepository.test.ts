@@ -2,6 +2,32 @@ import { describe, expect, it, vi } from 'vitest'
 import { ConfigRepository } from '../ConfigRepository'
 
 describe('ConfigRepository', () => {
+  it('persists the new-chat approval default across repository instances', () => {
+    let value: string | undefined
+    const configRepo = {
+      getConfig: (): { value: string } | undefined => value ? { value } : undefined,
+      saveConfig: (nextValue: string): void => { value = nextValue }
+    }
+    const providerRepository = {
+      getProviderDefinitions: (): ProviderDefinition[] => [],
+      getProviderAccounts: (): ProviderAccount[] => []
+    }
+    const deps = {
+      hasDb: (): boolean => true,
+      getConfigRepo: (): never => configRepo as never,
+      providerRepository: (): never => providerRepository as never
+    }
+    new ConfigRepository(deps).saveConfig({
+      version: 2,
+      defaultPermissionApprovalMode: 'auto',
+      tools: { memoryEnabled: true }
+    })
+    expect(new ConfigRepository(deps).getConfig()).toMatchObject({
+      defaultPermissionApprovalMode: 'auto',
+      tools: { memoryEnabled: true }
+    })
+  })
+
   it('hydrates provider definitions and accounts from ProviderRepository', () => {
     const configRepo = {
       getConfig: vi.fn().mockReturnValue({

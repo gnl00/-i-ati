@@ -16,6 +16,10 @@ The application design language and unified Light/Dark Mode direction live in [`
 
 Read it before changing the app shell, Chat, Welcome, sheets, Settings, Artifacts, selectors, overlays, typography, motion, or theme tokens. Keep it synchronized when a shared visual rule or semantic token changes.
 
+### UI Language
+
+The application's primary UI language is English. Use English by default for all new or changed user-facing interface copy, including labels, buttons, placeholders, tooltips, notifications, and error messages. Use another language only when explicitly requested or when displaying user-provided content. This rule applies to application UI copy; assistant explanations may follow the user's language.
+
 ## Before Making Changes
 
 - Read the affected exports, immediate callers, shared utilities, and relevant tests before editing. Resolve unfamiliar structure through code and related documentation first.

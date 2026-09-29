@@ -7,11 +7,9 @@ import {
   resolveExistingChatModelRef,
   resolveMainModelRef
 } from '@shared/services/ChatModelResolver'
-import {
-  DEFAULT_PERMISSION_APPROVAL_MODE,
-  normalizePermissionApprovalMode
-} from '@shared/tools/approval'
+import { normalizePermissionApprovalMode } from '@shared/tools/approval'
 import type { StateCreator } from 'zustand'
+import { toast } from 'sonner'
 
 export type ChatSessionState = {
   selectedModelRef: ModelRef | undefined
@@ -55,13 +53,18 @@ export const createInitialChatSessionState = (): ChatSessionState => ({
   chatTitle: 'NewChat',
   chatList: [],
   userInstruction: '',
-  permissionApprovalMode: DEFAULT_PERMISSION_APPROVAL_MODE
+  permissionApprovalMode: normalizePermissionApprovalMode(
+    useAppConfigStore.getState().getAppConfig().defaultPermissionApprovalMode
+  )
 })
 
 export function createChatSessionActions<T extends ChatSessionSliceState>(
   set: Parameters<StateCreator<T>>[0],
   get: Parameters<StateCreator<T>>[1]
 ): ChatSessionActions {
+  let approvalUpdateQueue = Promise.resolve()
+  let approvalSelection = 0
+
   return {
     setSelectedModelRef: (ref) => set({ selectedModelRef: ref } as Partial<T>),
     setSelectedThinkingLevel: (level) => set({ selectedThinkingLevel: level } as Partial<T>),
@@ -152,7 +155,11 @@ export function createChatSessionActions<T extends ChatSessionSliceState>(
 
       set({
         userInstruction: resolvedChat?.userInstruction ?? '',
-        permissionApprovalMode: normalizePermissionApprovalMode(resolvedChat?.permissionApprovalMode)
+        permissionApprovalMode: normalizePermissionApprovalMode(
+          resolvedChat
+            ? resolvedChat.permissionApprovalMode
+            : useAppConfigStore.getState().getAppConfig().defaultPermissionApprovalMode
+        )
       } as Partial<T>)
     },
     editUserInstructionDraft: (value) => set({ userInstruction: value } as Partial<T>),
@@ -183,39 +190,63 @@ export function createChatSessionActions<T extends ChatSessionSliceState>(
       get().updateChatList(updatedChat)
     },
 
-    setPermissionApprovalMode: async (mode) => {
+    setPermissionApprovalMode: (mode): Promise<void> => {
       const nextMode = normalizePermissionApprovalMode(mode)
-      set({ permissionApprovalMode: nextMode } as Partial<T>)
-
       const state = get()
-      const currentChat = getChatFromList({
-        chatUuid: state.currentChatUuid ?? undefined,
-        chatId: state.currentChatId ?? undefined,
-        chatList: state.chatList
-      })
-      if (!currentChat || !currentChat.id) {
-        return
-      }
+      const chatId = state.currentChatId
+      const chatUuid = state.currentChatUuid
+      const selection = ++approvalSelection
+      const update = async (): Promise<void> => {
+        let failureMessage = 'Failed to save the default approval mode'
+        try {
+          const configStore = useAppConfigStore.getState()
+          const config = configStore.getAppConfig()
+          if (normalizePermissionApprovalMode(config.defaultPermissionApprovalMode) !== nextMode) {
+            await configStore.setAppConfig({ ...config, defaultPermissionApprovalMode: nextMode })
+          }
 
-      const currentMode = normalizePermissionApprovalMode(currentChat.permissionApprovalMode)
-      if (nextMode === currentMode) {
-        return
-      }
+          // A new blank shell may have opened while the default was being saved.
+          if (!get().currentChatId && !get().currentChatUuid && selection === approvalSelection) {
+            set({ permissionApprovalMode: nextMode } as Partial<T>)
+          }
 
-      const updatedChat: ChatEntity = {
-        ...currentChat,
-        permissionApprovalMode: nextMode,
-        updateTime: Date.now()
-      }
+          const currentChat = getChatFromList({
+            chatUuid: chatUuid ?? undefined,
+            chatId: chatId ?? undefined,
+            chatList: get().chatList
+          })
+          if (!currentChat?.id) return
 
-      await updateChat(updatedChat)
-      get().updateChatList(updatedChat)
-      if (updatedChat.uuid) {
-        await invokeRunPermissionApprovalModeUpdate({
-          chatUuid: updatedChat.uuid,
-          permissionApprovalMode: nextMode
-        })
+          failureMessage = 'Default saved, but failed to save this chat’s approval mode'
+          if (normalizePermissionApprovalMode(currentChat.permissionApprovalMode) !== nextMode) {
+            const updatedChat: ChatEntity = {
+              ...currentChat,
+              permissionApprovalMode: nextMode,
+              updateTime: Date.now()
+            }
+            await updateChat(updatedChat)
+            get().updateChatList(updatedChat)
+          }
+          if (currentChat.uuid) {
+            failureMessage = 'Approval mode saved, but failed to update the active run'
+            await invokeRunPermissionApprovalModeUpdate({
+              chatUuid: currentChat.uuid,
+              permissionApprovalMode: nextMode
+            })
+          }
+        } catch {
+          if (!get().currentChatId && !get().currentChatUuid && selection === approvalSelection) {
+            set({
+              permissionApprovalMode: normalizePermissionApprovalMode(
+                useAppConfigStore.getState().getAppConfig().defaultPermissionApprovalMode
+              )
+            } as Partial<T>)
+          }
+          toast.error(failureMessage)
+        }
       }
+      approvalUpdateQueue = approvalUpdateQueue.then(update)
+      return approvalUpdateQueue
     },
 
     updateWorkspacePath: async (workspacePath) => {

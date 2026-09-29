@@ -35,6 +35,7 @@ vi.mock('@renderer/infrastructure/config/appConfig', async () => {
   const { create } = await import('zustand')
 
   const useAppConfigStore = create(() => ({
+    getAppConfig: (): IAppConfig => ({ defaultPermissionApprovalMode: 'manual' }),
     providerDefinitions: [],
     accounts: []
   }))

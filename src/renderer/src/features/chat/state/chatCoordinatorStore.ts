@@ -3,10 +3,8 @@ import type { StateCreator } from 'zustand'
 import type { ChatSessionActions, ChatSessionState } from './chatSessionStore'
 import type { ChatTranscriptActions, ChatTranscriptState } from './chatTranscriptStore'
 import type { ChatRunUiActions, ChatRunUiState } from './chatRunUiStore'
-import {
-  DEFAULT_PERMISSION_APPROVAL_MODE,
-  normalizePermissionApprovalMode
-} from '@shared/tools/approval'
+import { useAppConfigStore } from '@renderer/infrastructure/config/appConfig'
+import { normalizePermissionApprovalMode } from '@shared/tools/approval'
 
 export type ChatCoordinatorActions = {
   hydrateChat: (chatId: number, options?: HydrateChatOptions) => Promise<void>
@@ -65,7 +63,11 @@ function applyChatShellSelection<T extends ChatCoordinatorSliceState>(
 
   const nextTitle = resolvedChat?.title ?? (chatId || chatUuid ? get().chatTitle : 'NewChat')
   const nextUserInstruction = resolvedChat?.userInstruction ?? ''
-  const nextPermissionApprovalMode = normalizePermissionApprovalMode(resolvedChat?.permissionApprovalMode)
+  const nextPermissionApprovalMode = normalizePermissionApprovalMode(
+    resolvedChat
+      ? resolvedChat.permissionApprovalMode
+      : useAppConfigStore.getState().getAppConfig().defaultPermissionApprovalMode
+  )
 
   if (currentChatId !== chatId || currentChatUuid !== chatUuid) {
     const transcriptBuffer = chatUuid
@@ -228,7 +230,9 @@ export function createChatCoordinatorActions<T extends ChatCoordinatorSliceState
         },
         lastRunOutcome: 'idle',
         userInstruction: '',
-        permissionApprovalMode: DEFAULT_PERMISSION_APPROVAL_MODE,
+        permissionApprovalMode: normalizePermissionApprovalMode(
+          useAppConfigStore.getState().getAppConfig().defaultPermissionApprovalMode
+        ),
         scrollHint: { type: 'none' }
       } as Partial<T>)
 

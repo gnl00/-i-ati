@@ -15,6 +15,7 @@ rendererStartupTracer.mark('renderer.boot')
 
 // 初始化配置 (从 SQLite 加载)
 await initializeAppConfig()
+useChatStore.getState().resetChatContext()
 rendererStartupTracer.mark('config.loaded')
 
 configureRendererToolRuntimeContext({

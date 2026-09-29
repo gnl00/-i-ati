@@ -4,6 +4,7 @@ import officialProviderDefinitions from '@resources/providers/providers.json'
 // configForUpdate only work on configVersion > previous version
 const configVersion = 2.0
 export const defaultConfig: IAppConfig = {
+  defaultPermissionApprovalMode: 'manual',
   providerDefinitions: officialProviderDefinitions as ProviderDefinition[],
   accounts: [],
   version: configVersion,

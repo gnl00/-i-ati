@@ -79,6 +79,7 @@ export class ConfigRepository {
     const defaultProviderDefinitions = this.providerDefinitionLoader.load()
 
     const defaultConfig: IAppConfig = {
+      defaultPermissionApprovalMode: 'manual',
       version: 2.0,
       tools: {
         maxWebSearchItems: 3,

@@ -33,3 +33,4 @@ Use sequential names such as `0001-chat-runtime-host-boundary.md`.
 - [0023: Assistant work completion presentation](0023-assistant-work-completion-presentation.md) - Accepted
 
 - [0024: Unified computer-use tool](0024-unified-computer-use-tool.md) - Accepted
+- [0025: New chat approval default](0025-new-chat-approval-default.md) - Accepted

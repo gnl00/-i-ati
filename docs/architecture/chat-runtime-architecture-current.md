@@ -93,6 +93,14 @@ updates reach the active run through `run:permission-approval-mode:update`.
 Pending confirmation is released when the updated mode permits automatic
 execution, and the event stream records the mode change.
 
+The desktop selector also persists `defaultPermissionApprovalMode` in app
+configuration. Only explicit selections write this default; history navigation
+restores each chat's own mode. Blank desktop chats read the loaded default at
+bootstrap and reset, then send a mode snapshot on their first run. Forks and
+scheduled execution chats retain source-chat inheritance. Sequential saves and
+partial-failure behavior are specified in
+[ADR-0025](../decisions/0025-new-chat-approval-default.md).
+
 `ask_user_question` uses a separate `ToolQuestionManager`. The manager emits a
 required event, waits on a keyed Promise, validates the renderer submission,
 and returns the answer as the tool result for the next model step. A bounded

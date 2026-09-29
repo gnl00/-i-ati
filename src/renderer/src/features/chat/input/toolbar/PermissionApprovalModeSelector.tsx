@@ -127,7 +127,7 @@ const PermissionApprovalModeSelector: React.FC<PermissionApprovalModeSelectorPro
                       <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground dark:text-(--app-text-secondary)" strokeWidth={2} />
                       <span className="min-w-0 flex-1 truncate select-none">{meta.label}</span>
                       <span className="text-[10px] text-muted-foreground dark:text-(--app-text-muted)">
-                        {mode === 'manual' ? 'Ask first' : 'Approve'}
+                        {mode === 'manual' ? 'Ask first' : 'auto approve'}
                       </span>
                       <span
                         className={cn(
