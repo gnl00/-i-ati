@@ -14,7 +14,7 @@ export function NextTaskSummary(): React.ReactElement {
         useSheetStore.getState().setSheetOpenState(false)
         useChatStore.getState().setTasksPageOpen(true)
       }}
-      className="shrink-0 rounded-xl border border-(--app-border-standard) bg-(--app-surface-raised) p-3 text-left text-slate-600 transition-colors hover:bg-(--app-surface-hover) active:scale-[0.99] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-(--app-accent) dark:text-(--app-text-body)"
+      className="shrink-0 rounded-xl bg-(--app-surface-hover) dark:bg-(--app-surface-raised) p-3 text-left text-slate-600 transition-colors hover:bg-(--app-surface-inset) dark:hover:bg-(--app-surface-hover) active:scale-[0.99] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-(--app-accent) dark:text-(--app-text-body)"
     >
       <span className="flex items-center justify-between text-[11px] font-semibold tracking-wide text-slate-500 dark:text-(--app-text-muted)">
         TASK BOARD <ArrowUpRight className="size-3.5" aria-hidden="true" />
