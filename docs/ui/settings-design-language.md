@@ -138,3 +138,10 @@ Settings design language is a cross-component design constraint, so the reposito
 - Installed/Registry switching, mode-specific actions, and content share one inset region with side margins, a subtle background, small corners, a fine border, and no shadow. The toolbar wraps on compact windows and stays outside the internally scrolling list.
 - Server rows stay continuous. Connection status leads quieter transport, version, and tool-count metadata without separate colored enclosures. Existing connection, install, clipboard, copy, and removal interactions remain.
 - JSON mode fills the same content region directly, with a compact footer for editing state rather than nested editor and status cards.
+
+
+## Skills
+
+- Skills uses a flat heading and short description. Folders and Installed Skills each group their heading, plain count, actions, and content in a subtle inset region with aligned margins, small corners, a fine border, and no shadow.
+- Folder actions stay beside the Folders heading; compact path controls retain native opening and folder removal. Installed Skills keeps the shared expandable search and Reload beside its heading, above an internally scrolling continuous list. Search updates the displayed count and filters as the user types.
+- Skill names lead each row, followed by description, quiet Active/Built-in/tool-count metadata, tool names, and compatibility. Active refers to the current chat. Existing reveal and inline delete confirmation remain; loading, empty, and no-match states share Settings primitives. Light/Dark and compact windows use the same hierarchy.
