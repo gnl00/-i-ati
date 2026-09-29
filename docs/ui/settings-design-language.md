@@ -71,6 +71,7 @@ The provider workflow should keep its sidebar/detail structure. Shared settings 
 ## Taste Decisions
 
 - The main settings panel should feel like one connected control workspace. Header, save state, tabs, and tab content share the same outer boundary.
+- Provider connection tests show success as an emerald check in the Test button, with the responding model in its tooltip and accessible status. Retesting or changing the account/provider configuration clears the result; failures retain error toasts.
 - Providers keep a low-amplitude blue selection rail and tint, provider icon scale feedback, and expressive delete-hover motion.
 - Dark depth comes from small luminance steps. Settings surfaces use quiet borders and restrained shadows; inputs and search controls read as inset regions.
 - Provider model collections use separators between rows. Enabled, save, test, reset, delete, warning, and danger states retain their semantic weight.

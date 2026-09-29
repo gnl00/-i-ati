@@ -13,7 +13,7 @@ import { cn } from '@renderer/shared/lib/utils'
 import { getRequestAdapterOptionsFromPlugins } from '@shared/plugins/requestAdapters'
 import { listRequestPayloadExtensionsByFeature } from '@shared/plugins/requestPayloadExtensions'
 import type { ProviderTestConnectionResponse } from '@shared/providers/testConnection'
-import { Eye, EyeOff, LoaderCircle, TestTube2 } from 'lucide-react'
+import { Check, Eye, EyeOff, LoaderCircle, TestTube2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { ProviderAdvanceConfigDrawer } from '@renderer/features/settings/providers/ProviderAdvanceConfigDrawer'
 import { ProviderIconConfigDrawer } from '@renderer/features/settings/providers/ProviderIconConfigDrawer'
@@ -52,7 +52,7 @@ const ProviderConfigurations = ({
     onUpdateProviderDefinition,
     onTestProvider,
     onResetAccount
-}: ProviderConfigurationsProps) => {
+}: ProviderConfigurationsProps): React.JSX.Element => {
     const [label, setLabel] = useState<string>(account?.label ?? '')
     const [apiUrl, setApiUrl] = useState<string>(account?.apiUrl ?? '')
     const [apiKey, setApiKey] = useState<string>(account?.apiKey ?? '')
@@ -60,6 +60,16 @@ const ProviderConfigurations = ({
     const [payloadDrawerOpen, setPayloadDrawerOpen] = useState<boolean>(false)
     const [iconDrawerOpen, setIconDrawerOpen] = useState<boolean>(false)
     const [isTestingProvider, setIsTestingProvider] = useState<boolean>(false)
+
+    const [testSuccess, setTestSuccess] = useState<{
+        account: ProviderAccount | undefined
+        providerDefinition: ProviderDefinition | undefined
+        modelId: string
+    } | null>(null)
+    const currentTestSuccess = testSuccess?.account === account
+        && testSuccess?.providerDefinition === providerDefinition
+        ? testSuccess
+        : null
 
     useEffect(() => {
         setLabel(account?.label ?? '')
@@ -95,14 +105,15 @@ const ProviderConfigurations = ({
         && account.models.some(model => model.enabled === true)
     )
 
-    const handleTestProvider = async () => {
+    const handleTestProvider = async (): Promise<void> => {
         if (!canTestProvider || isTestingProvider) return
 
+        setTestSuccess(null)
         setIsTestingProvider(true)
         try {
             const result = await onTestProvider()
             if (result.ok) {
-                toast.success(`Provider responded with ${result.modelId}`)
+                setTestSuccess({ account, providerDefinition, modelId: result.modelId })
                 return
             }
             toast.error(result.error || 'Provider test failed')
@@ -125,14 +136,20 @@ const ProviderConfigurations = ({
                         type="button"
                         disabled={!canTestProvider || isTestingProvider}
                         onClick={handleTestProvider}
+                        title={currentTestSuccess ? `Provider responded with ${currentTestSuccess.modelId}. Test again` : 'Test provider connection'}
                         className={cn(settingsSecondaryButtonClassName, 'h-6 px-2')}
                     >
                         {isTestingProvider ? (
                             <LoaderCircle className="h-3 w-3 animate-spin" />
+                        ) : currentTestSuccess ? (
+                            <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
                         ) : (
                             <TestTube2 className="h-3 w-3" />
                         )}
                         {isTestingProvider ? 'Testing' : 'Test'}
+                        <span role="status" className="sr-only">
+                            {currentTestSuccess ? `Provider responded with ${currentTestSuccess.modelId}` : ''}
+                        </span>
                     </button>
                     <button
                         type="button"
