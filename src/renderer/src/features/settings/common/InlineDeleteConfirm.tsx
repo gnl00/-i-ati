@@ -44,7 +44,11 @@ const InlineDeleteConfirm: React.FC<InlineDeleteConfirmProps> = ({
   }
 
   return (
-    <div className="relative shrink-0" style={{ width, height }}>
+    <div
+      className="relative shrink-0"
+      data-delete-active={confirming || loading}
+      style={{ width, height }}
+    >
       <button
         type="button"
         onClick={() => setConfirming(true)}
