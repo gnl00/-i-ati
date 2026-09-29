@@ -3,7 +3,6 @@ import { Tabs, TabsContent } from '@renderer/shared/components/ui/tabs'
 import { cn } from '@renderer/shared/lib/utils'
 import React, { useEffect, useRef, useState } from 'react'
 
-import { Badge } from '@renderer/shared/components/ui/badge'
 import { Button } from '@renderer/shared/components/ui/button'
 import { useAppConfigStore } from '@renderer/infrastructure/config/appConfig'
 import type { RemotePluginCatalogItem } from '@shared/plugins/remoteRegistry'
@@ -23,11 +22,8 @@ import {
     settingsPrimaryButtonClassName
 } from './common/SettingsLayout'
 
-interface PreferenceProps { }
-
-const SettingsPanel: React.FC<PreferenceProps> = () => {
+const SettingsPanel: React.FC = () => {
     const {
-        appVersion,
         appConfig,
         setAppConfig,
         accounts,
@@ -114,7 +110,6 @@ const SettingsPanel: React.FC<PreferenceProps> = () => {
         previousSavedTelegramRef.current = nextSavedTelegram
         // Intentionally only react to saved-config changes; local draft edits should
         // not re-run this sync path.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [appConfig])
 
     const saveConfigurationClick = async (): Promise<void> => {
@@ -249,54 +244,40 @@ const SettingsPanel: React.FC<PreferenceProps> = () => {
         <div className="settings-graphite w-full h-full min-h-0 min-w-0 overflow-hidden dark:bg-(--app-canvas) dark:text-(--app-text-body)">
             <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="provider-list" className="w-full h-full min-w-0 min-h-0 flex flex-col">
                 <div className="w-full h-full min-h-0 min-w-0 overflow-hidden rounded-xl border-none bg-white dark:bg-(--app-surface) shadow-xs dark:shadow-none flex flex-col">
-                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 p-1">
-                        <div id="title" className="min-w-[180px] flex-1 select-none space-y-1.5">
-                            <h4 className="flex min-w-0 items-center gap-2 text-[13.5px] font-semibold leading-none tracking-tight text-gray-900 dark:text-(--app-text-primary)">
-                                <span className="truncate">@i Settings</span>
-                                <Badge variant="secondary" className="h-5 shrink-0 rounded-md bg-gray-100 px-1.5 text-[10.5px] font-medium text-gray-600 dark:bg-(--app-surface-inset) dark:text-(--app-text-secondary)">
-                                    {appVersion}
-                                </Badge>
-                            </h4>
-                            <p className="text-[12px] leading-relaxed text-gray-400 dark:text-(--app-text-muted)">
-                                Shape how @i works and connects.
-                            </p>
-                        </div>
-                        <div id="changes-indicator" className="flex max-w-full min-w-0 flex-wrap items-center justify-end gap-2 rounded-lg bg-white/50 dark:bg-(--app-surface-raised) dark:backdrop-blur-none backdrop-blur-3xl px-2 py-1.5">
-                            <div className="flex h-7 min-w-0 items-center gap-2 px-1">
-                                <div className="relative flex h-1.5 w-1.5 shrink-0">
-                                    {hasUnsavedChanges && (
-                                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"></span>
-                                    )}
-                                    <span className={hasUnsavedChanges
-                                        ? "relative inline-flex h-1.5 w-1.5 rounded-full bg-amber-500"
-                                        : "relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400"
-                                    }></span>
-                                </div>
-                                <span className="select-none truncate text-[11px] font-medium text-gray-500 dark:text-(--app-text-secondary)">
+                    <div className="flex min-w-0 shrink-0 items-center justify-between gap-3 px-1 py-2">
+                        <h4 id="title" className="min-w-0 select-none truncate text-[13.5px] font-semibold leading-none tracking-tight text-(--app-text-primary)">
+                            Settings
+                        </h4>
+                        <div id="changes-indicator" className="flex min-w-0 items-center justify-end gap-3">
+                            <div role="status" className="flex h-7 min-w-0 items-center gap-2">
+                                <span className={cn(
+                                    'h-1.5 w-1.5 shrink-0 rounded-full',
+                                    hasUnsavedChanges ? 'bg-amber-500' : 'bg-emerald-400'
+                                )} />
+                                <span className="select-none truncate text-[11px] font-medium text-(--app-text-secondary)">
                                     {hasUnsavedChanges ? 'Unsaved changes' : 'All saved'}
                                 </span>
                             </div>
-                            <div className="hidden h-4 w-px bg-gray-200 dark:bg-(--app-border-standard) sm:block"></div>
                             <Button
                                 size="sm"
                                 onClick={saveConfigurationClick}
                                 disabled={!hasUnsavedChanges}
-                                className={cn(settingsPrimaryButtonClassName, 'h-7 rounded-md px-3 py-0 shadow-none')}
+                                className={cn(settingsPrimaryButtonClassName, 'h-7 shrink-0 rounded-md px-3 py-0 shadow-none disabled:bg-(--app-surface-inset) disabled:text-(--app-text-muted) dark:disabled:bg-(--app-surface-inset) dark:disabled:text-(--app-text-muted) disabled:opacity-100')}
                             >
                                 <i className="ri-save-line text-[13px]"></i>
                                 Save
                             </Button>
                         </div>
                     </div>
-                    <div className="min-w-0 px-1 py-0.5">
+                    <div className="min-w-0 shrink-0 px-1 pb-1">
                         <AnimatedTabsList
                             tabs={preferenceTabs}
                             value={activeTab}
                             scrollable
                             autoScrollActive
                             className="w-full min-w-0"
-                            tabsListClassName="h-9 shadow-none border border-gray-100/70 dark:border-(--app-border-standard) bg-white/50 dark:bg-(--app-surface-inset)"
-                            tabsTriggerClassName="h-7 px-3 text-[11.5px] font-medium dark:text-(--app-text-secondary) dark:data-[state=active]:text-(--app-text-primary)"
+                            tabsListClassName="h-9 shadow-none border border-(--app-border-subtle) bg-transparent dark:bg-(--app-surface-inset) [&>div]:shadow-none [&>div]:border-(--app-border-subtle)"
+                            tabsTriggerClassName="h-7 px-3 text-[11.5px] font-medium data-[state=active]:shadow-none dark:text-(--app-text-secondary) dark:data-[state=active]:text-(--app-text-primary)"
                         />
                     </div>
 

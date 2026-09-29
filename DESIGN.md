@@ -186,7 +186,7 @@ Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif
 - Chat Sheet 使用 app canvas、standard 外边界和 app scrim，New Chat 是清晰的主行动。
 - 左侧 Chat Sheet 在 New Chat 上方保留紧凑 Task Board 摘要，仅显示最早 pending 任务与 Next run；无待执行任务时保留可点击空状态。整块点击关闭抽屉并进入主内容区 Tasks 页面。完整页面保留全局 Header 和左上角 hover 入口，以 All / Active / History 筛选、任务标题优先的紧凑列布局展示全局任务；窄屏改为堆叠行。页面仅保留全局 Header 标题，正文直接从筛选栏开始；通过侧栏选择会话或 New Chat 返回聊天，聊天正文保持挂载和布局尺寸以保留草稿及滚动位置。
 - Tasks 列表通过标题旁的小箭头展开行内详情，展示真实任务指令、调度规则、时区和关联聊天入口。固定 UI 文案使用英文，任务原文保持原样；时间使用本地日历的 Today／Tomorrow 及完整日期 tooltip；取消任务与移除记录使用紧凑文字按钮，取消保持行内确认。Execution chat 在没有执行结果时显示 `--`，有结果时链接到结果消息所在会话。详情沿用轻 surface 与细分隔线，筛选栏保持现有样式。
-- Settings 使用一体化工作区：标题、保存状态、tab bar 和 active content 共享外框。
+- Settings 使用一体化工作区：标题、保存状态、tab bar 和 active content 共享外框。Header 采用紧凑两层：首行左侧仅显示 Settings，右侧显示静态保存状态与固定高度 Save；次行显示分类 tabs。省略品牌、版本、副标题、保存区背景与竖向分隔线；未保存使用静态 amber 圆点，禁用 Save 使用 inset surface 与 muted text，tabs 使用 subtle 边界并移除选中阴影。标题、tabs 与内容外壳共享 4px 左侧 inset。
 - Settings 内容采用四阶材料：popover canvas、settings surface、raised content panel、inset input/list。
 - Providers 保留低幅蓝色 selection rail 和品牌图标反馈，表单与列表继续使用 graphite token。
 - 右侧 Artifacts panel 使用 surface 外壳、raised tab bar 和 compact tabs。Overview、Tools、Preview、Files 共享一致的切换体验；窄宽度下标签保持紧凑并允许横向滚动。任务更新保持当前标签和侧栏开关状态。
