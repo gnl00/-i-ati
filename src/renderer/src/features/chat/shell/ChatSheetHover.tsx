@@ -53,7 +53,7 @@ const ChatSheetHover = (): React.JSX.Element | null => {
     >
       <span
         aria-hidden="true"
-        className="pointer-events-none flex h-10 w-full items-center justify-center rounded-r-lg bg-(--app-surface-raised) text-(--app-text-muted) opacity-65 transition-[background-color,color,opacity,transform] duration-150 group-data-[pending=true]:bg-(--app-surface-hover) group-data-[pending=true]:text-(--app-text-primary) group-data-[pending=true]:opacity-100 group-focus-visible:bg-(--app-surface-hover) group-focus-visible:text-(--app-text-primary) group-focus-visible:opacity-100 group-focus-visible:ring-1 group-focus-visible:ring-(--app-accent) group-active:scale-95 motion-reduce:transition-none motion-reduce:transform-none"
+        className="pointer-events-none relative -top-6 flex h-10 w-full items-center justify-center rounded-r-lg bg-(--app-surface-raised) text-(--app-text-muted) opacity-65 transition-[background-color,color,opacity,transform] duration-150 group-data-[pending=true]:bg-(--app-surface-hover) group-data-[pending=true]:text-(--app-text-primary) group-data-[pending=true]:opacity-100 group-focus-visible:bg-(--app-surface-hover) group-focus-visible:text-(--app-text-primary) group-focus-visible:opacity-100 group-focus-visible:ring-1 group-focus-visible:ring-(--app-accent) group-active:scale-95 motion-reduce:transition-none motion-reduce:transform-none"
       >
         <ChevronRight className="h-3.5 w-3.5" />
       </span>
