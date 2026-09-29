@@ -55,7 +55,7 @@ export function useHeaderEmotion(): ChatEmotionState | undefined {
     }).catch(() => {
       // DB snapshot unavailable — fall through to undefined
     })
-    return () => { cancelled = true }
+    return (): void => { cancelled = true }
   }, [])
 
   const transcriptEmotion = useChatStore(state => {
@@ -84,11 +84,12 @@ const ChatHeader: React.FC = () => {
   const [isFullScreen, setIsFullScreen] = useState(false)
   const [receivedFullScreenEvent, setReceivedFullScreenEvent] = useState(false)
   const shouldReduceMotion = useReducedMotion()
+  const tasksPageOpen = useChatStore(state => state.tasksPageOpen)
   const chatTitle = useChatStore(state => state.chatTitle)
   const artifactsPanelOpen = useChatStore(state => state.artifactsPanelOpen)
   const toggleArtifactsPanel = useChatStore(state => state.toggleArtifactsPanel)
   const { setSheetOpenState } = useSheetStore()
-  const artifactsToggleLabel = artifactsPanelOpen
+  const artifactsToggleLabel = !tasksPageOpen && artifactsPanelOpen
     ? 'Close artifacts panel'
     : 'Open artifacts panel'
   const emotion = useHeaderEmotion()
@@ -123,7 +124,7 @@ const ChatHeader: React.FC = () => {
       // Keep the windowed layout until Electron reports a state transition.
     })
 
-    return () => {
+    return (): void => {
       disposed = true
       unsubscribe()
     }
@@ -205,7 +206,7 @@ const ChatHeader: React.FC = () => {
         <div className="min-w-0 justify-self-center px-3">
           <div className="group relative flex items-center gap-1.5 max-w-[min(34rem,42vw)] min-w-0 px-2">
             <AnimatePresence initial={false} mode="popLayout">
-              {(emotion && (shouldRenderAsset || emotion.emoji)) && (
+              {(!tasksPageOpen && emotion && (shouldRenderAsset || emotion.emoji)) && (
                 <motion.span
                   key={emotionKey}
                   layout
@@ -236,7 +237,7 @@ const ChatHeader: React.FC = () => {
               )}
             </AnimatePresence>
             <span className="block truncate py-1 text-sm font-semibold text-slate-600 dark:text-(--chat-text-primary)">
-              {chatTitle}
+              {tasksPageOpen ? 'Tasks' : chatTitle}
             </span>
             <div className="absolute inset-x-0 bottom-0 h-px origin-center scale-x-75 bg-linear-to-r from-transparent via-blue-400/55 to-transparent opacity-80 transition-transform duration-300 group-hover:scale-x-100 dark:via-(--chat-accent)/45" />
           </div>
@@ -249,13 +250,18 @@ const ChatHeader: React.FC = () => {
           <Button
             className={cn(
               headerActionButtonClassName,
-              artifactsPanelOpen
+              !tasksPageOpen && artifactsPanelOpen
                 && 'border-black/[0.08] bg-black/[0.06] shadow-xs hover:bg-black/[0.08] dark:border-(--chat-border-standard) dark:bg-(--chat-surface-hover) dark:hover:bg-(--chat-surface-hover)'
             )}
             variant="ghost"
-            onClick={toggleArtifactsPanel}
+            onClick={() => {
+              if (tasksPageOpen) {
+                useChatStore.getState().setTasksPageOpen(false)
+                useChatStore.getState().setArtifactsPanel(true)
+              } else toggleArtifactsPanel()
+            }}
             aria-label={artifactsToggleLabel}
-            aria-pressed={artifactsPanelOpen}
+            aria-pressed={!tasksPageOpen && artifactsPanelOpen}
             title={artifactsToggleLabel}
           >
             <PanelRight className="h-4 w-4" aria-hidden="true" />

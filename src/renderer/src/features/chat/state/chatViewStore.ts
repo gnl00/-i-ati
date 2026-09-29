@@ -12,12 +12,14 @@ export type ChatViewState = {
   imageSrcBase64List: ClipbordImg[]
   webSearchEnable: boolean
   webSearchProcessing: boolean
+  tasksPageOpen: boolean
   artifactsPanelOpen: boolean
   artifactsActiveTab: ArtifactsTab
   toolCallInspectorSelection: ToolCallInspectorSelection | null
 }
 
 export type ChatViewActions = {
+  setTasksPageOpen: (open: boolean) => void
   toggleWebSearch: (state: boolean) => void
   setWebSearchProcessState: (state: boolean) => void
   toggleArtifactsPanel: () => void
@@ -32,6 +34,7 @@ export const createInitialChatViewState = (): ChatViewState => ({
   imageSrcBase64List: [],
   webSearchEnable: false,
   webSearchProcessing: false,
+  tasksPageOpen: false,
   artifactsPanelOpen: false,
   artifactsActiveTab: 'stats',
   toolCallInspectorSelection: null
@@ -41,6 +44,7 @@ export function createChatViewActions<T extends ChatViewState>(
   set: Parameters<StateCreator<T>>[0]
 ): ChatViewActions {
   return {
+    setTasksPageOpen: (open) => set({ tasksPageOpen: open } as Partial<T>),
     toggleWebSearch: (state) => set({ webSearchEnable: state } as Partial<T>),
     setWebSearchProcessState: (state) => set({ webSearchProcessing: state } as Partial<T>),
     toggleArtifactsPanel: () => set((state) => ({ artifactsPanelOpen: !state.artifactsPanelOpen } as Partial<T>)),

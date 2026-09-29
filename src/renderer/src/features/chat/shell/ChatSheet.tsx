@@ -1,4 +1,4 @@
-import ChatScheduleBoard from '@renderer/features/chat/schedule/ChatScheduleBoard'
+import { NextTaskSummary } from '../schedule/NextTaskSummary'
 import ChatTitleList from '@renderer/features/chat/title/ChatTitleList'
 import { Button } from '@renderer/shared/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@renderer/shared/components/ui/sheet'
@@ -6,53 +6,18 @@ import TrafficLights from '@renderer/shared/components/ui/traffic-lights'
 import { toast } from '@renderer/shared/components/ui/use-toast'
 import { getAllChat } from '@renderer/infrastructure/persistence/ChatRepository'
 import {
-    invokeDbScheduledTasksList,
     invokeOpenExternal,
     invokeWindowClose,
     invokeWindowMaximize,
-    invokeWindowMinimize,
-    subscribeScheduleEvents
+    invokeWindowMinimize
 } from '@renderer/infrastructure/ipc'
 import { createRendererLogger } from '@renderer/shared/logging/rendererLogger'
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
 import { useAppConfigStore } from '@renderer/infrastructure/config/appConfig'
 import { useSheetStore } from '@renderer/features/chat/state/sheetStore'
 import { switchWorkspace } from '@renderer/features/workspace'
-import { SCHEDULE_EVENTS } from '@shared/schedule/events'
 import { BadgePlus } from 'lucide-react'
-import React, { useCallback, useEffect, useRef, useState } from 'react'
-import type { ScheduleTask, ScheduleTaskStatus } from '@shared/tools/schedule'
-
-interface ChatSheetProps { }
-
-const HIDDEN_SCHEDULE_STATUSES = new Set<ScheduleTaskStatus>(['cancelled', 'dismissed'])
-
-const SCHEDULE_PRIORITY: Record<ScheduleTaskStatus, number> = {
-    running: 0,
-    pending: 1,
-    completed: 2,
-    failed: 2,
-    cancelled: 3,
-    dismissed: 4
-}
-
-const normalizeScheduledTasks = (tasks: ScheduleTask[]): ScheduleTask[] => {
-    return [...tasks]
-        .filter(task => !HIDDEN_SCHEDULE_STATUSES.has(task.status))
-        .sort((a, b) => {
-            const priorityDiff = SCHEDULE_PRIORITY[a.status] - SCHEDULE_PRIORITY[b.status]
-            if (priorityDiff !== 0) return priorityDiff
-
-            const runAtDiff = b.run_at - a.run_at
-            if (runAtDiff !== 0) return runAtDiff
-
-            const updatedAtDiff = b.updated_at - a.updated_at
-            if (updatedAtDiff !== 0) return updatedAtDiff
-
-            return b.created_at - a.created_at
-        })
-}
-
+import React, { useCallback, useEffect, useRef } from 'react'
 const CHAT_LIST_SENTINEL: ChatEntity = { id: -1, title: '', uuid: '', createTime: 0, updateTime: 0, messages: [] }
 const SHEET_OPEN_ANIMATION_MS = 500
 
@@ -77,7 +42,7 @@ const areChatListsEquivalent = (current: ChatEntity[], next: ChatEntity[]): bool
     return current.every((item, index) => areChatListEntriesEquivalent(item, next[index]))
 }
 
-const ChatSheet: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
+const ChatSheet: React.FC = () => {
     const logger = React.useMemo(() => createRendererLogger('ChatSheet'), [])
     const sheetOpenState = useSheetStore(state => state.sheetOpenState)
     const setSheetOpenState = useSheetStore(state => state.setSheetOpenState)
@@ -130,45 +95,8 @@ const ChatSheet: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
         })
     }, [logger])
 
-    const [scheduledTasks, setScheduledTasks] = useState<ScheduleTask[]>([])
-    const [scheduleLoading, setScheduleLoading] = useState(true)
-    const [scheduleLoadError, setScheduleLoadError] = useState('')
-    const scheduleCacheRef = useRef<ScheduleTask[] | null>(null)
-    const scheduleLoadedRef = useRef(false)
     const chatSwitchRequestRef = useRef(0)
     const delayedChatListRefreshRef = useRef<number>(0)
-
-    const loadScheduledTasks = useCallback(async (
-        options?: { silent?: boolean; force?: boolean }
-    ) => {
-        const silent = options?.silent ?? false
-        const force = options?.force ?? false
-        if (!force && scheduleLoadedRef.current) {
-            setScheduleLoading(false)
-            return
-        }
-
-        if (!silent) {
-            setScheduleLoading(true)
-        }
-        try {
-            const tasks = await invokeDbScheduledTasksList()
-            const sortedTasks = normalizeScheduledTasks(tasks)
-            scheduleCacheRef.current = sortedTasks
-            scheduleLoadedRef.current = true
-            setScheduledTasks(sortedTasks)
-            setScheduleLoadError('')
-        } catch (error) {
-            logger.error('scheduled_tasks.load_failed', error)
-            scheduleLoadedRef.current = false
-            if (!silent) {
-                setScheduledTasks([])
-            }
-            setScheduleLoadError('Failed to load schedule tasks')
-        } finally {
-            setScheduleLoading(false)
-        }
-    }, [])
 
     const refreshChatList = useCallback(async () => {
         try {
@@ -186,8 +114,7 @@ const ChatSheet: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
 
     useEffect(() => {
         void refreshChatList()
-        void loadScheduledTasks({ silent: true })
-    }, [loadScheduledTasks, refreshChatList])
+    }, [refreshChatList])
 
     useEffect(() => {
         if (!sheetOpenState) {
@@ -203,7 +130,7 @@ const ChatSheet: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
             void refreshChatList()
         }, SHEET_OPEN_ANIMATION_MS)
 
-        return () => {
+        return (): void => {
             if (delayedChatListRefreshRef.current) {
                 window.clearTimeout(delayedChatListRefreshRef.current)
                 delayedChatListRefreshRef.current = 0
@@ -212,48 +139,7 @@ const ChatSheet: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
     }, [refreshChatList, sheetOpenState])
 
     useEffect(() => {
-        if (!sheetOpenState) {
-            return
-        }
-
-        const cachedTasks = scheduleCacheRef.current
-        if (cachedTasks) {
-            setScheduledTasks(cachedTasks)
-            setScheduleLoadError('')
-            setScheduleLoading(false)
-        }
-
-        const shouldSilentLoad = Boolean(cachedTasks)
-        loadScheduledTasks({ silent: shouldSilentLoad })
-    }, [loadScheduledTasks, sheetOpenState])
-
-    useEffect(() => {
-        const unsubscribe = subscribeScheduleEvents(event => {
-            if (event.type !== SCHEDULE_EVENTS.UPDATED) {
-                return
-            }
-            const task = event.payload?.task
-            if (!task) {
-                return
-            }
-            setScheduledTasks(prev => {
-                const index = prev.findIndex(item => item.id === task.id)
-                const next =
-                    index >= 0
-                        ? [...prev.slice(0, index), task, ...prev.slice(index + 1)]
-                        : [task, ...prev]
-                const sorted = normalizeScheduledTasks(next)
-                scheduleCacheRef.current = sorted
-                return sorted
-            })
-        })
-        return () => {
-            unsubscribe()
-        }
-    }, [])
-
-    useEffect(() => {
-        return () => {
+        return (): void => {
             chatSwitchRequestRef.current += 1
             useSheetStore.getState().setChatLoading(false)
             useSheetStore.getState().setChatEntranceRequest(null)
@@ -286,6 +172,7 @@ const ChatSheet: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
     }, [completeAllTypewriters, logger])
 
     const onNewChatClick = useCallback(() => {
+        useChatStore.getState().setTasksPageOpen(false)
         const { currentChatId, currentChatUuid } = useChatStore.getState()
         setSheetOpenState(false)
         logger.debug('new_chat.clicked', { chatId: currentChatId, chatUuid: currentChatUuid })
@@ -293,6 +180,7 @@ const ChatSheet: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
     }, [logger, setSheetOpenState, startNewChat])
 
     const onChatClick = useCallback(async (event: React.MouseEvent<HTMLDivElement>, result: ChatSearchResult) => {
+        useChatStore.getState().setTasksPageOpen(false)
         const isPointerInitiated = event.detail > 0
         const { chat, matchedMessageId } = result
         setSheetOpenState(false)
@@ -408,12 +296,7 @@ const ChatSheet: React.FC<ChatSheetProps> = (_: ChatSheetProps) => {
 
                 {/* 主内容区 - 占据剩余空间 */}
                 <div className="flex-1 overflow-hidden flex flex-col min-h-0">
-                    <ChatScheduleBoard
-                        scheduledTasks={scheduledTasks}
-                        scheduleLoading={scheduleLoading}
-                        scheduleLoadError={scheduleLoadError}
-                    />
-
+                    {sheetOpenState && <NextTaskSummary />}
                     {/* 聊天列表区域 - 占据剩余空间 */}
                     <div className="flex-1 flex flex-col overflow-hidden min-h-0">
                         {/* New Chat 按钮 */}

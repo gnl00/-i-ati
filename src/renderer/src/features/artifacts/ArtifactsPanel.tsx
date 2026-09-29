@@ -8,17 +8,19 @@ import { ArtifactsToolsTab } from './ArtifactsToolsTab'
 import { openWorkspaceFolder } from './artifactUtils'
 import { useWorkspaceFiles } from './useWorkspaceFiles'
 
-const tabTriggerClassName = 'h-6 min-w-14 rounded-md border border-transparent bg-transparent px-2 py-0 text-[11px] font-medium text-zinc-500 shadow-none outline-hidden transition-[background-color,border-color,color] duration-200 hover:bg-zinc-100/70 hover:text-zinc-800 focus-visible:ring-2 focus-visible:ring-zinc-500/60 focus-visible:ring-inset focus-visible:ring-offset-0 data-[state=active]:border-zinc-200 data-[state=active]:bg-zinc-100/70 data-[state=active]:font-semibold data-[state=active]:text-zinc-950 data-[state=active]:shadow-none dark:text-(--app-text-muted) dark:duration-150 dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-body) dark:focus-visible:ring-(--app-accent) dark:data-[state=active]:border-(--app-border-standard) dark:data-[state=active]:bg-(--app-surface-hover) dark:data-[state=active]:text-(--app-text-primary)'
+const tabTriggerClassName = 'h-6 min-w-0 shrink-0 rounded-md border border-transparent bg-transparent px-2 py-0 text-[11px] font-medium text-zinc-500 shadow-none outline-hidden transition-[background-color,border-color,color] duration-200 hover:bg-zinc-100/70 hover:text-zinc-800 focus-visible:ring-2 focus-visible:ring-zinc-500/60 focus-visible:ring-inset focus-visible:ring-offset-0 data-[state=active]:border-zinc-200 data-[state=active]:bg-zinc-100/70 data-[state=active]:font-semibold data-[state=active]:text-zinc-950 data-[state=active]:shadow-none dark:text-(--app-text-muted) dark:duration-150 dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-body) dark:focus-visible:ring-(--app-accent) dark:data-[state=active]:border-(--app-border-standard) dark:data-[state=active]:bg-(--app-surface-hover) dark:data-[state=active]:text-(--app-text-primary)'
 
-const WorkspaceTabs: React.FC<{
+interface WorkspaceTabsProps {
   activeTab: ArtifactsTab
   searchQuery: string
   setSearchQuery: (query: string) => void
-}> = ({
+}
+
+const WorkspaceTabs = ({
   activeTab,
   searchQuery,
   setSearchQuery
-}) => {
+}: WorkspaceTabsProps): React.ReactElement => {
   const chatUuid = useChatStore(state => state.currentChatUuid)
   const files = useWorkspaceFiles()
 
@@ -94,7 +96,7 @@ export const ArtifactsPanel: React.FC = () => {
         onValueChange={(value) => setArtifactsActiveTab(value as ArtifactsTab)}
       >
         <div className="flex h-8 shrink-0 items-center gap-2 border-b border-black/[0.06] bg-white/80 px-2 dark:border-(--app-border-subtle) dark:bg-(--app-surface-raised)">
-          <TabsList className="h-fit min-w-0 flex-1 self-center justify-start gap-1 rounded-none border-0 bg-transparent p-0 text-zinc-500 dark:text-(--app-text-muted)">
+          <TabsList className="h-fit min-w-0 flex-1 self-center justify-start gap-1 overflow-x-auto no-scrollbar rounded-none border-0 bg-transparent p-0 text-zinc-500 dark:text-(--app-text-muted)">
             <TabsTrigger
               value="stats"
               className={tabTriggerClassName}

@@ -604,7 +604,7 @@ const ChatSidePanelLayout: React.FC<ChatSidePanelLayoutProps> = ({
         data-layout-mode={layoutMode}
         aria-hidden={!open}
         className={cn(
-          'h-full shrink-0 overflow-hidden',
+          'self-stretch shrink-0 overflow-hidden',
           'data-[state=closed]:pointer-events-none',
           layoutMode === 'overlay'
             ? 'absolute inset-y-0 right-0 z-20'

@@ -1,10 +1,11 @@
-import { useEffect } from 'react'
-import { ChatSheet, ChatSheetHover, ChatWindow } from '@renderer/features/chat'
+import { useEffect, type ReactElement } from 'react'
+import { ChatSheet, ChatSheetHover, ChatWindow, TasksPage, useChatStore } from '@renderer/features/chat'
 import { Toaster as SonnerToaster } from '@renderer/shared/components/ui/sonner'
 import { Toaster } from '@renderer/shared/components/ui/toaster'
 import { rendererStartupTracer } from '@renderer/shared/lib/startupTracer'
 
-export default () => {
+export default function Home(): ReactElement {
+  const tasksPageOpen = useChatStore(state => state.tasksPageOpen)
   useEffect(() => {
     rendererStartupTracer.mark('route.home.mounted')
   }, [])
@@ -15,6 +16,7 @@ export default () => {
       <SonnerToaster duration={3000} />
       <ChatWindow />
       <ChatSheetHover />
+      {tasksPageOpen && <TasksPage />}
       <ChatSheet />
     </div>
   )

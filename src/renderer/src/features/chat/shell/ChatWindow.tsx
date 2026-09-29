@@ -54,6 +54,7 @@ const CHAT_ENTRANCE_KEYFRAMES: Keyframe[] = [
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
 const ChatWindow: React.FC = () => {
+  const tasksPageOpen = useChatStore(state => state.tasksPageOpen);
   const messages = useChatStore((state) => state.messages);
   const previewMessage = useChatStore((state) => state.preview.message);
   const pendingUserMessage = useChatStore((state) => state.pendingUserMessage);
@@ -509,7 +510,7 @@ const ChatWindow: React.FC = () => {
     <>
       <ChatHeader />
 
-      <div className="relative z-0 -mt-10 min-h-svh max-h-svh overflow-hidden flex flex-col bg-chat-light dark:bg-chat-dark">
+      <div inert={tasksPageOpen} style={{ visibility: tasksPageOpen ? 'hidden' : undefined }} className="relative z-0 -mt-10 min-h-svh max-h-svh overflow-hidden flex flex-col bg-chat-light dark:bg-chat-dark">
         {chatLoading && (
           <div
             className="pointer-events-none absolute inset-x-0 top-12 z-50 flex justify-center"

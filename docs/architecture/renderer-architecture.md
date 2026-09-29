@@ -82,6 +82,30 @@ materialization. The `assistant` message role and assistant-message renderers
 remain part of the transcript protocol. Assistant preset selection and
 management have been removed from renderer composition and persistence.
 
+`NextTaskSummary` appears above New Chat while ChatSheet is open. It shows only
+the earliest pending task; running tasks are not treated as the next run.
+Clicking the summary closes the sheet and sets transient `tasksPageOpen` view
+state. Home presents `TasksPage` in the main content area, keeping ChatWindow
+mounted. Only its chat body becomes inert and invisible at its existing size;
+the shared Header and ChatSheetHover remain available. Selecting a chat or New
+Chat leaves Tasks. The full page offers All / Active / History filters and a
+compact responsive task list, starting directly with filters beneath the global
+Header. There is no duplicate page heading or dedicated back button. Returning
+via chat navigation restores the same
+chat tree, including the composer draft and transcript scroll position.
+
+The summary and full board reuse `useScheduledTasks`: each visible surface
+reads a fresh global snapshot and subscribes to updates, releasing subscriptions
+on unmount. Events during the initial read override that snapshot. Updates do
+not navigate. TasksPage owns the full board and its existing cancel/dismiss
+controls. Rows disclose the goal, schedule rule, timezone, full local timestamp,
+and an execution-chat link. Without a result message the chat field displays `--`;
+with a result it resolves that message’s chat UUID rather than the source chat.
+Fixed UI copy and date formatting use English. Daily cron rules have a readable label; other
+expressions remain literal. Relative day labels refresh every minute. Chat links
+resolve the result message and persisted execution chat and use workspace setup plus guarded `hydrateChat`;
+missing chats report an error and stale navigation is ignored. Artifacts has no Tasks tab. No database or IPC contracts change.
+
 Tests remain beside the capability they verify. Every top-level feature owns an
 `index.ts` public entry. Feature code imports another feature through that
 entry, while imports inside the same feature may address its internal modules.

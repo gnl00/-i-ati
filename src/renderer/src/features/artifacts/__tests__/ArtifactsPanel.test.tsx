@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { act, Profiler } from 'react'
+import { act, Profiler, type ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { UseWorkspaceFilesReturn } from '../useWorkspaceFiles'
@@ -22,23 +22,23 @@ vi.mock('../useWorkspaceFiles', () => ({
 }))
 
 vi.mock('../ArtifactsPreviewTab', () => ({
-  ArtifactsPreviewTab: () => <div data-testid="preview-content">Preview content</div>
+  ArtifactsPreviewTab: (): ReactNode => <div data-testid="preview-content">Preview content</div>
 }))
 
 vi.mock('../ArtifactsFilesTab', () => ({
-  ArtifactsFilesTab: () => <div data-testid="files-content">Files content</div>,
-  FilesTabToolbar: () => <div data-testid="files-toolbar">Files toolbar</div>
+  ArtifactsFilesTab: (): ReactNode => <div data-testid="files-content">Files content</div>,
+  FilesTabToolbar: (): ReactNode => <div data-testid="files-toolbar">Files toolbar</div>
 }))
 
 vi.mock('../ArtifactsFooter', () => ({
-  ArtifactsFooter: () => <div data-testid="artifacts-footer">Workspace footer</div>
+  ArtifactsFooter: (): ReactNode => <div data-testid="artifacts-footer">Workspace footer</div>
 }))
 
 vi.mock('@renderer/features/chat', async () => {
   const actual = await vi.importActual<typeof import('@renderer/features/chat')>('@renderer/features/chat')
   return {
     ...actual,
-    ChatStatsPanel: () => <div>Overview content</div>
+    ChatStatsPanel: (): ReactNode => <div>Overview content</div>
   }
 })
 
@@ -158,7 +158,7 @@ describe('ArtifactsPanel', () => {
     expect(tabsList?.className).not.toContain('h-full')
     expect(tabsList?.className).not.toContain('gap-4')
     expect(toolsTab?.className).toContain('h-6')
-    expect(toolsTab?.className).toContain('min-w-14')
+    expect(toolsTab?.className).toContain('shrink-0')
     expect(toolsTab?.className).toContain('px-2')
     expect(toolsTab?.className).not.toContain('h-full')
     expect(toolsTab?.className).toContain('focus-visible:ring-2')
