@@ -1,3 +1,10 @@
+> Archived: 2026 (original day not recorded; metadata reviewed 2026-09-29)<br>
+> Reason: Historical implementation phase or superseded design; current ownership is documented separately.<br>
+> Original path: Not recorded in the retained migration inventory<br>
+> Replaced by: [Current documentation](../../../architecture/chat-runtime-architecture-current.md)
+>
+> The body preserves the original phase, including historical verification and acceptance gaps.
+
 ## Chat Pipeline - Long-term Improvement Plan
 
 ### Background

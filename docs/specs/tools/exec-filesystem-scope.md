@@ -1,5 +1,15 @@
 # exec Filesystem Scope
 
+Status: Active<br>
+Owner: Command tool maintainers<br>
+Last verified: 2026-09-29 (metadata and source-path review; runtime acceptance not rerun)<br>
+Scope: exec filesystem declarations and runtime confirmation<br>
+Source of truth: [Implementation](../../../src/main/tools/command/filesystemScope.ts) and this contract<br>
+Related ADRs: [Decision](../../decisions/0008-workspace-path-confinement.md)<br>
+Related architecture: [Main process](../../architecture/main-process-architecture.md)<br>
+Related tests: [Focused coverage](../../../src/main/tools/command/__tests__/filesystemScope.test.ts)<br>
+Supersedes: No earlier versioned specification recorded
+
 `exec` includes a model-declared filesystem scope so commands that may access files outside the active workspace require user confirmation.
 
 ## Tool Arguments

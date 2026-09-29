@@ -1,8 +1,18 @@
 # LLM Wiki Tools
 
+Status: Active<br>
+Owner: Wiki capability maintainers<br>
+Last verified: 2026-09-29 (metadata and source-path review; runtime acceptance not rerun)<br>
+Scope: Local wiki tool actions, storage and retrieval<br>
+Source of truth: [Implementation](../../../src/main/tools/wiki/WikiToolsProcessor.ts) and this contract<br>
+Related ADRs: [Decision](../../decisions/0014-resource-action-tool-consolidation.md)<br>
+Related architecture: [Main process](../../architecture/main-process-architecture.md)<br>
+Related tests: [Focused coverage](../../../src/main/tools/wiki/__tests__/WikiToolsProcessor.test.ts)<br>
+Supersedes: No earlier versioned specification recorded
+
 ## 背景
 
-LLM wiki tools 提供一组 agent 可调用的本地 wiki 工具，让模型能创建、更新、读取、删除和检索稳定知识条目。当前未提交实现已经接入 shared tool definitions、metadata 和 main tool handler，processor 行为仍处在收口阶段。
+LLM wiki tools 提供一组 agent 可调用的本地 wiki 工具，让模型能创建、更新、读取、删除和检索稳定知识条目。当前实现已接入 shared tool definitions、metadata 和 main tool handler。实现入口和测试映射见本文元数据；本次文档整理没有重新执行 wiki 运行时验收。
 
 外部 LLM-Wiki 方向的核心价值是 agent-native knowledge base：内容以可读页面保存，模型通过搜索定位条目，通过读取获得完整上下文，通过结构化元数据和链接继续探索。当前实现第一阶段聚焦本地 Markdown wiki 和现有 knowledgebase 检索能力的稳定结合。
 

@@ -58,7 +58,7 @@
 
 ## 轮转、压缩与清理
 
-日志策略由 [LogFileManager.ts](/Users/gnl/Workspace/code/-i-ati/src/main/logging/LogFileManager.ts) 管理：
+日志策略由 [LogFileManager.ts](../../src/main/logging/LogFileManager.ts) 管理：
 
 - 当天日志保持明文 `.log`
 - 前一天及更早的 `.log` 会自动压缩成 `.log.gz`
@@ -84,8 +84,8 @@ main 是唯一文件落盘者。
 
 核心入口：
 
-- [LogService.ts](/Users/gnl/Workspace/code/-i-ati/src/main/logging/LogService.ts)
-- [console-capture.ts](/Users/gnl/Workspace/code/-i-ati/src/main/logging/console-capture.ts)
+- [LogService.ts](../../src/main/logging/LogService.ts)
+- [console-capture.ts](../../src/main/logging/console-capture.ts)
 
 行为：
 
@@ -101,8 +101,8 @@ renderer 不直接写文件。
 
 核心入口：
 
-- [rendererLogger.ts](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/shared/logging/rendererLogger.ts)
-- [logging.ts](/Users/gnl/Workspace/code/-i-ati/src/main/ipc/logging.ts)
+- [rendererLogger.ts](../../src/renderer/src/shared/logging/rendererLogger.ts)
+- [logging.ts](../../src/main/ipc/logging.ts)
 
 行为：
 
@@ -192,7 +192,7 @@ logger.error('load_failed', error)
 
 日志清洗逻辑在：
 
-- [redact.ts](/Users/gnl/Workspace/code/-i-ati/src/main/logging/redact.ts)
+- [redact.ts](../../src/main/logging/redact.ts)
 
 默认会处理：
 
@@ -212,7 +212,7 @@ logger.error('load_failed', error)
 
 设置页 `Data & Log -> Debug Mode` 开启后，请求发送链会额外记录 provider request body。
 
-请求 body 日志由 [RequestDebugLogger.ts](/Users/gnl/Workspace/code/-i-ati/src/main/request/RequestDebugLogger.ts) 生成，写入 `request-YYYY-MM-DD.log`：
+请求 body 日志由 [RequestDebugLogger.ts](../../src/main/request/RequestDebugLogger.ts) 生成，写入 `request-YYYY-MM-DD.log`：
 
 ```text
 ===== request 2026-06-04T10:28:39.429+08:00 requestLogId=... =====
@@ -249,9 +249,9 @@ Debug Mode 会记录模型可见消息内容、system prompt、tool call 参数�
 当前 logging 基础设施测试：
 
 - [LogService.test.ts](../../src/main/logging/__tests__/LogService.test.ts)
-- [redact.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/logging/__tests__/redact.test.ts)
-- [LogFileManager.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/logging/__tests__/LogFileManager.test.ts)
-- [RequestDebugLogger.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/request/__tests__/RequestDebugLogger.test.ts)
+- [redact.test.ts](../../src/main/logging/__tests__/redact.test.ts)
+- [LogFileManager.test.ts](../../src/main/logging/__tests__/LogFileManager.test.ts)
+- [RequestDebugLogger.test.ts](../../src/main/request/__tests__/RequestDebugLogger.test.ts)
 - [LogToolsProcessor.test.ts](../../src/main/tools/log/__tests__/LogToolsProcessor.test.ts)
 
 覆盖：

@@ -1,6 +1,9 @@
 # Typewriter Stability Guidelines
 
-This document summarizes practical steps to make the typewriter animation feel more stable, smooth, and consistent during streaming.
+This document records tuning options for streaming text. Current production
+parameters and renderer selection are documented in the
+[typewriter verification guide](../guides/testing/typewriter.md). The values below
+are experiment candidates, not measured production defaults.
 
 ## Goals
 - Minimize visible jitter during streaming.
@@ -9,7 +12,9 @@ This document summarizes practical steps to make the typewriter animation feel m
 
 ## Recommended Tuning Order
 1) **Force lightweight streaming renderer**
-   - When `isTyping === true`, always render via `StreamingMarkdownLite`.
+   - Current `StreamingMarkdownSwitch` uses `StreamingMarkdownLite` when typing
+     with a defined `visibleText`; otherwise it uses full Markdown. Keep that
+     distinction when evaluating a change.
    - Avoid `ReactMarkdown` during streaming to prevent expensive AST rebuilds.
 
 2) **Shrink animation window (streaming only)**
@@ -35,7 +40,7 @@ This document summarizes practical steps to make the typewriter animation feel m
 - `src/renderer/src/features/chat/message/typewriter/StreamingMarkdownLite.tsx`
 - `src/renderer/src/features/chat/message/typewriter/StreamingMarkdownSwitch.tsx`
 
-## Practical Baseline Values
+## Candidate tuning values
 - Streaming:
   - `batchUpdateInterval`: 48–64
   - `animationWindow`: 8–10

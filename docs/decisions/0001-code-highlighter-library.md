@@ -3,7 +3,7 @@
 **Status:** Proposed<br>
 **Date:** 2025-12-26<br>
 **Related specs:** [Documentation governance](../specs/documentation-governance.md)<br>
-**Related architecture:** [Speed Highlight](../ui/speed-highlight.md)
+**Related architecture:** [Speed Highlight](../reference/speed-highlight.md)
 
 **相关文件**:
 - `src/renderer/src/shared/components/markdown/SyntaxHighlighterWrapper.tsx`
@@ -283,7 +283,7 @@
 **评估方法：**
 ```bash
 # 1. 构建生产版本
-npm run build
+pnpm build
 
 # 2. 分析 bundle 大小
 npx webpack-bundle-analyzer dist/stats.json

@@ -1,3 +1,10 @@
+> Archived: 2026 (original day not recorded; metadata reviewed 2026-09-29)<br>
+> Reason: Historical implementation phase or superseded design; current ownership is documented separately.<br>
+> Original path: Not recorded in the retained migration inventory<br>
+> Replaced by: [Current documentation](../../../chat/assistant-think-tool-call-presentation.md)
+>
+> The body preserves the original phase, including historical verification and acceptance gaps.
+
 # ToolResult Group 动画优化方案
 
 ## 文档元信息

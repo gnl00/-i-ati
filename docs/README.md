@@ -1,66 +1,64 @@
 # Documentation
 
 Project documentation is organized by purpose and lifecycle. Start with the
-current contract or architecture document, then use work records and archives
-for implementation context and history.
+current contract or architecture, then use active work and archives for delivery
+context. The [governance spec](specs/documentation-governance.md) defines lifecycle,
+metadata and link rules; the [maintenance guide](guides/development/documentation-maintenance.md)
+describes the review and verification procedure.
 
 ## Lifecycle directories
 
 | Directory | Contents |
 | --- | --- |
-| [`specs/`](specs/README.md) | Active behavior, protocol, security, and tool contracts |
-| [`architecture/`](architecture/README.md) | Current structure, boundaries, and data flow |
-| [`decisions/`](decisions/README.md) | Architecture decision records |
-| [`guides/`](guides/README.md) | Development, testing, and troubleshooting procedures |
-| [`work/`](work/README.md) | Active plans, investigations, and tasks |
-| [`reference/`](reference/README.md) | External source indexes and retained reference material |
-| [`archive/`](archive/README.md) | Completed, retired, cancelled, and superseded records |
-
-The [documentation governance spec](specs/documentation-governance.md) defines
-classification, metadata, lifecycle, archive, and link rules.
+| [specs](specs/README.md) | Active behavior, protocol, security and tool contracts |
+| [architecture](architecture/README.md) | Current structure, ownership and data flow |
+| [decisions](decisions/README.md) | Durable architecture decisions |
+| [guides](guides/README.md) | Development, testing and troubleshooting procedures |
+| [work](work/README.md) | Open plans, investigations and remaining acceptance |
+| [reference](reference/README.md) | Bounded external source cards and project research |
+| [archive](archive/README.md) | Completed, retired, cancelled and superseded records |
 
 ## Current topic collections
 
-The following content remains grouped by topic while it receives content-aware
-classification. Each file should move to a lifecycle directory when its owning
-capability is reviewed.
+Useful topic documents remain here until their owning capability is reviewed.
+Each collection has an index. Current rules should have one authoritative entry;
+retired implementation records belong in archive.
 
-- `chat/`: chat runtime, rendering, scrolling, compression, and typewriter
-- `data/`: durable data capabilities
-- `features/`: user-facing feature contracts and implementation notes
-- `integrations/`: external systems, MCP, web access, and skills
-- `internal/`: logging and internal operations
-- `ui/`: renderer interaction and visual implementation
+- [Chat](chat/README.md): rendering, compression, streaming and presentation
+- [Data](data/README.md): Memory and durable data capabilities
+- [Features](features/README.md): feature behavior
+- [Integrations](integrations/README.md): skills, MCP and tool integrations
+- [Internal operations](internal/README.md): logging and diagnostics
+- [Plugins](plugins/README.md): request payload extensions
+- [UI](ui/README.md): component and interaction behavior
 
 ## Recommended entry points
 
 - [Renderer architecture](architecture/renderer-architecture.md)
-- [Main process architecture](architecture/main-process-architecture.md)
+- [Main-process architecture](architecture/main-process-architecture.md)
+- [Chat runtime](architecture/chat-runtime-architecture-current.md)
+- [Chat transcript scrolling](architecture/chat-transcript-scrolling.md)
 - [CLI Host implementation](guides/development/cli-host-implementation.md)
 - [ati TUI 使用与实现](guides/development/ati-tui.md)
-- [工作区路径与工具失败契约实施指导](guides/development/workspace-path-tool-failure-implementation.md)
-- [技能安装与残缺恢复实施指导](guides/development/skill-install-recovery-implementation.md)
-- [CLI thinking configuration implementation](guides/development/cli-thinking-implementation.md)
-- [Chat runtime architecture](architecture/chat-runtime-architecture-current.md)
-- [Emotion system design](architecture/emotion-system-design.md)
-- [Assistant Think and tool call presentation](chat/assistant-think-tool-call-presentation.md)
-- [Tool call inspector](chat/tool-call-inspector.md)
-- [Plugin system architecture](architecture/plugin-system-design.md)
+- [CLI thinking configuration](guides/development/cli-thinking-implementation.md)
+- [Workspace paths and tool failures](guides/development/workspace-path-tool-failure-implementation.md)
+- [Skills and installation recovery](integrations/skills.md)
+- [Web Search and Fetch](guides/development/web-search-and-fetch.md)
+- [Memory current implementation](data/memory-implementation.md)
+- [Typewriter verification](guides/testing/typewriter.md)
+- [Native run notifications](architecture/native-notifications.md)
 - [Tool definition workflow](guides/development/tool-definition-workflow.md)
-- [Tailwind CSS v4 syntax rules](guides/development/tailwindcss-v4-syntax-rules.md)
-- [Chat Sheet performance optimization](guides/development/chat-sheet-performance-optimization.md)
-- [Chat streaming performance P1/P2 optimization](guides/development/chat-streaming-performance-p1-p2-optimization.md)
-- [Chat history first-paint optimization](guides/development/chat-history-first-paint-optimization.md)
-- [ChatWindow 内容层入场动画](guides/development/chat-window-entrance-animation.md)
-- [Schedule 每次尝试创建新会话实施指导](guides/development/schedule-fresh-chat-implementation.md)
-- [Documentation decisions](decisions/README.md)
-- [Active work](work/README.md)
+- [Tailwind CSS v4 rules](guides/development/tailwindcss-v4-syntax-rules.md)
+- [Active work and acceptance](work/README.md)
 - [Migration inventory](archive/migration-inventory.md)
 
 ## Maintenance flow
 
-1. Update an Active spec when behavior or a contract changes.
-2. Synchronize current architecture and executable guides with implementation.
-3. Record durable choices as ADRs.
-4. Track bounded delivery under `work/` with explicit exit criteria.
-5. Preserve completed or superseded records under `archive/YYYY/`.
+1. Update the current spec when behavior or a contract changes.
+2. Synchronize architecture and executable guides with implementation.
+3. Record lasting tradeoffs as ADRs with a unique identifier.
+4. Keep open work and acceptance gaps explicit; implementation alone does not close exit criteria.
+5. Archive completed or superseded records and update inbound links and indexes.
+
+The 2026-09-29 cleanup and classification decisions are recorded in the
+[migration inventory](archive/migration-inventory.md#2026-09-29-content-review).

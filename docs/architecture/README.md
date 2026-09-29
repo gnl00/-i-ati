@@ -1,23 +1,28 @@
 # Architecture
 
-This directory describes the current system structure, boundaries, ownership,
-and data flow. Historical implementation summaries live in
-[`archive/`](../archive/README.md); normative behavior lives in
-[`specs/`](../specs/README.md).
+Current structure, ownership, boundaries and data flow. Normative contracts live
+in [specs](../specs/README.md); historical records live in [archive](../archive/README.md).
 
-## Current entry points
+## Current documents
 
+- [Agent Abstraction Layer](agent-abstraction.md)
+- [Awake State Design](awake/awake-state-design.md)
+- [Chat Runtime Architecture Current](chat-runtime-architecture-current.md)
+- [Chat Session Dataflow Optimization](chat-session-dataflow-optimization.md)
+- [Chat Run Architecture](chat-submit-event-bus.md)
+- [Chat transcript scrolling](chat-transcript-scrolling.md)
+- [CommandConfirmation 组件设计文档](command-confirmation-design.md)
+- [工具执行确认流程](command-confirmation-flow.md)
+- [Emotion System Design](emotion-system-design.md)
+- [Main Process Architecture](main-process-architecture.md)
+- [Native run notifications](native-notifications.md)
+- [Plugin System Design](plugin-system-design.md)
 - [Renderer architecture](renderer-architecture.md)
-- [Main process architecture](main-process-architecture.md)
-- [CLI Host architecture](main-process-architecture.md#cli-host)
-- [Chat runtime](chat-runtime-architecture-current.md)
-- [Emotion system](emotion-system-design.md)
-- [Agent abstraction](agent-abstraction.md)
-- [Plugin system](plugin-system-design.md)
-- [System prompt runtime context](system-prompt-runtime-context.md)
-- [Vision observation sidecar](vision-observation-sidecar.md)
-- [Subagent implementation](subagent-mvp.md)
-- [Command execution and workspace security boundaries](sandbox-design.md)
-- [Scheduled tasks](scheduled-tasks.md)
-- [Scheduled fresh execution chat decision](../decisions/0021-scheduled-fresh-execution-chats.md)
-- [Workspace path confinement](sandbox-design.md#workspace-file-operation-confinement)
+- [@i 命令执行与文件工具安全边界](sandbox-design.md)
+- [Scheduled task architecture](scheduled-tasks.md)
+- [Streaming In Main With IPC Batching](streaming-main-ipc.md)
+- [Subagent MVP](subagent-mvp.md)
+- [System Prompt Runtime Context](system-prompt-runtime-context.md)
+- [Thinking Reasoning Replay](thinking-reasoning-replay.md)
+- [User Info System](user-info-system.md)
+- [Vision Observation Sidecar](vision-observation-sidecar.md)

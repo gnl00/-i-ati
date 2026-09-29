@@ -1,3 +1,13 @@
+> Archived: 2026 (original day not recorded; metadata reviewed 2026-09-29)<br>
+> Reason: Historical implementation phase or superseded design; current ownership is documented separately.<br>
+> Original path: `docs/architecture/telegram-host-adapter-stage-summary.md`<br>
+> Replaced by: [Current documentation](../../../architecture/chat-runtime-architecture-current.md)
+>
+> The body preserves the original phase, including historical verification and acceptance gaps.
+
+> Historical source targets that no longer exist are shown as plain paths.
+> Use the [current architecture index](../../../architecture/README.md) for production ownership.
+
 # Telegram Host Adapter Stage Summary
 
 > 这份文档记录的是 `hosts/telegram` 第一阶段接通与稳定化工作的阶段性总结。
@@ -192,9 +202,9 @@ Telegram 常用控制命令已经在 gateway 层直接处理，不再走 chat ru
 
 - [messages.ts](../../../../src/main/ipc/messages.ts)
 - [MessageRepository.ts](../../../../src/main/db/repositories/MessageRepository.ts)
-- [ipcInvoker.ts](../../../../src/renderer/src/invoker/ipcInvoker.ts)
-- [use-message-typewriter.ts](../../../../src/renderer/src/components/chat/chatMessage/typewriter/use-message-typewriter.ts)
-- [chatStore.ts](../../../../src/renderer/src/store/chatStore.ts)
+- ipcInvoker.ts (historical path: `src/renderer/src/invoker/ipcInvoker.ts`)
+- use-message-typewriter.ts (historical path: `src/renderer/src/components/chat/chatMessage/typewriter/use-message-typewriter.ts`)
+- chatStore.ts (historical path: `src/renderer/src/store/chatStore.ts`)
 
 ### 5. 真正的多轮图文兼容问题在 request adapter
 

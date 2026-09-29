@@ -1,8 +1,21 @@
 # KWWK Computer Use Visual Effects Hook Implementation
 
+Owner: Native bridge maintainers<br>
+Status: Active<br>
+Started: 2026-09-01<br>
+Updated: 2026-09-29<br>
+Target: Track the implemented native visual hook and remaining macOS acceptance<br>
+Exit criteria: Verify live visual-effect lifecycle with the current bridge wrapper, then archive<br>
+Related specs: [Contract](../../specs/tools/kwwk-computer-use-bridge.md)<br>
+Related implementation: [Primary implementation](../../../native/kwwk-computer-use-bridge/Sources/KwwkComputerUseBridgeCore/BridgeServer.swift), [Related implementation](../../../native/kwwk-computer-use-bridge/Sources/KwwkComputerUseBridgeCore/BridgeComputerUseVisualEffects.swift)
+
 ## Status
 
-Approved for implementation on 2026-09-01.
+Originally approved on 2026-09-01. Source review on 2026-09-29 confirms the
+bridge now installs `BridgeComputerUseVisualEffects`, which delegates to the core
+AppKit effects and also owns the cursor trail. The direct core-hook assignment
+below is the original implementation step, not the current initializer. Live
+macOS acceptance remains pending; see the [cursor-trail work](kwwk-computer-use-cursor-trail-implementation.md).
 
 ## Goal
 
@@ -30,7 +43,7 @@ already create `ComputerUseVisualEffectEvent` values and route them through
 visual effect when `visualEffectHook` is populated and calls the hook's `finish()`
 during session cleanup.
 
-## Implementation
+## Original implementation step
 
 Edit
 `native/kwwk-computer-use-bridge/Sources/KwwkComputerUseBridgeCore/BridgeServer.swift`.

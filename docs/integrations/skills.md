@@ -25,7 +25,7 @@ skills/
 - `metadata`: optional nested key/value map.
 - `allowed-tools`: optional space-separated list.
 
-Installed metadata is represented by `SkillMetadata` in [src/types/index.d.ts](/Users/gnl/Workspace/code/-i-ati/src/types/index.d.ts:286). The app keeps both `name` and `frontmatterName` because the directory name can be normalized or conflict-renamed while the original frontmatter name remains useful for display/debugging.
+Installed metadata is represented by `SkillMetadata` in [src/types/index.d.ts](../../src/types/index.d.ts). The app keeps both `name` and `frontmatterName` because the directory name can be normalized or conflict-renamed while the original frontmatter name remains useful for display/debugging.
 
 ## Built-In Skills
 
@@ -56,7 +56,7 @@ The current built-in skills are:
 
 ## Main-Process Service
 
-[SkillService](/Users/gnl/Workspace/code/-i-ati/src/main/services/skills/SkillService.ts:1) owns installation, listing, content reading, deletion, startup sync, and metadata caching.
+[SkillService](../../src/main/services/skills/SkillService.ts) owns installation, listing, content reading, deletion, startup sync, and metadata caching.
 
 The service installs skills into `userData/skills` from:
 
@@ -93,7 +93,7 @@ Folder import reads source ownership for incomplete entries as well as complete 
 
 ## Embedded Tools
 
-The model-facing tool definitions live in [src/shared/tools/skills/definitions.ts](/Users/gnl/Workspace/code/-i-ati/src/shared/tools/skills/definitions.ts:1), with tool metadata in [src/shared/tools/skills/metadata.ts](/Users/gnl/Workspace/code/-i-ati/src/shared/tools/skills/metadata.ts:1). Main handlers are registered through [src/main/tools/index.ts](/Users/gnl/Workspace/code/-i-ati/src/main/tools/index.ts:1).
+The model-facing tool definitions live in [src/shared/tools/skills/definitions.ts](../../src/shared/tools/skills/definitions.ts), with tool metadata in [src/shared/tools/skills/metadata.ts](../../src/shared/tools/skills/metadata.ts). Main handlers are registered through [src/main/tools/index.ts](../../src/main/tools/index.ts).
 
 The available skill tools are:
 
@@ -104,7 +104,7 @@ The available skill tools are:
 - `read_skill_file`: read a text file inside an available skill directory.
 - `run_skill_script`: run a script bundled inside an available skill directory.
 
-[SkillToolsProcessor](/Users/gnl/Workspace/code/-i-ati/src/main/tools/skills/SkillToolsProcessor.ts:1) adapts tool calls to services and database writes:
+[SkillToolsProcessor](../../src/main/tools/skills/SkillToolsProcessor.ts) adapts tool calls to services and database writes:
 
 - Relative install/import sources resolve against the current chat workspace when `chat_uuid` is available, then fall back to `userData`.
 - `load_skill` requires `chat_uuid`, verifies the available `SKILL.md`, resolves the chat row, writes the skill name to `chat_skills` when it is absent, and returns `{ success, name, loaded, contextInjected }`.
@@ -116,7 +116,7 @@ The tool metadata marks `install_skill`, `import_skills`, `load_skill`, `unload_
 
 ## IPC And Renderer UI
 
-[src/main/ipc/skills.ts](/Users/gnl/Workspace/code/-i-ati/src/main/ipc/skills.ts:1) exposes the service and processor through Electron IPC:
+[src/main/ipc/skills.ts](../../src/main/ipc/skills.ts) exposes the service and processor through Electron IPC:
 
 - `skill:list`
 - `skill:get`
@@ -127,9 +127,9 @@ The tool metadata marks `install_skill`, `import_skills`, `load_skill`, `unload_
 - `skill:import-folder`
 - `skill:delete`
 
-Renderer settings helpers live in [src/renderer/src/features/settings/skills/SkillService.ts](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/features/settings/skills/SkillService.ts:1) and [src/renderer/src/infrastructure/ipc/integrations.ts](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/infrastructure/ipc/integrations.ts:1). The IPC capability module delegates to [src/main/ipc/skills.ts](/Users/gnl/Workspace/code/-i-ati/src/main/ipc/skills.ts:1); model-facing skill tools are registered in [src/main/tools/index.ts](/Users/gnl/Workspace/code/-i-ati/src/main/tools/index.ts:1) and implemented by [SkillToolsProcessor](/Users/gnl/Workspace/code/-i-ati/src/main/tools/skills/SkillToolsProcessor.ts:1).
+Renderer settings helpers live in [src/renderer/src/features/settings/skills/SkillService.ts](../../src/renderer/src/features/settings/skills/SkillService.ts) and [src/renderer/src/infrastructure/ipc/integrations.ts](../../src/renderer/src/infrastructure/ipc/integrations.ts). The IPC capability module delegates to [src/main/ipc/skills.ts](../../src/main/ipc/skills.ts); model-facing skill tools are registered in [src/main/tools/index.ts](../../src/main/tools/index.ts) and implemented by [SkillToolsProcessor](../../src/main/tools/skills/SkillToolsProcessor.ts).
 
-[SkillsManager](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/features/settings/skills/SkillsManager.tsx:1) is the Settings UI for skills. It:
+[SkillsManager](../../src/renderer/src/features/settings/skills/SkillsManager.tsx) is the Settings UI for skills. It:
 
 - lists available skills and active skills for the current chat
 - labels built-in skills and keeps their delete action hidden
@@ -145,19 +145,19 @@ The current UI displays active status. Chat activation and deactivation are hand
 
 ## Chat Load State
 
-Loaded skill state is stored per chat in SQLite. The `chat_skills` table contains `chat_id`, `skill_name`, `load_order`, and `loaded_at` ([src/main/db/core/Database.ts](/Users/gnl/Workspace/code/-i-ati/src/main/db/core/Database.ts:135)).
+Loaded skill state is stored per chat in SQLite. The `chat_skills` table contains `chat_id`, `skill_name`, `load_order`, and `loaded_at` ([src/main/db/core/Database.ts](../../src/main/db/core/Database.ts)).
 
-[SkillDao](/Users/gnl/Workspace/code/-i-ati/src/main/db/dao/SkillDao.ts:1) inserts and deletes skill rows and returns skills ordered by `load_order`. [ChatRepository](/Users/gnl/Workspace/code/-i-ati/src/main/db/repositories/ChatRepository.ts:58) materializes `load_order` as the current max plus one.
+[SkillDao](../../src/main/db/dao/SkillDao.ts) inserts and deletes skill rows and returns skills ordered by `load_order`. [ChatRepository](../../src/main/db/repositories/ChatRepository.ts) materializes `load_order` as the current max plus one.
 
 `processLoadSkill()` checks `DatabaseService.getSkills(chat.id)` before inserting, so repeated `load_skill` calls for the same chat return a successful status without adding another row. The schema itself does not enforce a unique `(chat_id, skill_name)` constraint, so a database-level unique index or DAO upsert would make this invariant stronger.
 
 ## Prompt Injection
 
-The chat request pipeline uses [SkillsPromptProvider](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/preparation/request/SkillsPromptProvider.ts:1). For each request it:
+The chat request pipeline uses [SkillsPromptProvider](../../src/main/hosts/chat/preparation/request/SkillsPromptProvider.ts). For each request it:
 
 1. Lists all available skills through `SkillService.listSkills()`.
-2. Builds `<skills_context>` with [buildSkillsPrompt](/Users/gnl/Workspace/code/-i-ati/src/shared/services/skills/SkillPromptBuilder.ts:1).
-3. Wraps it in `<skills_system>` policy text through [buildSkillsSystemPrompt](/Users/gnl/Workspace/code/-i-ati/src/shared/prompts/skills.ts:1).
+2. Builds `<skills_context>` with [buildSkillsPrompt](../../src/shared/services/skills/SkillPromptBuilder.ts).
+3. Wraps it in `<skills_system>` policy text through [buildSkillsSystemPrompt](../../src/shared/prompts/skills.ts).
 
 The generated context has one data section:
 
@@ -180,7 +180,7 @@ core repository behavior.
 
 ## Loaded Skills Context Injection
 
-Loaded skill state is assembled by [LoadedSkillsContextProvider](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/preparation/request/LoadedSkillsContextProvider.ts:1) and [buildLoadedSkillsContextMessage](/Users/gnl/Workspace/code/-i-ati/src/shared/services/skills/LoadedSkillsContext.ts:1).
+Loaded skill state is assembled by [LoadedSkillsContextProvider](../../src/main/hosts/chat/preparation/request/LoadedSkillsContextProvider.ts) and [buildLoadedSkillsContextMessage](../../src/shared/services/skills/LoadedSkillsContext.ts).
 
 For every chat request, `RunRequestFactory` reads `chat_skills` for the current chat and passes a compact virtual context message to `RequestMessageBuilder`. The compact context carries active skill names, metadata paths when available, and a reminder to read the full skill file before applying a loaded skill.
 
@@ -190,7 +190,7 @@ The injected message shape is:
 {
   role: 'user',
   source: MESSAGE_SOURCE.SKILLS_CONTEXT,
-  content: '<loaded_skills_context>\n<skill name="frontend-design" path="/Users/gnl/.agents/skills/frontend-design/SKILL.md" />\n<skill name="hunt" path="/Users/gnl/.agents/skills/hunt/SKILL.md" />\n<instruction>Read the full skill file before applying a loaded skill.</instruction>\n</loaded_skills_context>',
+  content: '<loaded_skills_context>\n<skill name="frontend-design" path="<user-skills-root>/frontend-design/SKILL.md" />\n<skill name="hunt" path="<user-skills-root>/hunt/SKILL.md" />\n<instruction>Read the full skill file before applying a loaded skill.</instruction>\n</loaded_skills_context>',
   segments: []
 }
 ```
@@ -201,8 +201,8 @@ The injected message shape is:
 system prompt
 user: [Previous conversation summary ...]
 user: <loaded_skills_context>
-<skill name="frontend-design" path="/Users/gnl/.agents/skills/frontend-design/SKILL.md" />
-<skill name="hunt" path="/Users/gnl/.agents/skills/hunt/SKILL.md" />
+<skill name="frontend-design" path="<user-skills-root>/frontend-design/SKILL.md" />
+<skill name="hunt" path="<user-skills-root>/hunt/SKILL.md" />
 <instruction>Read the full skill file before applying a loaded skill.</instruction>
 </loaded_skills_context>
 user: latest user request
@@ -288,12 +288,12 @@ tool call read_skill_file
 
 Existing tests cover the service and part of the tool processor:
 
-- [SkillService.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/skills/__tests__/SkillService.test.ts:1): installs from single `SKILL.md`, installs from directory and copies assets, imports folders with conflict renaming, and installs a zip archive when archive tooling is available.
+- [SkillService.test.ts](../../src/main/services/skills/__tests__/SkillService.test.ts): installs from single `SKILL.md`, installs from directory and copies assets, imports folders with conflict renaming, and installs a zip archive when archive tooling is available.
 - [SkillInstallation.test.ts](../../src/main/services/skills/__tests__/SkillInstallation.test.ts): verifies publication rollback, stale transaction restoration, active transaction protection, invalid record containment, and cross-process lock contention.
 - [SkillRecoveryFlow.integration.test.ts](../../src/main/services/skills/__tests__/SkillRecoveryFlow.integration.test.ts): verifies incomplete skill recovery, old-version preservation after copy failure, startup failure reporting, and symlink handling through `SkillService`.
-- [SkillToolsProcessor.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/tools/skills/__tests__/SkillToolsProcessor.test.ts:1): covers `unload_skill` validation and DB deletion, plus `load_skill` lightweight status and duplicate-load behavior.
-- [SkillPromptBuilder.test.ts](/Users/gnl/Workspace/code/-i-ati/src/shared/services/skills/__tests__/SkillPromptBuilder.test.ts:1): covers available skill prompt formatting and verifies loaded skill content is omitted from the initial prompt.
-- [SkillsPromptProvider.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/preparation/request/__tests__/SkillsPromptProvider.test.ts:1): verifies prompt assembly lists available metadata without reading loaded skill content.
-- [LoadedSkillsContextProvider.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/preparation/request/__tests__/LoadedSkillsContextProvider.test.ts:1): verifies active chat skills are rebuilt into hidden context messages.
-- [RequestMessageBuilder.test.ts](/Users/gnl/Workspace/code/-i-ati/src/shared/services/__tests__/RequestMessageBuilder.test.ts:1): verifies hidden context insertion after compression summaries.
-- [DefaultMainAgentRuntimeRunner.integration.test.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/runtime/__tests__/DefaultMainAgentRuntimeRunner.integration.test.ts:1): verifies `load_skill` refreshes hidden context before same-run continuation.
+- [SkillToolsProcessor.test.ts](../../src/main/tools/skills/__tests__/SkillToolsProcessor.test.ts): covers `unload_skill` validation and DB deletion, plus `load_skill` lightweight status and duplicate-load behavior.
+- [SkillPromptBuilder.test.ts](../../src/shared/services/skills/__tests__/SkillPromptBuilder.test.ts): covers available skill prompt formatting and verifies loaded skill content is omitted from the initial prompt.
+- [SkillsPromptProvider.test.ts](../../src/main/hosts/chat/preparation/request/__tests__/SkillsPromptProvider.test.ts): verifies prompt assembly lists available metadata without reading loaded skill content.
+- [LoadedSkillsContextProvider.test.ts](../../src/main/hosts/chat/preparation/request/__tests__/LoadedSkillsContextProvider.test.ts): verifies active chat skills are rebuilt into hidden context messages.
+- [RequestMessageBuilder.test.ts](../../src/shared/services/__tests__/RequestMessageBuilder.test.ts): verifies hidden context insertion after compression summaries.
+- [DefaultMainAgentRuntimeRunner.integration.test.ts](../../src/main/orchestration/chat/run/runtime/__tests__/DefaultMainAgentRuntimeRunner.integration.test.ts): verifies `load_skill` refreshes hidden context before same-run continuation.

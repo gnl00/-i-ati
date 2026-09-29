@@ -1,3 +1,13 @@
+> Archived: 2026 (original day not recorded; metadata reviewed 2026-09-29)<br>
+> Reason: Historical implementation phase or superseded design; current ownership is documented separately.<br>
+> Original path: `docs/architecture/emotion-system-stage-summary.md`<br>
+> Replaced by: [Current documentation](../../../architecture/emotion-system-design.md)
+>
+> The body preserves the original phase, including historical verification and acceptance gaps.
+
+> Historical source targets that no longer exist are shown as plain paths.
+> Use the [current architecture index](../../../architecture/README.md) for production ownership.
+
 # Emotion System Stage Summary
 
 > 下一阶段目标设计见：
@@ -40,8 +50,8 @@
 - [definitions.ts](../../../../src/shared/tools/emotion/definitions.ts)
 - [EmotionToolsProcessor.ts](../../../../src/main/tools/emotion/EmotionToolsProcessor.ts)
 - [ChatStepStore.ts](../../../../src/main/hosts/chat/persistence/ChatStepStore.ts)
-- [assistant-message/index.tsx](../../../../src/renderer/src/components/chat/chatMessage/assistant-message/index.tsx)
-- [ModelBadgeNext.tsx](../../../../src/renderer/src/components/chat/chatMessage/assistant-message/model-badge/ModelBadgeNext.tsx)
+- assistant-message/index.tsx (historical path: `src/renderer/src/components/chat/chatMessage/assistant-message/index.tsx`)
+- ModelBadgeNext.tsx (historical path: `src/renderer/src/components/chat/chatMessage/assistant-message/model-badge/ModelBadgeNext.tsx`)
 
 ## 统一 emotion 语义
 
@@ -124,9 +134,9 @@ type EmotionAccumulatedEntry = {
 当前 fallback 使用本地 ONNX emotion classifier：
 
 - 模型目录：
-  - [bert-emotion](../../../../resources/models/bert-emotion)
+  - bert-emotion (historical path: `resources/models/bert-emotion`)
 - 服务实现：
-  - [EmotionInferenceService.ts](../../../../src/main/services/emotion/EmotionInferenceService.ts)
+  - EmotionInferenceService.ts (historical path: `src/main/services/emotion/EmotionInferenceService.ts`)
 
 当前触发条件：
 
@@ -151,7 +161,7 @@ type EmotionAccumulatedEntry = {
 
 相关文件：
 
-- [EmotionInferenceService.ts](../../../../src/main/services/emotion/EmotionInferenceService.ts)
+- EmotionInferenceService.ts (historical path: `src/main/services/emotion/EmotionInferenceService.ts`)
 - [emotion-state.ts](../../../../src/main/services/emotion/emotion-state.ts)
 
 ## Emotion State 与 Accumulated 持久化
@@ -317,7 +327,7 @@ resources/emotions/packs/default/
 
 - [EmotionAssetService.ts](../../../../src/main/services/emotion/EmotionAssetService.ts)
 - [emotion.ts](../../../../src/main/ipc/emotion.ts)
-- [emotionAssetUrls.ts](../../../../src/renderer/src/assets/emotions/emotionAssetUrls.ts)
+- emotionAssetUrls.ts (historical path: `src/renderer/src/assets/emotions/emotionAssetUrls.ts`)
 - [index.html](../../../../src/renderer/index.html)
 
 这样做的原因：
@@ -344,8 +354,8 @@ emotion?: {
 相关文件：
 
 - [index.d.ts](../../../../src/types/index.d.ts)
-- [index.ts](../../../../src/renderer/src/config/index.ts)
-- [SettingsPanel.tsx](../../../../src/renderer/src/components/settings/SettingsPanel.tsx)
+- index.ts (historical path: `src/renderer/src/config/index.ts`)
+- SettingsPanel.tsx (historical path: `src/renderer/src/components/settings/SettingsPanel.tsx`)
 
 ## 当前 UI
 
@@ -363,8 +373,8 @@ emotion?: {
 
 相关文件：
 
-- [ToolsManager.tsx](../../../../src/renderer/src/components/settings/ToolsManager.tsx)
-- [select.tsx](../../../../src/renderer/src/components/ui/select.tsx)
+- ToolsManager.tsx (historical path: `src/renderer/src/components/settings/ToolsManager.tsx`)
+- select.tsx (historical path: `src/renderer/src/components/ui/select.tsx`)
 
 ## 这轮解决的关键问题
 

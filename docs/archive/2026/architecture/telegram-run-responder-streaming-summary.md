@@ -1,3 +1,13 @@
+> Archived: 2026 (original day not recorded; metadata reviewed 2026-09-29)<br>
+> Reason: Historical implementation phase or superseded design; current ownership is documented separately.<br>
+> Original path: Not recorded in the retained migration inventory<br>
+> Replaced by: [Current documentation](../../../architecture/chat-runtime-architecture-current.md)
+>
+> The body preserves the original phase, including historical verification and acceptance gaps.
+
+> Historical source targets that no longer exist are shown as plain paths.
+> Use the [current architecture index](../../../architecture/README.md) for production ownership.
+
 # Telegram Run Responder Streaming Summary
 
 > 这份文档记录的是 2026-03-27 这一轮 Telegram 流式回复接入的设计与实现总结。
@@ -93,7 +103,7 @@
 
 新增文件：
 
-- [TelegramRunResponder.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/telegram/TelegramRunResponder.ts)
+- TelegramRunResponder.ts (historical path: `src/main/services/telegram/TelegramRunResponder.ts`)
 
 它的职责不是“解释 raw chunk”，而是：
 
@@ -241,8 +251,8 @@
 ## 相关文件
 
 - [TelegramGatewayService.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/telegram/TelegramGatewayService.ts)
-- [TelegramRunResponder.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/telegram/TelegramRunResponder.ts)
+- TelegramRunResponder.ts (historical path: `src/main/services/telegram/TelegramRunResponder.ts`)
 - [event-emitter.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/infrastructure/event-emitter.ts)
 - [RunManager.ts](/Users/gnl/Workspace/code/-i-ati/src/main/orchestration/chat/run/runtime/RunManager.ts)
 - 历史上 Telegram 曾复用 chat-side message projection；当前对应 legacy 代码已移除
-- [README.md](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/hooks/chatRun/README.md)
+- README.md (historical path: `src/renderer/src/hooks/chatRun/README.md`)

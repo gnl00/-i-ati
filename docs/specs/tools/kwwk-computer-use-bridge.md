@@ -1,5 +1,15 @@
 # KWWK Computer Use Bridge
 
+Status: Active<br>
+Owner: Native bridge maintainers<br>
+Last verified: 2026-09-29 (metadata and source-path review; runtime acceptance not rerun)<br>
+Scope: Native macOS computer-use tool and bridge contracts<br>
+Source of truth: [Implementation](../../../src/shared/tools/computerUse/definitions.ts) and this contract<br>
+Related ADRs: [Decision](../../decisions/0024-unified-computer-use-tool.md)<br>
+Related architecture: [Main process](../../architecture/main-process-architecture.md)<br>
+Related tests: [Focused coverage](../../../src/main/tools/computerUse/__tests__/ComputerUseToolsProcessor.test.ts)<br>
+Supersedes: No earlier versioned specification recorded
+
 This document defines the macOS native computer-use backend for the Electron runtime.
 
 ## Context
@@ -38,8 +48,10 @@ The Swift helper owns the native session. The Electron main process owns tool po
 
 ## Visual Effect Lifecycle
 
-`BridgeServer` attaches `AppKitComputerUseVisualEffects` to the injected
-`ComputerUseClient` session during initialization. Core action methods pass
+`BridgeServer` attaches `BridgeComputerUseVisualEffects` to the injected
+`ComputerUseClient` session during initialization. The wrapper delegates the core
+overlay effects to `AppKitComputerUseVisualEffects` and owns the short-lived cursor
+trail. Core action methods pass
 visual effect events through `ComputerUseSession.performWithBackgroundActivation`
 while the hook is attached, so the native overlay cursor and target-window
 border follow the existing action lifecycle.
@@ -213,7 +225,7 @@ Phase 3 is implemented:
 - `src/main/tools/computerUse/__tests__/ComputerUseToolsProcessor.test.ts`
 - `src/main/tools/__tests__/embeddedToolsRegistration.test.ts`
 
-Decision: [ADR-0022](../../decisions/0022-unified-computer-use-tool.md).
+Decision: [ADR-0024](../../decisions/0024-unified-computer-use-tool.md).
 
 Embedded tool: `computer_use` with a required `action` and flat action-specific fields.
 The former `computer_use_*` names are removed from public definitions and handler registration.

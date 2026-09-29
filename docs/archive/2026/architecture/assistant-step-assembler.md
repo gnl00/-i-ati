@@ -1,3 +1,10 @@
+> Archived: 2026 (original day not recorded; metadata reviewed 2026-09-29)<br>
+> Reason: Historical implementation phase or superseded design; current ownership is documented separately.<br>
+> Original path: Not recorded in the retained migration inventory<br>
+> Replaced by: [Current documentation](../../../architecture/chat-runtime-architecture-current.md)
+>
+> The body preserves the original phase, including historical verification and acceptance gaps.
+
 # Assistant Step Assembler
 
 > 这份文档记录 2026-03-29 这轮 assistant step 消息组装重构的最终边界。

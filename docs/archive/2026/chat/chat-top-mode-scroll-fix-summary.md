@@ -1,3 +1,10 @@
+> Archived: 2026 (original day not recorded; metadata reviewed 2026-09-29)<br>
+> Reason: Historical implementation phase or superseded design; current ownership is documented separately.<br>
+> Original path: `docs/chat/chat-top-mode-scroll-fix-summary.md`<br>
+> Replaced by: [Current documentation](../../../architecture/chat-transcript-scrolling.md)
+>
+> The body preserves the original phase, including historical verification and acceptance gaps.
+
 # Chat Top Mode Scroll Fix Summary
 
 ## 本轮修复

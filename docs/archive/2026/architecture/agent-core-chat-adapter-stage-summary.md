@@ -1,3 +1,10 @@
+> Archived: 2026 (original day not recorded; metadata reviewed 2026-09-29)<br>
+> Reason: Historical implementation phase or superseded design; current ownership is documented separately.<br>
+> Original path: `docs/architecture/agent-core-chat-adapter-stage-summary.md`<br>
+> Replaced by: [Current documentation](../../../architecture/chat-runtime-architecture-current.md)
+>
+> The body preserves the original phase, including historical verification and acceptance gaps.
+
 # Agent Core / Chat Adapter Stage Summary
 
 > 这份文档记录的是早期拆分过程中的阶段性总结，部分命名与路径已过时。

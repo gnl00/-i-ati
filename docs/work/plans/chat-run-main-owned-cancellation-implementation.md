@@ -1,12 +1,23 @@
 # Chat Run Main-Owned Cancellation Implementation Guide
 
+Owner: Chat runtime maintainers<br>
+Status: Active<br>
+Started: 2026-09-29<br>
+Updated: 2026-09-29<br>
+Target: Track acceptance of main-owned run identity and cancellation<br>
+Exit criteria: Record focused regressions and HMR/reload cancellation acceptance, then archive<br>
+Related specs: [Contract](../../specs/documentation-governance.md)<br>
+Related implementation: [Primary implementation](../../../src/renderer/src/features/chat/runtime/useChatRun.ts), [Related implementation](../../../src/main/orchestration/chat/run/index.ts)
+
 ## Goal
 
 Make the main process the authority for active chat-run identity and cancellation. A renderer HMR update, component remount, or window reload must preserve the ability to stop the active run for the selected chat.
 
-## Confirmed Root Cause
+## Historical root cause
 
-`src/renderer/src/features/chat/runtime/useChatRun.ts` stores each active `submissionId`, renderer `AbortController`, and event subscription in the module-level `activeRuns` map. HMR can recreate that module while the main-process `AgentRun` remains active. The current handle-missing branch resets UI state and returns before invoking `run:cancel`, so the main-process abort signal remains live.
+`src/renderer/src/features/chat/runtime/useChatRun.ts` stores each active `submissionId`, renderer `AbortController`, and event subscription in the module-level `activeRuns` map. HMR can recreate that module while the main-process `AgentRun` remains active. The pre-fix handle-missing branch reset UI state and returned before invoking main cancellation, leaving the main-process abort signal live.
+
+Source review on 2026-09-29 confirms that `cancel()` now calls `invokeRunCancel` with `chatUuid` even when the local handle is missing. The implementation sequence below records the original design. Its proposed APIs must be read against the current exports; this review did not rerun behavior tests or HMR/reload acceptance. `Started` above is the tracking-metadata date, not the date the original fix was implemented.
 
 ## Chosen Design
 

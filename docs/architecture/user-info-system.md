@@ -39,7 +39,7 @@
 
 主实现：
 
-- [UserInfoService.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/userInfo/UserInfoService.ts)
+- [UserInfoService.ts](../../src/main/services/userInfo/UserInfoService.ts)
 
 ## 文件格式
 
@@ -124,7 +124,7 @@ This file stores the stable global user profile used for prompt injection.
 
 当前通过：
 
-- [UserInfoPromptProvider.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/preparation/request/UserInfoPromptProvider.ts)
+- [UserInfoPromptProvider.ts](../../src/main/hosts/chat/preparation/request/UserInfoPromptProvider.ts)
 
 在 system prompt 中插入：
 
@@ -136,7 +136,7 @@ This file stores the stable global user profile used for prompt injection.
 
 生成逻辑在：
 
-- [userInfo.ts](/Users/gnl/Workspace/code/-i-ati/src/shared/prompts/userInfo.ts)
+- [userInfo.ts](../../src/shared/prompts/userInfo.ts)
 
 当前 section 会始终存在。
 

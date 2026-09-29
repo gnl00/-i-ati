@@ -1,3 +1,10 @@
+> Archived: 2026 (original day not recorded; metadata reviewed 2026-09-29)<br>
+> Reason: Historical implementation phase or superseded design; current ownership is documented separately.<br>
+> Original path: `docs/2026/arch/agent-v2-design.md`<br>
+> Replaced by: [Current documentation](../../../architecture/agent-abstraction.md)
+>
+> The body preserves the original phase, including historical verification and acceptance gaps.
+
 # Agent v2 统一架构设计
 
 > 状态：讨论中（Draft）

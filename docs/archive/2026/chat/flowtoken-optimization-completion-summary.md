@@ -1,3 +1,10 @@
+> Archived: 2026 (original day not recorded; metadata reviewed 2026-09-29)<br>
+> Reason: Historical implementation phase or superseded design; current ownership is documented separately.<br>
+> Original path: `docs/chat/flowtoken/优化完成总结.md`<br>
+> Replaced by: [Current documentation](../../../guides/testing/typewriter.md)
+>
+> The body preserves the original phase, including historical verification and acceptance gaps.
+
 # 打字机效果优化 - 完成总结
 
 ## 📋 优化概览
@@ -48,7 +55,7 @@
 
 **已创建：**
 - ✅ `docs/chat/flowtoken/优化实施方案.md` - 详细实施指南
-- ✅ [FlowToken 测试指南](../../../guides/testing/flowtoken.md) - 测试步骤和对比
+- ✅ [FlowToken 测试指南](2026-09-29-typewriter-test-guide.md) - 测试步骤和对比
 - ✅ `src/renderer/src/components/chat/chatMessage/FluidTypewriterText.tsx` - 动效组件（阶段2可选）
 
 ---
@@ -121,7 +128,7 @@ Hello, world!
 
 ### 详细测试
 
-参考：[FlowToken 测试指南](../../../guides/testing/flowtoken.md)
+参考：[FlowToken 测试指南](2026-09-29-typewriter-test-guide.md)
 
 ---
 

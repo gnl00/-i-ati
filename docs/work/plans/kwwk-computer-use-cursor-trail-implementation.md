@@ -1,5 +1,14 @@
 # KWWK Computer Use Cursor Trail Implementation
 
+Owner: Native bridge maintainers<br>
+Status: Active<br>
+Started: 2026-09-01<br>
+Updated: 2026-09-29<br>
+Target: Complete macOS acceptance of the implemented native cursor trail<br>
+Exit criteria: Record overlay lifecycle, failure cleanup and live action acceptance, then archive<br>
+Related specs: [Contract](../../specs/tools/kwwk-computer-use-bridge.md)<br>
+Related implementation: [Primary implementation](../../../native/kwwk-computer-use-bridge/Sources/KwwkComputerUseBridgeCore/BridgeComputerUseVisualEffects.swift), [Related implementation](../../../native/kwwk-computer-use-bridge/Sources/KwwkComputerUseBridgeCore/BridgeServer.swift)
+
 ## Status
 
 Implemented on 2026-09-01. Focused Swift tests and the release helper build pass;

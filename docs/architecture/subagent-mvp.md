@@ -21,20 +21,20 @@
 
 ### shared schema
 
-- [subagent_tools.ts](/Users/gnl/Workspace/code/-i-ati/src/shared/tools/definitions/subagent_tools.ts)
-- [index.d.ts](/Users/gnl/Workspace/code/-i-ati/src/shared/tools/subagent/index.d.ts)
+- [definitions.ts](../../src/shared/tools/subagent/definitions.ts)
+- [index.d.ts](../../src/shared/tools/subagent/index.d.ts)
 
 ### main runtime
 
-- [subagent-run-service.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/subagent/subagent-run-service.ts)
-- [subagent-runtime-factory.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/subagent/subagent-runtime-factory.ts)
-- [subagent-registry.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/subagent/subagent-registry.ts)
-- [subagent-runtime-bridge.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/subagent/subagent-runtime-bridge.ts)
-- [types.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/subagent/types.ts)
+- [subagent-run-service.ts](../../src/main/services/subagent/subagent-run-service.ts)
+- [subagent-runtime-factory.ts](../../src/main/services/subagent/subagent-runtime-factory.ts)
+- [subagent-registry.ts](../../src/main/services/subagent/subagent-registry.ts)
+- [subagent-runtime-bridge.ts](../../src/main/services/subagent/subagent-runtime-bridge.ts)
+- [types.ts](../../src/main/services/subagent/types.ts)
 
 ### renderer
 
-- [SubagentResults.tsx](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/features/chat/message/assistant-message/toolcall/SubagentResults.tsx)
+- [SubagentResults.tsx](../../src/renderer/src/features/chat/message/assistant-message/toolcall/SubagentResults.tsx)
 - [subagentRuntimeStore.ts](../../src/renderer/src/features/subagents/subagentRuntimeStore.ts)
 - [useSubagentRuntime.ts](../../src/renderer/src/features/subagents/useSubagentRuntime.ts)
 
@@ -134,9 +134,9 @@
 
 相关代码：
 
-- [metadata.ts](/Users/gnl/Workspace/code/-i-ati/src/shared/tools/metadata.ts)
-- [permissions.ts](/Users/gnl/Workspace/code/-i-ati/src/shared/tools/permissions.ts)
-- [registry.ts](/Users/gnl/Workspace/code/-i-ati/src/shared/tools/registry.ts)
+- [metadata.ts](../../src/shared/tools/metadata.ts)
+- [permissions.ts](../../src/shared/tools/permissions.ts)
+- [registry.ts](../../src/shared/tools/registry.ts)
 
 当前 subagent 已允许常用工具，包括：
 
@@ -177,8 +177,8 @@
 
 相关代码：
 
-- [approval.ts](/Users/gnl/Workspace/code/-i-ati/src/shared/tools/approval.ts)
-- [ToolExecutor.ts](/Users/gnl/Workspace/code/-i-ati/src/main/agent/tools/ToolExecutor.ts)
+- [approval.ts](../../src/shared/tools/approval.ts)
+- [ToolExecutor.ts](../../src/main/agent/tools/ToolExecutor.ts)
 
 ### 父 run 桥接
 
@@ -189,7 +189,7 @@
 - 旧设计里，主 chat run 曾通过 chat-side step factory 注册自己的：
   - `ToolConfirmationRequester`
   - `RunEventEmitter`
-- subagent 通过 [subagent-runtime-bridge.ts](/Users/gnl/Workspace/code/-i-ati/src/main/services/subagent/subagent-runtime-bridge.ts) 复用父 run 的确认链
+- subagent 通过 [subagent-runtime-bridge.ts](../../src/main/services/subagent/subagent-runtime-bridge.ts) 复用父 run 的确认链
 
 这意味着：
 
@@ -232,7 +232,7 @@
 渲染方式：
 
 - [ToolCallResult.tsx](../../src/renderer/src/features/chat/message/assistant-message/toolcall/ToolCallResult.tsx) 对 `subagent` 做特殊分支
-- 实际卡片在 [SubagentResults.tsx](/Users/gnl/Workspace/code/-i-ati/src/renderer/src/features/chat/message/assistant-message/toolcall/SubagentResults.tsx)
+- 实际卡片在 [SubagentResults.tsx](../../src/renderer/src/features/chat/message/assistant-message/toolcall/SubagentResults.tsx)
 
 ### 当前行为
 

@@ -1,3 +1,10 @@
+> Archived: 2026 (original day not recorded; metadata reviewed 2026-09-29)<br>
+> Reason: Historical implementation phase or superseded design; current ownership is documented separately.<br>
+> Original path: `docs/todo/todo-tool-implementation-summary.md`<br>
+> Replaced by: [Current documentation](../../../decisions/0014-resource-action-tool-consolidation.md)
+>
+> The body preserves the original phase, including historical verification and acceptance gaps.
+
 # Todo 工具实现阶段总结
 
 **创建日期**: 2026-05-10

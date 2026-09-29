@@ -2,7 +2,7 @@
 
 Status: Active<br>
 Owner: Repository maintainers<br>
-Last verified: 2026-07-11<br>
+Last verified: 2026-09-29<br>
 Scope: `docs/` and documentation links in repository guidance<br>
 Source of truth: This document<br>
 Related ADRs: [`decisions/`](../decisions/README.md)<br>
@@ -53,6 +53,12 @@ criteria`, `Related specs`, and `Related implementation`. Valid statuses are
 
 `plans/` holds approved implementation sequences, `investigations/` holds
 evidence and unresolved findings, and `tasks/` holds bounded execution lists.
+Approval and implementation progress belong in the body. Implemented work with
+remaining runtime or platform acceptance MUST remain `Active` (or `Blocked` when
+a concrete blocker is recorded); `Approved` and `Implemented` are not separate
+lifecycle states. Historical implementation records MAY be archived while a
+linked active task preserves the remaining exit criteria.
+
 When work reaches `Done` or `Cancelled`, maintainers MUST update durable specs,
 architecture, and ADRs, then move the work record to `archive/YYYY/`.
 
@@ -60,14 +66,17 @@ architecture, and ADRs, then move the work record to `archive/YYYY/`.
 
 Archived documents preserve their original body and receive an archive header
 with `Archived`, `Reason`, `Original path`, and `Replaced by`. Archives MUST use
-the year of archival and SHOULD retain a domain subdirectory. Current docs MAY
+the year of archival and SHOULD retain a domain subdirectory. New archive files
+SHOULD use an archival date prefix, such as `2026-09-29-topic.md`. Current docs MAY
 link to an archive for history; archives MUST point to the current source when
 one exists.
 
 ## Links and references
 
-Repository files use relative links. Source-code links begin at repository root,
-for example `../../src/main/index.ts` from a nested document. External mirrors
+Repository files use relative links. Source-code links resolve relative to the document directory to the repository
+source. For example, use `../../src/main/index.ts` from `docs/architecture/`,
+and `../../../src/main/index.ts` from `docs/guides/development/`. Links MUST NOT
+contain machine-local repository prefixes or editor-only line suffixes. External mirrors
 record source URL, upstream version or commit, retrieval date, and project use.
 Generated output and machine-local absolute paths are excluded from durable
 documentation.
@@ -75,3 +84,6 @@ documentation.
 Each documentation change SHOULD check Markdown links, orphaned index entries,
 required lifecycle metadata, duplicate titles, and machine-local absolute
 paths. `docs/README.md` is the navigation source of truth.
+
+See [Documentation maintenance](../guides/development/documentation-maintenance.md)
+for the review procedure and the limits of the source-path checks.

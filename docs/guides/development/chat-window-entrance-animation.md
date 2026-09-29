@@ -44,9 +44,9 @@
 
 滚动 hint 是滚动控制器的协议，保持其消费机制；展示请求拥有独立且很小的生命周期。避免使用 messages 数组、消息数量或已消费 scroll hint 作为重复动画的触发器。
 
-## 4. 文件与分工
+## 4. 代码落点
 
-一个 `gpt-5.6-luna` / `max` subagent 负责：
+相关实现与测试位于：
 
 - `src/renderer/src/features/chat/state/sheetStore.ts`：最小展示请求契约。
 - `src/renderer/src/features/chat/shell/ChatSheet.tsx`：成功选择时发布请求，取消/键盘路径处理。
@@ -54,7 +54,7 @@
 - 必要时增加一个 chat shell 局部 hook，控制 WAAPI 与清理；保持职责单一。
 - 最近的 `__tests__`：事件资格、成功提交、动画参数、生命周期及回归。
 
-主 agent 负责本文、DESIGN.md、renderer architecture 和索引同步，独立检查 source diff、运行验证、真实 Electron 验收。双方保留前一轮尚未提交的全部修改。实现 agent 先阅读 AGENTS.md、DESIGN.md、Tailwind v4 规则、前置指南及直接 callers；全部编辑使用 apply_patch。
+修改时同步本文、DESIGN.md、renderer architecture 和索引，检查源码差异并运行相应验证及 Electron 验收。编辑前阅读仓库指导、Tailwind v4 规则、前置指南及直接调用者，保留无关工作区改动。
 
 ## 5. 自动化验收
 

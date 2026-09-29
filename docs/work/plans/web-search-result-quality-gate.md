@@ -1,5 +1,14 @@
 # Web Search 结果质量门禁优化实现指导
 
+Owner: Web tools maintainers<br>
+Status: Active<br>
+Started: 2026-09-01<br>
+Updated: 2026-09-29<br>
+Target: Verify deployed search quality rejection and normal-result behavior<br>
+Exit criteria: Record automated and live query acceptance evidence, then archive<br>
+Related specs: [Contract](../../specs/documentation-governance.md)<br>
+Related implementation: [Primary implementation](../../../src/main/tools/webTools/WebToolsProcessor.ts), [Related implementation](../../../src/main/tools/webTools/__tests__/webToolsUnits.test.ts)
+
 ## 状态
 
 - 日期：2026-09-01
@@ -21,15 +30,15 @@
 
 同日 Google 搜索还出现独立故障：请求跳转至 `google.com/sorry` 的 unusual-traffic 验证页，Electron 导航返回 `ERR_ABORTED (-3)`。现有 Google 页面分类已覆盖加载成功后的验证页，导航抛错路径仍保留原始错误诊断。
 
-## 根因
+## 修复前根因
 
-`WebToolsProcessor.processWebSearch()` 目前将三个条件视为搜索成功：
+修复前的 `processWebSearch()` 将三个条件视为搜索成功：
 
 1. 搜索页 `loadURL()` 完成；
 2. 页面存在引擎定义声明的结果容器；
 3. DOM 提取返回任意数量的结果。
 
-Bing 主链缺少异常页分类，提取完成后也缺少查询相关性门禁。因此，Bing 降级页面或低质量结果页仍会进入抓取阶段，并以 `success: true` 返回。
+当时的 Bing 主链缺少异常页分类，提取完成后也缺少查询相关性门禁。因此，Bing 降级页面或低质量结果页仍会进入抓取阶段，并以 `success: true` 返回。
 
 ## 目标
 
@@ -56,6 +65,13 @@ Bing 主链缺少异常页分类，提取完成后也缺少查询相关性门禁
 
 - 本文记录决策、验收条件、测试矩阵和回滚方式。
 - 现有性能指南继续描述窗口池与抓取性能，本次修复不改变性能架构。
+
+## 当前实现状态
+
+2026-09-29 源码核对确认：生产流程已调用 `classifyBingSearchPage` 和
+`assessSearchResultQuality`，在抓取内容或返回 snippets 前拒绝降级页面与明显低相关结果。
+下面保留原始实现顺序和回归场景。现场搜索及误拒绝率仍需验收，本文保持 Active。
+现行流程见 [Web Search and Fetch](../../guides/development/web-search-and-fetch.md)。
 
 ## 设计
 

@@ -1,3 +1,10 @@
+> Archived: 2026 (original day not recorded; metadata reviewed 2026-09-29)<br>
+> Reason: Historical implementation phase or superseded design; current ownership is documented separately.<br>
+> Original path: `docs/architecture/chat-run-architecture-refactor-summary.md`<br>
+> Replaced by: [Current documentation](../../../architecture/chat-runtime-architecture-current.md)
+>
+> The body preserves the original phase, including historical verification and acceptance gaps.
+
 # Chat Run Architecture Refactor Summary
 
 > 这份文档记录的是 `chatRun` 重构阶段的阶段性总结，部分目录与文件路径属于当时状态。

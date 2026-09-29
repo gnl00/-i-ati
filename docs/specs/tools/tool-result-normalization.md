@@ -1,5 +1,15 @@
 # Tool Result Normalization
 
+Status: Active<br>
+Owner: Main runtime maintainers<br>
+Last verified: 2026-09-29 (metadata and source-path review; runtime acceptance not rerun)<br>
+Scope: Tool-result replay and local artifacts<br>
+Source of truth: [Implementation](../../../src/main/agent/runtime/tools/result-normalization/ToolResultNormalizer.ts) and this contract<br>
+Related ADRs: [Decision](../../decisions/0009-background-tool-result-compaction.md)<br>
+Related architecture: [Main process](../../architecture/main-process-architecture.md)<br>
+Related tests: [Focused coverage](../../../src/main/agent/runtime/tools/result-normalization/__tests__/ToolResultNormalizer.test.ts)<br>
+Supersedes: No earlier versioned specification recorded
+
 Tool results use a hot/cold replay policy. Results created during the active run stay readable for immediate model continuation. Results that leave the active run are normalized into compact model content plus local artifacts.
 
 ## Problem

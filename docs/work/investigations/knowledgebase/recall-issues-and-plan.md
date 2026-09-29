@@ -21,9 +21,9 @@ Related implementation: `src/main`
 - `RequestMessageBuilder` 将这条 `source=knowledgebase_context` 的临时上下文插入到最新用户消息前，并跟随压缩摘要后的消息顺序进入模型请求。
 - `MESSAGE_SOURCE.KNOWLEDGEBASE_CONTEXT` 属于隐藏来源，UI 渲染和历史搜索过滤这类 carrier message。
 
-在实际测试里，基于目录 `/Users/gnl/Workspace/code/notes` 构建索引后，搜索 `分布式锁` 时，前排结果出现了与目标主题关联较弱的文档，例如：
+在实际测试里，基于目录 `<knowledgebase-root>` 构建索引后，搜索 `分布式锁` 时，前排结果出现了与目标主题关联较弱的文档，例如：
 
-- `/Users/gnl/Workspace/code/notes/devops/Docker/docker.html`
+- `<knowledgebase-root>/devops/Docker/docker.html`
 
 这说明当前召回链路已经可用，相关性排序还需要进一步增强。
 
