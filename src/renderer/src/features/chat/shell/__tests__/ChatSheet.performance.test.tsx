@@ -23,7 +23,7 @@ const toastMocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@renderer/features/chat/title/ChatTitleList', () => ({
-  default: (props: unknown) => {
+  default: (props: unknown): ReactNode => {
     chatTitleListProbe.render(props)
     return <div data-testid="chat-title-list-probe" />
   }
@@ -61,7 +61,8 @@ vi.mock('@renderer/shared/components/ui/traffic-lights', () => ({
 vi.mock('@renderer/shared/components/ui/use-toast', () => toastMocks)
 
 vi.mock('@renderer/infrastructure/persistence/ChatRepository', () => ({
-  getAllChat: vi.fn()
+  getAllChat: vi.fn(),
+  saveChat: vi.fn()
 }))
 
 vi.mock('@renderer/infrastructure/ipc', () => ipcMocks)
@@ -79,7 +80,7 @@ vi.mock('@renderer/shared/logging/rendererLogger', () => ({
   }))
 }))
 
-import { getAllChat } from '@renderer/infrastructure/persistence/ChatRepository'
+import { getAllChat, saveChat } from '@renderer/infrastructure/persistence/ChatRepository'
 import { switchWorkspace } from '@renderer/features/workspace'
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
 import { useSheetStore } from '@renderer/features/chat/state/sheetStore'
@@ -88,6 +89,7 @@ import ChatSheet from '../ChatSheet'
 
 type ChatTitleListProbeProps = {
   onChatClick: (event: unknown, result: ChatSearchResult) => Promise<void>
+  onNewWorkspaceChat: (path?: string) => void
   onDeletedCurrentChat: () => void | Promise<void>
 }
 
@@ -121,6 +123,7 @@ describe('ChatSheet performance subscriptions', () => {
     ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
     chatTitleListProbe.render.mockClear()
     toastMocks.toast.mockReset()
+    vi.mocked(saveChat).mockReset().mockResolvedValue(42)
     vi.mocked(getAllChat).mockReset().mockResolvedValue([])
     vi.mocked(switchWorkspace).mockReset().mockResolvedValue({
       success: true,
@@ -156,6 +159,29 @@ describe('ChatSheet performance subscriptions', () => {
   afterEach(async () => {
     await act(async () => root.unmount())
     container.remove()
+  })
+
+  it('creates and selects a chat bound to the workspace group', async () => {
+    await act(async () => root.render(<ChatSheet />))
+    await settleEffects()
+    const props = chatTitleListProbe.render.mock.lastCall?.[0] as ChatTitleListProbeProps
+    await act(async () => props.onNewWorkspaceChat('/projects/demo'))
+    await settleEffects()
+    expect(switchWorkspace).toHaveBeenCalledWith(undefined, '/projects/demo')
+    expect(saveChat).toHaveBeenCalledWith(expect.objectContaining({ workspacePath: '/tmp/test-workspace', title: 'NewChat' }))
+    expect(useChatStore.getState().currentChatId).toBe(42)
+    expect(useChatStore.getState().chatList[0].workspacePath).toBe('/tmp/test-workspace')
+  })
+
+  it('reports workspace failures without saving a chat', async () => {
+    vi.mocked(switchWorkspace).mockResolvedValueOnce({ success: false, path: '/projects/demo', created: false, error: 'Unavailable' })
+    await act(async () => root.render(<ChatSheet />))
+    await settleEffects()
+    const props = chatTitleListProbe.render.mock.lastCall?.[0] as ChatTitleListProbeProps
+    await act(async () => props.onNewWorkspaceChat('/projects/demo'))
+    await settleEffects()
+    expect(saveChat).not.toHaveBeenCalled()
+    expect(toastMocks.toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Failed to select workspace' }))
   })
 
   it('keeps the title list mounted across transcript updates without rerendering it', async () => {

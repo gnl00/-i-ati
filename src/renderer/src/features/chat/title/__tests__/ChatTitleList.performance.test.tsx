@@ -1,3 +1,4 @@
+import { useSheetStore } from '../../state/sheetStore'
 // @vitest-environment happy-dom
 
 import { act, Profiler } from 'react'
@@ -48,7 +49,7 @@ describe('ChatTitleList performance behavior', () => {
   ): Promise<void> => {
     await act(async () => {
       root.render(
-        <Profiler id="chat-title-list" onRender={onRender ?? (() => undefined)}>
+        <Profiler id="chat-title-list" onRender={onRender ?? ((): void => undefined)}>
           <ChatTitleList
             onChatClick={onChatClick}
             onDeletedCurrentChat={onDeletedCurrentChat}
@@ -61,6 +62,7 @@ describe('ChatTitleList performance behavior', () => {
 
   beforeEach(() => {
     ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+    useSheetStore.setState({ collapsedChatGroups: new Set() })
     const now = Date.now()
     chatOne = {
       id: 1,
@@ -101,11 +103,100 @@ describe('ChatTitleList performance behavior', () => {
     container.remove()
   })
 
-  it('excludes scheduled chats from regular date groups', async () => {
+  it('shows five recent chats and adds ten per group on each click', async () => {
+    useChatStore.setState({ chatList: Array.from({ length: 26 }, (_, index) => ({ ...chatOne, id: index + 1, uuid: `chat-${index}`, title: `Chat ${index}`, updateTime: 100 - index })) })
+    await renderList()
+    const rows = (): number => container.querySelectorAll('[data-chat-title-row]').length
+    const more = (): HTMLButtonElement => [...container.querySelectorAll('button')].find(button => button.textContent === 'Show more')!
+    expect(rows()).toBe(5)
+    expect(container.querySelector('[data-chat-title-row]')?.textContent).toContain('Chat 0')
+    await act(async () => more().click())
+    expect(rows()).toBe(15)
+    await act(async () => more().click())
+    expect(rows()).toBe(25)
+    await act(async () => more().click())
+    expect(rows()).toBe(26)
+    expect(more()).toBeUndefined()
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-expanded]')!
+    await act(async () => trigger.click())
+    expect(trigger.getAttribute('aria-expanded')).toBe('false')
+    await act(async () => trigger.click())
+    expect(rows()).toBe(5)
+    await act(async () => more().click())
+    expect(rows()).toBe(15)
+  })
+
+  it('starts chats in the chosen group without toggling disclosure', async () => {
+    const onNewWorkspaceChat = vi.fn()
+    useChatStore.setState({ chatList: [chatOne, { ...chatTwo, workspacePath: '/projects/demo' }] })
+    await act(async () => root.render(<ChatTitleList onNewWorkspaceChat={onNewWorkspaceChat} onChatClick={vi.fn()} onDeletedCurrentChat={vi.fn()} />))
+    const actions = [...container.querySelectorAll<HTMLButtonElement>('button[title="New chat"]')]
+    await act(async () => actions[0].click())
+    expect(onNewWorkspaceChat).toHaveBeenLastCalledWith(undefined)
+    await act(async () => actions[1].click())
+    expect(onNewWorkspaceChat).toHaveBeenLastCalledWith('/projects/demo')
+    expect(useSheetStore.getState().collapsedChatGroups.size).toBe(0)
+  })
+
+  it('excludes scheduled chats from regular workspace groups', async () => {
     useChatStore.getState().updateChatList({ ...chatTwo, isScheduled: true })
     await renderList()
     expect(container.querySelectorAll('[data-chat-title-row]')).toHaveLength(1)
     expect(container.textContent).not.toContain(chatTwo.title)
+  })
+
+  it('retains collapse state across sheet visibility and regroups workspace changes', async () => {
+    await renderList()
+    const header = container.querySelector<HTMLButtonElement>('button[aria-expanded]')!
+    expect(header.textContent).toContain('Recently')
+    await act(async () => header.click())
+    expect(header.getAttribute('aria-expanded')).toBe('false')
+    expect(container.querySelector<HTMLElement>('section > div[hidden]')).not.toBeNull()
+    await act(async () => root.unmount())
+    root = createRoot(container)
+    await renderList()
+    expect(container.querySelector('button[aria-expanded]')?.getAttribute('aria-expanded')).toBe('false')
+    await act(async () => useChatStore.getState().updateChatList({ ...chatOne, workspacePath: '/code/project' }))
+    expect(container.textContent).toContain('project')
+    expect(container.querySelectorAll('section')).toHaveLength(2)
+    const row = container.querySelector<HTMLElement>('section:nth-of-type(2) [data-chat-title-row]')!
+    await act(async () => row.querySelectorAll<HTMLButtonElement>('button')[1].click())
+    expect(container.querySelectorAll('section')).toHaveLength(1)
+    const undo = sonnerMocks.warning.mock.calls[0][1].action.onClick
+    await act(async () => undo())
+    expect(container.querySelectorAll('section')).toHaveLength(2)
+  })
+
+  it('places search in the action row while preserving search interactions', async () => {
+    const header = document.createElement('div')
+    document.body.appendChild(header)
+    try {
+      await act(async () => root.render(<ChatTitleList searchContainer={header} onChatClick={vi.fn()} onDeletedCurrentChat={vi.fn()} />))
+      expect(container.querySelector('button[aria-label="Search chats"]')).toBeNull()
+      await act(async () => header.querySelector<HTMLButtonElement>('button[aria-label="Search chats"]')!.click())
+      expect(header.querySelector('input')).not.toBeNull()
+      expect(header.querySelector('button[aria-label="Search chats"]')?.getAttribute('aria-expanded')).toBe('true')
+      expect(header.querySelector('[data-search-open="true"]')).not.toBeNull()
+      await act(async () => header.querySelector<HTMLButtonElement>('button[aria-label="Search chats"]')!.click())
+      expect(document.activeElement).toBe(header.querySelector('input'))
+      await act(async () => header.querySelector<HTMLButtonElement>('button[aria-label="Close search"]')!.click())
+      expect(header.querySelector('input')).toBeNull()
+    } finally {
+      header.remove()
+    }
+  })
+
+  it('uses workspace icons without counts or end-of-list copy', async () => {
+    useChatStore.getState().updateChatList({ ...chatTwo, workspacePath: '/code/project' })
+    await renderList()
+    const headers = [...container.querySelectorAll<HTMLButtonElement>('button[aria-expanded]')]
+    expect(headers.map(header => header.textContent)).toEqual(['Recently', 'project'])
+    expect(headers[0].querySelector('.lucide-history')).not.toBeNull()
+    expect(headers[1].querySelector('.lucide-folder-open')).not.toBeNull()
+    await act(async () => headers[1].click())
+    expect(headers[1].querySelector('.lucide-folder')).not.toBeNull()
+    expect(container.textContent).not.toContain('No more chats')
+    expect(container.querySelector('button[aria-label="Search chats"]')?.closest('.sticky')?.className).toContain('h-9')
   })
 
   it('renders grouped rows with CSS hover and off-screen containment', async () => {
@@ -122,7 +213,7 @@ describe('ChatTitleList performance behavior', () => {
 
     const count = rows[0]?.querySelector<HTMLElement>('.rounded-full')
     expect(count?.className).toContain('group-hover:pointer-events-none')
-    expect(count?.className).toContain('group-hover:translate-x-2')
+    expect(count?.className).toContain('h-5.5')
 
     const actions = rows[0]?.querySelector<HTMLElement>('.absolute.inset-0.flex.items-center.gap-1')
     expect(actions?.className).toContain('group-hover:pointer-events-auto')

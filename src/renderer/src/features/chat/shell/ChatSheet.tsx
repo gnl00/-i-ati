@@ -4,7 +4,8 @@ import { Button } from '@renderer/shared/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@renderer/shared/components/ui/sheet'
 import TrafficLights from '@renderer/shared/components/ui/traffic-lights'
 import { toast } from '@renderer/shared/components/ui/use-toast'
-import { getAllChat } from '@renderer/infrastructure/persistence/ChatRepository'
+import { v4 as uuidv4 } from 'uuid'
+import { getAllChat, saveChat } from '@renderer/infrastructure/persistence/ChatRepository'
 import {
     invokeOpenExternal,
     invokeWindowClose,
@@ -17,7 +18,7 @@ import { useAppConfigStore } from '@renderer/infrastructure/config/appConfig'
 import { useSheetStore } from '@renderer/features/chat/state/sheetStore'
 import { switchWorkspace } from '@renderer/features/workspace'
 import { BadgePlus } from 'lucide-react'
-import React, { useCallback, useEffect, useRef } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 const CHAT_LIST_SENTINEL: ChatEntity = { id: -1, title: '', uuid: '', createTime: 0, updateTime: 0, messages: [] }
 const SHEET_OPEN_ANIMATION_MS = 150
 
@@ -45,6 +46,7 @@ const areChatListsEquivalent = (current: ChatEntity[], next: ChatEntity[]): bool
 
 const ChatSheet: React.FC = () => {
     const logger = React.useMemo(() => createRendererLogger('ChatSheet'), [])
+    const [searchContainer, setSearchContainer] = useState<HTMLDivElement | null>(null)
     const sheetOpenState = useSheetStore(state => state.sheetOpenState)
     const setSheetOpenState = useSheetStore(state => state.setSheetOpenState)
     const appVersion = useAppConfigStore(state => state.appVersion)
@@ -147,7 +149,7 @@ const ChatSheet: React.FC = () => {
         }
     }, [])
 
-    const startNewChat = useCallback(async () => {
+    const startNewChat = useCallback(async (workspacePath?: string) => {
         const requestId = ++chatSwitchRequestRef.current
         useSheetStore.getState().setChatLoading(false)
         useSheetStore.getState().setChatEntranceRequest(null)
@@ -161,16 +163,42 @@ const ChatSheet: React.FC = () => {
         useChatStore.getState().resetChatContext()
 
         // 切换到默认 workspace (tmp)
-        const workspaceResult = await switchWorkspace()
+        const workspaceResult = await switchWorkspace(undefined, workspacePath)
         if (!workspaceResult.success) {
             logger.warn('workspace.switch_default_failed', { error: workspaceResult.error })
+            if (workspacePath) {
+                toast({ variant: 'destructive', title: 'Failed to select workspace', description: workspaceResult.error })
+                return
+            }
         }
         if (chatSwitchRequestRef.current !== requestId) {
             return
         }
 
+        if (workspacePath) {
+            const chat: ChatEntity = {
+                uuid: uuidv4(), title: 'NewChat', messages: [],
+                workspacePath: workspaceResult.path, createTime: Date.now(), updateTime: Date.now()
+            }
+            try {
+                chat.id = await saveChat(chat)
+                useChatStore.getState().prependChatListEntry(chat)
+                if (chatSwitchRequestRef.current !== requestId) return
+                useChatStore.getState().selectChatShell(chat.id, chat.uuid, chat)
+            } catch (error) {
+                logger.error('new_chat.workspace_create_failed', error)
+                toast({ variant: 'destructive', title: 'Failed to create chat' })
+                return
+            }
+        }
         useChatStore.getState().toggleWebSearch(false)
     }, [completeAllTypewriters, logger])
+
+    const onNewWorkspaceChat = useCallback((path?: string) => {
+        useChatStore.getState().setTasksPageOpen(false)
+        setSheetOpenState(false)
+        void startNewChat(path)
+    }, [setSheetOpenState, startNewChat])
 
     const onNewChatClick = useCallback(() => {
         useChatStore.getState().setTasksPageOpen(false)
@@ -301,20 +329,25 @@ const ChatSheet: React.FC = () => {
                     {/* 聊天列表区域 - 占据剩余空间 */}
                     <div className="flex-1 flex flex-col overflow-hidden min-h-0">
                         {/* New Chat 按钮 */}
-                        <div className="shrink-0 py-3">
+                        <div className="app-undragable group/chat-actions grid shrink-0 grid-cols-[minmax(0,1fr)_36px] has-[[data-search-open=true]]:grid-cols-[minmax(0,1fr)_calc(100%-48px)] items-center gap-2 py-3 transition-[grid-template-columns] duration-220 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none">
                             <Button
+                                aria-label="New Chat"
+                                title="New Chat"
                                 onClick={onNewChatClick}
                                 variant={"default"}
                                 className="w-full p-2.5 focus-visible:ring-0 focus-visible:ring-offset-0 rounded-lg shadow-xs bg-gray-900 hover:bg-gray-800 dark:border dark:border-white/10 dark:bg-[oklch(80%_0.012_250)] dark:text-(--app-canvas) dark:shadow-none dark:hover:bg-[oklch(84%_0.012_250)] dark:active:scale-[0.99]"
                             >
-                                <BadgePlus className='w-4 h-4' />
-                                <span className="ml-2">New Chat</span>
+                                <BadgePlus className='w-4 h-4 shrink-0' />
+                                <span className="ml-2 group-has-[[data-search-open=true]]/chat-actions:hidden">New Chat</span>
                             </Button>
+                            <div ref={setSearchContainer} className="contents" />
                         </div>
 
                         {/* 聊天标题列表 */}
-                        <div className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth">
+                        <div className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth [scrollbar-gutter:stable]">
                             <ChatTitleList
+                                onNewWorkspaceChat={onNewWorkspaceChat}
+                                searchContainer={searchContainer}
                                 onChatClick={onChatClick}
                                 onDeletedCurrentChat={startNewChat}
                             />

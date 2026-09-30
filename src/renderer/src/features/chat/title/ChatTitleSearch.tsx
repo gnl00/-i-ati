@@ -12,6 +12,7 @@ interface ChatTitleSearchProps {
   onClose: () => void
   placeholder?: string
   label?: string
+  layout?: 'overlay' | 'actions'
   className?: string
 }
 
@@ -24,6 +25,7 @@ export function ChatTitleSearch({
   placeholder = 'Search titles and messages...',
   label = 'Search chats',
   className,
+  layout = 'overlay',
 }: ChatTitleSearchProps): React.ReactElement {
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   useEffect(() => {
@@ -31,6 +33,39 @@ export function ChatTitleSearch({
     const timer = window.setTimeout(() => searchInputRef.current?.focus(), 120)
     return (): void => window.clearTimeout(timer)
   }, [open])
+  if (layout === 'actions') {
+    return (
+      <div data-search-open={open} className={cn(
+        'app-undragable flex h-10 min-w-0 items-center overflow-hidden rounded-lg text-gray-500 dark:text-(--app-text-secondary)',
+        open && 'bg-(--app-surface-inset) dark:bg-(--app-surface-raised)',
+      )}>
+        <button
+          type="button"
+          onClick={open ? (): void => searchInputRef.current?.focus() : onOpen}
+          aria-label={label}
+          aria-expanded={open}
+          className="flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-lg hover:bg-(--app-surface-hover) focus-visible:outline focus-visible:outline-(--app-accent)"
+        >
+          <Search className="h-4 w-4" />
+        </button>
+        {open && (
+          <>
+            <Input
+              ref={searchInputRef}
+              value={value}
+              aria-label={label}
+              onChange={(event) => onChange(event.target.value)}
+              placeholder={layout === 'actions' ? 'Search chats...' : placeholder}
+              className="h-8.5 min-w-0 flex-1 border-0 bg-transparent pl-0 pr-1 text-[13px] shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+            />
+            <button type="button" onClick={onClose} aria-label="Close search" className="mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md hover:bg-(--app-surface-hover)">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </>
+        )}
+      </div>
+    )
+  }
   return (
     <div className={cn('pointer-events-none sticky top-0 z-30 h-0', className)}>
       <motion.div
@@ -40,7 +75,7 @@ export function ChatTitleSearch({
           opacity: 1,
         }}
         transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-        className="pointer-events-auto absolute top-0 right-2"
+        className="app-undragable pointer-events-auto absolute top-0 right-2 max-w-full"
       >
         <div
           className={cn(

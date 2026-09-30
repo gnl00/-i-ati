@@ -7,6 +7,8 @@ export type ChatEntranceRequest = {
 
 type SheetStoreType = {
     sheetOpenState: boolean
+    collapsedChatGroups: Set<string>
+    toggleChatGroup: (key: string) => void
     chatLoading: boolean
     chatEntranceRequest: ChatEntranceRequest | null
     setSheetOpenState: (state: boolean) => void
@@ -16,6 +18,13 @@ type SheetStoreType = {
 
 export const useSheetStore = create<SheetStoreType>((set) => ({
     sheetOpenState: false,
+    collapsedChatGroups: new Set(),
+    toggleChatGroup: (key: string): void => set(state => {
+        const collapsedChatGroups = new Set(state.collapsedChatGroups)
+        if (collapsedChatGroups.has(key)) collapsedChatGroups.delete(key)
+        else collapsedChatGroups.add(key)
+        return { collapsedChatGroups }
+    }),
     chatLoading: false,
     setSheetOpenState: (state: boolean): void => set({ sheetOpenState: state }),
     setChatLoading: (loading: boolean): void => set({ chatLoading: loading }),

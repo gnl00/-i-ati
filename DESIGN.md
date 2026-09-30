@@ -363,3 +363,43 @@ background fills. Rows use shared hover/focus colors without extra status badges
 hierarchies. The task and chat regions each occupy half of the available content height,
 with a fixed gap and independent list scrolling. Task filter changes never move
 the Chats header. Light/Dark share the same geometry.
+
+## Chat Sheet workspace groups
+
+The chat list groups regular chats by their saved workspace path. Recently stays
+first and includes chats without a path and default `workspaces/tmp` or
+`workspaces/<UUID>` directories. Custom workspace groups use the directory name,
+parent directory for duplicate names, and full path when still ambiguous; the
+full path is available on hover. Groups and chats sort by latest update, with
+Recently always first. Compact 36px sentence-case headers show a folder icon
+(open folder when expanded); Recently uses a history icon. Group counts and
+row separators are omitted. Child chat titles sit 2px to the right of the group label;
+group boundaries use spacing only, without horizontal rules. Search sits beside New Chat in the same action row, outside the scrolling list,
+with a 36px search button and an 8px gap. Opening search expands its input within the same row while New Chat narrows to
+a 40px icon-only button. Its 16px icon keeps its size, and its accessible label
+and tooltip remain New Chat; closing search restores the text. The two columns share a 220ms ease-out grid transition with no spring or
+vertical movement; reduced-motion mode changes the layout immediately. The interactive
+surface uses `app-undragable`; closing search clears the query. The expanded
+search field is borderless, using inset surface in Light and raised surface in
+Dark to distinguish it from the sidebar canvas.
+Expanded group triggers use a quiet surface tint and primary text, with no motion. Group headers use 8px horizontal
+padding and toggle immediately without press scaling.
+The list reserves scrollbar space with `scrollbar-gutter: stable`, preserving
+content width when groups expand or collapse.
+The list ends with 16px padding without an end-of-list message. All groups start expanded; disclosure state survives closing the
+sheet during the current app session. Search continues to show a flat ranked
+list and does not change disclosure state. Scheduled chats remain in Tasks.
+
+Workspace chat groups initially show the five most recently updated chats.
+Show more adds ten chats for that group until all are visible. Collapsing a group resets its visible limit to five;
+reopening starts with the five most recent chats. Search results remain unpaginated.
+Grouped chat rows use 6px vertical padding, a 40px minimum height, centered
+content, and a 2px gap. Telegram metadata grows the row naturally. Counts use a
+quiet 32px minimum-width × 22px pill; edit/delete actions use 24px buttons.
+Row hover changes background only, without scale or shadow. Show more aligns
+with chat titles and uses 11px text.
+A BadgePlus new-chat action, matching New Chat, appears at the right of each header on hover or keyboard focus;
+Hovering the new-chat button rotates its icon 90 degrees and scales it to 110%
+over 300ms ease-out, matching ChatInput; reduced motion disables the transform.
+Custom groups create and select a chat bound to that workspace, while Recently
+starts a chat in the default temporary workspace.

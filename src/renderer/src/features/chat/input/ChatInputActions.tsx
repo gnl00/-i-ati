@@ -11,8 +11,8 @@ import { useChatStore, type RunPhase } from '@renderer/features/chat/state/chatS
 import { invokeSelectDirectory } from '@renderer/infrastructure/ipc'
 import { getChatFromList, getChatWorkspacePath } from '@renderer/features/chat/chatWorkspace'
 import { saveChat } from '@renderer/infrastructure/persistence/ChatRepository'
-import { DEFAULT_WORKSPACE_DIR, DEFAULT_WORKSPACE_NAME, getDefaultWorkspacePath } from '@shared/workspace/workspacePaths'
-import { v4 as uuidv4, validate as isUuid } from 'uuid'
+import { DEFAULT_WORKSPACE_NAME, getDefaultWorkspacePath, isDefaultWorkspacePath } from '@shared/workspace/workspacePaths'
+import { v4 as uuidv4 } from 'uuid'
 import {
   BadgePlus,
   CornerDownLeft,
@@ -52,17 +52,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
   const currentWorkspacePath = useMemo(() => {
     return getChatWorkspacePath({ chatUuid: chatUuid ?? undefined, chatId: chatId ?? undefined, chatList })
   }, [chatUuid, chatId, chatList])
-  const isDefaultWorkspace = useMemo(() => {
-    if (!currentWorkspacePath) return false
-    const normalizedPath = currentWorkspacePath.replace(/\\/g, '/').replace(/\/+$/, '')
-    const directoryName = normalizedPath.split('/').pop() || ''
-    const defaultNames = chatUuid ? [chatUuid, DEFAULT_WORKSPACE_NAME] : [DEFAULT_WORKSPACE_NAME]
-    if (isUuid(directoryName)) defaultNames.push(directoryName)
-    return defaultNames.some(name => {
-      const suffix = `${DEFAULT_WORKSPACE_DIR}/${name}`
-      return normalizedPath === suffix || normalizedPath.endsWith(`/${suffix}`)
-    })
-  }, [currentWorkspacePath, chatUuid])
+  const isDefaultWorkspace = isDefaultWorkspacePath(currentWorkspacePath, chatUuid ?? undefined)
   const isCustomWorkspace = Boolean(currentWorkspacePath) && !isDefaultWorkspace
   const workspaceLabel = !currentWorkspacePath
     ? 'Workspace'

@@ -1,3 +1,7 @@
+import { createPortal } from 'react-dom'
+import { useSheetStore } from '../state/sheetStore'
+import { Folder, FolderOpen, History, BadgePlus } from 'lucide-react'
+import { projectChatWorkspaceGroups } from './chatWorkspaceGroups'
 import { CheckIcon, Cross2Icon, Pencil2Icon } from '@radix-ui/react-icons'
 import { Input } from '@renderer/shared/components/ui/input'
 import { deleteChat, updateChat } from '@renderer/infrastructure/persistence/ChatRepository'
@@ -10,12 +14,13 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { toast as sonnerToast } from 'sonner'
 
 interface ChatTitleListProps {
+  onNewWorkspaceChat?: (path?: string) => void
+  searchContainer?: HTMLElement | null
   onChatClick: (event: React.MouseEvent<HTMLDivElement>, result: ChatSearchResult) => void
   onDeletedCurrentChat: () => void
 }
 
 const SEARCH_RESULT_LIMIT = 50
-const SEARCH_BAR_CLEARANCE_CLASS = 'pt-11'
 
 type TelegramBadgeMeta = {
   label: string
@@ -216,27 +221,7 @@ function TelegramChatBadge({ meta, compact = false }: { meta?: TelegramBadgeMeta
   )
 }
 
-const getDate = (timestamp: number): string => {
-  const date = new Date(timestamp)
-  const yyyy = date.getFullYear()
-  const mm = String(date.getMonth() + 1).padStart(2, '0')
-  const dd = String(date.getDate()).padStart(2, '0')
-  return `${yyyy}-${mm}-${dd}`
-}
-
-const getDateGroup = (timestamp: number): string => {
-  const now = new Date()
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  const startOfYesterday = startOfToday - 24 * 60 * 60 * 1000
-  const startOfWeek = startOfToday - 7 * 24 * 60 * 60 * 1000
-
-  if (timestamp >= startOfToday) return 'Today'
-  if (timestamp >= startOfYesterday) return 'Yesterday'
-  if (timestamp >= startOfWeek) return 'This Week'
-  return getDate(timestamp)
-}
-
-const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCurrentChat }) => {
+const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCurrentChat, searchContainer, onNewWorkspaceChat }) => {
   const chatList = useChatStore(state => state.chatList)
   const removeChatListEntry = useChatStore(state => state.removeChatListEntry)
   const updateChatList = useChatStore(state => state.updateChatList)
@@ -244,6 +229,9 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
 
   const [showChatItemEditConform, setShowChatItemEditConform] = useState<boolean | undefined>(false)
   const [chatItemEditId, setChatItemEditId] = useState<number | undefined>()
+  const collapsedGroups = useSheetStore(state => state.collapsedChatGroups)
+  const toggleChatGroup = useSheetStore(state => state.toggleChatGroup)
+  const [visibleGroupCounts, setVisibleGroupCounts] = useState<Record<string, number>>({})
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<ChatSearchResult[]>([])
@@ -268,25 +256,9 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
 
   const isSearchMode = searchQuery.trim().length > 0
   const displayResults = isSearchMode ? searchResults : titleListResults
-  const listTopPaddingClass = searchOpen ? SEARCH_BAR_CLEARANCE_CLASS : 'pt-2'
+  const listTopPaddingClass = 'pt-1'
 
-  const groupedChatList = useMemo(() => {
-    if (isSearchMode) {
-      return []
-    }
-
-    const groups = new Map<string, ChatSearchResult[]>()
-    displayResults.forEach(result => {
-      const item = result.chat
-      if (item.id === -1) return
-      const group = getDateGroup(item.updateTime)
-      if (!groups.has(group)) {
-        groups.set(group, [])
-      }
-      groups.get(group)!.push(result)
-    })
-    return Array.from(groups.entries())
-  }, [displayResults, isSearchMode])
+  const groupedChatList = useMemo(() => isSearchMode ? [] : projectChatWorkspaceGroups(displayResults), [displayResults, isSearchMode])
 
   useEffect(() => {
     const normalizedQuery = searchQuery.trim()
@@ -383,9 +355,13 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
     }
   }
 
+  const searchControl = <ChatTitleSearch layout={searchContainer ? 'actions' : 'overlay'} className={searchContainer ? 'contents' : 'h-9 bg-white dark:bg-(--app-canvas)'} open={searchOpen} value={searchQuery} onChange={setSearchQuery} onOpen={openSearch} onClose={closeSearch} />
+  const search = searchContainer ? createPortal(searchControl, searchContainer) : searchContainer === undefined ? searchControl : null
+
   if (sortedChatList.filter(item => item.id !== -1).length === 0) {
     return (
       <div className="flex h-full items-center justify-center">
+        {search}
         <div className="text-center text-gray-400 dark:text-(--app-text-muted)">
           <p className="text-sm">No chats yet</p>
           <p className="mt-1 text-xs">Start a new conversation</p>
@@ -395,8 +371,8 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
   }
 
   return (
-    <div className="relative">
-      <ChatTitleSearch open={searchOpen} value={searchQuery} onChange={setSearchQuery} onOpen={openSearch} onClose={closeSearch} />
+    <div className="relative pb-4">
+      {search}
 
       {searchError ? (
         <div className={cn('px-4 pb-10 text-center', listTopPaddingClass)}>
@@ -476,19 +452,49 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
           <p className="mt-1 text-xs text-gray-400 dark:text-(--app-text-muted)">Try another title keyword</p>
         </div>
       ) : (
-        groupedChatList.map(([groupName, items], index) => (
+        groupedChatList.map(({ key, label, path, items }, index) => (
           <section
-            key={groupName}
-            className={cn('mb-2', index === 0 && listTopPaddingClass)}
+            key={key}
+            className={cn('mb-1 border-0', index === 0 && listTopPaddingClass)}
           >
-            <div className="sticky top-0 z-20 border-b border-gray-200/80 bg-background/94 px-3 pt-3 pb-2 backdrop-blur-md dark:border-(--app-border-subtle) dark:bg-(--app-canvas)/94">
-              <h4 className="truncate text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-(--app-text-muted)">
-                {groupName}
-              </h4>
+            <div className="group/header relative sticky top-0 z-20 border-0 bg-white px-1 dark:bg-(--app-canvas)">
+              <button
+                type="button"
+                className={cn(
+                  'flex h-9 w-full items-center gap-2 rounded-md px-2 pr-9 text-xs font-medium hover:bg-(--app-surface-hover) hover:text-(--app-text-primary) focus-visible:outline focus-visible:outline-(--app-accent)',
+                  collapsedGroups.has(key)
+                    ? 'text-(--app-text-secondary)'
+                    : 'bg-slate-50 text-slate-800 dark:bg-(--app-surface-hover) dark:text-(--app-text-primary)'
+                )}
+                title={path || 'Recently'}
+                aria-expanded={!collapsedGroups.has(key)}
+                onClick={() => {
+                  if (!collapsedGroups.has(key)) {
+                    setVisibleGroupCounts(counts => ({ ...counts, [key]: 5 }))
+                  }
+                  toggleChatGroup(key)
+                }}
+              >
+                {!path ? <History className="h-3.5 w-3.5 shrink-0" /> : collapsedGroups.has(key)
+                  ? <Folder className="h-3.5 w-3.5 shrink-0" />
+                  : <FolderOpen className="h-3.5 w-3.5 shrink-0" />}
+                <span className="min-w-0 flex-1 truncate text-left">{label}</span>
+              </button>
+              {onNewWorkspaceChat && (
+                <button
+                  type="button"
+                  aria-label={`New chat in ${label}`}
+                  title="New chat"
+                  onClick={() => onNewWorkspaceChat(path)}
+                  className="group/new-chat app-undragable absolute right-2 top-1 flex h-7 w-7 items-center justify-center rounded-md text-(--app-text-secondary) opacity-0 group-hover/header:opacity-100 group-focus-within/header:opacity-100 hover:bg-(--app-surface-hover) hover:text-(--app-text-primary) focus-visible:outline focus-visible:outline-(--app-accent)"
+                >
+                  <BadgePlus className="h-3.5 w-3.5 transition-transform duration-300 ease-out group-hover/new-chat:scale-110 group-hover/new-chat:rotate-90 motion-reduce:transition-none motion-reduce:transform-none" />
+                </button>
+              )}
             </div>
 
-            <div className="space-y-0.5 px-1 pt-1">
-              {items.map(result => {
+            <div hidden={collapsedGroups.has(key)} className="space-y-0.5 pl-5 pr-1 pt-1">
+              {items.slice(0, visibleGroupCounts[key] ?? 5).map(result => {
                 const item = result.chat
                 const isActive = item.id === chatId
                 const telegramMeta = getTelegramBadgeMeta(item)
@@ -500,14 +506,14 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
                     id="chat-item"
                     onClick={event => onChatClick(event, result)}
                     className={cn(
-                      'group relative flex cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5 [content-visibility:auto] [contain-intrinsic-size:auto_44px]',
-                      'transition-all duration-200 ease-out',
+                      'group relative flex cursor-pointer min-h-10 items-center gap-3 rounded-lg px-3 py-1.5 [content-visibility:auto] [contain-intrinsic-size:auto_44px]',
+                      'transition-colors duration-150 ease-out',
                       isActive
                         ? "bg-linear-to-r from-blue-50/80 via-blue-50/30 to-transparent after:absolute after:bottom-0.5 after:left-3 after:h-0.5 after:w-48 after:rounded-full after:bg-linear-to-r after:from-blue-500 after:via-blue-400/60 after:to-transparent after:content-[''] hover:from-blue-50/90 hover:via-blue-50/40 dark:bg-(--app-surface-hover) dark:bg-none dark:after:bg-(--app-accent) dark:after:opacity-70"
-                        : 'hover:scale-[1.01] hover:bg-gray-100 hover:shadow-xs dark:hover:bg-(--app-surface-hover) dark:hover:shadow-none'
+                        : 'hover:bg-gray-100 dark:hover:bg-(--app-surface-hover)'
                     )}
                   >
-                    <div className="min-w-0 flex-1 pt-0.5">
+                    <div className="min-w-0 flex-1">
                       {showChatItemEditConform && chatItemEditId === item.id ? (
                         <Input
                           className="h-7 border-0 bg-transparent px-0 text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
@@ -532,10 +538,10 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
                       )}
                     </div>
 
-                    <div className="relative flex h-7 w-16 shrink-0 items-center gap-1 pt-0.5">
+                    <div className="relative flex h-6 w-13 shrink-0 items-center">
                       <span
                         className={cn(
-                          'absolute inset-0 flex items-center justify-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-500 transition-all duration-200 ease-out dark:bg-(--app-surface-inset) dark:text-(--app-text-muted) translate-x-0 scale-100 opacity-100 group-hover:pointer-events-none group-hover:translate-x-2 group-hover:scale-75 group-hover:opacity-0'
+                          'absolute right-0 top-1/2 flex h-5.5 min-w-8 -translate-y-1/2 items-center justify-center rounded-full bg-gray-50 px-1.5 text-[11px] font-medium text-gray-500 dark:bg-(--app-surface-inset) dark:text-(--app-text-muted) group-hover:pointer-events-none group-hover:opacity-0 group-focus-within:opacity-0'
                         )}
                       >
                         {item.msgCount ?? 0}
@@ -543,14 +549,14 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
 
                       <div
                         className={cn(
-                          'absolute inset-0 flex items-center gap-1 transition-all duration-200 ease-out pointer-events-none -translate-x-2 scale-75 opacity-0 group-hover:pointer-events-auto group-hover:translate-x-0 group-hover:scale-100 group-hover:opacity-100'
+                          'absolute inset-0 flex items-center justify-end gap-1 pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100'
                         )}
                       >
                         {showChatItemEditConform && chatItemEditId === item.id ? (
                           <button
                             onClick={onSheetChatItemEditConformClick}
                             className={cn(
-                              'relative rounded-xl border border-emerald-200/50 bg-emerald-50/80 p-1.5 text-emerald-600 shadow-inner transition-all duration-300 ease-out hover:-translate-y-0.5 hover:scale-110 hover:bg-emerald-100 hover:shadow-lg hover:shadow-emerald-500/10 active:translate-y-0 active:scale-95 active:shadow-inner dark:border-emerald-800/50 dark:bg-emerald-950/40 dark:text-emerald-400 dark:hover:bg-emerald-900/50'
+                              'flex h-6 w-6 items-center justify-center rounded-md text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-(--app-surface-hover) focus-visible:outline focus-visible:outline-(--app-accent)'
                             )}
                           >
                             <CheckIcon className="h-3.5 w-3.5" />
@@ -559,7 +565,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
                           <button
                             onClick={e => onSheetChatItemEditClick(e, item)}
                             className={cn(
-                              'relative rounded-xl border border-slate-200/50 bg-slate-100/80 p-1.5 text-slate-600 shadow-inner transition-all duration-300 ease-out hover:-translate-y-0.5 hover:scale-110 hover:bg-slate-200 hover:shadow-lg hover:shadow-slate-500/10 active:translate-y-0 active:scale-95 active:shadow-inner dark:border-(--app-border-standard) dark:bg-(--app-surface-inset) dark:text-(--app-text-secondary) dark:shadow-none dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-primary)'
+                              'flex h-6 w-6 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 dark:text-(--app-text-secondary) dark:hover:bg-(--app-surface-hover) focus-visible:outline focus-visible:outline-(--app-accent)'
                             )}
                           >
                             <Pencil2Icon className="h-3.5 w-3.5" />
@@ -568,7 +574,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
                         <button
                           onClick={e => onSheetChatItemDeleteClick(e, item)}
                           className={cn(
-                            'relative rounded-xl border border-rose-200/50 bg-rose-50/80 p-1.5 text-rose-600 shadow-inner transition-all duration-300 ease-out hover:-translate-y-0.5 hover:scale-110 hover:rotate-90 hover:bg-rose-100 hover:shadow-lg hover:shadow-rose-500/10 active:translate-y-0 active:scale-95 active:rotate-90 active:shadow-inner dark:border-rose-800/50 dark:bg-rose-950/40 dark:text-rose-400 dark:hover:bg-rose-900/50'
+                              'flex h-6 w-6 items-center justify-center rounded-md text-rose-500 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-(--app-surface-hover) focus-visible:outline focus-visible:outline-(--app-accent)'
                           )}
                         >
                           <Cross2Icon className="h-3.5 w-3.5" />
@@ -578,14 +584,20 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
                   </div>
                 )
               })}
+              {items.length > (visibleGroupCounts[key] ?? 5) && (
+                <button
+                  type="button"
+                  onClick={() => setVisibleGroupCounts(counts => ({ ...counts, [key]: (counts[key] ?? 5) + 10 }))}
+                  className="rounded-md px-3 py-1.5 text-[11px] text-(--app-text-secondary) hover:bg-(--app-surface-hover) hover:text-(--app-text-primary) focus-visible:outline focus-visible:outline-(--app-accent)"
+                >
+                  Show more
+                </button>
+              )}
             </div>
           </section>
         ))
       )}
 
-      <div className="py-4 text-center">
-        <span className="text-xs text-gray-400 dark:text-(--app-text-muted)">No more chats</span>
-      </div>
     </div>
   )
 }
