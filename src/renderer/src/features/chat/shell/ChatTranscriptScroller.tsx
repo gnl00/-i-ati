@@ -293,6 +293,7 @@ export interface ChatTranscriptScrollerProps {
   shouldRenderPendingAssistant: boolean;
   pendingAssistantModel: PendingAssistantModel;
   topOcclusionPx: number;
+  bottomOcclusionPx?: number;
   isRunStreaming: boolean;
 }
 
@@ -308,6 +309,7 @@ const ChatTranscriptScrollerBody: React.FC<ChatTranscriptScrollerProps> = ({
   shouldRenderPendingAssistant,
   pendingAssistantModel,
   topOcclusionPx,
+  bottomOcclusionPx = 0,
   isRunStreaming,
 }) => {
   const scrollHint = useChatStore((state) => state.scrollHint);
@@ -530,10 +532,11 @@ const ChatTranscriptScrollerBody: React.FC<ChatTranscriptScrollerProps> = ({
         ref={viewportRef}
         data-testid="message-scroller-viewport"
         aria-label="Chat messages"
+        style={{ scrollPaddingBlockEnd: bottomOcclusionPx + 12 }}
       >
         <MessageScrollerContent
           className={cn(TRANSCRIPT_COLUMN_CLASS, 'gap-6')}
-          style={{ paddingBlockStart: topOcclusionPx }}
+          style={{ paddingBlockStart: topOcclusionPx, paddingBlockEnd: bottomOcclusionPx + 12 }}
         >
           {itemsWithSearchTarget.map((item) => (
             <MessageScrollerItem
@@ -577,7 +580,10 @@ const ChatTranscriptScrollerBody: React.FC<ChatTranscriptScrollerProps> = ({
           ))}
         </MessageScrollerContent>
       </MessageScrollerViewport>
-      <MessageScrollerButton onClick={handleJumpToLatestClick} />
+      <MessageScrollerButton
+        onClick={handleJumpToLatestClick}
+        style={{ bottom: bottomOcclusionPx + 16 }}
+      />
     </MessageScroller>
   );
 };

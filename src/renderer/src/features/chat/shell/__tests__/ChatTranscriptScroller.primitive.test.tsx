@@ -172,4 +172,35 @@ describe('ChatTranscriptScroller with the installed message scroller', () => {
         ?.querySelector('[data-testid="chat-message"]'),
     ).not.toBeNull()
   })
+
+  it('keeps the latest message and jump control above a growing composer', async () => {
+    const renderWithOcclusion = async (height: number): Promise<void> => {
+      await act(async () => root.render(
+        <ChatTranscriptScroller
+          chatUuid="composer-overlay"
+          displayMessages={[createMessage(1, 'user')]}
+          previewRenderIndex={-1}
+          lastAssistantIndex={-1}
+          lastMessageIndex={0}
+          latestUserIndex={0}
+          hasCurrentTurnAssistant={false}
+          shouldRenderPendingAssistant={false}
+          pendingAssistantModel={{}}
+          topOcclusionPx={56}
+          bottomOcclusionPx={height}
+          isRunStreaming={false}
+        />,
+      ))
+    }
+    for (const height of [151, 280, 151]) {
+      await renderWithOcclusion(height)
+      const viewport = container.querySelector<HTMLElement>('[data-slot="message-scroller-viewport"]')!
+      const content = container.querySelector<HTMLElement>('[data-slot="message-scroller-content"]')!
+      const jump = container.querySelector<HTMLElement>('[data-slot="message-scroller-button"]')!
+      expect(content.style.paddingBlockEnd).toBe(`${height + 12}px`)
+      expect(viewport.style.scrollPaddingBlockEnd).toBe(`${height + 12}px`)
+      expect(jump.style.bottom).toBe(`${height + 16}px`)
+    }
+  })
+
 })

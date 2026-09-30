@@ -24,25 +24,19 @@
 
 .shared-prompt-surface {
   --shared-prompt-ease: cubic-bezier(0.16, 1, 0.3, 1);
-  --shared-prompt-surface: color-mix(in srgb, hsl(var(--card)) 68%, transparent);
-  --shared-prompt-surface-focus: color-mix(in srgb, hsl(var(--card)) 84%, transparent);
+  --shared-prompt-surface: color-mix(in srgb, hsl(var(--card)) 75%, transparent);
+  --shared-prompt-surface-focus: color-mix(in srgb, hsl(var(--card)) 75%, transparent);
   --shared-prompt-border: color-mix(in srgb, hsl(var(--border)) 44%, transparent);
   display: grid;
   grid-template-rows: 0 48px 0fr;
   width: 100%;
   border: 1px solid var(--shared-prompt-border);
   border-radius: 999px;
-  background:
-    radial-gradient(
-      circle at 14% 0%,
-      color-mix(in srgb, hsl(var(--foreground)) 5%, transparent),
-      transparent 34%
-    ),
-    var(--shared-prompt-surface);
+  background: var(--shared-prompt-surface);
   box-shadow:
-    0 12px 34px color-mix(in srgb, hsl(var(--foreground)) 8%, transparent),
-    inset 0 1px 0 color-mix(in srgb, white 30%, transparent);
-  backdrop-filter: blur(16px);
+    0 8px 24px color-mix(in srgb, hsl(var(--foreground)) 5%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 25%, transparent);
+  backdrop-filter: blur(20px);
   transition:
     grid-template-rows 360ms var(--shared-prompt-ease),
     border-color 260ms var(--shared-prompt-ease),
@@ -80,27 +74,21 @@
   grid-template-rows: 0 auto 42px;
   border-color: color-mix(in srgb, hsl(var(--border)) 58%, hsl(var(--foreground)) 8%);
   border-radius: 24px;
-  background:
-    radial-gradient(
-      circle at 14% 0%,
-      color-mix(in srgb, hsl(var(--foreground)) 5%, transparent),
-      transparent 34%
-    ),
-    var(--shared-prompt-surface-focus);
+  background: var(--shared-prompt-surface-focus);
   box-shadow:
-    0 18px 48px color-mix(in srgb, hsl(var(--foreground)) 10%, transparent),
-    inset 0 1px 0 color-mix(in srgb, white 36%, transparent);
+    0 8px 24px color-mix(in srgb, hsl(var(--foreground)) 5%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 25%, transparent);
 }
 
 .dark .shared-prompt-surface:not([data-variant='chat']) {
   --shared-prompt-border: var(--app-border-standard);
-  --shared-prompt-surface: color-mix(in oklab, var(--app-surface) 92%, transparent);
-  --shared-prompt-surface-focus: color-mix(in oklab, var(--app-surface-raised) 94%, transparent);
+  --shared-prompt-surface: color-mix(in oklab, var(--app-surface-raised) 80%, transparent);
+  --shared-prompt-surface-focus: color-mix(in oklab, var(--app-surface-raised) 80%, transparent);
   background: var(--shared-prompt-surface);
   box-shadow:
     0 1px 0 rgb(255 255 255 / 0.025) inset,
-    0 14px 36px rgb(0 0 0 / 0.13);
-  backdrop-filter: blur(10px);
+    0 8px 24px rgb(0 0 0 / 0.08);
+  backdrop-filter: blur(20px);
 }
 
 .dark .shared-prompt-surface:not([data-variant='chat'])[data-expanded='true'] {
@@ -108,8 +96,8 @@
   background: var(--shared-prompt-surface-focus);
   box-shadow:
     0 1px 0 rgb(255 255 255 / 0.03) inset,
-    0 18px 42px rgb(0 0 0 / 0.15);
-  backdrop-filter: blur(6px);
+    0 8px 24px rgb(0 0 0 / 0.08);
+  backdrop-filter: blur(20px);
 }
 
 .shared-prompt-surface[data-variant='chat'] {
@@ -117,25 +105,19 @@
   min-height: 0;
   grid-template-rows: 0 auto 44px;
   border-radius: 24px;
-  background:
-    radial-gradient(
-      circle at 16% -8%,
-      color-mix(in srgb, hsl(var(--foreground)) 5%, transparent),
-      transparent 32%
-    ),
-    color-mix(in srgb, hsl(var(--card)) 78%, transparent);
+  background: var(--shared-prompt-surface);
   box-shadow:
-    0 12px 34px color-mix(in srgb, hsl(var(--foreground)) 7%, transparent),
-    inset 0 1px 0 color-mix(in srgb, white 34%, transparent);
+    0 8px 24px color-mix(in srgb, hsl(var(--foreground)) 5%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 25%, transparent);
 }
 
 .dark .shared-prompt-surface[data-variant='chat'] {
   --shared-prompt-border: var(--chat-border-standard);
-  background: var(--chat-surface-raised);
+  background: color-mix(in oklab, var(--chat-surface-raised) 80%, transparent);
   box-shadow:
     0 1px 0 rgb(255 255 255 / 0.025) inset,
-    0 14px 36px rgb(0 0 0 / 0.12);
-  backdrop-filter: none;
+    0 8px 24px rgb(0 0 0 / 0.08);
+  backdrop-filter: blur(20px);
 }
 
 .shared-prompt-surface[data-variant='chat'][data-expanded='true'] {
@@ -331,9 +313,9 @@
 .shared-prompt-surface[data-dragging='true'] {
   border-color: color-mix(in srgb, hsl(var(--ring)) 36%, hsl(var(--border)));
   box-shadow:
-    0 18px 48px color-mix(in srgb, hsl(var(--foreground)) 10%, transparent),
+    0 8px 24px color-mix(in srgb, hsl(var(--foreground)) 5%, transparent),
     0 0 0 5px color-mix(in srgb, hsl(var(--ring)) 9%, transparent),
-    inset 0 1px 0 color-mix(in srgb, white 36%, transparent);
+    inset 0 1px 0 color-mix(in srgb, white 25%, transparent);
 }
 
 .shared-prompt-action-strip {

@@ -187,6 +187,8 @@ const ChatWindow: React.FC = () => {
   const reducedMotionRef = useRef(false);
   const transcriptEntranceLifecycleRef = useRef(0);
   const chatInputRef = useRef<ChatInputAreaHandle>(null);
+  const inputPanelRef = useRef<HTMLDivElement>(null);
+  const [inputPanelHeight, setInputPanelHeight] = useState(151);
   const pendingApprovals = useToolConfirmationStore(state => state.pendingRequests);
   const confirmApproval = useToolConfirmationStore(state => state.confirm);
   const cancelApproval = useToolConfirmationStore(state => state.cancel);
@@ -245,6 +247,18 @@ const ChatWindow: React.FC = () => {
     showWelcome &&
     !isHistoricalTranscript &&
     (isWelcomeMode || isWelcomeExiting || !hasShownWelcomeRef.current);
+
+  useLayoutEffect(() => {
+    const panel = inputPanelRef.current;
+    if (!panel) return;
+    const measure = (): void => {
+      setInputPanelHeight(Math.ceil(panel.getBoundingClientRect().height));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(panel);
+    return (): void => observer.disconnect();
+  }, [shouldRenderWelcomeStage]);
 
   const cancelTranscriptEntrance = useCallback((): void => {
     const animation = transcriptEntranceAnimationRef.current;
@@ -562,15 +576,15 @@ const ChatWindow: React.FC = () => {
             </div>
           </ChatSidePanelLayout>
         ) : (
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <div id="main-content-panel" className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div id="main-content-panel" className="absolute inset-0 flex min-h-0 flex-col overflow-hidden">
               <ChatSidePanelLayout
                 open={artifactsPanelOpen}
                 onClose={closeArtifactsPanel}
                 preferenceKey={ARTIFACTS_SIDE_PANEL_PREFERENCE_KEY}
                 sidePanelLabel="Artifacts panel"
                 sidePanel={
-                  <div className="h-full w-full overflow-hidden pt-12">
+                  <div className="h-full w-full overflow-hidden pt-12" style={{ paddingBottom: inputPanelHeight }}>
                     <ArtifactsPanel />
                   </div>
                 }
@@ -656,13 +670,15 @@ const ChatWindow: React.FC = () => {
                     shouldRenderPendingAssistant={shouldRenderPendingAssistant}
                     pendingAssistantModel={pendingAssistantModel}
                     topOcclusionPx={topOcclusionPx}
+                    bottomOcclusionPx={inputPanelHeight}
                     isRunStreaming={isRunStreaming}
                   />
                 </div>
               </ChatSidePanelLayout>
             </div>
 
-            <div id="input-panel" className="relative shrink-0 bg-transparent">
+            <div ref={inputPanelRef} id="input-panel" className="absolute inset-x-0 bottom-0 z-30 bg-transparent">
+              <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-(--chat-canvas)" />
               <div className="pointer-events-none absolute inset-x-0 bottom-full z-50 mb-2 grid gap-1 px-2">
                 <ChatInputUserQuestion className="pointer-events-auto px-0 pb-0" />
                 <ChatInputToolConfirmation className="pointer-events-auto px-0 pb-0" />
