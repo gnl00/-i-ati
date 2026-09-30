@@ -429,7 +429,7 @@ const ProvidersManager: React.FC<ProvidersManagerProps> = ({ plugins }) => {
                 }
                 title="No providers available"
                 description="Add a provider to configure accounts and models."
-                className="h-full py-0"
+                className="h-full justify-center py-0"
               />
             </SettingsDetailPanel>
           ) : (
