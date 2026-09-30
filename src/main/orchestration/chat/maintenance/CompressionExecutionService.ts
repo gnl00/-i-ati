@@ -19,7 +19,7 @@ export class CompressionExecutionService {
     })
 
     try {
-      const result = await compressionService.execute(data)
+      const result = await compressionService.compress(data)
       if (result.success) {
         emitter?.emit(RUN_MAINTENANCE_EVENTS.COMPRESSION_COMPLETED, { result })
       } else {

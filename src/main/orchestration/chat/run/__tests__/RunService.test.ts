@@ -7,7 +7,7 @@ const {
   updateChatMock,
   updateMessageMock,
   generateTitleMock,
-  compressionExecuteMock
+  compressionMock
 } = vi.hoisted(() => ({
   emitterInstances: [] as Array<{ emit: ReturnType<typeof vi.fn>; setChatMeta: ReturnType<typeof vi.fn> }>,
   runtimeRunnerMock: vi.fn(async () => ({
@@ -33,7 +33,7 @@ const {
   updateChatMock: vi.fn(),
   updateMessageMock: vi.fn(),
   generateTitleMock: vi.fn(async () => ({ type: 'text', content: 'generated title' })),
-  compressionExecuteMock: vi.fn(async () => ({ success: true }))
+  compressionMock: vi.fn(async () => ({ success: true }))
 }))
 
 vi.mock('electron', () => ({
@@ -184,7 +184,7 @@ vi.mock('@main/db/DatabaseService', () => ({
 
 vi.mock('@main/orchestration/chat/maintenance/MessageCompressionService', () => ({
   compressionService: {
-    execute: compressionExecuteMock
+    compress: compressionMock
   }
 }))
 
@@ -272,8 +272,8 @@ describe('RunService', () => {
     updateMessageMock.mockReset()
     generateTitleMock.mockReset()
     generateTitleMock.mockResolvedValue({ type: 'text', content: 'generated title' })
-    compressionExecuteMock.mockReset()
-    compressionExecuteMock.mockResolvedValue({ success: true })
+    compressionMock.mockReset()
+    compressionMock.mockResolvedValue({ success: true })
     ;(DatabaseService.getConfig as any).mockReturnValue({
       accounts: [{
         id: 'account-1',
@@ -357,7 +357,7 @@ describe('RunService', () => {
     const titleDeferred = createDeferred<any>()
     const compressionDeferred = createDeferred<any>()
     generateTitleMock.mockReturnValueOnce(titleDeferred.promise)
-    compressionExecuteMock.mockReturnValueOnce(compressionDeferred.promise)
+    compressionMock.mockReturnValueOnce(compressionDeferred.promise)
     ;(DatabaseService.getConfig as any).mockReturnValue({
       accounts: [{
         id: 'account-1',
@@ -405,7 +405,7 @@ describe('RunService', () => {
     })
     await Promise.resolve()
     expect(generateTitleMock).toHaveBeenCalledTimes(1)
-    expect(compressionExecuteMock).toHaveBeenCalledTimes(1)
+    expect(compressionMock).toHaveBeenCalledTimes(1)
     expect(emitterInstances.some(instance =>
       instance.emit.mock.calls.some(call => call[0] === RUN_EVENTS.RUN_COMPLETED)
     )).toBe(true)

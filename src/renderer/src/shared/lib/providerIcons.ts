@@ -124,16 +124,6 @@ export const getProviderIconDescriptor = (provider?: string): ProviderIconDescri
 }
 
 /**
- * Backward-compatible source URL mapping for non-visual consumers.
- */
-export const PROVIDER_ICON_MAP: Record<string, string> = Object.fromEntries(
-  Object.entries(PROVIDER_ICON_DESCRIPTOR_MAP).map(([provider, descriptor]) => [
-    provider,
-    descriptor.src
-  ])
-)
-
-/**
  * Get the icon source for a given provider name
  * @param provider - The provider name (case-insensitive)
  * @returns The icon source URL, or the default robot icon if not found
@@ -150,4 +140,4 @@ export const DEFAULT_PROVIDER_ICON = robotIcon
 /**
  * All available provider icons as a readonly array
  */
-export const AVAILABLE_PROVIDERS = Object.keys(PROVIDER_ICON_MAP) as ReadonlyArray<string>
+export const AVAILABLE_PROVIDERS = Object.keys(PROVIDER_ICON_DESCRIPTOR_MAP) as ReadonlyArray<string>

@@ -11,6 +11,7 @@ An implemented feature can remain Active while runtime acceptance is pending.
 
 ## Plans and implementation acceptance
 
+- [Legacy cleanup](plans/legacy-cleanup.md)
 - [Background Tool Result Compaction](plans/background-tool-result-compaction.md)
 - [MessageScroller Electron acceptance](plans/chat/message-scroller-integration-implementation.md)
 - [Token Usage Cache Persistence Plan](plans/chat/token-usage-cache-persistence-plan.md)

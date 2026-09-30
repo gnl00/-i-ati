@@ -22,7 +22,6 @@ import {
   DB_MESSAGE_GET_BY_CHAT_ID,
   DB_MESSAGE_GET_BY_CHAT_UUID,
   DB_MESSAGE_GET_BY_ID,
-  DB_MESSAGE_GET_BY_IDS,
   DB_MESSAGE_PATCH_UI_STATE,
   DB_MESSAGE_SAVE,
   DB_MESSAGE_UPDATE,
@@ -64,7 +63,6 @@ export const invokeDbChatSkillsGet = (chatId: number): Promise<string[]> => invo
 export const invokeDbMessageSave = (data: MessageEntity): Promise<number> => invokeIpc(DB_MESSAGE_SAVE, data)
 export const invokeDbMessageGetAll = (): Promise<MessageEntity[]> => invokeIpc(DB_MESSAGE_GET_ALL)
 export const invokeDbMessageGetById = (id: number): Promise<MessageEntity | undefined> => invokeIpc(DB_MESSAGE_GET_BY_ID, id)
-export const invokeDbMessageGetByIds = (ids: number[]): Promise<MessageEntity[]> => invokeIpc(DB_MESSAGE_GET_BY_IDS, ids)
 export const invokeDbMessageGetByChatId = (chatId: number): Promise<MessageEntity[]> => invokeIpc(DB_MESSAGE_GET_BY_CHAT_ID, chatId)
 export const invokeDbMessageGetByChatUuid = (chatUuid: string): Promise<MessageEntity[]> => invokeIpc(DB_MESSAGE_GET_BY_CHAT_UUID, chatUuid)
 export const invokeDbMessageUpdate = (data: MessageEntity): Promise<void> => invokeIpc(DB_MESSAGE_UPDATE, data)

@@ -233,12 +233,6 @@ declare interface IUnifiedRequest {
   apiKey: string
   modelType?: string
   model: string
-  /**
-   * @deprecated Chat runtime materializes user instruction into `messages` as
-   * a `<user_instruction>` carrier. Request-adapter plugins should read
-   * model-visible instructions from `systemPrompt` and `messages`.
-   */
-  userInstruction?: string
   systemPrompt?: string
   messages: UnifiedRequestMessage[]
   stream?: boolean
@@ -632,14 +626,6 @@ declare interface ErrorSegment {
 // 联合类型
 declare type MessageSegment = TextSegment | ReasoningSegment | ToolCallSegment | ErrorSegment
 
-// 工具调用结果（保持向后兼容）
-declare interface ToolCallResult {
-  name: string
-  content: any
-  cost?: number
-  isError?: boolean
-}
-
 // ==================== Compression Types ====================
 
 /**
@@ -704,10 +690,7 @@ declare interface SmartMessageGenerationResult {
  */
 declare interface CompressionConfig {
   enabled: boolean              // 是否启用压缩
-  triggerThreshold?: number     // Legacy message-count threshold
   triggerTokenRatio?: number    // 触发压缩的 token 使用比例（默认 0.7）
-  keepRecentCount?: number      // Legacy recent-message retention
-  compressCount?: number        // Legacy per-run message count
   compressionModel?: ModelRef   // 用于压缩的模型（默认使用当前模型）
   autoCompress: boolean         // 是否自动压缩（默认 true）
 }

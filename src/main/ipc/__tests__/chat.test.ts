@@ -203,7 +203,7 @@ describe('registerChatHandlers', () => {
     expect(runServiceCancelMock).not.toHaveBeenCalled()
   })
 
-  it('registers run handlers on new run:* channels while keeping legacy request aliases', async () => {
+  it('registers current run channels without retired request aliases', async () => {
     const { registerChatHandlers } = await import('../chat')
 
     registerChatHandlers()
@@ -213,19 +213,19 @@ describe('registerChatHandlers', () => {
     expect(registeredChannels).toContain(RUN_START)
     expect(registeredChannels).toContain(DB_CHAT_SEARCH)
     expect(registeredChannels).toContain(CHAT_FORK)
-    expect(registeredChannels).toContain('chat-run:start')
+    expect(registeredChannels).not.toContain('chat-run:start')
     expect(registeredChannels).toContain(RUN_CANCEL)
-    expect(registeredChannels).toContain('chat-run:cancel')
+    expect(registeredChannels).not.toContain('chat-run:cancel')
     expect(registeredChannels).toContain(RUN_TOOL_CONFIRM)
     expect(registeredChannels).toContain(RUN_TOOL_USER_QUESTION_SUBMIT)
     expect(registeredChannels).toContain(RUN_TOOL_USER_QUESTION_LIST_PENDING)
     expect(registeredChannels).toContain(RUN_STEER)
-    expect(registeredChannels).toContain('chat-run:tool-confirm')
+    expect(registeredChannels).not.toContain('chat-run:tool-confirm')
     expect(registeredChannels).toContain(RUN_PERMISSION_APPROVAL_MODE_UPDATE)
     expect(registeredChannels).toContain(RUN_COMPRESSION_EXECUTE)
-    expect(registeredChannels).toContain('chat-compression:execute')
+    expect(registeredChannels).not.toContain('chat-compression:execute')
     expect(registeredChannels).toContain(RUN_TITLE_GENERATE)
-    expect(registeredChannels).toContain('chat-title:generate')
+    expect(registeredChannels).not.toContain('chat-title:generate')
     expect(registeredChannels).not.toContain('chat-run:event')
   })
 

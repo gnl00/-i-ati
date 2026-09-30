@@ -5,17 +5,15 @@ import {
   DEFAULT_PROVIDER_ICON_DESCRIPTOR,
   getProviderIcon,
   getProviderIconDescriptor,
-  PROVIDER_ICON_DESCRIPTOR_MAP,
-  PROVIDER_ICON_MAP
+  PROVIDER_ICON_DESCRIPTOR_MAP
 } from '../providerIcons'
 
 describe('provider icon descriptors', () => {
-  it('covers every source mapping with appearance metadata', () => {
+  it('covers every available provider with appearance metadata', () => {
     expect(Object.keys(PROVIDER_ICON_DESCRIPTOR_MAP)).toEqual([...AVAILABLE_PROVIDERS])
 
-    for (const [provider, src] of Object.entries(PROVIDER_ICON_MAP)) {
-      const descriptor = PROVIDER_ICON_DESCRIPTOR_MAP[provider]
-      expect(descriptor?.src).toBe(src)
+    for (const descriptor of Object.values(PROVIDER_ICON_DESCRIPTOR_MAP)) {
+      expect(descriptor.src).toBeTruthy()
       expect(['brand', 'monochrome']).toContain(descriptor?.appearance)
     }
   })
@@ -31,7 +29,7 @@ describe('provider icon descriptors', () => {
     expect(PROVIDER_ICON_DESCRIPTOR_MAP.google).toBe(PROVIDER_ICON_DESCRIPTOR_MAP.gemini)
     expect(PROVIDER_ICON_DESCRIPTOR_MAP.xiaomi).toBe(PROVIDER_ICON_DESCRIPTOR_MAP.mimo)
     expect(getProviderIconDescriptor('GEMINI')).toBe(PROVIDER_ICON_DESCRIPTOR_MAP.gemini)
-    expect(getProviderIcon('gemini')).toBe(PROVIDER_ICON_MAP.gemini)
+    expect(getProviderIcon('gemini')).toBe(PROVIDER_ICON_DESCRIPTOR_MAP.gemini.src)
     expect(getProviderIconDescriptor('unknown-provider')).toBe(DEFAULT_PROVIDER_ICON_DESCRIPTOR)
   })
 })

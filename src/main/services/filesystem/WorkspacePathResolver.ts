@@ -10,7 +10,7 @@ export { isPathWithin } from './WorkspacePathBoundary'
 
 const DEFAULT_WORKSPACE_NAME = 'tmp'
 
-export type WorkspacePathMode = 'embedded-relative' | 'workspace-contained' | 'legacy-compatible'
+export type WorkspacePathMode = 'embedded-relative' | 'workspace-contained'
 export type WorkspacePathIntent = 'existing' | 'creatable' | 'traversal' | 'source' | 'destination'
 
 export type WorkspacePathErrorCode =
@@ -46,7 +46,6 @@ export interface ResolvedWorkspacePath {
   canonicalWorkspaceRoot: string
   canonicalPath: string
   intent: WorkspacePathIntent
-  legacyInput: boolean
 }
 
 function hasWindowsAbsoluteForm(value: string): boolean {
@@ -97,33 +96,10 @@ function validateLexicalInput(inputPath: string): void {
   }
 }
 
-function resolveLegacyInput(inputPath: string, workspaceRoot: string): { absolutePath: string, legacyInput: boolean } {
-  const userDataPath = app.getPath('userData')
-  if (isAbsolute(inputPath)) {
-    return { absolutePath: resolve(inputPath), legacyInput: true }
-  }
-
-  if (hasWindowsAbsoluteForm(inputPath)) {
-    throw new WorkspacePathError(
-      'PATH_ABSOLUTE_REJECTED',
-      'The absolute path uses a platform form that cannot map to this workspace',
-      inputPath
-    )
-  }
-
-  const normalized = inputPath.replace(/\\/g, '/')
-  const clean = normalized.startsWith('./') ? normalized.slice(2) : normalized
-  if (clean.startsWith('workspaces/')) {
-    return { absolutePath: resolve(join(userDataPath, clean)), legacyInput: true }
-  }
-
-  return { absolutePath: resolve(workspaceRoot, clean), legacyInput: false }
-}
-
 function resolveWorkspaceContainedInput(
   inputPath: string,
   workspaceRoot: string
-): { absolutePath: string, legacyInput: boolean } {
+): { absolutePath: string } {
   if (hasWindowsAbsoluteForm(inputPath) && (process.platform !== 'win32' || !isAbsolute(inputPath))) {
     throw new WorkspacePathError(
       'PATH_ABSOLUTE_REJECTED',
@@ -138,8 +114,7 @@ function resolveWorkspaceContainedInput(
     : resolve(workspaceRoot, normalizedInput)
 
   return {
-    absolutePath: lexicalPath,
-    legacyInput: false
+    absolutePath: lexicalPath
   }
 }
 
@@ -159,11 +134,9 @@ export function resolveWorkspacePath(
     )
   }
 
-  const resolved = options.mode === 'legacy-compatible'
-    ? resolveLegacyInput(inputPath, workspaceRoot)
-    : options.mode === 'workspace-contained'
-      ? resolveWorkspaceContainedInput(inputPath, workspaceRoot)
-      : { absolutePath: resolve(workspaceRoot, inputPath.replace(/\\/g, '/')), legacyInput: false }
+  const resolved = options.mode === 'workspace-contained'
+    ? resolveWorkspaceContainedInput(inputPath, workspaceRoot)
+    : { absolutePath: resolve(workspaceRoot, inputPath.replace(/\\/g, '/')) }
 
   try {
     const canonicalWorkspaceRoot = canonicalizeThroughExistingPrefix(workspaceRoot)
@@ -195,8 +168,7 @@ export function resolveWorkspacePath(
       workspaceRoot,
       canonicalWorkspaceRoot,
       canonicalPath,
-      intent: options.intent,
-      legacyInput: resolved.legacyInput
+      intent: options.intent
     }
   } catch (error) {
     if (error instanceof WorkspacePathError) throw error
@@ -214,7 +186,7 @@ export function resolveWorkspaceRelativePath(
 ): string {
   return resolveWorkspacePath(absolutePath, {
     ...options,
-    mode: 'legacy-compatible',
+    mode: 'workspace-contained',
     intent: 'existing'
   }).relativePath
 }

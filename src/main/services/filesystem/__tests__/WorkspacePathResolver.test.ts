@@ -86,8 +86,7 @@ describe('WorkspacePathResolver', () => {
 
     expect(absolute).toMatchObject({
       absolutePath: join(workspaceRoot, 'src', 'new.ts'),
-      relativePath: 'src/new.ts',
-      legacyInput: false
+      relativePath: 'src/new.ts'
     })
     expect(absolute.canonicalPath).toBe(relativePath.canonicalPath)
     expect(resolveContained(workspaceRoot, 'traversal').relativePath).toBe('.')
@@ -200,15 +199,10 @@ describe('WorkspacePathResolver', () => {
     })
   })
 
-  it('accepts legacy absolute paths inside the workspace and rejects outside paths', () => {
-    const inside = resolveWorkspacePath(join(workspaceRoot, 'legacy.txt'), {
-      chatUuid: 'chat-1', mode: 'legacy-compatible', intent: 'creatable'
-    })
-    expect(inside).toMatchObject({ relativePath: 'legacy.txt', legacyInput: true })
-
-    expect(() => resolveWorkspacePath(join(outsideRoot, 'secret.txt'), {
-      chatUuid: 'chat-1', mode: 'legacy-compatible', intent: 'existing'
-    })).toThrowError(expect.objectContaining({ code: 'PATH_SYMLINK_ESCAPE' }))
+  it('treats the historical workspaces prefix as a literal relative path', () => {
+    expect(resolveContained(join(workspaceRoot, 'safe.txt'), 'creatable').relativePath).toBe('safe.txt')
+    expect(resolveContained('workspaces/chat-1/safe.txt', 'creatable').relativePath)
+      .toBe('workspaces/chat-1/safe.txt')
   })
 
   it('exposes stable typed errors', () => {

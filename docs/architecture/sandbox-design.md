@@ -243,8 +243,9 @@ pnpm run typecheck:web
 文件操作工具通过共享的 `WorkspacePathResolver` 约束 read、write、edit、grep、
 glob、ls、tree、stat、mkdir 和 mv 的访问范围。嵌入式文件工具接受 workspace-relative
 路径和当前操作系统原生的 workspace 内绝对路径，并在响应中输出 workspace-relative
-路径；renderer IPC 的兼容适配器继续接收 workspace 内绝对路径和历史
-`workspaces/<chatUuid>/...` 格式，将其转换成相对路径后进入同一解析流程。
+路径；renderer IPC 接收 workspace 内绝对路径和 workspace-relative 路径，
+两者进入同一解析流程。历史 `workspaces/<chatUuid>/...` 输入不再映射到
+Electron userData；详见 [ADR-0030](../decisions/0030-retire-legacy-tool-input-compatibility.md)。
 
 解析流程固定为：
 

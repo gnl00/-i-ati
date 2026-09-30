@@ -78,16 +78,16 @@ describe('UserQuestionToolsProcessor', () => {
     }
   })
 
-  it('normalizes shorter user input waits to one minute', () => {
+  it('rejects waits below the declared one-minute minimum', () => {
     const validation = validateAskUserQuestionArgs({
       ...validArgs,
       timeout_seconds: 20
     })
 
-    expect(validation.valid).toBe(true)
-    if (validation.valid) {
-      expect(validation.timeoutMs).toBe(60_000)
-    }
+    expect(validation).toEqual({
+      valid: false,
+      message: 'timeout_seconds must be an integer between 60 and 300'
+    })
   })
 
   it('rejects duplicate question and option ids', () => {

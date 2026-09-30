@@ -32,7 +32,7 @@ export class CompressionJobService {
     })
 
     try {
-      const result = await compressionService.execute({
+      const result = await compressionService.compress({
         chatId,
         chatUuid: args.chatEntity.uuid,
         messages: args.messageBuffer,

@@ -36,28 +36,6 @@ export interface ReadTextFileResponse extends ToolFailureResponse {
   error?: string
 }
 
-// ============ Read Multiple Files ============
-export interface ReadMultipleFilesArgs {
-  file_paths: string[]
-  chat_uuid?: string
-  encoding?: string
-}
-
-export interface FileContent extends ToolFailureResponse {
-  file_path: string
-  success: boolean
-  content?: string
-  lines?: number
-  error?: string
-}
-
-export interface ReadMultipleFilesResponse extends ToolFailureResponse {
-  success: boolean
-  files?: FileContent[]
-  total_files?: number
-  error?: string
-}
-
 // ============ Write File ============
 export interface WriteFileArgs {
   file_path: string

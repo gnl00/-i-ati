@@ -4,6 +4,10 @@
 **Date:** 2026-07-21<br>
 **Related architecture:** [Sandbox system design](../architecture/sandbox-design.md#workspace-file-operation-confinement)
 
+The historical IPC path alias described below was retired by
+[ADR-0030](0030-retire-legacy-tool-input-compatibility.md). The confinement
+rules and support for workspace-contained absolute paths remain in force.
+
 ## Context
 
 The file-operation tools expose read, write, edit, search, traversal, metadata,

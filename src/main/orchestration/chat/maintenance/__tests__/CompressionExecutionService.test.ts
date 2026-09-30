@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { RUN_EVENTS } from '@shared/run/events'
 
-const { emitterInstances, compressionExecuteMock } = vi.hoisted(() => ({
+const { emitterInstances, compressionMock } = vi.hoisted(() => ({
   emitterInstances: [] as Array<{ emit: ReturnType<typeof vi.fn> }>,
-  compressionExecuteMock: vi.fn(async () => ({ success: true }))
+  compressionMock: vi.fn(async () => ({ success: true }))
 }))
 
 vi.mock('@main/orchestration/chat/run/infrastructure', () => {
@@ -33,7 +33,7 @@ vi.mock('@main/orchestration/chat/run/infrastructure', () => {
 
 vi.mock('../MessageCompressionService', () => ({
   compressionService: {
-    execute: compressionExecuteMock
+    compress: compressionMock
   }
 }))
 
@@ -52,8 +52,8 @@ const input = {
 describe('CompressionExecutionService', () => {
   beforeEach(() => {
     emitterInstances.length = 0
-    compressionExecuteMock.mockReset()
-    compressionExecuteMock.mockResolvedValue({ success: true })
+    compressionMock.mockReset()
+    compressionMock.mockResolvedValue({ success: true })
   })
 
   it('emits started/completed around compression execution', async () => {
@@ -62,7 +62,7 @@ describe('CompressionExecutionService', () => {
     const result = await service.execute(input)
 
     expect(result).toEqual({ success: true })
-    expect(compressionExecuteMock).toHaveBeenCalledTimes(1)
+    expect(compressionMock).toHaveBeenCalledTimes(1)
     expect(emitterInstances[0]?.emit).toHaveBeenCalledWith(RUN_EVENTS.COMPRESSION_STARTED, {
       chatId: 1,
       chatUuid: 'chat-1',
@@ -75,7 +75,7 @@ describe('CompressionExecutionService', () => {
 
   it('emits failed when compression throws', async () => {
     const service = new CompressionExecutionService()
-    compressionExecuteMock.mockRejectedValueOnce(new Error('compression boom'))
+    compressionMock.mockRejectedValueOnce(new Error('compression boom'))
 
     await expect(service.execute(input)).rejects.toThrow('compression boom')
     expect(emitterInstances[0]?.emit).toHaveBeenCalledWith(RUN_EVENTS.COMPRESSION_FAILED, {

@@ -5,14 +5,6 @@ export interface WebSearchArgs {
   chat_uuid?: string
 }
 
-/** @deprecated Use WebSearchResponse instead */
-export interface WebSearchResult {
-  success: boolean
-  result: string[]
-  links: string[]
-  error?: string
-}
-
 export interface WebSearchResultV2 {
   query: string
   success: boolean

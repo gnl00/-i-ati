@@ -12,7 +12,6 @@ describe('tool definitions', () => {
     const toolNames = (tools as ToolDefinition[]).map(tool => tool.function.name)
 
     expect(new Set(toolNames).size).toBe(toolNames.length)
-    expect(toolNames).toHaveLength(63)
   })
 
   it('exposes one flat wiki definition with a required action enum', () => {

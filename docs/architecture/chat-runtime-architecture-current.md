@@ -2,6 +2,12 @@
 
 ## Current structure
 
+Chat IPC requests use the shared `run:*` channels exclusively. Retired
+`chat-run:*`, `chat-compression:execute` and `chat-title:generate` request
+aliases are no longer registered. Renderer callers use the typed run invokers.
+Manual and post-run compression call `MessageCompressionService.compress()`
+directly; maintenance orchestration owns lifecycle event emission.
+
 The chat runtime uses four cooperating boundaries:
 
 - `src/main/agent/runtime/`: provider-independent loop, step, transcript, model,

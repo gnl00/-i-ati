@@ -10,7 +10,6 @@ import type {
 
 const DEFAULT_TIMEOUT_SECONDS = 60
 const MIN_TIMEOUT_SECONDS = 60
-const LEGACY_MIN_TIMEOUT_SECONDS = 5
 const MAX_TIMEOUT_SECONDS = 300
 const DEFAULT_TEXT_MAX_LENGTH = 2000
 
@@ -197,15 +196,12 @@ export function validateAskUserQuestionArgs(args: AskUserQuestionArgs = {}): Val
     if (new Set(questionIds).size !== questionIds.length) {
       return { valid: false, message: 'Question ids must be unique' }
     }
-    const timeoutSeconds = Math.max(
+    const timeoutSeconds = integerInRange(
+      args.timeout_seconds,
+      'timeout_seconds',
       MIN_TIMEOUT_SECONDS,
-      integerInRange(
-        args.timeout_seconds,
-        'timeout_seconds',
-        LEGACY_MIN_TIMEOUT_SECONDS,
-        MAX_TIMEOUT_SECONDS,
-        DEFAULT_TIMEOUT_SECONDS
-      )
+      MAX_TIMEOUT_SECONDS,
+      DEFAULT_TIMEOUT_SECONDS
     )
     return {
       valid: true,

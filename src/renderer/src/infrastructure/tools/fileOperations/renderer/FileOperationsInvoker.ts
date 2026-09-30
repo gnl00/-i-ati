@@ -1,6 +1,5 @@
 import {
   FILE_READ_TEXT_ACTION,
-  FILE_READ_MULTIPLE_ACTION,
   FILE_WRITE_ACTION,
   FILE_EDIT_ACTION,
   FILE_SEARCH_ACTION,
@@ -17,8 +16,6 @@ import { getRendererToolRuntimeContext } from '@renderer/infrastructure/tools/ru
 import type {
   ReadTextFileArgs,
   ReadTextFileResponse,
-  ReadMultipleFilesArgs,
-  ReadMultipleFilesResponse,
   WriteFileArgs,
   WriteFileResponse,
   EditFileArgs,
@@ -77,18 +74,6 @@ export async function invokeReadTextFile(args: ReadTextFileArgs): Promise<ReadTe
   } catch (error: any) {
     console.error('[ReadTextFileInvoker] Error:', error)
     return { success: false, error: error.message || 'Unknown error occurred' }
-  }
-}
-
-/**
- * Read Multiple Files Invoker
- */
-export async function invokeReadMultipleFiles(args: ReadMultipleFilesArgs): Promise<ReadMultipleFilesResponse> {
-  try {
-    const ipc = getElectronIPC()
-    return await ipc.invoke(FILE_READ_MULTIPLE_ACTION, withChatUuid(args))
-  } catch (error: any) {
-    return { success: false, error: error.message || 'Unknown error' }
   }
 }
 

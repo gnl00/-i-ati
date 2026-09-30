@@ -444,10 +444,6 @@ export class MessageCompressionService {
     }
   }
 
-  // Backward-compatible alias for IPC handler
-  async execute(job: CompressionJob): Promise<CompressionResult> {
-    return this.compress(job)
-  }
 }
 
 // 导出单例

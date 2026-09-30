@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { RUN_EVENTS } from '@shared/run/events'
 
-const { emitterInstances, compressionExecuteMock } = vi.hoisted(() => ({
+const { emitterInstances, compressionMock } = vi.hoisted(() => ({
   emitterInstances: [] as Array<{ emit: ReturnType<typeof vi.fn> }>,
-  compressionExecuteMock: vi.fn(async () => ({ success: true }))
+  compressionMock: vi.fn(async () => ({ success: true }))
 }))
 
 vi.mock('@main/orchestration/chat/run/infrastructure', () => {
@@ -39,7 +39,7 @@ vi.mock('@main/db/DatabaseService', () => ({
 
 vi.mock('@main/orchestration/chat/maintenance/MessageCompressionService', () => ({
   compressionService: {
-    execute: compressionExecuteMock
+    compress: compressionMock
   }
 }))
 
@@ -90,8 +90,8 @@ const config = {
 describe('CompressionJobService', () => {
   beforeEach(() => {
     emitterInstances.length = 0
-    compressionExecuteMock.mockReset()
-    compressionExecuteMock.mockResolvedValue({ success: true })
+    compressionMock.mockReset()
+    compressionMock.mockResolvedValue({ success: true })
   })
 
   it('emits completed when compression succeeds', async () => {
@@ -99,7 +99,7 @@ describe('CompressionJobService', () => {
 
     await service.run(args, config)
 
-    expect(compressionExecuteMock).toHaveBeenCalledTimes(1)
+    expect(compressionMock).toHaveBeenCalledTimes(1)
     expect(emitterInstances[0]?.emit).toHaveBeenCalledWith(RUN_EVENTS.COMPRESSION_STARTED, {
       messageCount: args.messageBuffer.length
     })
@@ -110,7 +110,7 @@ describe('CompressionJobService', () => {
 
   it('emits failed when compression returns an error result', async () => {
     const service = new CompressionJobService()
-    compressionExecuteMock.mockResolvedValueOnce({
+    compressionMock.mockResolvedValueOnce({
       success: false,
       error: 'compression failed'
     } as any)

@@ -349,7 +349,7 @@ describe('DuckDuckGo search engine', () => {
       'https://duckduckgo.com/?q=Time%20Machine%20backup&ia=web'
     )
     const searchDefinition = webTools.find(tool => tool.function.name === 'web_search')
-    expect(searchDefinition?.function.parameters.properties.engine.enum).toContain('duckduckgo')
+    expect(searchDefinition?.function.parameters.properties.engine?.enum).toContain('duckduckgo')
   })
 
   it('extracts result cards and decodes DuckDuckGo redirect URLs', () => {

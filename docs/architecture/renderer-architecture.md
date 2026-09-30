@@ -9,6 +9,12 @@ Related implementation: [`src/renderer/src`](../../src/renderer/src)<br>
 
 ## Directory boundaries
 
+Message persistence exposes current Renderer operations only; batch lookup by
+message IDs remains a Main database operation for request materialization.
+File tooling exposes single-file reads; the unused multi-file Renderer invoker,
+IPC channel and shared result contract have been retired. Provider icon source
+lookups and available-provider lists derive from the descriptor map directly.
+
 The renderer uses domain-first feature ownership with explicit application,
 shared, infrastructure, and development boundaries.
 

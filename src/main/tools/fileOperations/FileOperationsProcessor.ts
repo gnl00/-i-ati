@@ -5,11 +5,9 @@ import { createLogger } from '@main/logging/LogService'
 import {
   isPathWithin,
   resolveWorkspacePath,
-  resolveWorkspaceRoot,
   WorkspacePathError,
   type ResolvedWorkspacePath,
-  type WorkspacePathIntent,
-  type WorkspacePathMode
+  type WorkspacePathIntent
 } from '@main/services/filesystem/WorkspacePathResolver'
 import { runRipgrepFileList, runRipgrepSearch } from './RipgrepRunner'
 import type {
@@ -17,9 +15,6 @@ import type {
   ReadTextFileResponse,
   ReadArgs,
   ReadResponse,
-  ReadMultipleFilesArgs,
-  ReadMultipleFilesResponse,
-  FileContent,
   WriteFileArgs,
   WriteFileResponse,
   WriteArgs,
@@ -216,11 +211,7 @@ function fileNotFoundFailure(message: string, code = 'FILE_NOT_FOUND'): ToolFail
 
 // ============ Helper Functions ============
 
-type FileToolPathContract = 'embedded' | 'legacy-ipc'
-
-function pathModeForContract(contract: FileToolPathContract): WorkspacePathMode {
-  return contract === 'embedded' ? 'workspace-contained' : 'legacy-compatible'
-}
+type FileToolPathContract = 'embedded' | 'renderer-ipc'
 
 function resolveFilePath(
   inputPath: string,
@@ -232,13 +223,10 @@ function resolveFilePath(
   const resolvedPath = resolveWorkspacePath(inputPath, {
     chatUuid,
     intent,
-    mode: pathModeForContract(contract),
+    mode: 'workspace-contained',
     workspaceRootOverride
   })
 
-  if (resolvedPath.legacyInput) {
-    logger.warn('path.legacy_input_accepted', { inputPath, chatUuid: chatUuid ?? 'none' })
-  }
   logger.debug('path.resolved', {
     inputPath,
     resolvedPath: resolvedPath.absolutePath,
@@ -408,7 +396,7 @@ async function runWithConcurrency<T>(
  */
 export async function processReadTextFile(
   args: ReadTextFileArgs,
-  contract: FileToolPathContract = 'legacy-ipc'
+  contract: FileToolPathContract = 'renderer-ipc'
 ): Promise<ReadTextFileResponse> {
   try {
     const {
@@ -540,60 +528,6 @@ export async function processRead(args: ReadArgs): Promise<ReadResponse> {
   return processReadTextFile(args, 'embedded')
 }
 
-/**
- * Deprecated compatibility path kept for renderer IPC.
- * Embedded tools no longer expose multi-file reads.
- */
-export async function processReadMultipleFiles(args: ReadMultipleFilesArgs): Promise<ReadMultipleFilesResponse> {
-  try {
-    const { file_paths, chat_uuid, encoding = 'utf-8' } = args
-    logger.info('read_multiple_files.start', { count: file_paths.length })
-    const baseDir = resolveWorkspaceRoot(chat_uuid)
-
-    const files: FileContent[] = await Promise.all(
-      file_paths.map(async (file_path) => {
-        try {
-          const absolutePath = resolveFilePath(file_path, chat_uuid, 'existing', 'legacy-ipc', baseDir).absolutePath
-          if (!existsSync(absolutePath)) {
-            return {
-              file_path,
-              success: false,
-              error: 'File not found',
-              failure: fileNotFoundFailure('The requested file does not exist.')
-            }
-          }
-          const content = await readFile(absolutePath, encoding as BufferEncoding)
-          const lines = content.split('\n').length
-          return { file_path, success: true, content, lines }
-        } catch (error: any) {
-          return {
-            file_path,
-            success: false,
-            error: fileErrorMessage(error, 'Failed to read file'),
-            failure: failureForFileError(error, {
-              code: 'FILE_READ_FAILED',
-              message: 'The file could not be read.'
-            })
-          }
-        }
-      })
-    )
-
-    logger.info('read_multiple_files.success', { count: files.length })
-    return { success: true, files, total_files: files.length }
-  } catch (error: any) {
-    logger.error('read_multiple_files.failed', error)
-    return {
-      success: false,
-      error: fileErrorMessage(error, 'Failed to read multiple files'),
-      failure: failureForFileError(error, {
-        code: 'FILES_READ_FAILED',
-        message: 'The requested files could not be read.'
-      })
-    }
-  }
-}
-
 // ============ Write Operations ============
 
 /**
@@ -602,7 +536,7 @@ export async function processReadMultipleFiles(args: ReadMultipleFilesArgs): Pro
  */
 export async function processWriteFile(
   args: WriteFileArgs,
-  contract: FileToolPathContract = 'legacy-ipc'
+  contract: FileToolPathContract = 'renderer-ipc'
 ): Promise<WriteFileResponse> {
   try {
     const { file_path, chat_uuid, content, encoding = 'utf-8', create_dirs = true, backup = false } = args
@@ -1017,7 +951,7 @@ function findNearestMatches(content: string, search: string, range: TextEditRang
  */
 export async function processEditFile(
   args: EditFileArgs,
-  contract: FileToolPathContract = 'legacy-ipc'
+  contract: FileToolPathContract = 'renderer-ipc'
 ): Promise<EditFileResponse> {
   try {
     const {
@@ -1203,7 +1137,7 @@ export async function processEdit(args: EditArgs): Promise<EditResponse> {
  */
 export async function processSearchFile(
   args: SearchFileArgs,
-  contract: FileToolPathContract = 'legacy-ipc'
+  contract: FileToolPathContract = 'renderer-ipc'
 ): Promise<SearchFileResponse> {
   try {
     const { file_path, chat_uuid, pattern, regex = false, case_sensitive = true, max_results = 100 } = args
@@ -1317,7 +1251,7 @@ async function collectSearchCandidateFiles(
  */
 export async function processSearchFiles(
   args: SearchFilesArgs,
-  contract: FileToolPathContract = 'legacy-ipc'
+  contract: FileToolPathContract = 'renderer-ipc'
 ): Promise<SearchFilesResponse> {
   try {
     const { directory_path, chat_uuid, pattern, regex = false, case_sensitive = true, max_results = 100, file_pattern } = args
@@ -1518,7 +1452,7 @@ export async function processGrep(args: GrepArgs): Promise<GrepResponse> {
  */
 export async function processListDirectory(
   args: ListDirectoryArgs,
-  contract: FileToolPathContract = 'legacy-ipc'
+  contract: FileToolPathContract = 'renderer-ipc'
 ): Promise<ListDirectoryResponse> {
   try {
     const { directory_path, chat_uuid } = args
@@ -1578,7 +1512,7 @@ export async function processListDirectory(
  */
 export async function processListDirectoryWithSizes(
   args: ListDirectoryWithSizesArgs,
-  contract: FileToolPathContract = 'legacy-ipc'
+  contract: FileToolPathContract = 'renderer-ipc'
 ): Promise<ListDirectoryWithSizesResponse> {
   try {
     const { directory_path, chat_uuid } = args
@@ -1678,7 +1612,7 @@ export async function processLs(args: LsArgs): Promise<LsResponse> {
  */
 export async function processDirectoryTree(
   args: DirectoryTreeArgs,
-  contract: FileToolPathContract = 'legacy-ipc'
+  contract: FileToolPathContract = 'renderer-ipc'
 ): Promise<DirectoryTreeResponse> {
   try {
     const { directory_path, chat_uuid, max_depth = 3 } = args
@@ -1946,7 +1880,7 @@ export async function processGlob(args: GlobArgs): Promise<GlobResponse> {
  */
 export async function processGetFileInfo(
   args: GetFileInfoArgs,
-  contract: FileToolPathContract = 'legacy-ipc'
+  contract: FileToolPathContract = 'renderer-ipc'
 ): Promise<GetFileInfoResponse> {
   try {
     const { file_path, chat_uuid } = args
@@ -2041,7 +1975,7 @@ export async function processListAllowedDirectories(args: ListAllowedDirectories
  */
 export async function processCreateDirectory(
   args: CreateDirectoryArgs,
-  contract: FileToolPathContract = 'legacy-ipc'
+  contract: FileToolPathContract = 'renderer-ipc'
 ): Promise<CreateDirectoryResponse> {
   try {
     const { directory_path, chat_uuid, recursive = true } = args
@@ -2083,7 +2017,7 @@ export async function processMkdir(args: MkdirArgs): Promise<MkdirResponse> {
  */
 export async function processMoveFile(
   args: MoveFileArgs,
-  contract: FileToolPathContract = 'legacy-ipc'
+  contract: FileToolPathContract = 'renderer-ipc'
 ): Promise<MoveFileResponse> {
   try {
     const { source_path, destination_path, chat_uuid, overwrite = false } = args

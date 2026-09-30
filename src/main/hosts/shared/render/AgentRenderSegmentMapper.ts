@@ -11,24 +11,7 @@ import { HostStepOutputPolicy } from './HostStepOutputPolicy'
 export type AgentRenderLayer = 'preview' | 'committed'
 
 export type AgentRenderSegmentMapperOptions = {
-  /**
-   * 可见性策略。默认使用共享的 HostStepOutputPolicy（含默认 hidden tool 名单）。
-   * 也允许传入 tool 名单数组/集合作为向后兼容的便捷写法。
-   */
   policy?: HostStepOutputPolicy
-  hiddenToolNames?: ReadonlySet<string> | string[]
-}
-
-const resolvePolicy = (
-  options: AgentRenderSegmentMapperOptions
-): HostStepOutputPolicy => {
-  if (options.policy) {
-    return options.policy
-  }
-  if (options.hiddenToolNames) {
-    return new HostStepOutputPolicy(options.hiddenToolNames)
-  }
-  return new HostStepOutputPolicy()
 }
 
 const buildReasoningSegment = (
@@ -56,7 +39,7 @@ export class AgentRenderSegmentMapper {
   private readonly policy: HostStepOutputPolicy
 
   constructor(options: AgentRenderSegmentMapperOptions = {}) {
-    this.policy = resolvePolicy(options)
+    this.policy = options.policy ?? new HostStepOutputPolicy()
   }
 
   toMessageToolCall(toolCall: AgentRenderToolCallState): IToolCall {

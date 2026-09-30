@@ -38,11 +38,6 @@ import type { RunCancelRequest } from '@shared/run/cancellation'
 
 const runService = new RunService()
 const logger = createLogger('DatabaseIPC')
-const LEGACY_RUN_START = 'chat-run:start'
-const LEGACY_RUN_CANCEL = 'chat-run:cancel'
-const LEGACY_RUN_TOOL_CONFIRM = 'chat-run:tool-confirm'
-const LEGACY_RUN_COMPRESSION_EXECUTE = 'chat-compression:execute'
-const LEGACY_RUN_TITLE_GENERATE = 'chat-title:generate'
 
 function toChatHostBindingSummary(binding: ChatHostBindingEntity): ChatHostBindingSummary {
   return {
@@ -238,13 +233,10 @@ export function registerChatHandlers(): void {
   })
 
   ipcMain.handle(RUN_START, handleRunStart)
-  ipcMain.handle(LEGACY_RUN_START, handleRunStart)
 
   ipcMain.handle(RUN_CANCEL, handleRunCancel)
-  ipcMain.handle(LEGACY_RUN_CANCEL, handleRunCancel)
 
   ipcMain.handle(RUN_TOOL_CONFIRM, handleRunToolConfirm)
-  ipcMain.handle(LEGACY_RUN_TOOL_CONFIRM, handleRunToolConfirm)
   ipcMain.handle(RUN_TOOL_CONFIRMATION_SNAPSHOT, handleToolConfirmationSnapshot)
   ipcMain.handle(RUN_TOOL_USER_QUESTION_SUBMIT, handleRunToolUserQuestionSubmit)
   ipcMain.handle(RUN_TOOL_USER_QUESTION_LIST_PENDING, handleRunToolUserQuestionListPending)
@@ -257,16 +249,8 @@ export function registerChatHandlers(): void {
     console.log('[Compression IPC] Execute')
     return await runService.executeCompression(data)
   })
-  ipcMain.handle(LEGACY_RUN_COMPRESSION_EXECUTE, async (_event, data: CompressionExecutionInput) => {
-    console.log('[Compression IPC] Execute')
-    return await runService.executeCompression(data)
-  })
 
   ipcMain.handle(RUN_TITLE_GENERATE, async (_event, data: TitleGenerationInput) => {
-    console.log('[Title IPC] Generate title')
-    return await runService.generateTitle(data)
-  })
-  ipcMain.handle(LEGACY_RUN_TITLE_GENERATE, async (_event, data: TitleGenerationInput) => {
     console.log('[Title IPC] Generate title')
     return await runService.generateTitle(data)
   })
