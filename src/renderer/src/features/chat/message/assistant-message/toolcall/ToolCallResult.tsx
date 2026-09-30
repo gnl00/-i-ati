@@ -547,7 +547,14 @@ export const ToolCallTriggerContent = React.memo(({
   if (quiet) {
     return (
       <span className="flex w-full min-w-0 items-center gap-2 text-[12px] text-slate-500 dark:text-(--chat-text-secondary)">
-        <StatusIcon aria-hidden="true" className={cn('h-3.5 w-3.5 shrink-0', statusIconClassName)} />
+        <span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+          <StatusIcon aria-hidden="true" className={cn(
+            statusIconClassName,
+            !isError && !isRunning && !isPending && !approvalDescription
+              ? cn('h-2.5 w-2.5 transition-opacity duration-150 group-hover/support:opacity-80 group-focus-visible/support:opacity-80 motion-reduce:transition-none', isSelected ? 'opacity-80' : 'opacity-30')
+              : 'h-3.5 w-3.5'
+          )} />
+        </span>
         <span className="min-w-0 flex-1 truncate" title={reason || toolCall.name}>{[reason || toolCall.name, approvalDescription].filter(Boolean).join(' · ')}</span>
         {trailing}
       </span>

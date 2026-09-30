@@ -152,10 +152,10 @@ const ToolCallGroupRow = memo(({
               data-testid={`tool-call-chevron-${item.segment.segmentId}`}
               className={cn(
                 nestedDisclosure
-                  ? 'h-3 w-3 transition-[transform,opacity] duration-200 group-hover/support:opacity-80 group-focus-visible/support:opacity-80 motion-reduce:transition-none'
+                  ? 'h-3 w-3 p-px transition-[transform,opacity] duration-200 group-hover/support:opacity-80 group-focus-visible/support:opacity-80 motion-reduce:transition-none'
                   : 'h-3.5 w-3.5 transition-transform duration-200 motion-reduce:transition-none',
                 expanded && 'rotate-180',
-                nestedDisclosure && (expanded ? 'opacity-80' : 'opacity-[0.45]')
+                nestedDisclosure && (expanded ? 'opacity-80' : 'opacity-20')
               )}
             />
           )}

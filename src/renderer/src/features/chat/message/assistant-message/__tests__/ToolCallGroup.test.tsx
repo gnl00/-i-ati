@@ -187,7 +187,7 @@ describe('ToolCallGroup', () => {
     expect(chevron?.classList.contains('w-3')).toBe(true)
     expect(chevron?.classList.contains('h-3.5')).toBe(false)
     expect(chevron?.classList.contains('transition-[transform,opacity]')).toBe(true)
-    expect(chevron?.classList.contains('opacity-[0.45]')).toBe(true)
+    expect(chevron?.classList.contains('opacity-20')).toBe(true)
     expect(chevron?.classList.contains('group-hover/support:opacity-80')).toBe(true)
     expect(chevron?.classList.contains('group-focus-visible/support:opacity-80')).toBe(true)
     expect(chevron?.classList.contains('motion-reduce:transition-none')).toBe(true)
@@ -197,7 +197,7 @@ describe('ToolCallGroup', () => {
     expect(row?.getAttribute('aria-expanded')).toBe('true')
     expect(chevron?.classList.contains('rotate-180')).toBe(true)
     expect(chevron?.classList.contains('opacity-80')).toBe(true)
-    expect(chevron?.classList.contains('opacity-[0.45]')).toBe(false)
+    expect(chevron?.classList.contains('opacity-20')).toBe(false)
   })
 
   it('places tool identity and duration in the Tool header and preserves parameter copying', async () => {

@@ -170,7 +170,7 @@ const ReasoningSegmentComponent: React.FC<ReasoningSegmentProps> = ({
           >
             <ChevronRight
               aria-hidden="true"
-              className={cn('mt-1.5 h-3.5 w-3.5 shrink-0 text-slate-400 transition-colors duration-150 group-hover/reasoning:text-slate-600 dark:text-(--chat-text-secondary) dark:group-hover/reasoning:text-(--chat-text-body) motion-reduce:transition-none', isOpen && 'rotate-90')}
+              className={cn('mt-1.5 h-3.5 w-3.5 shrink-0 p-0.5 text-slate-400 transition-[color,opacity] duration-150 group-hover/reasoning:text-slate-600 group-hover/reasoning:opacity-80 group-focus-visible/reasoning:opacity-80 dark:text-(--chat-text-secondary) dark:group-hover/reasoning:text-(--chat-text-body) motion-reduce:transition-none', isOpen ? 'rotate-90 opacity-80' : 'opacity-30')}
             />
             {isOpen ? (
               <motion.span
