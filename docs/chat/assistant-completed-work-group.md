@@ -1,6 +1,6 @@
 # Assistant whole-turn work group
 
-Updated: 2026-09-22.
+Updated: 2026-09-30.
 
 ## Presentation contract
 
@@ -20,7 +20,12 @@ The same mounted outer panel is retained across status changes.
 
 The header uses quiet secondary text and a small chevron, with elapsed seconds and
 a tool count when available. Both values use subtle neutral badges (`9s`,
-`3 tool calls`) without dot separators. Labels and disclosure actions use English.
+`3 tool calls`) without dot separators. The two independent Soft badges have a
+20px height, 5px corner radius, 6px horizontal padding, 10.5px tabular text and
+a 5px gap. Light uses the inset surface at 45% opacity; Dark uses the raised
+Chat surface at 55%. Secondary text uses 85% opacity in both themes. The badge
+group stays 8px from the label and shares the header's disclosure action.
+Labels and disclosure actions use English.
 It has no card border. Short reasoning appears inline;
 long reasoning has its own expansion control. Tool rows emphasize the action reason
 (or tool name when absent); parameters and output remain in the existing detail

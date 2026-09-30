@@ -14,7 +14,7 @@ export interface AssistantCompletedWorkGroupProps {
   forceReducedMotion?: boolean
 }
 
-const metadataBadgeClassName = 'shrink-0 rounded-md bg-slate-100/80 px-1.5 py-0.5 text-[10.5px] leading-4 tabular-nums text-slate-500 dark:bg-(--chat-surface-raised) dark:text-(--chat-text-secondary)'
+const metadataBadgeClassName = 'inline-flex h-5 shrink-0 items-center whitespace-nowrap rounded-[5px] bg-(--app-surface-inset)/45 px-1.5 text-[10.5px] leading-4 tabular-nums text-(--chat-text-secondary)/85 dark:bg-(--chat-surface-raised)/55'
 
 const labels = {
   running: 'Working',
@@ -71,8 +71,12 @@ export const AssistantCompletedWorkGroup: React.FC<AssistantCompletedWorkGroupPr
       >
         <ChevronRight aria-hidden="true" className={cn('h-3 w-3 shrink-0', isOpen && 'rotate-90')} />
         <span data-testid="completed-work-label">{labels[status]}</span>
-        {duration != null && <span className={metadataBadgeClassName}>{formatDuration(duration)}</span>}
-        {toolCount > 0 && <span className={metadataBadgeClassName}>{toolCount} {toolCount === 1 ? 'tool call' : 'tool calls'}</span>}
+        {(duration != null || toolCount > 0) && (
+          <span className="inline-flex shrink-0 items-center gap-1.25">
+            {duration != null && <span className={metadataBadgeClassName}>{formatDuration(duration)}</span>}
+            {toolCount > 0 && <span className={metadataBadgeClassName}>{toolCount} {toolCount === 1 ? 'tool call' : 'tool calls'}</span>}
+          </span>
+        )}
       </button>
       <SizeAnimatedPanel
         id={panelId}
