@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { RUN_EVENTS } from '@shared/run/events'
+import type { PostRunJobInput } from '../types'
 
-const { emitterInstances, compressionMock } = vi.hoisted(() => ({
+const { emitterInstances, compressionMock, strategyMock, summariesMock } = vi.hoisted(() => ({
   emitterInstances: [] as Array<{ emit: ReturnType<typeof vi.fn> }>,
-  compressionMock: vi.fn(async () => ({ success: true }))
+  compressionMock: vi.fn(async () => ({ success: true })),
+  strategyMock: vi.fn(),
+  summariesMock: vi.fn()
 }))
 
 vi.mock('@main/orchestration/chat/run/infrastructure', () => {
@@ -16,11 +19,11 @@ vi.mock('@main/orchestration/chat/run/infrastructure', () => {
   }
 
   class RunEventEmitterFactory {
-    create() {
+    create(): RunEventEmitter {
       return new RunEventEmitter()
     }
 
-    createOptional(meta: { submissionId?: string }) {
+    createOptional(meta: { submissionId?: string }): RunEventEmitter | null {
       if (!meta.submissionId) {
         return null
       }
@@ -31,15 +34,16 @@ vi.mock('@main/orchestration/chat/run/infrastructure', () => {
   return { RunEventEmitter, RunEventEmitterFactory }
 })
 
-vi.mock('@main/db/DatabaseService', () => ({
-  default: {
-    getChatById: vi.fn()
+vi.mock('@main/db/chat', () => ({
+  chatDb: {
+    getActiveCompressedSummariesByChatId: summariesMock
   }
 }))
 
 vi.mock('@main/orchestration/chat/maintenance/MessageCompressionService', () => ({
   compressionService: {
-    compress: compressionMock
+    compress: compressionMock,
+    analyzeCompressionStrategy: strategyMock
   }
 }))
 
@@ -74,10 +78,10 @@ const args = {
   content: 'hello',
   modelContext: {
     model: { id: 'model-1', label: 'model-1', type: 'llm' },
-    account: { id: 'account-1', providerId: 'provider-1', apiUrl: 'https://example.com', apiKey: 'key', models: [] },
-    providerDefinition: { id: 'provider-1', adapterPluginId: 'openai-chat-compatible-adapter' }
+    account: { id: 'account-1', label: 'account-1', providerId: 'provider-1', apiUrl: 'https://example.com', apiKey: 'key', models: [] },
+    providerDefinition: { id: 'provider-1', displayName: 'provider-1', adapterPluginId: 'openai-chat-compatible-adapter' }
   }
-} as any
+} as PostRunJobInput
 
 const config = {
   compression: {
@@ -85,13 +89,57 @@ const config = {
     autoCompress: true,
     triggerTokenRatio: 0.7
   }
-} as any
+} as IAppConfig
 
 describe('CompressionJobService', () => {
   beforeEach(() => {
     emitterInstances.length = 0
     compressionMock.mockReset()
     compressionMock.mockResolvedValue({ success: true })
+    strategyMock.mockReset()
+    strategyMock.mockReturnValue({ shouldCompress: true })
+    summariesMock.mockReset()
+    summariesMock.mockReturnValue([])
+  })
+
+  it('plans compression using the current history, active summaries and model strategy', () => {
+    const summaries = [{ messageIds: [100] }]
+    summariesMock.mockReturnValue(summaries)
+    const service = new CompressionJobService()
+
+    expect(service.shouldRun(args, config)).toBe(true)
+    expect(summariesMock).toHaveBeenCalledWith(1)
+    expect(strategyMock).toHaveBeenCalledWith(
+      args.messageBuffer, summaries, args.modelContext.model, config.compression
+    )
+  })
+
+  it('skips planning and emits no maintenance events when the strategy does not need compression', async () => {
+    strategyMock.mockReturnValue({ shouldCompress: false })
+    const service = new CompressionJobService()
+
+    expect(service.shouldRun(args, config)).toBe(false)
+    await service.run(args, config)
+
+    expect(compressionMock).not.toHaveBeenCalled()
+    expect(emitterInstances).toHaveLength(0)
+  })
+
+  it.each([
+    { compression: { ...config.compression, enabled: false } },
+    { compression: { ...config.compression, autoCompress: false } },
+    {}
+  ])('skips strategy evaluation when automatic compression is disabled: %j', disabledConfig => {
+    expect(new CompressionJobService().shouldRun(args, disabledConfig as IAppConfig)).toBe(false)
+    expect(summariesMock).not.toHaveBeenCalled()
+    expect(strategyMock).not.toHaveBeenCalled()
+  })
+
+  it('skips strategy evaluation without a persisted chat', () => {
+    expect(new CompressionJobService().shouldRun({
+      ...args, chatEntity: { ...args.chatEntity, id: undefined }
+    }, config)).toBe(false)
+    expect(summariesMock).not.toHaveBeenCalled()
   })
 
   it('emits completed when compression succeeds', async () => {
@@ -113,7 +161,7 @@ describe('CompressionJobService', () => {
     compressionMock.mockResolvedValueOnce({
       success: false,
       error: 'compression failed'
-    } as any)
+    } as CompressionResult)
 
     await service.run(args, config)
 

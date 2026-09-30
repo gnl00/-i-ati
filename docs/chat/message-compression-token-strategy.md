@@ -21,12 +21,12 @@ usedTokenCount / contextWindowTokens >= triggerTokenRatio
 ## Runtime Flow
 
 1. Chat run 完成，finalize 阶段保存 assistant message，并写入 `tokens`。
-2. Post-run plan 判断 compression 是否 enabled + autoCompress。
-3. `CompressionJobService` 触发 `MessageCompressionService.execute()`。
-4. 压缩服务读取当前 chat 的 active summaries。
-5. 已被 active summary 覆盖的 `messageIds` 会从本轮候选消息中排除。
-6. 统计剩余消息的 `tokens`，计算 token ratio。
-7. ratio 达到阈值后，本轮所有未压缩消息进入摘要生成。
+2. Post-run plan 检查 enabled + autoCompress，并通过 `MessageCompressionService.analyzeCompressionStrategy()` 读取 active summaries、排除已覆盖消息、计算剩余消息 token ratio 和可压缩范围。
+3. 只有达到阈值且存在可压缩消息时，compression 才标记为 `pending`；否则为 `skipped`，不发送 `compression.started`，不阻塞下一轮提交。
+4. 发送 `run.completed` 后，异步执行已规划的 post-run jobs。
+5. `CompressionJobService` 启动前重新检查策略，通过后触发 `MessageCompressionService.compress()`。
+6. 压缩服务再次读取 active summaries 并检查策略，保留执行时校验和同 chat 并发保护。
+7. 选中的旧消息生成滚动摘要，保留最近三个消息对；已有摘要作为增量压缩输入。
 8. 新摘要保存为 `active`；旧 active summary 标记为 `superseded`。
 9. 新摘要的 `messageIds` 是累积集合，覆盖历史 summary 和本轮新增消息。
 

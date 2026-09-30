@@ -1,4 +1,5 @@
 import { compressionService } from '@main/orchestration/chat/maintenance/MessageCompressionService'
+import { chatDb } from '@main/db/chat'
 import { RUN_MAINTENANCE_EVENTS } from '@shared/run/maintenance-events'
 import { RunEventEmitterFactory } from '@main/orchestration/chat/run/infrastructure'
 import { serializeError } from '@main/utils/serializeError'
@@ -12,7 +13,16 @@ export class CompressionJobService {
 
   shouldRun(args: PostRunJobInput, config: IAppConfig): boolean {
     const compressionConfig = config.compression
-    return Boolean(compressionConfig?.enabled && compressionConfig.autoCompress && args.chatEntity.id)
+    if (!compressionConfig?.enabled || !compressionConfig.autoCompress || !args.chatEntity.id) {
+      return false
+    }
+
+    return compressionService.analyzeCompressionStrategy(
+      args.messageBuffer,
+      chatDb.getActiveCompressedSummariesByChatId(args.chatEntity.id),
+      args.modelContext.model,
+      compressionConfig
+    ).shouldCompress
   }
 
   async run(args: PostRunJobInput, config: IAppConfig): Promise<void> {
