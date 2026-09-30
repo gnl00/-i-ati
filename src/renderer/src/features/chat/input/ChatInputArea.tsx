@@ -818,7 +818,6 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
           ref={textareaRef}
           surfaceRef={setInputAreaContentRef}
           expanded={isWelcomeExpanded}
-          className={cn(isSubmitBlocked && 'opacity-[0.82]')}
           textareaClassName="caret-transparent"
           isDragging={isDragging}
           value={inputContent}
@@ -908,10 +907,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
         className="relative flex flex-col overflow-hidden bg-transparent px-2 py-1"
       >
         <div
-          className={cn(
-            'chat-input-card relative flex min-h-0 flex-col gap-2 overflow-hidden rounded-3xl transition-opacity duration-200 ease-out',
-            isSubmitBlocked && 'opacity-80'
-          )}
+          className="chat-input-card relative flex min-h-0 flex-col gap-2 overflow-hidden rounded-3xl"
         >
           <div className="min-w-0 overflow-hidden">
             <SharedPromptSurface
@@ -919,7 +915,6 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
               surfaceRef={setInputAreaContentRef}
               variant="chat"
               expanded
-              className={cn(isSubmitBlocked && 'opacity-[0.82]')}
               bodyClassName="min-h-0"
               textareaClassName={cn(
                 'caret-transparent overflow-y-auto text-sm font-medium leading-6',

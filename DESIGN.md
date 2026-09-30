@@ -152,6 +152,7 @@ Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif
 - composer 底部 workspace 按钮：默认 `workspaces/<UUID>` 与 `workspaces/tmp` 显示 `tmp`，包括定时任务继承的源会话目录，自选目录显示末级目录名，未确定路径时显示 `Workspace`；已有路径的悬浮提示保留完整路径。三个按钮变体共用这一规则。
 - Welcome composer 的折叠态使用 pill 轮廓，展开后进入完整输入面板。
 - Chat 与 Welcome composer 共用磨砂材质：浅色乳白背景约 75% 不透明，深色 graphite raised 背景约 80% 不透明，使用 `backdrop-filter: blur(20px)`、细边框与轻阴影；正文和操作控件保持清晰，Chat 消息视口延伸至窗口底部，composer 覆盖其上；消息列表底部留白随 composer 实际高度更新，滚动到底时最后一条消息完整露出，跳至最新按钮保持在 composer 上方。输入区底部 4px 留白使用 `--chat-canvas` 遮底，避免消息从窗口底边清晰露出。
+- 提交、流式输出和取消期间，composer 玻璃层及其父层保持整体 opacity 为 1，避免背景采样边界改变；运行状态通过 Stop 按钮和进度条表达，控件弱化仅作用于具体控件。
 - 输入正文使用透明背景，外层 surface 负责材质、边界和 focus 层级。Chat 与展开后的 Welcome composer 正文从 96px 起随内容增长，上限为 `min(240px, 25dvh)`，超出后正文内部滚动；底部 action row 保持可见，Chat 底部锚定并向上增长。附件在正文上方独立占位，删除与清空即时回缩，逐行增长不添加高度过渡。
 - Model selector、approval mode、Workspace 和 Send 共享高度、圆角、间距与暗色 material。
 - 输入、搜索和内部编辑区使用 `--app-surface-inset`，形成向内的空间关系。
