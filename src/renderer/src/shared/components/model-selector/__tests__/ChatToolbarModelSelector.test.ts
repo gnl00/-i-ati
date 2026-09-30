@@ -151,13 +151,13 @@ describe('getChatToolbarModelSelectorTriggerClassName', () => {
     const baseline = getChatToolbarModelSelectorTriggerClassName('baseline', false)
     const selectedBaseline = getChatToolbarModelSelectorTriggerClassName('baseline', true)
 
-    expect(surface).toContain('min-w-[136px]')
-    expect(surface).toContain('max-w-[220px]')
+    expect(surface).toContain('min-w-[206px]')
+    expect(surface).toContain('max-w-[280px]')
     expect(surface).toContain('rounded-[10px]')
     expect(surface).toContain('dark:bg-(--chat-surface)')
     expect(surface).toContain('dark:aria-expanded:bg-(--chat-surface-hover)')
-    expect(baseline).toContain('min-w-[118px]')
-    expect(baseline).toContain('max-w-[184px]')
+    expect(baseline).toContain('min-w-[206px]')
+    expect(baseline).toContain('max-w-[280px]')
     expect(baseline).toContain('rounded-xl')
     expect(baseline).toContain('dark:bg-(--app-surface)')
     expect(baseline).toContain('dark:hover:bg-(--app-surface-hover)')
@@ -177,7 +177,7 @@ describe('thinking level menu interaction', () => {
     container?.remove()
   })
 
-  const openSubMenu = async (selected: boolean): Promise<{ onModelSelect: ReturnType<typeof vi.fn>; onOpenChange: ReturnType<typeof vi.fn> }> => {
+  const openSubMenu = async (selected: boolean, variant: 'default' | 'surface' | 'baseline' = 'default'): Promise<{ onModelSelect: ReturnType<typeof vi.fn>; onOpenChange: ReturnType<typeof vi.fn> }> => {
     const option = createModelOption({ capabilities: ['reasoning'] })
     const onModelSelect = vi.fn()
     const onOpenChange = vi.fn()
@@ -186,6 +186,7 @@ describe('thinking level menu interaction', () => {
     root = createRoot(container)
     await act(async () => {
       root?.render(createElement(ChatToolbarModelSelector, {
+        variant,
         selectedModel: selected ? option : undefined,
         modelOptions: [option],
         plugins: [{ ...plugin, capabilities: [{
@@ -202,11 +203,21 @@ describe('thinking level menu interaction', () => {
       }))
     })
     const trigger = document.body.querySelector<HTMLElement>('[role="menuitem"][aria-haspopup="menu"]')
-    expect(trigger?.textContent).toContain(selected ? 'high' : 'Thinking')
+    expect(trigger?.textContent).toBe('GPT-5')
+    expect(trigger?.querySelector('[aria-label="Thinking"]')).not.toBeNull()
+    expect(trigger?.querySelector('[title="GPT-5"]')).not.toBeNull()
+    expect(Boolean(trigger?.querySelector('[aria-label="Selected"]'))).toBe(selected)
     await act(async () => trigger?.click())
     expect(onModelSelect).not.toHaveBeenCalled()
     return { onModelSelect, onOpenChange }
   }
+
+  it.each(['surface', 'baseline'] as const)('shows the %s model and readable thinking level in a single trigger', async (variant) => {
+    await openSubMenu(true, variant)
+    const trigger = container?.querySelector('[role="combobox"]')
+    expect(trigger?.textContent).toBe('GPT-5High')
+    expect(container?.querySelectorAll('[role="combobox"]')).toHaveLength(1)
+  })
 
   it('marks only the current model level as checked and selects another level', async () => {
     const { onModelSelect, onOpenChange } = await openSubMenu(true)

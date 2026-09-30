@@ -168,6 +168,8 @@ Light 使用 `#f0f2f4` 底色和 `#343a41` 文字，Dark 使用 `#2e3135` 底色
 ### 4.3 输入框与 composer
 
 - Chat composer 是界面的主要操作锚点，展开态使用 24px 圆角、raised surface 和 44px 底部 action row。
+- Chat 模型选择弹层使用 380px 宽度并受视口可用宽度约束，模型行保持单行；名称占据剩余宽度，超长名称通过 title 提示完整内容。Vision 与 Thinking 使用 12px 图标、英文语义标签及 title 提示，不带能力徽标底色；列表不展示 Thinking 档位文字，档位在底部模型入口与子菜单中展示。勾号仅在选中行出现，不预留空槽位，使用无底框样式；能力图标与子菜单箭头保持紧凑排列，Thinking 子菜单保持原交互。
+- Chat 与 Welcome composer 的模型入口共用名称优先和轻量档位展示规则，按内容自然取宽，最小 206px、最大 280px；模型名称使用 11px semibold，Thinking 档位使用 10px medium 次级文字与句首大写（`Extra high`），不带徽标底色。两者共用单一模型菜单入口，名称超长时截断并保留完整名称 tooltip，档位与箭头保持可见。Welcome baseline 的模型与审批组合最大 360px，模型入口填满自身 flex 槽位并允许在窄容器收缩，长名称在按钮内截断，避免溢出覆盖审批按钮；保留 baseline 材质与交互生命周期。
 - composer 底部 workspace 按钮：默认 `workspaces/<UUID>` 与 `workspaces/tmp` 显示 `tmp`，包括定时任务继承的源会话目录，自选目录显示末级目录名，未确定路径时显示 `Workspace`；已有路径的悬浮提示保留完整路径。三个按钮变体共用这一规则。
 - Welcome composer 的折叠态使用 pill 轮廓，展开后进入完整输入面板。
 - Chat 与 Welcome composer 共用磨砂材质：浅色乳白背景约 75% 不透明，深色 graphite raised 背景约 80% 不透明，使用 `backdrop-filter: blur(20px)`、细边框与轻阴影；正文和操作控件保持清晰，Chat 消息视口延伸至窗口底部，composer 覆盖其上；消息列表底部留白随 composer 实际高度更新，滚动到底时最后一条消息完整露出，跳至最新按钮保持在 composer 上方。输入区底部 4px 留白使用 `--chat-canvas` 遮底，避免消息从窗口底边清晰露出。
@@ -183,7 +185,7 @@ Light 使用 `#f0f2f4` 底色和 `#343a41` 文字，Dark 使用 `#2e3135` 底色
 - popover 使用 10px 圆角、raised surface、standard border 和受控阴影。
 - search 区使用 inset surface，provider header 使用安静的 sticky 分组样式。
 - hover 与键盘 current state 使用 `--app-surface-hover`，selected state 同时显示 check 或明确图标。
-- Chat 模型 selector 的 thinking 子菜单使用 184px 宽度、10px 圆角与 32px 选项高度，直接从档位列表开始；当前模型档位使用轻背景与右侧裸勾，其他模型的默认档位使用 `Default` 标记。模型列表仅为当前模型显示具体档位，其他支持思考的模型显示 `Thinking`；`xhigh` 展示为 `Extra high`。档位选择一次确认模型与档位，并关闭菜单。
+- Chat 模型 selector 的 thinking 子菜单使用 184px 宽度、10px 圆角与 32px 选项高度，直接从档位列表开始；当前模型档位使用轻背景与右侧裸勾，其他模型的默认档位使用 `Default` 标记。模型列表使用能力图标，不显示具体档位；入口与子菜单中的 `xhigh` 展示为 `Extra high`。档位选择一次确认模型与档位，并关闭菜单。
 - Settings selector 使用独立 `variant="settings"`，Chat 与 drawer variant 保持各自密度和交互契约。
 - Dark Mode 浮层使用清晰材质边界，backdrop blur 收敛到 0。
 

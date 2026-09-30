@@ -60,10 +60,6 @@ const modelHasVision = (option: ModelOption): boolean => {
   return option.model.type === 'vlm' || option.model.type === 'mllm'
 }
 
-const getThinkingLabel = (value: ThinkingLevel | undefined): string | undefined => {
-  return value === 'xhigh' ? 'Extra high' : value
-}
-
 const getMenuCollisionProps = (): { avoidCollisions: boolean; collisionPadding: number; sticky: 'always' } => ({
   avoidCollisions: true,
   collisionPadding: 16,
@@ -83,7 +79,7 @@ export const getChatToolbarModelSelectorTriggerClassName = (
 ): string => {
   if (variant === 'baseline') {
     return cn(
-      'group relative flex h-8 min-w-[118px] max-w-[184px] items-center justify-between gap-1.5 overflow-hidden rounded-xl px-2.5 py-0.5',
+      'group relative flex h-8 min-w-[206px] max-w-[280px] items-center justify-between gap-1.5 overflow-hidden rounded-xl px-2.5 py-0.5',
       'border border-transparent bg-transparent text-[11px] font-medium text-muted-foreground shadow-none',
       'transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out',
       'hover:border-border/45 hover:bg-foreground/[0.035] hover:text-foreground hover:shadow-[0_8px_18px_color-mix(in_srgb,hsl(var(--foreground))_4%,transparent)]',
@@ -97,7 +93,7 @@ export const getChatToolbarModelSelectorTriggerClassName = (
 
   if (variant === 'surface') {
     return cn(
-      'group relative flex h-8 min-w-[136px] max-w-[220px] items-center justify-between gap-1.5 overflow-hidden rounded-[10px] px-2.5 py-0.5',
+      'group relative flex h-8 min-w-[206px] max-w-[280px] items-center justify-between gap-1.5 overflow-hidden rounded-[10px] px-2.5 py-0.5',
       'border border-slate-200/45 bg-white/35 text-[11px] font-medium text-slate-600 shadow-none',
       'transition-[background-color,border-color,color,transform] duration-150 ease-out',
       'hover:border-slate-300/65 hover:bg-slate-50/80 hover:text-slate-800',
@@ -151,6 +147,7 @@ const ModelSelectorTrigger = React.forwardRef<HTMLButtonElement, ModelSelectorTr
   ...triggerProps
 }, ref) => {
   const selected = Boolean(selectedModel)
+  const isCompact = variant !== 'default'
   const showNeutralHoverSheen = selected && variant === 'default' && !hideSelectedHoverShine
 
   return (
@@ -170,21 +167,35 @@ const ModelSelectorTrigger = React.forwardRef<HTMLButtonElement, ModelSelectorTr
       <span
         className={cn(
           'relative z-10 flex min-w-0 grow overflow-x-hidden select-none',
-          variant === 'surface' ? 'justify-start' : 'justify-center'
+          isCompact ? 'justify-start' : 'justify-center'
         )}
       >
         {selectedModel ? (
           <TooltipProvider delayDuration={350}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="flex min-w-0 items-center gap-1.5 animate-in fade-in slide-in-from-left-1 duration-300">
-                  <span className="truncate">{selectedModel.model.label}</span>
+                <span className={cn(
+                  'flex min-w-0 items-center gap-1.5',
+                  isCompact ? 'w-full' : 'animate-in fade-in slide-in-from-left-1 duration-300'
+                )}>
+                  <span className={cn('truncate', isCompact && 'min-w-0 flex-1 font-semibold')}>
+                    {selectedModel.model.label}
+                  </span>
                   {modelHasVision(selectedModel) && (
                     <Eye className="h-3 w-3 shrink-0 text-slate-500 dark:text-slate-300" />
                   )}
                   {selectedThinkingLevel && selectedThinkingCapability && (
-                    <span className="shrink-0 rounded-md bg-muted px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      {selectedThinkingLevel}
+                    <span className={cn(
+                      'shrink-0',
+                      isCompact
+                        ? 'ml-1 text-[10px] font-medium text-muted-foreground dark:text-(--chat-text-secondary)'
+                        : 'rounded-md bg-muted px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-muted-foreground'
+                    )}>
+                      {isCompact
+                        ? selectedThinkingLevel === 'xhigh'
+                          ? 'Extra high'
+                          : selectedThinkingLevel.charAt(0).toUpperCase() + selectedThinkingLevel.slice(1)
+                        : selectedThinkingLevel}
                     </span>
                   )}
                 </span>
@@ -206,8 +217,8 @@ const ModelSelectorTrigger = React.forwardRef<HTMLButtonElement, ModelSelectorTr
 
       <ChevronsUpDown
         className={cn(
-          'relative z-10 flex opacity-50 transition-[transform,opacity] duration-200 group-hover:opacity-100',
-          variant === 'surface'
+          'relative z-10 flex shrink-0 opacity-50 transition-[transform,opacity] duration-200 group-hover:opacity-100',
+          isCompact
             ? 'h-3.5 w-3.5 text-slate-500 dark:text-(--chat-text-secondary)'
             : 'h-4 w-4',
           isOpen && 'rotate-180'
@@ -296,36 +307,32 @@ interface ModelOptionContentProps {
   option: ModelOption
   selected: boolean
   capability?: ThinkingCapability
-  levelValue?: ThinkingLevel
 }
 
 const ModelOptionContent: React.FC<ModelOptionContentProps> = ({
   option,
   selected,
-  capability,
-  levelValue
+  capability
 }) => {
   return (
     <>
-      <span className="flex min-w-0 flex-1 items-center gap-2">
-        <span className="truncate">{option.model.label}</span>
+      <span className="min-w-0 flex-1 truncate" title={option.model.label}>
+        {option.model.label}
+      </span>
+      <span className="flex shrink-0 items-center gap-1.5 text-muted-foreground dark:text-(--chat-text-secondary)">
         {modelHasVision(option) && (
-          <span className="inline-flex h-5 items-center rounded-md bg-muted px-1.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground dark:bg-(--chat-surface-hover) dark:text-(--chat-text-secondary)">
-            <Eye className="mr-1 size-3!" />
-            vision
+          <span className="inline-flex" role="img" aria-label="Vision" title="Vision">
+            <Eye className="size-3!" aria-hidden="true" />
           </span>
         )}
         {capability && (
-          <span className="inline-flex h-5 items-center rounded-md bg-muted px-1.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground dark:bg-(--chat-surface-hover) dark:text-(--chat-text-secondary)">
-            <Lightbulb className="mr-1 size-3!" />
-            {selected ? getThinkingLabel(levelValue) ?? 'Thinking' : 'Thinking'}
+          <span className="inline-flex" role="img" aria-label="Thinking" title="Thinking">
+            <Lightbulb className="size-3!" aria-hidden="true" />
           </span>
         )}
       </span>
       {selected && (
-        <span className="ml-2 grid h-5 w-5 shrink-0 place-items-center rounded-md border border-border/60 bg-background/85 text-foreground shadow-xs dark:border-(--chat-border-standard) dark:bg-(--chat-surface) dark:text-(--chat-accent-strong) dark:shadow-none">
-          <Check className="h-3.5 w-3.5" />
-        </span>
+        <Check className="size-3.5 shrink-0 text-foreground dark:text-(--chat-accent-strong)" aria-label="Selected" />
       )}
     </>
   )
@@ -390,7 +397,6 @@ const ThinkingLevelSubMenu: React.FC<ThinkingLevelSubMenuProps> = ({
           option={option}
           selected={selected}
           capability={capability}
-          levelValue={levelValue}
         />
       </DropdownMenuSubTrigger>
       <DropdownMenuSubContent
@@ -515,7 +521,7 @@ const ChatToolbarModelSelector: React.FC<ChatToolbarModelSelectorProps> = (props
         sideOffset={contentSideOffset}
         {...getMenuCollisionProps()}
         className={cn(
-          'w-80 overflow-visible rounded-[14px] border border-border/60 bg-popover/95 p-0 text-popover-foreground',
+          'w-[380px] overflow-visible rounded-[14px] border border-border/60 bg-popover/95 p-0 text-popover-foreground',
           'shadow-xl shadow-black/10 backdrop-blur-xl',
           'dark:border-(--chat-border-standard) dark:bg-(--chat-surface-raised) dark:text-(--chat-text-primary) dark:shadow-black/30 dark:backdrop-blur-none'
         )}

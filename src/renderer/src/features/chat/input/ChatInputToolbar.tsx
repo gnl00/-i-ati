@@ -47,7 +47,7 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
 }) => {
   const [selectModelPopoutState, setSelectModelPopoutState] = React.useState(false)
 
-  const handleModelSelect = (ref: ModelRef, thinkingLevel?: ThinkingLevel) => {
+  const handleModelSelect = (ref: ModelRef, thinkingLevel?: ThinkingLevel): void => {
     setSelectedModelRef(ref)
     setSelectedThinkingLevel(thinkingLevel)
     setSelectModelPopoutState(false)
@@ -56,7 +56,7 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
     }
   }
 
-  const handleModelPopoverOpenChange = (open: boolean) => {
+  const handleModelPopoverOpenChange = (open: boolean): void => {
     setSelectModelPopoutState(open)
     if (variant === 'baseline') {
       onBaselinePopoverOpenChange?.(open)
@@ -98,7 +98,7 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
           </TooltipProvider>
         )}
 
-        <div className="flex min-w-0 max-w-[230px] items-center gap-1.5">
+        <div className="flex min-w-0 max-w-[360px] items-center gap-1.5">
           <div
             id="modelSelector"
             className="app-undragable min-w-0 flex-1 bg-transparent"
@@ -113,7 +113,7 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
               isOpen={selectModelPopoutState}
               onOpenChange={handleModelPopoverOpenChange}
               onModelSelect={handleModelSelect}
-              triggerClassName="w-full min-w-0 max-w-none"
+              triggerClassName="w-full min-w-0"
               variant="baseline"
             />
           </div>
@@ -178,7 +178,6 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
             isOpen={selectModelPopoutState}
             onOpenChange={handleModelPopoverOpenChange}
             onModelSelect={handleModelSelect}
-            triggerClassName="w-[clamp(136px,16vw,220px)]"
             variant="surface"
           />
         </div>
