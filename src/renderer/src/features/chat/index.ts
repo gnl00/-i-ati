@@ -20,3 +20,5 @@ export {
   findSelectedToolCall
 } from './message/assistant-message/toolcall/ToolCallInspectorContent'
 export { TasksPage } from './schedule/TasksPage'
+
+export { retainChatRunIngress } from './runtime/chatRunEvent'

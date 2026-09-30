@@ -19,7 +19,7 @@ export const CHAT_RENDER_EVENTS = {
 export type ChatRenderEventPayloads = {
   'message.created': { message: MessageEntity }
   'message.updated': { message: MessageEntity }
-  'message.segment.updated': { messageId: number; patch: MessageSegmentPatch }
+  'message.segment.updated': { messageId: number; revision: number; patch: MessageSegmentPatch }
   'preview.updated': { message: MessageEntity }
   'preview.segment.updated': {
     chatId?: number

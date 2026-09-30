@@ -290,6 +290,15 @@ export async function handleChatRunEvent(
   useChatInputQueueStore.getState().routeRunEvent(event, chatUuid)
 
   switch (event.type) {
+    case RUN_LIFECYCLE_EVENTS.RUN_STATE_CHANGED: {
+      const state = event.payload.state
+      if (state === 'preparing' || state === 'streaming' || state === 'executing_tools' || state === 'finalizing') {
+        const phase = state === 'preparing' ? 'submitting' : 'streaming'
+        if (chatUuid) getLatestChatStore().setRunPhaseForChat(chatUuid, phase)
+        else chatStore.setRunPhase(phase)
+      }
+      return
+    }
     case RUN_TOOL_EVENTS.TOOL_EXECUTION_OUTPUT:
       getLatestChatStore().appendToolLiveOutput(event.payload, event.submissionId, chatUuid)
       return
@@ -315,9 +324,9 @@ export async function handleChatRunEvent(
       return
     case CHAT_RENDER_EVENTS.MESSAGE_SEGMENT_UPDATED:
       if (chatUuid) {
-        getLatestChatStore().patchMessageSegmentForChat(chatUuid, event.payload.messageId, event.payload.patch)
+        getLatestChatStore().patchMessageSegmentForChat(chatUuid, event.payload.messageId, event.payload.patch, event.payload.revision)
       } else {
-        getLatestChatStore().patchMessageSegment(event.payload.messageId, event.payload.patch)
+        getLatestChatStore().patchMessageSegment(event.payload.messageId, event.payload.patch, event.payload.revision)
       }
       return
     case CHAT_RENDER_EVENTS.PREVIEW_UPDATED:
@@ -509,29 +518,113 @@ export async function handleChatRunEventSafely(
   }
 }
 
-export function bindChatRunEvents(input: BindChatRunEventsInput): () => void {
+type RunBinding = {
+  input: BindChatRunEventsInput
+  dispose: () => void
+  pending?: Promise<void>
+}
+
+const runBindings = new Map<string, RunBinding>()
+let ingressUsers = 0
+let unsubscribeIngress: (() => void) | undefined
+
+function createObservedRun(event: RunEvent): BindChatRunEventsInput {
+  const input: BindChatRunEventsInput = {
+    submissionId: event.submissionId,
+    runChatUuidRef: { current: event.chatUuid ?? null },
+    chatStore: useChatStore.getState(),
+    runCompletedRef: { current: false },
+    lastErrorMessageRef: { current: null },
+    clearedErrorMessageIdsRef: { current: new Set() },
+    hasPendingBlockingPostRunJobs: chatUuid => Boolean(chatUuid
+      && useChatStore.getState().getRunStatusForChat(chatUuid).postRunJobs.compression === 'pending'),
+    resetRunLifecycle: (outcome = 'idle', chatUuid) => {
+      if (!chatUuid) return
+      const store = useChatStore.getState()
+      store.setRunPhaseForChat(chatUuid, 'idle')
+      store.resetPostRunJobsForChat(chatUuid)
+      store.setLastRunOutcomeForChat(chatUuid, outcome)
+    },
+    cleanupActiveRun: () => runBindings.get(event.submissionId)?.dispose(),
+    maybeCleanupAfterBackgroundJobs: chatUuid => {
+      if (!input.runCompletedRef.current || input.hasPendingBlockingPostRunJobs(chatUuid)) return
+      input.resetRunLifecycle('completed', chatUuid)
+      input.cleanupActiveRun(chatUuid)
+    }
+  }
+  return input
+}
+
+function ensureRunIngress(): void {
+  if (unsubscribeIngress) return
+  unsubscribeIngress = subscribeRunEvents(event => {
+    // Post-run jobs use their own emitters; metadata does not require a live run binding.
+    if (event.type === CHAT_HOST_EVENTS.CHAT_UPDATED) {
+      useChatStore.getState().updateChatList(event.payload.chatEntity)
+      return
+    }
+    let binding = runBindings.get(event.submissionId)
+    if (!binding) {
+      const canObserve = event.chatUuid && (
+        (Object.values(CHAT_RENDER_EVENTS) as string[]).includes(event.type) || event.type === CHAT_HOST_EVENTS.CHAT_READY
+        || event.type === CHAT_HOST_EVENTS.MESSAGES_LOADED || event.type === RUN_LIFECYCLE_EVENTS.RUN_STATE_CHANGED
+      )
+      if (!canObserve) return
+      registerRunBinding(createObservedRun(event))
+      binding = runBindings.get(event.submissionId)!
+    }
+    const target = binding
+    const deliver = (): Promise<void> => {
+      if (runBindings.get(event.submissionId) !== target) return Promise.resolve()
+      return handleChatRunEventSafely(target.input, event)
+    }
+    const pending = target.pending ? target.pending.then(deliver) : deliver()
+    target.pending = pending
+    void pending.then(() => { if (target.pending === pending) target.pending = undefined })
+  })
+}
+
+function registerRunBinding(input: BindChatRunEventsInput): () => void {
+  runBindings.get(input.submissionId)?.dispose()
   const previewPatchBatcher = new PreviewPatchBatcher({
-    applyPatches: (patches) => {
+    applyPatches: patches => {
       const chatUuid = input.runChatUuidRef.current
-      if (chatUuid) {
-        useChatStore.getState().applyPreviewSegmentPatchesForChat(chatUuid, patches)
-      } else {
-        useChatStore.getState().applyPreviewSegmentPatches(patches)
-      }
+      if (chatUuid) useChatStore.getState().applyPreviewSegmentPatchesForChat(chatUuid, patches)
+      else useChatStore.getState().applyPreviewSegmentPatches(patches)
     }
   })
-  const boundInput = {
-    ...input,
-    previewPatchBatcher
+  const binding: RunBinding = {
+    input: { ...input, previewPatchBatcher },
+    dispose: () => {
+      previewPatchBatcher.flush('sync')
+      previewPatchBatcher.cancel()
+      if (runBindings.get(input.submissionId) === binding) runBindings.delete(input.submissionId)
+      if (ingressUsers === 0 && runBindings.size === 0) {
+        unsubscribeIngress?.()
+        unsubscribeIngress = undefined
+      }
+    }
   }
+  runBindings.set(input.submissionId, binding)
+  return binding.dispose
+}
 
-  const unsubscribe = subscribeRunEvents((event: RunEvent) => {
-    void handleChatRunEventSafely(boundInput, event)
-  })
-
+/** App lifetime subscription: every host source uses the same run projection. */
+export function retainChatRunIngress(): () => void {
+  ingressUsers += 1
+  ensureRunIngress()
   return () => {
-    previewPatchBatcher.flush('sync')
-    previewPatchBatcher.cancel()
-    unsubscribe()
+    ingressUsers -= 1
+    if (ingressUsers === 0) {
+      for (const binding of [...runBindings.values()]) binding.dispose()
+      unsubscribeIngress?.()
+      unsubscribeIngress = undefined
+    }
   }
+}
+
+export function bindChatRunEvents(input: BindChatRunEventsInput): () => void {
+  const dispose = registerRunBinding(input)
+  ensureRunIngress()
+  return dispose
 }

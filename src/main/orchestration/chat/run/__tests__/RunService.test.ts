@@ -306,12 +306,12 @@ describe('RunService', () => {
       .mockReturnValue(103)
   })
 
-  it('returns accepted immediately from start without waiting for loop completion', async () => {
+  it('returns a handle immediately without waiting for loop completion', async () => {
     const deferred = createDeferred<Awaited<ReturnType<typeof runtimeRunnerMock>>>()
     runtimeRunnerMock.mockReturnValueOnce(deferred.promise)
 
     const service = new RunService()
-    const result = await service.start({
+    const handle = service.submit({
       submissionId: 'submission-1',
       chatId: 1,
       modelRef: { accountId: 'account-1', modelId: 'model-1' },
@@ -322,10 +322,7 @@ describe('RunService', () => {
       }
     })
 
-    expect(result).toEqual({
-      accepted: true,
-      submissionId: 'submission-1'
-    })
+    expect(handle.submissionId).toBe('submission-1')
     await new Promise(resolve => setTimeout(resolve, 0))
     expect(runtimeRunnerMock).toHaveBeenCalledTimes(1)
     expect(emitterInstances[0]?.emit).toHaveBeenCalledWith(RUN_EVENTS.RUN_ACCEPTED, {
@@ -388,7 +385,7 @@ describe('RunService', () => {
     })
 
     const service = new RunService()
-    const result = await service.execute({
+    const handle = service.submit({
       submissionId: 'submission-2',
       chatId: 1,
       modelRef: { accountId: 'account-1', modelId: 'model-1' },
@@ -399,6 +396,7 @@ describe('RunService', () => {
       }
     })
 
+    const result = await handle.completion
     expect(result).toEqual({
       userMessageId: 101,
       assistantMessageId: 102,

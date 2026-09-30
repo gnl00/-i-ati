@@ -306,6 +306,7 @@ export class MessageRepository {
 
     return messageSearchRepo.runInTransaction(() => {
       const messageId = messageRepo.insertMessage(row)
+      data.revision = row.revision
       messageSearchRepo.syncMessage({
         id: messageId,
         ...row
@@ -356,9 +357,8 @@ export class MessageRepository {
 
     messageSearchRepo.runInTransaction(() => {
       const prev = messageRepo.getMessageById(data.id!)
-      const prevBody = prev
-        ? toMessageEntity(prev).body
-        : undefined
+      if (!prev) return
+      const prevBody = toMessageEntity(prev).body
       const rawSafeData = prevBody?.role === 'tool' && data.body.role === 'tool'
         ? {
           ...data,
@@ -368,15 +368,12 @@ export class MessageRepository {
           }
         }
         : data
-      const next = toMessageRow(rawSafeData)
+      const next = { ...toMessageRow(rawSafeData), revision: prev.revision + 1 }
       messageRepo.updateMessage(next)
-
-      if (!prev) {
-        return
-      }
 
       messageSearchRepo.syncMessage(next)
       this.reconcileChatMessageCount(prev, next)
+      data.revision = next.revision
     })
   }
 
@@ -389,7 +386,7 @@ export class MessageRepository {
         return
       }
 
-      const next = patchMessageRowUiState(row, uiState)
+      const next = { ...patchMessageRowUiState(row, uiState), revision: row.revision + 1 }
       messageRepo.updateMessage(next)
       messageSearchRepo.syncMessage(next)
     })

@@ -12,11 +12,12 @@ export class RunEnvironmentService {
 
   async prepare(
     input: MainAgentRunInput,
-    _emitter: RunEventEmitter
+    emitter: RunEventEmitter
   ): Promise<RunEnvironment> {
     const config = this.appConfigStore.requireConfig()
     const modelContext = this.chatModelContextResolver.resolveOrThrow(config, input.modelRef)
     const chat = await this.chatSessionStore.resolveOrCreateChat(input)
+    emitter.setChatMeta({ chatId: chat.id, chatUuid: chat.uuid })
     const workspacePath = this.chatSessionStore.resolveWorkspacePath(chat)
     const historyMessages = this.chatSessionStore.loadHistoryMessages(chat)
 

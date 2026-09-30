@@ -16,6 +16,7 @@ import {
 
 const {
   ipcMainHandleMock,
+  runServiceSubmitMock,
   runServiceCancelMock,
   runServiceConfirmMock,
   runServiceSnapshotMock,
@@ -25,6 +26,7 @@ const {
   forkChatMock
 } = vi.hoisted(() => ({
   ipcMainHandleMock: vi.fn(),
+  runServiceSubmitMock: vi.fn(),
   runServiceCancelMock: vi.fn(),
   runServiceConfirmMock: vi.fn(),
   runServiceSnapshotMock: vi.fn(),
@@ -42,7 +44,7 @@ vi.mock('electron', () => ({
 
 vi.mock('@main/orchestration/chat/run', () => ({
   RunService: class {
-    start = vi.fn()
+    submit = runServiceSubmitMock
     cancel = runServiceCancelMock
     submitToolConfirmation = runServiceConfirmMock
     getToolConfirmationSnapshot = runServiceSnapshotMock
@@ -83,6 +85,7 @@ vi.mock('@main/logging/LogService', () => ({
 describe('registerChatHandlers', () => {
   beforeEach(() => {
     ipcMainHandleMock.mockReset()
+    runServiceSubmitMock.mockReset()
     runServiceCancelMock.mockReset()
     runServiceConfirmMock.mockReset()
     runServiceSnapshotMock.mockReset()
@@ -90,6 +93,24 @@ describe('registerChatHandlers', () => {
     runServiceSubmitQuestionMock.mockReset()
     runServiceListQuestionsMock.mockReset()
     forkChatMock.mockReset()
+  })
+
+  it('returns only a serializable run receipt and rejects malformed submissions', async () => {
+    const { registerChatHandlers } = await import('../chat')
+    registerChatHandlers()
+    const start = ipcMainHandleMock.mock.calls.find(([channel]) => channel === RUN_START)![1]
+    const input = {
+      submissionId: 'run-1',
+      modelRef: { accountId: 'account-1', modelId: 'model-1' },
+      input: { textCtx: 'hello', mediaCtx: [] }
+    }
+    const completion = new Promise(() => undefined)
+    runServiceSubmitMock.mockReturnValue({ submissionId: 'run-1', completion })
+
+    await expect(start({}, input)).resolves.toEqual({ accepted: true, submissionId: 'run-1' })
+    expect(runServiceSubmitMock).toHaveBeenCalledWith(input)
+    await expect(start({}, { ...input, modelRef: null })).rejects.toThrow('Invalid run submission')
+    expect(runServiceSubmitMock).toHaveBeenCalledTimes(1)
   })
 
   it('routes approval identity and returns the Main decision and snapshot', async () => {

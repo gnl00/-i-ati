@@ -18,7 +18,7 @@ export class TuiSession {
     private readonly runs: Pick<
       RunService,
       | 'waitForPostRunJobs'
-      | 'execute'
+      | 'submit'
       | 'steer'
       | 'cancel'
       | 'submitToolConfirmation'
@@ -186,7 +186,7 @@ export class TuiSession {
   private async execute(id: string, text: string): Promise<void> {
     let completed = false
     try {
-      const result = await this.runs.execute(
+      const result = await this.runs.submit(
         {
           submissionId: id,
           chatUuid: this.state.chat!.uuid,
@@ -203,7 +203,7 @@ export class TuiSession {
         {
           eventSinks: [{ handleEvent: (event): void => this.state.handleEvent(event) }]
         }
-      )
+      ).completion
       completed = result.state === 'completed'
     } catch (error) {
       if (!this.cancelRequested)

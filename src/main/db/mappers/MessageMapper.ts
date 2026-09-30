@@ -19,6 +19,7 @@ const parseTokenUsage = (value: string | null | undefined): ITokenUsage | undefi
 }
 
 export const toMessageInsertRow = (message: MessageEntity): Omit<MessageRow, 'id'> => ({
+  revision: 1,
   chat_id: message.chatId ?? null,
   chat_uuid: message.chatUuid ?? null,
   body: JSON.stringify(normalizeChatMessageSegmentsWithIds(
@@ -38,6 +39,7 @@ export const toMessageEntity = (row: MessageRow): MessageEntity => {
   const tokenUsage = parseTokenUsage(row.token_usage)
   return {
     id: row.id,
+    revision: row.revision,
     chatId: row.chat_id ?? undefined,
     chatUuid: row.chat_uuid ?? undefined,
     body: normalizeChatMessageSegmentsWithIds(

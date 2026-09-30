@@ -38,3 +38,6 @@ Use sequential names such as `0001-chat-runtime-host-boundary.md`.
 - [0026: Main-owned tool confirmation lifecycle](0026-main-owned-tool-confirmation-lifecycle.md) - Accepted
 
 - [0027: 统一 Host 输出分发](0027-unified-host-output-dispatch.md)
+
+- [0028: Renderer run 消费与消息版本](0028-renderer-run-ingress-and-message-revisions.md) - Accepted
+- [0029: Unified run submission and early chat identity](0029-unified-run-submission.md) - Accepted

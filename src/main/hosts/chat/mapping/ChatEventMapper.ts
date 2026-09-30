@@ -37,10 +37,11 @@ export class ChatEventMapper implements AgentMessageEventSink {
     this.emitter.emit(CHAT_RENDER_EVENTS.MESSAGE_UPDATED, { message })
   }
 
-  emitMessageSegmentUpdated(messageId: number, patch: MessageSegmentPatch): void {
+  emitMessageSegmentUpdated(messageId: number, patch: MessageSegmentPatch, revision: number): void {
     assertMessageSegmentPatchHasIds(patch, 'chat-event-mapper:message-segment-updated')
     this.emitter.emit(CHAT_RENDER_EVENTS.MESSAGE_SEGMENT_UPDATED, {
       messageId,
+      revision,
       patch
     })
   }

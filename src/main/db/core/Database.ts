@@ -152,10 +152,12 @@ class AppDatabase {
         body TEXT NOT NULL,
         tokens INTEGER,
         token_usage TEXT,
+        revision INTEGER NOT NULL DEFAULT 1,
         FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
       )
     `)
     this.ensureColumn('messages', 'token_usage', 'TEXT')
+    this.ensureColumn('messages', 'revision', 'INTEGER NOT NULL DEFAULT 1')
 
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS tool_result_compactions (

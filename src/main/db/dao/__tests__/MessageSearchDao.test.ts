@@ -206,6 +206,7 @@ describe.skipIf(!nativeSqliteAvailable)('MessageSearchDao', () => {
     dao.runInTransaction(() => {
       database.prepare('UPDATE messages SET body = ? WHERE id = ?').run(updatedBody, 1)
       dao.syncMessage({
+        revision: 1,
         id: 1,
         chat_id: 1,
         chat_uuid: 'chat-1',

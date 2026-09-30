@@ -7,6 +7,7 @@ const {
   cancelMock,
   steerMock,
   setPermissionApprovalModeMock,
+  eventEmitterMetaMock,
   constructorArgsMock
 } = vi.hoisted(() => ({
   emitAcceptedMock: vi.fn(),
@@ -14,6 +15,7 @@ const {
   cancelMock: vi.fn(),
   steerMock: vi.fn(() => ({ accepted: true })),
   setPermissionApprovalModeMock: vi.fn(),
+  eventEmitterMetaMock: vi.fn(),
   constructorArgsMock: vi.fn()
 }))
 
@@ -75,7 +77,8 @@ const createManagerWithDeps = () => {
     toolConfirmationManager: toolConfirmationManager as any,
     toolQuestionManager: toolQuestionManager as any,
     eventEmitterFactory: new (class {
-      create() {
+      create(meta: unknown): object {
+        eventEmitterMetaMock(meta)
         return {}
       }
 
@@ -123,21 +126,22 @@ describe('RunManager', () => {
     steerMock.mockReturnValue({ accepted: true })
     setPermissionApprovalModeMock.mockReset()
     constructorArgsMock.mockReset()
+    eventEmitterMetaMock.mockReset()
   })
 
-  it('returns accepted immediately from start and blocks duplicate submission ids while active', async () => {
+  it('returns a handle immediately and blocks duplicate submission ids while active', async () => {
     const deferred = createDeferred<{ assistantMessageId?: number; state: 'completed' }>()
     runMock.mockReturnValueOnce(deferred.promise as any)
 
     const manager = createManager()
-    const result = await manager.start(input)
+    const result = manager.submit(input)
 
-    expect(result).toEqual({
-      accepted: true,
-      submissionId: 'submission-1'
-    })
+    expect(result.submissionId).toBe('submission-1')
     expect(emitAcceptedMock).toHaveBeenCalledTimes(1)
-    await expect(manager.start(input)).rejects.toBeInstanceOf(DuplicateSubmissionIdError)
+    expect(eventEmitterMetaMock).toHaveBeenCalledWith({
+      submissionId: 'submission-1', chatId: 1, chatUuid: undefined
+    })
+    expect(() => manager.submit(input)).toThrow(DuplicateSubmissionIdError)
 
     deferred.resolve({ assistantMessageId: 11, state: 'completed' })
     await deferred.promise
@@ -148,7 +152,7 @@ describe('RunManager', () => {
     runMock.mockReturnValueOnce(deferred.promise as any)
 
     const manager = createManager()
-    await manager.start(input)
+    await manager.submit(input)
     const result = manager.cancel(input.submissionId)
 
     expect(cancelMock).toHaveBeenCalledTimes(1)
@@ -166,7 +170,7 @@ describe('RunManager', () => {
     runMock.mockReturnValueOnce(deferred.promise as any)
 
     const manager = createManager()
-    await manager.start({ ...input, chatUuid: 'chat-1' })
+    await manager.submit({ ...input, chatUuid: 'chat-1' })
 
     expect(manager.cancel({ chatUuid: 'chat-1' })).toEqual({
       cancelled: true,
@@ -183,7 +187,7 @@ describe('RunManager', () => {
     runMock.mockReturnValueOnce(deferred.promise as any)
 
     const manager = createManager()
-    await manager.start({ ...input, chatUuid: 'chat-1' })
+    await manager.submit({ ...input, chatUuid: 'chat-1' })
 
     expect(manager.cancel({
       submissionId: input.submissionId,
@@ -220,7 +224,7 @@ describe('RunManager', () => {
     const deferred = createDeferred<{ assistantMessageId?: number; state: 'completed' }>()
     runMock.mockReturnValueOnce(deferred.promise as any)
     const manager = createManager()
-    await manager.start({ ...input, chatUuid: 'chat-1' })
+    await manager.submit({ ...input, chatUuid: 'chat-1' })
 
     expect(manager.steer({
       submissionId: input.submissionId,
@@ -253,7 +257,7 @@ describe('RunManager', () => {
     runMock.mockReturnValueOnce(deferred.promise as any)
 
     const { manager, toolConfirmationManager, toolQuestionManager } = createManagerWithDeps()
-    await manager.start(input)
+    await manager.submit(input)
     expect(manager.cancel(input.submissionId)).toEqual({
       cancelled: true,
       submissionId: input.submissionId
@@ -271,7 +275,7 @@ describe('RunManager', () => {
     runMock.mockReturnValueOnce(deferred.promise as any)
 
     const manager = createManager()
-    await manager.start({
+    await manager.submit({
       ...input,
       chatUuid: 'chat-1'
     })
@@ -291,7 +295,7 @@ describe('RunManager', () => {
     runMock.mockReturnValueOnce(deferred.promise as any)
 
     const manager = createManager()
-    await manager.start({
+    await manager.submit({
       ...input,
       chatUuid: 'chat-1'
     })
@@ -311,7 +315,7 @@ describe('RunManager', () => {
     runMock.mockReturnValueOnce(deferred.promise as any)
 
     const manager = createManager()
-    await manager.start({ ...input, chatUuid: 'chat-1' })
+    await manager.submit({ ...input, chatUuid: 'chat-1' })
 
     expect(manager.getActiveRunIdentityForChat('chat-1')).toEqual({
       submissionId: input.submissionId,
@@ -325,21 +329,60 @@ describe('RunManager', () => {
     expect(manager.getActiveRunIdentityForChat('chat-1')).toBeNull()
   })
 
-  it('returns the run result from execute', async () => {
+  it('returns the run result from completion', async () => {
     const manager = createManager()
 
-    const result = await manager.execute(input)
+    const handle = manager.submit(input)
+    const result = await handle.completion
 
     expect(result).toEqual({ assistantMessageId: 1, state: 'completed' })
     expect(emitAcceptedMock).toHaveBeenCalledTimes(1)
     expect(runMock).toHaveBeenCalledTimes(1)
   })
 
+  it('rejects failed and aborted completion and releases each run once', async () => {
+    const { manager, toolConfirmationManager, toolQuestionManager } = createManagerWithDeps()
+    runMock.mockResolvedValueOnce({
+      assistantMessageId: 0,
+      state: 'failed',
+      error: { name: 'RunError', message: 'boom' }
+    } as unknown as Awaited<ReturnType<typeof runMock>>)
+    await expect(manager.submit(input).completion).rejects.toMatchObject({
+      name: 'RunError', message: 'boom'
+    })
+    expect(toolConfirmationManager.cancelForSubmission).toHaveBeenCalledTimes(1)
+    expect(toolQuestionManager.cancelForSubmission).toHaveBeenCalledTimes(1)
+    expect(manager.cancel(input.submissionId)).toEqual({ cancelled: false, reason: 'run_not_found' })
+    expect(toolConfirmationManager.cancelForSubmission).toHaveBeenCalledTimes(2)
+    expect(toolQuestionManager.cancelForSubmission).toHaveBeenCalledTimes(2)
+
+    runMock.mockResolvedValueOnce({ assistantMessageId: 0, state: 'aborted' })
+    await expect(manager.submit(input).completion).rejects.toBeInstanceOf(Error)
+    expect(toolQuestionManager.cancelForSubmission).toHaveBeenCalledTimes(3)
+  })
+
+  it('rejects invalid admission before accepting a run', () => {
+    const manager = createManager()
+    expect(() => manager.submit({ ...input, submissionId: ' ' })).toThrow('Invalid run submission')
+    expect(() => manager.submit({ ...input, modelRef: undefined })).toThrow('Invalid run submission')
+    expect(emitAcceptedMock).not.toHaveBeenCalled()
+  })
+
+  it('releases an admitted run when acceptance emission fails', () => {
+    const { manager, toolConfirmationManager } = createManagerWithDeps()
+    emitAcceptedMock.mockImplementationOnce(() => { throw new Error('emit failed') })
+
+    expect(() => manager.submit(input)).toThrow('emit failed')
+    expect(runMock).not.toHaveBeenCalled()
+    expect(toolConfirmationManager.cancelForSubmission).toHaveBeenCalledOnce()
+    expect(manager.submit(input).submissionId).toBe(input.submissionId)
+  })
+
   it('passes host render sinks into the created run runtime', async () => {
     const manager = createManager()
     const hostRenderSinks = [{ handle: vi.fn() }]
 
-    await manager.execute(input, [], hostRenderSinks as any)
+    await manager.submit(input, [], hostRenderSinks as any).completion
 
     expect(constructorArgsMock).toHaveBeenCalledWith(expect.objectContaining({
       runtime: expect.objectContaining({
@@ -353,7 +396,7 @@ describe('RunManager', () => {
     runMock.mockReturnValueOnce(deferred.promise as any)
 
     const { manager, toolConfirmationManager } = createManagerWithDeps()
-    await manager.start({
+    await manager.submit({
       ...input,
       chatUuid: 'chat-1'
     })

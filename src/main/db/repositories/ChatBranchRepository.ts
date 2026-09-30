@@ -129,6 +129,7 @@ export class ChatBranchRepository {
     for (const sourceRow of prefix) {
       const body = parseMessageBody(sourceRow)
       const destinationRow: Omit<MessageRow, 'id'> = {
+        revision: 1,
         chat_id: destinationId,
         chat_uuid: destinationUuid,
         body: sourceRow.id === request.forkedFromMessageId && body.toolCalls?.length

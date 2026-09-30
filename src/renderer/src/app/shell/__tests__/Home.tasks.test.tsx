@@ -18,6 +18,7 @@ vi.mock('@renderer/features/chat', async () => {
         </div>
       </div>
     ),
+    retainChatRunIngress: (): (() => void) => () => {},
     ChatSheet: (): ReactElement => <div />,
     ChatSheetHover: actual.ChatSheetHover,
     TasksPage: (): ReactElement => <section aria-label="Tasks page" />,

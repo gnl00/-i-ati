@@ -23,9 +23,9 @@ import type {
   RunCancelResult
 } from '@shared/run/cancellation'
 
-type StartRunResult = {
-  accepted: true
+export type RunSubmissionHandle = {
   submissionId: string
+  completion: Promise<RunResult>
 }
 
 export type RunManagerDependencies = {
@@ -42,53 +42,49 @@ export class RunManager {
 
   constructor(private readonly deps: RunManagerDependencies) {}
 
-  // Fire-and-forget entry used by the interactive chat flow.
-  async start(
+  submit(
     input: MainAgentRunInput,
     eventSinks: RunEventSink[] = [],
     hostRenderSinks: HostRenderEventSink[] = []
-  ): Promise<StartRunResult> {
-    const run = this.createRun(input, eventSinks, hostRenderSinks)
-    run.emitAccepted()
-    void run.run().catch(() => undefined).finally(() => {
-      this.cancelPendingInteractions(input.submissionId)
-      this.registry.delete(input.submissionId)
-    })
-
-    return {
-      accepted: true,
-      submissionId: input.submissionId
+  ): RunSubmissionHandle {
+    if (!input.submissionId?.trim()
+      || !input.modelRef?.accountId?.trim()
+      || !input.modelRef?.modelId?.trim()
+      || typeof input.input?.textCtx !== 'string'
+      || !Array.isArray(input.input.mediaCtx)) {
+      throw new Error('Invalid run submission')
     }
-  }
-
-  // Execute the main run pipeline and wait for its terminal result,
-  // but do not wait for asynchronous post-run jobs like title/compression.
-  async execute(
-    input: MainAgentRunInput,
-    eventSinks: RunEventSink[] = [],
-    hostRenderSinks: HostRenderEventSink[] = []
-  ): Promise<RunResult> {
     const run = this.createRun(input, eventSinks, hostRenderSinks)
-    run.emitAccepted()
-
     try {
-      const result = await run.run()
-      if (result.state === 'aborted') {
-        throw new AbortError()
-      }
-      if (result.state === 'failed') {
-        const error = new Error(result.error?.message || 'Run failed')
-        error.name = result.error?.name || 'Error'
-        if (result.error?.stack) {
-          error.stack = result.error.stack
-        }
-        throw error
-      }
-      return result
-    } finally {
+      run.emitAccepted()
+    } catch (error) {
       this.cancelPendingInteractions(input.submissionId)
       this.registry.delete(input.submissionId)
+      throw error
     }
+    const completion = (async (): Promise<RunResult> => {
+      try {
+        const result = await run.run()
+        if (result.state === 'aborted') {
+          throw new AbortError()
+        }
+        if (result.state === 'failed') {
+          const error = new Error(result.error?.message || 'Run failed')
+          error.name = result.error?.name || 'Error'
+          if (result.error?.stack) {
+            error.stack = result.error.stack
+          }
+          throw error
+        }
+        return result
+      } finally {
+        this.cancelPendingInteractions(input.submissionId)
+        this.registry.delete(input.submissionId)
+      }
+    })()
+    // The IPC caller only needs admission; observing rejection keeps its completion safe.
+    void completion.catch(() => undefined)
+    return { submissionId: input.submissionId, completion }
   }
 
   cancel(submissionId: string): RunCancelResult
@@ -176,7 +172,9 @@ export class RunManager {
     hostRenderSinks: HostRenderEventSink[] = []
   ): AgentRun {
     const emitter = this.deps.eventEmitterFactory.create({
-      submissionId: input.submissionId
+      submissionId: input.submissionId,
+      chatId: input.chatId,
+      chatUuid: input.chatUuid
     }, eventSinks)
     const toolConfirmationRequester: ToolConfirmationRequester = {
       request: (request) => this.deps.toolConfirmationManager.request(

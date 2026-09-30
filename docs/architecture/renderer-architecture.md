@@ -192,3 +192,7 @@ pnpm test:run
 pnpm build
 git diff --check
 ```
+
+### Renderer run ingress and message revisions
+
+Home owns one app-lifetime run ingress. Desktop submit registers its control context; scoped external runs are observed automatically. Schedule notifications no longer own ordinary run message consumption. Transcript snapshots merge with buffers by the Main-assigned `messages.revision`; older messages cannot replace newer committed state. See [ADR 0028](../decisions/0028-renderer-run-ingress-and-message-revisions.md).

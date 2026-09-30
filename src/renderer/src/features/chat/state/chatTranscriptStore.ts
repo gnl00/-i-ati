@@ -49,8 +49,8 @@ export type ChatTranscriptActions = {
   upsertMessageForChat: (chatUuid: string, message: MessageEntity) => void
   updateLastAssistantMessageWithError: (error: Error) => Promise<number | undefined>
   clearMessages: () => void
-  patchMessageSegment: (messageId: number, patch: MessageSegmentPatch) => void
-  patchMessageSegmentForChat: (chatUuid: string, messageId: number, patch: MessageSegmentPatch) => void
+  patchMessageSegment: (messageId: number, patch: MessageSegmentPatch, revision?: number) => void
+  patchMessageSegmentForChat: (chatUuid: string, messageId: number, patch: MessageSegmentPatch, revision?: number) => void
   settleLatestAssistantAfterAbortForChat: (chatUuid: string) => Promise<void>
   setMessages: (msgs: MessageEntity[]) => void
   setMessagesForChat: (chatUuid: string, msgs: MessageEntity[]) => void
@@ -204,7 +204,12 @@ function mergeMessagesByIdentity(
 
     const index = nextMessages.findIndex(message => message.id === incoming.id)
     if (index >= 0) {
-      nextMessages[index] = mergeMessageEntityPreservingSegments(nextMessages[index], incoming)
+      const persisted = nextMessages[index]
+      // Only a newer canonical event may replace the persisted snapshot.
+      if (incoming.revision !== undefined && persisted.revision !== undefined
+        && incoming.revision > persisted.revision) {
+        nextMessages[index] = mergeMessageEntityPreservingSegments(persisted, incoming)
+      }
     } else {
       nextMessages.push(incoming)
     }
@@ -231,13 +236,17 @@ function upsertMessageIntoList(messages: MessageEntity[], message: MessageEntity
 function patchMessageSegmentInList(
   messages: MessageEntity[],
   messageId: number,
-  patch: MessageSegmentPatch
+  patch: MessageSegmentPatch,
+  revision?: number
 ): MessageEntity[] {
-  return messages.map((message) => (
-    message.id === messageId
-      ? applyMessageSegmentPatchToEntity(message, patch)
-      : message
-  ))
+  return messages.map((message) => {
+    if (message.id !== messageId) return message
+    if (revision !== undefined && message.revision !== undefined && revision <= message.revision) {
+      return message
+    }
+    const next = applyMessageSegmentPatchToEntity(message, patch)
+    return revision === undefined ? next : { ...next, revision }
+  })
 }
 
 function getTranscriptBuffer(
@@ -259,8 +268,9 @@ export function createChatTranscriptActions<T extends ChatTranscriptSliceState>(
       const buffer = getTranscriptBuffer(get(), chatUuid)
       const restoredMessages = mergeMessagesByIdentity(messages, buffer.messages)
       set({
-        messages: restoredMessages,
-        preview: buffer.preview,
+        ...(get().currentChatUuid === chatUuid
+          ? { messages: restoredMessages, preview: buffer.preview }
+          : {}),
         transcriptBuffersByChatUuid: {
           ...get().transcriptBuffersByChatUuid,
           [chatUuid]: {
@@ -617,23 +627,23 @@ export function createChatTranscriptActions<T extends ChatTranscriptSliceState>(
       } as Partial<T>
     }),
 
-    patchMessageSegment: (messageId, patch) => {
+    patchMessageSegment: (messageId, patch, revision) => {
       const chatUuid = get().currentChatUuid
       if (chatUuid) {
-        get().patchMessageSegmentForChat(chatUuid, messageId, patch)
+        get().patchMessageSegmentForChat(chatUuid, messageId, patch, revision)
         return
       }
 
       set((prevState) => ({
-        messages: patchMessageSegmentInList(prevState.messages, messageId, patch)
+        messages: patchMessageSegmentInList(prevState.messages, messageId, patch, revision)
       } as Partial<T>))
     },
 
-    patchMessageSegmentForChat: (chatUuid, messageId, patch) => set((prevState) => {
+    patchMessageSegmentForChat: (chatUuid, messageId, patch, revision) => set((prevState) => {
       const buffer = getTranscriptBuffer(prevState, chatUuid)
-      const bufferMessages = patchMessageSegmentInList(buffer.messages, messageId, patch)
+      const bufferMessages = patchMessageSegmentInList(buffer.messages, messageId, patch, revision)
       if (prevState.currentChatUuid === chatUuid) {
-        const messages = patchMessageSegmentInList(prevState.messages, messageId, patch)
+        const messages = patchMessageSegmentInList(prevState.messages, messageId, patch, revision)
         return {
           messages,
           transcriptBuffersByChatUuid: {
@@ -748,8 +758,9 @@ export function createChatTranscriptActions<T extends ChatTranscriptSliceState>(
     }),
 
     setMessagesForChat: (chatUuid, msgs) => set((prevState) => {
+      const messages = mergeMessagesByIdentity(msgs, getTranscriptBuffer(prevState, chatUuid).messages)
       const nextBuffer = {
-        messages: msgs,
+        messages,
         preview: {
           message: null
         }
@@ -757,7 +768,7 @@ export function createChatTranscriptActions<T extends ChatTranscriptSliceState>(
 
       if (prevState.currentChatUuid === chatUuid) {
         return {
-          messages: msgs,
+          messages,
           preview: nextBuffer.preview,
           transcriptBuffersByChatUuid: {
             ...prevState.transcriptBuffersByChatUuid,

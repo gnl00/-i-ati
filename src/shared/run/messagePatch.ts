@@ -95,6 +95,8 @@ export function mergeMessageEntityPreservingSegments(
   previous: MessageEntity,
   next: MessageEntity
 ): MessageEntity {
+  if (previous.revision !== undefined && next.revision !== undefined
+    && next.revision < previous.revision) return previous
   return {
     ...next,
     body: {

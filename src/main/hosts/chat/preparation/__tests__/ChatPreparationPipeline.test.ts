@@ -124,7 +124,7 @@ import {
   StepBootstrapService,
   type RunEnvironment
 } from '..'
-import type { ChatInitialTranscriptSeed } from '@main/agent/contracts'
+import type { ChatInitialTranscriptSeed, RunEventEmitter } from '@main/agent/contracts'
 import { CHAT_HOST_EVENTS } from '@shared/chat/host-events'
 import { CHAT_RENDER_EVENTS } from '@shared/chat/render-events'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
@@ -253,7 +253,8 @@ describe('ChatPreparationPipeline', () => {
   it('prepares environment without emitting chat-facing events directly', async () => {
     const service = new RunEnvironmentService()
     const emitter = {
-      emit: vi.fn()
+      emit: vi.fn(),
+      setChatMeta: vi.fn()
     } as any
 
     const environment = await service.prepare(input, emitter)
@@ -269,12 +270,29 @@ describe('ChatPreparationPipeline', () => {
       historyMessages
     })
     expect(emitter.emit).not.toHaveBeenCalled()
+    expect(emitter.setChatMeta).toHaveBeenCalledWith({ chatId: 1, chatUuid: 'chat-1' })
+  })
+
+  it('binds a newly created chat before its first chat and user-message events', async () => {
+    vi.mocked(DatabaseService.saveChat).mockReturnValue(1)
+    const emitter = { emit: vi.fn(), setChatMeta: vi.fn() }
+
+    await new ChatPreparationPipeline().prepare(
+      { ...input, chatId: undefined },
+      emitter as unknown as RunEventEmitter
+    )
+
+    expect(emitter.setChatMeta).toHaveBeenCalledWith({ chatId: 1, chatUuid: 'chat-uuid-1' })
+    expect(emitter.setChatMeta.mock.invocationCallOrder[0])
+      .toBeLessThan(emitter.emit.mock.invocationCallOrder[0])
+    expect(emitter.emit.mock.calls.map(([type]) => type)).toContain(CHAT_RENDER_EVENTS.MESSAGE_CREATED)
   })
 
   it('builds step bootstrap and request through the pipeline', async () => {
     const service = new ChatPreparationPipeline()
     const emitter = {
-      emit: vi.fn()
+      emit: vi.fn(),
+      setChatMeta: vi.fn()
     } as any
 
     const prepared = await service.prepare(input, emitter)
@@ -402,7 +420,7 @@ describe('ChatPreparationPipeline', () => {
       updatedAt: 10
     }])
 
-    const prepared = await new ChatPreparationPipeline().prepare(input, { emit: vi.fn() } as any)
+    const prepared = await new ChatPreparationPipeline().prepare(input, { emit: vi.fn(), setChatMeta: vi.fn() } as any)
     const toolSeed = prepared.runSpec.initialTranscriptSeed.find(message =>
       message.kind === 'tool' && message.toolCallId === 'call-fetch'
     )
@@ -457,7 +475,7 @@ describe('ChatPreparationPipeline', () => {
       updatedAt: 10
     }])
 
-    const prepared = await new ChatPreparationPipeline().prepare(input, { emit: vi.fn() } as any)
+    const prepared = await new ChatPreparationPipeline().prepare(input, { emit: vi.fn(), setChatMeta: vi.fn() } as any)
     const toolSeed = prepared.runSpec.initialTranscriptSeed.find(message =>
       message.kind === 'tool' && message.toolCallId === 'call-fetch'
     )
@@ -553,7 +571,7 @@ describe('ChatPreparationPipeline', () => {
       }
     ])
 
-    const prepared = await new ChatPreparationPipeline().prepare(input, { emit: vi.fn() } as any)
+    const prepared = await new ChatPreparationPipeline().prepare(input, { emit: vi.fn(), setChatMeta: vi.fn() } as any)
     const repeatedToolSeeds = prepared.runSpec.initialTranscriptSeed.filter(message =>
       message.kind === 'tool' && message.toolCallId === 'repeated-call'
     )
@@ -586,7 +604,8 @@ describe('ChatPreparationPipeline', () => {
       new StepBootstrapService(undefined, visionObservationService as any)
     )
     const emitter = {
-      emit: vi.fn()
+      emit: vi.fn(),
+      setChatMeta: vi.fn()
     } as any
 
     const prepared = await service.prepare({
@@ -671,7 +690,8 @@ describe('ChatPreparationPipeline', () => {
       new StepBootstrapService(undefined, visionObservationService as any)
     )
     const emitter = {
-      emit: vi.fn()
+      emit: vi.fn(),
+      setChatMeta: vi.fn()
     } as any
 
     const preparePromise = service.prepare({
@@ -718,7 +738,8 @@ describe('ChatPreparationPipeline', () => {
   it('injects system environment and awake_state as ephemeral context before the current user input', async () => {
     const service = new ChatPreparationPipeline()
     const emitter = {
-      emit: vi.fn()
+      emit: vi.fn(),
+      setChatMeta: vi.fn()
     } as any
 
     const prepared = await service.prepare(input, emitter)
@@ -784,7 +805,8 @@ describe('ChatPreparationPipeline', () => {
 
     const service = new ChatPreparationPipeline()
     const emitter = {
-      emit: vi.fn()
+      emit: vi.fn(),
+      setChatMeta: vi.fn()
     } as any
 
     const prepared = await service.prepare(input, emitter)
@@ -808,7 +830,8 @@ describe('ChatPreparationPipeline', () => {
   it('omits thinking level when the selected model has no reasoning capability', async () => {
     const service = new ChatPreparationPipeline()
     const emitter = {
-      emit: vi.fn()
+      emit: vi.fn(),
+      setChatMeta: vi.fn()
     } as any
 
     const prepared = await service.prepare({
@@ -840,7 +863,8 @@ describe('ChatPreparationPipeline', () => {
     })
     const service = new ChatPreparationPipeline()
     const emitter = {
-      emit: vi.fn()
+      emit: vi.fn(),
+      setChatMeta: vi.fn()
     } as any
 
     const prepared = await service.prepare({
@@ -877,7 +901,8 @@ describe('ChatPreparationPipeline', () => {
     })
     const service = new ChatPreparationPipeline()
     const emitter = {
-      emit: vi.fn()
+      emit: vi.fn(),
+      setChatMeta: vi.fn()
     } as any
 
     const prepared = await service.prepare(input, emitter)
@@ -903,7 +928,8 @@ describe('ChatPreparationPipeline', () => {
     })
     const service = new ChatPreparationPipeline()
     const emitter = {
-      emit: vi.fn()
+      emit: vi.fn(),
+      setChatMeta: vi.fn()
     } as any
 
     const prepared = await service.prepare({
@@ -928,7 +954,8 @@ describe('ChatPreparationPipeline', () => {
   it('appends schedule execution context only for schedule-triggered runs', async () => {
     const service = new ChatPreparationPipeline()
     const emitter = {
-      emit: vi.fn()
+      emit: vi.fn(),
+      setChatMeta: vi.fn()
     } as any
 
     const prepared = await service.prepare({
@@ -994,7 +1021,8 @@ describe('ChatPreparationPipeline', () => {
 
     const service = new ChatPreparationPipeline()
     const emitter = {
-      emit: vi.fn()
+      emit: vi.fn(),
+      setChatMeta: vi.fn()
     } as any
 
     const prepared = await service.prepare(input, emitter)
@@ -1031,7 +1059,8 @@ describe('ChatPreparationPipeline', () => {
 
     const service = new ChatPreparationPipeline()
     const emitter = {
-      emit: vi.fn()
+      emit: vi.fn(),
+      setChatMeta: vi.fn()
     } as any
 
     const prepared = await service.prepare(input, emitter)

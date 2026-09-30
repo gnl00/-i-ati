@@ -13,18 +13,57 @@ The chat runtime uses four cooperating boundaries:
 - `src/main/orchestration/chat/maintenance/` and `postRun/`: explicit maintenance
   operations and asynchronous completion jobs.
 
-```text
-RunService
-  -> RunRuntimeFactory
-    -> RunManager
-      -> AgentRun
-        -> ChatAgentAdapter.prepareRun()
-        -> DefaultMainAgentRuntimeRunner
-          -> AgentRuntime
-        -> RunFinalizer
-        -> ChatAgentAdapter.finalizeRun()
-        -> PostRunJobService
+## Run flow at a glance
+
+The first diagram shows **submission and execution**. Each entry prepares a
+`MainAgentRunInput`; `RunService.submit()` is the only Main submission API.
+`run:start` is the Renderer-to-Main transport boundary, not a second run
+lifecycle. Telegram commands are handled by their command service outside this
+ordinary run path.
+
+```mermaid
+flowchart LR
+  UI[ChatUI] -->|run:start IPC| S[RunService.submit]
+  TG[Telegram gateway] -->|MainAgentRunInput| S
+  OTHER[Scheduler / TUI] -->|MainAgentRunInput| S
+  S --> RM[RunManager / AgentRun]
+  RM --> PREP[Resolve Chat and bind identity]
+  PREP --> AGENT[AgentRuntime]
 ```
+
+`RunManager` registers and starts the run. Chat preparation attaches the
+resolved `chatId` and `chatUuid` to the event emitter before `chat.ready`,
+history, or user-message events. `AgentRun` then drives the runtime and
+finalization; post-run title and compression jobs continue asynchronously.
+
+Submission returns a Main-local `{ submissionId, completion }` handle.
+`completion` resolves for success and rejects for failed or aborted runs; one
+terminal path clears pending interactions and removes the active run.
+
+| Caller | What it receives or waits for |
+| --- | --- |
+| ChatUI | IPC returns only `{ accepted: true, submissionId }`; later updates arrive through `run:event`. The Promise stays in Main. |
+| Telegram, Scheduler, TUI | Main callers receive the handle and await `completion` where their host flow needs the terminal result. |
+
+The second diagram shows **output delivery**. The dispatcher routes each
+output to the adapters selected for its type and run; it does not broadcast
+every output to every host.
+
+```mermaid
+flowchart LR
+  OUT[AgentRun events and render output] --> D[HostOutputDispatcher]
+  CONF[Main confirmation state] --> D
+  D --> CHAT[Chat IPC / ChatUI]
+  D --> TG[Telegram render / approval adapters]
+  D --> OTHER[TUI / other host adapters]
+```
+
+Render output passes through `HostRenderEventMapper`; Run envelopes are
+sequenced by the emitter. Main-owned confirmation decisions also use this
+dispatcher but retain their separate lifecycle and frozen delivery targets.
+ChatUI consumes scoped run events in one app-level ingress and merges persisted
+messages by `revision`. See [ADR-0027](../decisions/0027-unified-host-output-dispatch.md)
+and [ADR-0028](../decisions/0028-renderer-run-ingress-and-message-revisions.md).
 
 ## Agent runtime
 
@@ -72,7 +111,7 @@ inside orchestration infrastructure.
 
 ## Run orchestration
 
-`src/main/orchestration/chat/run/index.ts` exposes start, execute, cancellation,
+`src/main/orchestration/chat/run/index.ts` exposes submit, cancellation,
 confirmation, user-question submission and hydration, and active-run
 configuration updates.
 
@@ -95,6 +134,12 @@ and snapshot reconciliation across Chat, Telegram and TUI. Approval state and
 execution state are separate. See
 [the confirmation flow](command-confirmation-flow.md) and
 [ADR-0026](../decisions/0026-main-owned-tool-confirmation-lifecycle.md).
+
+The IPC handler validates the transport payload before admission. Known chat
+identity is attached when the emitter is created; `RunEnvironmentService`
+rebinds the resolved identity before the first chat event. The submission and
+completion contract is recorded in
+[ADR-0029](../decisions/0029-unified-run-submission.md).
 
 The mutable runtime context currently carries `permissionApprovalMode`. Renderer
 updates reach the active run through `run:permission-approval-mode:update`.
@@ -258,6 +303,15 @@ The process-wide IPC and tool registries remain explicit central registries.
 
 Telegram approvals subscribe to the shared Main approval manager independently of the initiating host. Targets are frozen from active chat bindings and trusted run host metadata when the approval is created. Telegram delivery copies use a separate source and are excluded from model request and compression projections while remaining visible in the transcript.
 
-### Host output 分发
+### Host output dispatch
 
-`RunRuntimeFactory` 创建单一 `HostOutputDispatcher`，普通回复经 `HostRenderEventMapper` 后与 Run envelope、canonical confirmation 共用该分发器。Chat IPC、TUI run sinks、run 挂载的 Telegram responder 和注册的审批 adapter 都使用同一错误隔离与顺序规则。消息持久化和 Chat side effects 仍是 required consumer。审批广播按冻结目标选择，普通回复按 run 挂载的 adapter 选择。详见 [ADR 0027](../decisions/0027-unified-host-output-dispatch.md)。
+`RunRuntimeFactory` creates one `HostOutputDispatcher` for mapped render
+output, Run envelopes, and canonical confirmations. It isolates transport
+errors and preserves delivery order per adapter. Message persistence and Chat
+side effects are required consumers; a transport failure in another host does
+not block them. See the output diagram above and
+[ADR-0027](../decisions/0027-unified-host-output-dispatch.md).
+
+### Renderer run ingress and message revisions
+
+Home owns one app-lifetime run ingress. Desktop submit registers its control context; scoped external runs are observed automatically. Schedule notifications no longer own ordinary run message consumption. Transcript snapshots merge with buffers by the Main-assigned `messages.revision`; older messages cannot replace newer committed state. See [ADR 0028](../decisions/0028-renderer-run-ingress-and-message-revisions.md).

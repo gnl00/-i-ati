@@ -3,7 +3,7 @@ import {
   type CompressionExecutionInput,
   type TitleGenerationInput
 } from '@main/orchestration/chat/maintenance'
-import type { RunEventSink, RunResult } from '@main/agent/contracts'
+import type { RunEventSink } from '@main/agent/contracts'
 import type { MainAgentRunInput } from '@main/hosts/chat/preparation/types'
 import type { HostRenderEventSink } from '@main/hosts/shared/render'
 import type { PermissionApprovalMode } from '@tools/approval'
@@ -24,6 +24,7 @@ import type {
   RunCancelResult
 } from '@shared/run/cancellation'
 import { RunRuntimeFactory, type RunRuntimeDeps } from './runtime/RunRuntimeFactory'
+import type { RunSubmissionHandle } from './runtime/RunManager'
 
 type RunExecutionOptions = {
   eventSinks?: RunEventSink[]
@@ -40,18 +41,11 @@ export class RunService {
     this.runtime = runtime ?? (defaultRuntime ??= new RunRuntimeFactory().create())
   }
 
-  // Interactive entry: accept immediately and continue the run in the background.
-  async start(
+  submit(
     input: MainAgentRunInput,
     options: RunExecutionOptions = {}
-  ): Promise<{ accepted: true; submissionId: string }> {
-    return await this.runtime.runManager.start(input, options.eventSinks, options.hostRenderSinks)
-  }
-
-  // Internal entry: execute the main run pipeline and wait for its terminal result,
-  // but not asynchronous post-run jobs.
-  async execute(input: MainAgentRunInput, options: RunExecutionOptions = {}): Promise<RunResult> {
-    return await this.runtime.runManager.execute(input, options.eventSinks, options.hostRenderSinks)
+  ): RunSubmissionHandle {
+    return this.runtime.runManager.submit(input, options.eventSinks, options.hostRenderSinks)
   }
 
   async executeCompression(data: CompressionExecutionInput): Promise<CompressionResult> {
@@ -122,6 +116,7 @@ export class RunService {
 }
 
 export type { MainAgentRunInput } from '@main/hosts/chat/preparation/types'
+export type { RunSubmissionHandle } from './runtime/RunManager'
 export type { ToolConfirmationDecision } from './infrastructure'
 export type {
   ActiveChatRunIdentity,

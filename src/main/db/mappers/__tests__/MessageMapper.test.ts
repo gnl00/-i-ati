@@ -10,6 +10,7 @@ describe('messageMapper', () => {
   it('maps a message entity into insert and update rows', () => {
     const message: MessageEntity = {
       id: 4,
+      revision: 1,
       chatId: 1,
       chatUuid: 'chat-1',
       body: {
@@ -28,6 +29,7 @@ describe('messageMapper', () => {
     }
 
     expect(toMessageInsertRow(message)).toEqual({
+      revision: 1,
       chat_id: 1,
       chat_uuid: 'chat-1',
       body: JSON.stringify(message.body),
@@ -36,6 +38,7 @@ describe('messageMapper', () => {
     })
     expect(toMessageRow(message)).toEqual({
       id: 4,
+      revision: 1,
       chat_id: 1,
       chat_uuid: 'chat-1',
       body: JSON.stringify(message.body),
@@ -47,6 +50,7 @@ describe('messageMapper', () => {
   it('maps a row back into a message entity and patches ui state', () => {
     const row = {
       id: 4,
+      revision: 1,
       chat_id: 1,
       chat_uuid: 'chat-1',
       body: JSON.stringify({
@@ -64,6 +68,7 @@ describe('messageMapper', () => {
 
     expect(toMessageEntity(row)).toEqual({
       id: 4,
+      revision: 1,
       chatId: 1,
       chatUuid: 'chat-1',
       body: {
@@ -121,6 +126,7 @@ describe('messageMapper', () => {
 
     const entity = toMessageEntity({
       id: 4,
+      revision: 1,
       chat_id: 1,
       chat_uuid: 'chat-1',
       body: JSON.stringify(legacyMessage),
@@ -137,6 +143,7 @@ describe('messageMapper', () => {
   it('skips malformed token usage JSON while preserving the message body', () => {
     const entity = toMessageEntity({
       id: 5,
+      revision: 1,
       chat_id: 1,
       chat_uuid: 'chat-1',
       body: JSON.stringify({
@@ -149,6 +156,7 @@ describe('messageMapper', () => {
 
     expect(entity).toEqual({
       id: 5,
+      revision: 1,
       chatId: 1,
       chatUuid: 'chat-1',
       body: {

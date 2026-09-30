@@ -202,7 +202,7 @@ export class SchedulerService {
         throw new Error('Scheduled execution cancelled before model execution')
       }
 
-      const result = await this.runService.execute({
+      const result = await this.runService.submit({
         submissionId,
         chatId: executionChat.id,
         chatUuid: executionChat.uuid,
@@ -218,7 +218,7 @@ export class SchedulerService {
             occurrenceKey: run.id
           }
         }
-      })
+      }).completion
       executionSucceeded = true
 
       const currentTask = planningDb.getScheduledTaskById(task.id)

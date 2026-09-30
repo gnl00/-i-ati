@@ -80,6 +80,20 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0
 }
 
+function validateRunStartRequest(data: unknown): data is MainAgentRunInput {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return false
+  const request = data as Partial<MainAgentRunInput>
+  const modelRef = request.modelRef as Partial<ModelRef> | undefined
+  const input = request.input as Partial<MainAgentRunInput['input']> | undefined
+  return isNonEmptyString(request.submissionId)
+    && isNonEmptyString(modelRef?.accountId)
+    && isNonEmptyString(modelRef?.modelId)
+    && typeof input?.textCtx === 'string'
+    && Array.isArray(input.mediaCtx)
+    && (request.chatId === undefined || Number.isSafeInteger(request.chatId))
+    && (request.chatUuid === undefined || isNonEmptyString(request.chatUuid))
+}
+
 function validateRunCancelRequest(data: unknown): data is RunCancelRequest {
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
     return false
@@ -96,9 +110,14 @@ function validateRunCancelRequest(data: unknown): data is RunCancelRequest {
 }
 
 export function registerChatHandlers(): void {
-  const handleRunStart = async (_event: Electron.IpcMainInvokeEvent, data: MainAgentRunInput) => {
+  const handleRunStart = async (
+    _event: Electron.IpcMainInvokeEvent,
+    data: unknown
+  ): Promise<{ accepted: true; submissionId: string }> => {
+    if (!validateRunStartRequest(data)) throw new Error('Invalid run submission')
     console.log(`[ChatSubmit IPC] Submit: ${data.submissionId}`)
-    return runService.start(data)
+    const handle = runService.submit(data)
+    return { accepted: true as const, submissionId: handle.submissionId }
   }
 
   const handleRunCancel = async (

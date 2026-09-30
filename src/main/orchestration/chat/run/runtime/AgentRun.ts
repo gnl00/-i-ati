@@ -133,10 +133,6 @@ export class AgentRun {
         this.input,
         this.emitter
       )
-      this.emitter.setChatMeta({
-        chatId: runSpec.runtimeContext.chatId,
-        chatUuid: runSpec.runtimeContext.chatUuid
-      })
       this.chatUuid = runSpec.runtimeContext.chatUuid
 
       const runResult = await this.services.mainAgentRuntimeRunner.run({

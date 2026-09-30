@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RunResult, RunEventSink } from '@main/agent/contracts'
 import type { RunEventPayloads, RunEventType } from '@shared/run/events'
-import type { MainAgentRunInput } from '@main/orchestration/chat/run'
+import type { MainAgentRunInput, RunSubmissionHandle } from '@main/orchestration/chat/run'
 vi.mock('@main/db/chat', () => ({ chatDb: {} }))
 vi.mock('@main/db/config', () => ({ configDb: {} }))
 vi.mock('@main/orchestration/chat/run', () => ({ RunService: class {} }))
@@ -27,7 +27,10 @@ function setup(): TuiSession {
     '/workspace',
     {
       waitForPostRunJobs: async (): Promise<void> => {},
-      execute,
+      submit: (input, options): RunSubmissionHandle => ({
+        submissionId: input.submissionId,
+        completion: execute(input, { eventSinks: options?.eventSinks ?? [] })
+      }),
       cancel,
       steer,
       submitToolConfirmation,

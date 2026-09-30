@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 
-import { act } from 'react'
+import { act, useEffect } from 'react'
+import { retainChatRunIngress } from '../../runtime/chatRunEvent'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SCHEDULE_EVENTS } from '@shared/schedule/events'
@@ -77,6 +78,26 @@ function buildTask(overrides: Partial<ScheduleTask> = {}): ScheduleTask {
   }
 }
 
+function dispatchRun(event: RunEvent): void {
+  for (const handler of runEventMock.handlers) handler(event)
+}
+
+function dispatchSchedule(event: ScheduleEvent): void {
+  scheduleEventMock.handler?.(event)
+  if (event.type === SCHEDULE_EVENTS.STARTED && event.payload.submissionId) {
+    dispatchRun({ type: RUN_LIFECYCLE_EVENTS.RUN_STATE_CHANGED,
+      submissionId: event.payload.submissionId,
+      chatUuid: event.payload.run.execution_chat_uuid ?? event.chatUuid,
+      sequence: 1, timestamp: 1000, payload: { state: 'preparing' } })
+  }
+  if (event.type === SCHEDULE_EVENTS.RUN_FINISHED && event.payload.run.status === 'completed') {
+    dispatchRun({ type: RUN_LIFECYCLE_EVENTS.RUN_COMPLETED,
+      submissionId: event.payload.run.submission_id!,
+      chatUuid: event.payload.run.execution_chat_uuid ?? event.chatUuid,
+      sequence: 3, timestamp: 2000, payload: { assistantMessageId: 99 } })
+  }
+}
+
 describe('useScheduleNotifications', () => {
   let container: HTMLDivElement
   let root: Root
@@ -124,6 +145,7 @@ describe('useScheduleNotifications', () => {
   })
 
   function Probe({ chatUuid }: { chatUuid: string }): null {
+    useEffect(() => retainChatRunIngress(), [])
     useScheduleNotifications(chatUuid)
     return null
   }
@@ -135,7 +157,7 @@ describe('useScheduleNotifications', () => {
 
     const startedTask = buildTask()
     await act(async () => {
-      scheduleEventMock.handler?.({
+      dispatchSchedule({
         type: SCHEDULE_EVENTS.STARTED,
         payload: {
           task: startedTask,
@@ -170,7 +192,7 @@ describe('useScheduleNotifications', () => {
     expect(useChatStore.getState().getRunStatusForChat('execution-1').runPhase).toBe('submitting')
 
     await act(async () => {
-      scheduleEventMock.handler?.({
+      dispatchSchedule({
         type: SCHEDULE_EVENTS.RUN_FINISHED,
         payload: {
           task: buildTask({ status: 'pending', schedule_type: 'cron' }),
@@ -206,8 +228,9 @@ describe('useScheduleNotifications', () => {
     })
 
     await act(async () => {
-      scheduleEventMock.handler?.({
-        type: SCHEDULE_EVENTS.MESSAGE_CREATED,
+      dispatchRun({
+        type: CHAT_RENDER_EVENTS.MESSAGE_CREATED,
+        submissionId: 'submission-1',
         payload: {
           message: {
             id: 99,
@@ -247,7 +270,7 @@ describe('useScheduleNotifications', () => {
       updateTime: 1000
     }
     await act(async () => {
-      scheduleEventMock.handler?.({
+      dispatchSchedule({
         type: SCHEDULE_EVENTS.STARTED,
         payload: {
           task,
@@ -316,7 +339,7 @@ describe('useScheduleNotifications', () => {
     })
     const task = buildTask({ id: 'task-other', chat_uuid: 'chat-2', goal: 'Recurring check' })
     await act(async () => {
-      scheduleEventMock.handler?.({
+      dispatchSchedule({
         type: SCHEDULE_EVENTS.RUN_FINISHED,
         payload: {
           task,
@@ -330,7 +353,7 @@ describe('useScheduleNotifications', () => {
         chatUuid: 'chat-2', sequence: 3, timestamp: 2000
       })
     })
-    expect(toast.error).toHaveBeenCalledWith('任务执行失败', { description: 'network error' })
+    expect(toast.error).toHaveBeenCalledWith('Task failed', { description: 'network error' })
   })
 
   it('keeps blocking post-run maintenance bound after occurrence completion', async () => {
@@ -344,7 +367,7 @@ describe('useScheduleNotifications', () => {
     }
 
     await act(async () => {
-      scheduleEventMock.handler?.({
+      dispatchSchedule({
         type: SCHEDULE_EVENTS.STARTED,
         payload: { task, run, submissionId: 'submission-post', attempt: 1 },
         chatUuid: 'execution-post', sequence: 1, timestamp: 1000
@@ -377,6 +400,6 @@ describe('useScheduleNotifications', () => {
       })
     })
     expect(useChatStore.getState().getRunStatusForChat('execution-post').runPhase).toBe('idle')
-    expect(runEventMock.handlers.size).toBe(0)
+    expect(runEventMock.handlers.size).toBe(1) // App ingress remains active after a run ends.
   })
 })

@@ -5,6 +5,7 @@ import {
   ChatWindow,
   TasksPage,
   useChatStore,
+  retainChatRunIngress,
 } from '@renderer/features/chat';
 import { Toaster as SonnerToaster } from '@renderer/shared/components/ui/sonner';
 import { Toaster } from '@renderer/shared/components/ui/toaster';
@@ -14,6 +15,7 @@ export default function Home(): ReactElement {
   const tasksPageOpen = useChatStore((state) => state.tasksPageOpen);
   useEffect(() => {
     rendererStartupTracer.mark('route.home.mounted');
+    return retainChatRunIngress();
   }, []);
 
   return (

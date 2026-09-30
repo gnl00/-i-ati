@@ -530,12 +530,13 @@ describe('handleChatRunEvent', () => {
       type: CHAT_RENDER_EVENTS.MESSAGE_SEGMENT_UPDATED,
       payload: {
         messageId: 99,
+        revision: 2,
         patch
       }
     })
 
     expect(input.chatStore.applyPreviewSegmentPatchForChat).toHaveBeenCalledWith('chat-1', patch)
-    expect(latestStore.patchMessageSegmentForChat).toHaveBeenCalledWith('chat-1', 99, patch)
+    expect(latestStore.patchMessageSegmentForChat).toHaveBeenCalledWith('chat-1', 99, patch, 2)
   })
 
   it('queues preview segment patches when a preview patch batcher is available', async () => {

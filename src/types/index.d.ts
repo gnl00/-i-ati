@@ -421,6 +421,8 @@ declare interface ChatHostBindingSummary {
 }
 
 declare interface MessageEntity {
+  /** Main-assigned persistence revision; absent only on unsaved drafts. */
+  revision?: number
   id?: number
   chatId?: number
   chatUuid?: string

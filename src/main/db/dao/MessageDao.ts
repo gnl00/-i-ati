@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3'
 
 interface MessageRow {
   id: number
+  revision: number
   chat_id: number | null
   chat_uuid: string | null
   body: string
@@ -41,7 +42,7 @@ class MessageDao {
         SELECT * FROM messages WHERE chat_uuid = ? ORDER BY id ASC
       `),
       updateMessage: db.prepare(`
-        UPDATE messages SET chat_id = ?, chat_uuid = ?, body = ?, tokens = ?, token_usage = ?
+        UPDATE messages SET chat_id = ?, chat_uuid = ?, body = ?, tokens = ?, token_usage = ?, revision = ?
         WHERE id = ?
       `),
       deleteMessage: db.prepare(`
@@ -90,6 +91,7 @@ class MessageDao {
       row.body,
       row.tokens,
       row.token_usage,
+      row.revision,
       row.id
     )
   }

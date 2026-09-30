@@ -3,6 +3,7 @@ import { net } from 'electron'
 import { Bot } from 'grammy'
 import { configDb } from '@main/db/config'
 import { RunService } from '@main/orchestration/chat/run'
+import type { RunResult } from '@main/agent/contracts'
 import { AppConfigStore } from '@main/hosts/chat/config/AppConfigStore'
 import { ChatModelContextResolver } from '@main/hosts/chat/config/ChatModelContextResolver'
 import { TelegramAgentAdapter, type TelegramInboundEnvelope } from '@main/hosts/telegram'
@@ -510,9 +511,9 @@ export class TelegramGatewayService {
       })
       : null
 
-    void this.runService.execute(input, {
+    void (async (): Promise<RunResult> => this.runService.submit(input, {
       ...(responder ? { hostRenderSinks: [responder] } : {})
-    })
+    }).completion)()
       .then(() => {
         if (binding.id) {
           chatDb.updateChatHostBindingLastMessage(binding.id, envelope.messageId)

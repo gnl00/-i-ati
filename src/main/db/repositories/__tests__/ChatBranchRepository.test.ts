@@ -547,6 +547,7 @@ function createHarness(options: { failSearchAfter?: number } = {}): Harness {
     repository,
     transaction,
     addMessage: (body: ChatMessage, chat = { id: 1, uuid: 'source-chat' }): number => messageDao.insertMessage({
+      revision: 1,
       chat_id: chat.id,
       chat_uuid: chat.uuid,
       body: JSON.stringify(body),

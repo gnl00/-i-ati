@@ -6,7 +6,7 @@ import {
 } from '@shared/search/chatSearchHighlights'
 
 const createMessageRepo = (initialRows: any[] = []) => {
-  const rows = [...initialRows]
+  const rows = initialRows.map(row => ({ revision: 1, ...row }))
 
   return {
     rows,
@@ -92,6 +92,25 @@ const createChatRepo = () => ({
 describe('MessageRepository', () => {
   afterEach(() => {
     vi.restoreAllMocks()
+  })
+
+  type MessageRepositoryDeps = ConstructorParameters<typeof MessageRepository>[0]
+
+  it('assigns and advances canonical revisions independently of caller-supplied revisions', () => {
+    const messageRepo = createMessageRepo()
+    const repository = new MessageRepository({ hasDb: (): boolean => true,
+      getChatRepo: (): ReturnType<MessageRepositoryDeps['getChatRepo']> => createChatRepo() as unknown as ReturnType<MessageRepositoryDeps['getChatRepo']>,
+      getMessageRepo: (): ReturnType<MessageRepositoryDeps['getMessageRepo']> => messageRepo as unknown as ReturnType<MessageRepositoryDeps['getMessageRepo']>,
+      getMessageSearchRepo: (): ReturnType<MessageRepositoryDeps['getMessageSearchRepo']> => createMessageSearchRepo(messageRepo) as unknown as ReturnType<MessageRepositoryDeps['getMessageSearchRepo']> })
+    const entity: MessageEntity = { chatUuid: 'chat', revision: 99, body: { role: 'assistant', content: 'a', segments: [] } }
+    entity.id = repository.saveMessage(entity)
+    expect(entity.revision).toBe(1)
+    repository.updateMessage({ ...entity, revision: 800 })
+    expect(repository.getMessageById(entity.id)?.revision).toBe(2)
+    repository.patchMessageUiState(entity.id, { typewriterCompleted: true })
+    expect(repository.getMessageById(entity.id)?.revision).toBe(3)
+    repository.updateMessage(entity)
+    expect(entity.revision).toBe(4)
   })
 
   it('increments chat msg_count when saving a user or assistant message', () => {

@@ -3,6 +3,7 @@ import type { ScheduledTaskRow, ScheduledTaskRunRow } from '@main/db/dao/Schedul
 import { calculateScheduleRetryDelay, SchedulerService } from '../SchedulerService'
 import { SCHEDULE_EVENTS } from '@shared/schedule/events'
 import { planningDb } from '@main/db/planning'
+import type { RunSubmissionHandle } from '@main/orchestration/chat/run'
 
 const tasks: ScheduledTaskRow[] = []
 const runs: ScheduledTaskRunRow[] = []
@@ -28,7 +29,10 @@ vi.mock('@main/notifications/AgentNotificationSink', () => ({
   notifyTerminalRunFailure: mocks.notifyTerminalRunFailure
 }))
 vi.mock('@main/orchestration/chat/run', () => ({ RunService: class {
-  execute = mocks.execute
+  submit = (input: { submissionId: string }): RunSubmissionHandle => ({
+    submissionId: input.submissionId,
+    completion: mocks.execute(input)
+  })
   hasActiveRunForChat = mocks.busy
   cancel = mocks.cancel
 } }))

@@ -1,16 +1,18 @@
+import type { MessageSegmentPatch } from '@shared/chat/render-events'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { appendTerminalOutput, trimToolLiveOutputTail } from '../chatRunUiStore'
 
 type ChatStoreHook = typeof import('../chatStore')['useChatStore']
 
 const messagePersistenceMocks = vi.hoisted(() => ({
+  getMessagesByChatUuid: vi.fn(async () => [] as MessageEntity[]),
   updateMessage: vi.fn(),
   deleteMessage: vi.fn()
 }))
 
 vi.mock('@renderer/features/chat/persistenceService', () => ({
   messagePersistence: {
-    getMessagesByChatUuid: vi.fn(async () => []),
+    getMessagesByChatUuid: messagePersistenceMocks.getMessagesByChatUuid,
     saveMessage: vi.fn(async () => 1),
     updateMessage: messagePersistenceMocks.updateMessage,
     patchMessageUiState: vi.fn(),
@@ -63,6 +65,19 @@ describe('chat per-chat state buffers', () => {
       scrollHint: { type: 'none' },
       toolLiveOutputs: {}
     })
+  })
+
+  it('rejects an older committed segment patch after a final message', () => {
+    const message = { ...createMessage(100, 'chat-2', 'final'), revision: 3 }
+    useChatStore.getState().upsertMessageForChat('chat-2', message)
+    const patch: MessageSegmentPatch = { segment: {
+      type: 'text', segmentId: 'text-1', timestamp: 1, content: 'stale'
+    } }
+    useChatStore.getState().patchMessageSegmentForChat('chat-2', 100, patch, 2)
+    expect(useChatStore.getState().messages[0]).toEqual(message)
+    useChatStore.getState().patchMessageSegmentForChat('chat-2', 100, patch, 4)
+    expect(useChatStore.getState().messages[0].revision).toBe(4)
+    expect(useChatStore.getState().messages[0].body.segments?.[0].content).toBe('stale')
   })
 
   it('keeps a 64 KiB tail per live tool output stream and ignores stale batches', () => {
@@ -319,4 +334,41 @@ describe('chat per-chat state buffers', () => {
     useChatStore.getState().clearPendingUserMessage('submission-1')
     expect(useChatStore.getState().pendingUserMessage).toBeNull()
   })
+  it('restores the newer database revision instead of a stale buffer in both recovery paths', async () => {
+    const partial = { ...createMessage(10, 'chat-2', ''), revision: 2 }
+    const final = { ...createMessage(10, 'chat-2', 'final answer'), revision: 8 }
+    useChatStore.getState().upsertMessageForChat('chat-2', partial)
+    useChatStore.getState().restoreTranscriptForChat('chat-2', [final])
+    expect(useChatStore.getState().messages[0]).toEqual(final)
+    useChatStore.getState().setMessages([partial])
+    messagePersistenceMocks.getMessagesByChatUuid.mockResolvedValueOnce([final])
+    await useChatStore.getState().loadMessagesByChatUuid('chat-2')
+    expect(useChatStore.getState().messages[0]).toEqual(final)
+  })
+
+  it('keeps a newer event received while an older snapshot is loading', async () => {
+    const snapshot = { ...createMessage(10, 'chat-2', 'old'), revision: 2 }
+    const event = { ...createMessage(10, 'chat-2', 'new'), revision: 3 }
+    let release!: (messages: MessageEntity[]) => void
+    messagePersistenceMocks.getMessagesByChatUuid.mockImplementationOnce(() => new Promise(resolve => { release = resolve }))
+    const loading = useChatStore.getState().loadMessagesByChatUuid('chat-2')
+    useChatStore.getState().upsertMessageForChat('chat-2', event)
+    release([snapshot])
+    await loading
+    expect(useChatStore.getState().messages[0]).toEqual(event)
+  })
+
+  it('keeps the selected transcript when another chat history read finishes', async () => {
+    const snapshot = { ...createMessage(10, 'chat-2', 'loaded'), revision: 2 }
+    const visible = { ...createMessage(11, 'chat-3', 'selected'), revision: 1 }
+    let release!: (messages: MessageEntity[]) => void
+    messagePersistenceMocks.getMessagesByChatUuid.mockImplementationOnce(() => new Promise(resolve => { release = resolve }))
+    const loading = useChatStore.getState().loadMessagesByChatUuid('chat-2')
+    useChatStore.setState({ currentChatUuid: 'chat-3', messages: [visible] })
+    release([snapshot])
+    await loading
+    expect(useChatStore.getState().messages).toEqual([visible])
+    expect(useChatStore.getState().transcriptBuffersByChatUuid['chat-2'].messages).toEqual([snapshot])
+  })
+
 })

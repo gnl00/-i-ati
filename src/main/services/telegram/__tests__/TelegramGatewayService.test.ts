@@ -7,6 +7,7 @@ import type { RunEventEmitter, RunEventSink } from '@main/agent/contracts'
 import type { RunEventEnvelope } from '@shared/run/events'
 import type { ToolConfirmation } from '@shared/tools/confirmation'
 import type { TelegramInboundEnvelope } from '@main/hosts/telegram'
+import type { MainAgentRunInput } from '@main/orchestration/chat/run'
 
 const {
   binding,
@@ -114,7 +115,7 @@ vi.mock('@main/orchestration/chat/run', () => ({
   RunService: vi.fn(function () {
     return {
     subscribeToolConfirmations: subscribeApprovals,
-    execute: vi.fn().mockResolvedValue({ state: 'completed' })
+    submit: vi.fn(() => ({ submissionId: 'test', completion: Promise.resolve({ state: 'completed' }) }))
     }
   })
 }))
@@ -199,7 +200,7 @@ const createService = (args: {
   sendChatAction?: ReturnType<typeof vi.fn>
   sendMessage?: ReturnType<typeof vi.fn>
   editMessageText?: ReturnType<typeof vi.fn>
-  runExecute?: ReturnType<typeof vi.fn>
+  runExecute?: (input: MainAgentRunInput) => Promise<unknown>
   hasActiveSubmission?: ReturnType<typeof vi.fn>
   attachmentContext?: {
     mediaCtx: any[]
@@ -261,9 +262,12 @@ const createService = (args: {
     })
   }
   ;(service as any).runService = {
-    execute: args.runExecute ?? vi.fn().mockResolvedValue({
-      state: 'completed'
-    }),
+    submit: vi.fn((input) => ({
+      submissionId: 'test',
+      completion: args.runExecute
+        ? args.runExecute(input)
+        : Promise.resolve({ state: 'completed' })
+    })),
     submitTelegramToolConfirmation: vi.fn()
   }
   if (args.hasActiveSubmission) {
@@ -371,6 +375,24 @@ describe('TelegramGatewayService', () => {
 
     expect(logger.error).toHaveBeenCalledWith('update.run_failed', runError)
     expect(commandService.unregisterActiveSubmission).toHaveBeenCalledWith('123:9', 'submission-id')
+  })
+
+  it('clears the active submission when admission fails synchronously', async () => {
+    const service = createService()
+    const runError = new Error('duplicate submission')
+    const gateway = service as unknown as {
+      runService: { submit: ReturnType<typeof vi.fn> }
+      commandService: { unregisterActiveSubmission: ReturnType<typeof vi.fn> }
+      handleEnvelope: (envelope: TelegramInboundEnvelope, modelRef: ModelRef) => Promise<void>
+    }
+    gateway.runService.submit.mockImplementationOnce(() => { throw runError })
+
+    await gateway.handleEnvelope(createEnvelope(), modelRef)
+    await flushPromises()
+
+    expect(logger.error).toHaveBeenCalledWith('update.run_failed', runError)
+    expect(gateway.commandService.unregisterActiveSubmission)
+      .toHaveBeenCalledWith('123:9', 'submission-id')
   })
 
   it('keeps chat model for Telegram media and passes mediaCtx into the shared run path', async () => {

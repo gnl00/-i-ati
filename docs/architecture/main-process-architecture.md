@@ -66,6 +66,12 @@ The Electron/database implementation remains in
 This direction keeps host and service modules independent from orchestration
 infrastructure while preserving the concrete emitter and runtime factories.
 
+Ordinary chat runs use one Main submission boundary and a separate shared
+output dispatcher. The two flows, caller-specific completion behavior, and
+early chat identity binding are shown in the
+[chat runtime architecture](chat-runtime-architecture-current.md#run-flow-at-a-glance).
+The durable ownership decision is [ADR-0029](../decisions/0029-unified-run-submission.md).
+
 ### Active-run steering
 
 Interactive steering uses the main-owned active run queue:
