@@ -186,6 +186,31 @@ describe('ChatSheet performance subscriptions', () => {
     expect(chatTitleListProbe.render).toHaveBeenCalledTimes(initialRenderCount)
   })
 
+  it('refreshes after the 150ms entrance and cancels refresh when closed early', async () => {
+    vi.useFakeTimers()
+    try {
+      await act(async () => root.render(<ChatSheet />))
+      await settleEffects()
+      vi.mocked(getAllChat).mockClear()
+
+      await act(async () => useSheetStore.getState().setSheetOpenState(true))
+      await act(async () => vi.advanceTimersByTime(149))
+      expect(getAllChat).not.toHaveBeenCalled()
+      await act(async () => vi.advanceTimersByTime(1))
+      expect(getAllChat).toHaveBeenCalledTimes(1)
+
+      await act(async () => useSheetStore.getState().setSheetOpenState(false))
+      vi.mocked(getAllChat).mockClear()
+      await act(async () => useSheetStore.getState().setSheetOpenState(true))
+      await act(async () => vi.advanceTimersByTime(100))
+      await act(async () => useSheetStore.getState().setSheetOpenState(false))
+      await act(async () => vi.advanceTimersByTime(100))
+      expect(getAllChat).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('keeps loading feedback through a real selection and clears it on success', async () => {
     const hydrateChat = vi.fn().mockResolvedValue(undefined)
     const workspace = createDeferred<{

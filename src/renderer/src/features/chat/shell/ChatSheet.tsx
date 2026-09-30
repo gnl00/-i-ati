@@ -19,7 +19,7 @@ import { switchWorkspace } from '@renderer/features/workspace'
 import { BadgePlus } from 'lucide-react'
 import React, { useCallback, useEffect, useRef } from 'react'
 const CHAT_LIST_SENTINEL: ChatEntity = { id: -1, title: '', uuid: '', createTime: 0, updateTime: 0, messages: [] }
-const SHEET_OPEN_ANIMATION_MS = 500
+const SHEET_OPEN_ANIMATION_MS = 150
 
 const appendChatListSentinel = (list: ChatEntity[]): ChatEntity[] => [...list, CHAT_LIST_SENTINEL]
 
@@ -278,7 +278,7 @@ const ChatSheet: React.FC = () => {
             <SheetContent
                 side={"left"}
                 overlayClassName="bg-slate-950/18 dark:bg-(--app-scrim) dark:backdrop-blur-[2px]"
-                className="[&>button]:hidden w-full outline-0 focus:outline-0 select-none flex flex-col h-full dark:border-(--app-border-standard) dark:bg-(--app-canvas) dark:text-(--app-text-primary) dark:shadow-2xl dark:shadow-black/35"
+                className="data-[state=open]:duration-150 data-[state=open]:ease-out [&>button]:hidden w-full outline-0 focus:outline-0 select-none flex flex-col h-full dark:border-(--app-border-standard) dark:bg-(--app-canvas) dark:text-(--app-text-primary) dark:shadow-2xl dark:shadow-black/35"
             >
                 {/* Traffic Lights in Sheet */}
                 <div className="absolute top-4 left-4 z-50">
