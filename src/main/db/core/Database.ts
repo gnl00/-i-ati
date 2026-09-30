@@ -551,6 +551,12 @@ class AppDatabase {
     `)
 
     this.ensureChatsTableSchema()
+    this.db.exec(`
+      UPDATE chats SET is_scheduled = 1 WHERE is_scheduled = 0 AND (
+        uuid IN (SELECT chat_uuid FROM scheduled_task_run_attempts) OR
+        uuid IN (SELECT execution_chat_uuid FROM scheduled_task_runs WHERE execution_chat_uuid IS NOT NULL)
+      )
+    `)
 
     console.log('[Database] Tables created')
   }
@@ -647,6 +653,7 @@ class AppDatabase {
         parent_chat_uuid TEXT,
         forked_from_message_id INTEGER,
         forked_at INTEGER,
+        is_scheduled INTEGER NOT NULL DEFAULT 0,
         create_time INTEGER NOT NULL,
         update_time INTEGER NOT NULL
       )
@@ -666,6 +673,7 @@ class AppDatabase {
     this.ensureColumn('chats', 'parent_chat_uuid', 'TEXT')
     this.ensureColumn('chats', 'forked_from_message_id', 'INTEGER')
     this.ensureColumn('chats', 'forked_at', 'INTEGER')
+    this.ensureColumn('chats', 'is_scheduled', 'INTEGER NOT NULL DEFAULT 0')
 
     if (!hasPermissionApprovalMode) {
       this.ensureColumn('chats', 'permission_approval_mode', "TEXT DEFAULT 'manual'")

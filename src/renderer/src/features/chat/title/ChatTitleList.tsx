@@ -5,8 +5,7 @@ import { invokeDbChatSearch } from '@renderer/infrastructure/ipc'
 import { cn } from '@renderer/shared/lib/utils'
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
 import { parseChatSearchHighlights } from '@shared/search/chatSearchHighlights'
-import { AnimatePresence, motion } from 'framer-motion'
-import { Search, X } from 'lucide-react'
+import { ChatTitleSearch } from './ChatTitleSearch'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { toast as sonnerToast } from 'sonner'
 
@@ -250,11 +249,10 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
   const [searchResults, setSearchResults] = useState<ChatSearchResult[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
   const [searchError, setSearchError] = useState('')
-  const searchInputRef = useRef<HTMLInputElement | null>(null)
   const searchRequestIdRef = useRef(0)
 
   const sortedChatList = useMemo(() => {
-    return [...chatList].sort((a, b) => b.updateTime - a.updateTime)
+    return chatList.filter(chat => !chat.isScheduled).sort((a, b) => b.updateTime - a.updateTime)
   }, [chatList])
 
   const titleListResults = useMemo<ChatSearchResult[]>(() => {
@@ -305,6 +303,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
       setSearchLoading(true)
       setSearchError('')
       void invokeDbChatSearch({
+        scope: 'regular',
         query: normalizedQuery,
         limit: SEARCH_RESULT_LIMIT
       }).then(results => {
@@ -318,7 +317,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
         }
         setSearchError(error instanceof Error ? error.message : 'Failed to search chats')
         setSearchResults([])
-      }).finally(() => {
+      }).finally((): void => {
         if (searchRequestIdRef.current !== requestId) {
           return
         }
@@ -326,37 +325,34 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
       })
     }, 180)
 
-    return () => {
+    return (): void => {
       window.clearTimeout(timeoutId)
     }
   }, [searchQuery])
 
-  const openSearch = () => {
+  const openSearch = (): void => {
     setSearchOpen(true)
-    window.setTimeout(() => {
-      searchInputRef.current?.focus()
-    }, 120)
   }
 
-  const closeSearch = () => {
+  const closeSearch = (): void => {
     setSearchOpen(false)
     setSearchQuery('')
     setSearchError('')
     setSearchResults([])
   }
 
-  const onChatItemTitleChange = (event: React.ChangeEvent<HTMLInputElement>, chat: ChatEntity) => {
+  const onChatItemTitleChange = (event: React.ChangeEvent<HTMLInputElement>, chat: ChatEntity): void => {
     chat.title = event.target.value
     updateChat(chat)
     updateChatList(chat)
   }
 
-  const onSheetChatItemDeleteUndo = (chat: ChatEntity) => {
+  const onSheetChatItemDeleteUndo = (chat: ChatEntity): void => {
     updateChatList(chat)
     void updateChat(chat)
   }
 
-  const onSheetChatItemDeleteClick = (event: React.MouseEvent<HTMLButtonElement>, chat: ChatEntity) => {
+  const onSheetChatItemDeleteClick = (event: React.MouseEvent<HTMLButtonElement>, chat: ChatEntity): void => {
     event.stopPropagation()
     removeChatListEntry(chat.id!)
     void deleteChat(chat.id!)
@@ -371,13 +367,13 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
     })
   }
 
-  const onSheetChatItemEditConformClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+  const onSheetChatItemEditConformClick = (event: React.MouseEvent<HTMLButtonElement>): void => {
     event.stopPropagation()
     setShowChatItemEditConform(false)
     setChatItemEditId(undefined)
   }
 
-  const onSheetChatItemEditClick = (event: React.MouseEvent<HTMLButtonElement>, chat: ChatEntity) => {
+  const onSheetChatItemEditClick = (event: React.MouseEvent<HTMLButtonElement>, chat: ChatEntity): void => {
     event.stopPropagation()
     setShowChatItemEditConform(true)
     if (chatItemEditId) {
@@ -400,60 +396,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
 
   return (
     <div className="relative">
-      <div className="pointer-events-none sticky top-0 z-30 h-0">
-        <motion.div
-          initial={false}
-          animate={{
-            width: searchOpen ? 315 : 30,
-            opacity: 1
-          }}
-          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-          className="pointer-events-auto absolute top-0 right-2"
-        >
-          <div className={cn(
-            "flex h-8.5 items-center overflow-hidden rounded-lg bg-white/70 backdrop-blur-xl dark:border-(--app-border-standard) dark:bg-(--app-surface-raised) dark:text-(--app-text-primary) dark:backdrop-blur-none ",
-            searchOpen && 'border border-gray-200/45 shadow-[0_1px_1px_rgba(15,23,42,0.03)] dark:shadow-none'
-          )}>
-            <button
-              type="button"
-              onClick={searchOpen ? undefined : openSearch}
-              className="h-8.5 w-8.5 shrink-0 flex justify-center items-center text-gray-500 transition-colors hover:bg-black/4 hover:text-gray-700 dark:text-(--app-text-secondary) dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-primary)"
-              aria-label="Search chats"
-            >
-              <Search className="-translate-x-[2px] h-3.5 w-3.5" />
-            </button>
-
-            <AnimatePresence initial={false}>
-              {searchOpen && (
-                <motion.div
-                  key="chat-title-search-input"
-                  initial={{ opacity: 0, x: -8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -8 }}
-                  transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
-                  className="flex min-w-0 flex-1 items-center"
-                >
-                  <Input
-                    ref={searchInputRef}
-                    value={searchQuery}
-                    onChange={event => setSearchQuery(event.target.value)}
-                    placeholder="Search titles and messages..."
-                    className="h-8.5 min-w-0 border-0 bg-transparent pl-1.5 pr-2.5 text-[13px] shadow-none placeholder:text-gray-400 focus-visible:ring-0 focus-visible:ring-offset-0 dark:placeholder:text-gray-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={closeSearch}
-                    className="mr-1.5 flex h-6.5 w-6.5 shrink-0 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-black/4 hover:text-gray-700 dark:text-(--app-text-secondary) dark:hover:bg-(--app-surface-hover) dark:hover:text-(--app-text-primary)"
-                    aria-label="Close search"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </motion.div>
-      </div>
+      <ChatTitleSearch open={searchOpen} value={searchQuery} onChange={setSearchQuery} onOpen={openSearch} onClose={closeSearch} />
 
       {searchError ? (
         <div className={cn('px-4 pb-10 text-center', listTopPaddingClass)}>

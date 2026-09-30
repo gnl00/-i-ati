@@ -349,3 +349,16 @@ Light/Dark 同步切换语义色，不映射桌面 surface 材料。工具输出
 ### Settings model selector material
 
 Settings 模型选择弹层使用半透明白色 / graphite raised 背景与 backdrop blur，保持文字清晰；搜索框用 inset 底色建立层次，透明边框和轻微的焦点底色变化代替强调轮廓。Provider 分组标题保留半透明 sticky 背景。
+
+## Tasks: Chats
+
+Tasks places Chats below the schedule board, aligned to the same
+content width. The board keeps its All/Active/History controls. The chat section
+uses a 13px medium section title and row title, 11px muted count/time, the existing
+canvas background and subtle horizontal dividers, and an independent title search reusing ChatTitleSearch from the chat title list. Each chat row
+contains a neutral message icon, single-line title, timestamp and opening chevron.
+Both lists sit directly on the canvas without rounded outer frames or raised
+background fills. Rows use shared hover/focus colors without extra status badges or nested run
+hierarchies. The task and chat regions each occupy half of the available content height,
+with a fixed gap and independent list scrolling. Task filter changes never move
+the Chats header. Light/Dark share the same geometry.

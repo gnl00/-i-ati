@@ -65,4 +65,31 @@ describeNative('schedule schema upgrade with persisted SQLite data', () => {
     expect(db.prepare('SELECT * FROM messages WHERE id = 1').get()).toEqual(message)
     expect(database.initialize()).toBe(db)
   })
+  it('backfills scheduled origin and preserves it after occurrence cleanup', async () => {
+    profile.path = mkdtempSync(join(tmpdir(), 'ati-schedule-origin-'))
+    const { AppDatabase } = await import('../Database')
+    database = AppDatabase.getInstance()
+    let db = database.initialize()
+    db.exec(`
+      ALTER TABLE chats DROP COLUMN is_scheduled;
+      INSERT INTO chats (uuid, title, create_time, update_time) VALUES
+        ('source', 'Source', 1, 1), ('execution', 'Result', 2, 2);
+      INSERT INTO scheduled_tasks (id, chat_uuid, goal, schedule_type, run_at, status, created_at, updated_at)
+        VALUES ('task', 'source', 'Goal', 'once', 1, 'completed', 1, 1);
+      INSERT INTO scheduled_task_runs (id, task_id, scheduled_for, next_attempt_at, status, created_at, updated_at)
+        VALUES ('run', 'task', 1, 1, 'completed', 1, 1);
+      INSERT INTO scheduled_task_run_attempts (run_id, attempt, submission_id, chat_uuid, created_at)
+        VALUES ('run', 1, 'submission', 'execution', 2);
+    `)
+    database.close()
+    db = database.initialize()
+    expect(db.prepare('SELECT uuid, is_scheduled FROM chats ORDER BY id').all()).toEqual([
+      { uuid: 'source', is_scheduled: 0 }, { uuid: 'execution', is_scheduled: 1 }
+    ])
+    db.exec("DELETE FROM scheduled_tasks WHERE id = 'task'")
+    database.close()
+    db = database.initialize()
+    expect(db.prepare("SELECT is_scheduled FROM chats WHERE uuid = 'execution'").get()).toEqual({ is_scheduled: 1 })
+  })
+
 })

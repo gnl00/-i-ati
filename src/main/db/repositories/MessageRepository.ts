@@ -61,7 +61,9 @@ export class MessageRepository {
     const limit = normalizeLimit(args.limit)
     const chatRepo = this.requireChatRepo()
     const messageSearchRepo = this.requireMessageSearchRepo()
-    const chats = chatRepo.getAllChats().map(toChatEntity)
+    const chats = chatRepo.getAllChats().map(toChatEntity).filter(chat =>
+      !args.scope || Boolean(chat.isScheduled) === (args.scope === 'scheduled')
+    )
     const messageMatchesByChatKey = new Map<string, {
       matchedMessageId?: number
       matchedTimestamp?: number

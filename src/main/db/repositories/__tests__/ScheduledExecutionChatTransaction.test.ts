@@ -84,6 +84,7 @@ describeNative('scheduled execution chat transaction with native SQLite', () => 
     expect(result.run).toMatchObject({ id: 'run-1', execution_chat_uuid: 'execution-chat' })
     expect(db.prepare('SELECT uuid, msg_count, user_instruction FROM chats WHERE uuid = ?').get('execution-chat'))
       .toEqual({ uuid: 'execution-chat', msg_count: 0, user_instruction: '' })
+    expect(db.prepare('SELECT is_scheduled FROM chats WHERE uuid = ?').get('execution-chat')).toEqual({ is_scheduled: 1 })
     expect(dao.getRunById('run-1')?.execution_chat_uuid).toBe('execution-chat')
     expect(dao.listRunAttempts('run-1')).toEqual([{
       run_id: 'run-1', attempt: 1, submission_id: 'submission-1', chat_uuid: 'execution-chat', created_at: 1001

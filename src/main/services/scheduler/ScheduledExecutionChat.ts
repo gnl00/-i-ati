@@ -54,6 +54,7 @@ export async function createScheduledExecutionChat(input: ScheduledExecutionChat
   const now = Date.now()
   const chat: ChatEntity = {
     uuid,
+    isScheduled: true,
     title: buildScheduledExecutionChatTitle(input.task.goal, input.scheduledFor, input.attempt),
     messages: [],
     msgCount: 0,

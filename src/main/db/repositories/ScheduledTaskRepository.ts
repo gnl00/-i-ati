@@ -47,7 +47,8 @@ export class ScheduledTaskRepository {
     const scheduledTaskDao = this.dao()
     const chatDao = this.chatDao()
     const transaction = db.transaction(() => {
-      const chatId = chatDao.insertChat(toChatRow(chat))
+      const executionChat = { ...chat, isScheduled: true }
+      const chatId = chatDao.insertChat(toChatRow(executionChat))
       const run = scheduledTaskDao.bindRunAttempt(
         runId,
         attempt,
@@ -57,7 +58,7 @@ export class ScheduledTaskRepository {
       )
       if (!run) throw new Error(`Scheduled run binding unavailable: ${runId}`)
       return {
-        chat: { ...chat, id: chatId },
+        chat: { ...executionChat, id: chatId },
         run
       }
     })

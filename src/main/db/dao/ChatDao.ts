@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3'
 
 interface ChatRow {
   id: number
+  is_scheduled?: number
   uuid: string
   title: string
   msg_count: number
@@ -34,9 +35,9 @@ class ChatDao {
       insertChat: db.prepare(`
         INSERT INTO chats (
           uuid, title, model_account_id, model_model_id, workspace_path, user_instruction, permission_approval_mode,
-          parent_chat_uuid, forked_from_message_id, forked_at, create_time, update_time
+          parent_chat_uuid, forked_from_message_id, forked_at, is_scheduled, create_time, update_time
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `),
       getAllChats: db.prepare(`
         SELECT * FROM chats ORDER BY update_time DESC
@@ -78,6 +79,7 @@ class ChatDao {
       row.parent_chat_uuid,
       row.forked_from_message_id,
       row.forked_at,
+      row.is_scheduled ?? 0,
       row.create_time,
       row.update_time
     )

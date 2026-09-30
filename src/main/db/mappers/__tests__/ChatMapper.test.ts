@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { toChatEntity, toChatRow } from '../ChatMapper'
 
 describe('chatMapper', () => {
+  it('preserves the scheduled origin through persistence', () => {
+    const chat: ChatEntity = { uuid: 'scheduled', title: 'Result', isScheduled: true, messages: [], createTime: 1, updateTime: 2 }
+    expect(toChatEntity(toChatRow(chat))).toMatchObject({ isScheduled: true })
+  })
+
   it('maps a chat entity into a chat row', () => {
     expect(toChatRow({
       uuid: 'chat-1',

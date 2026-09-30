@@ -221,7 +221,7 @@ export default function ChatScheduleBoard(): React.ReactElement {
           </button>
         ))}
       </div>
-      <div className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-(--app-border-standard) bg-(--app-surface)">
+      <div className="flex min-h-0 flex-col overflow-hidden">
         <div className="hidden shrink-0 grid-cols-[minmax(0,1fr)_140px_96px_128px] gap-4 border-b border-(--app-border-subtle) px-4 py-2 text-[10px] font-medium uppercase tracking-wide text-slate-400 sm:grid dark:text-(--app-text-muted)">
           <span>Task</span>
           <span>Scheduled for</span>

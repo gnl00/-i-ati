@@ -24,7 +24,8 @@ const SHEET_OPEN_ANIMATION_MS = 500
 const appendChatListSentinel = (list: ChatEntity[]): ChatEntity[] => [...list, CHAT_LIST_SENTINEL]
 
 const areChatListEntriesEquivalent = (current: ChatEntity, next: ChatEntity): boolean => {
-    return current.id === next.id
+    return current.isScheduled === next.isScheduled
+        && current.id === next.id
         && current.uuid === next.uuid
         && current.title === next.title
         && current.updateTime === next.updateTime

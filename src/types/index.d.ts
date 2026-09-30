@@ -350,6 +350,7 @@ declare interface SkillMetadata {
 declare interface ChatEntity {
   id?: number // 自增 id
   uuid: string
+  isScheduled?: boolean // Persistent scheduled execution origin
   title: string // 用户名
   messages: number[] // 消息 ID 列表
   msgCount?: number // 消息数量（缓存字段）
@@ -377,6 +378,7 @@ declare interface ChatForkResult {
 }
 
 declare interface ChatSearchRequest {
+  scope?: 'regular' | 'scheduled'
   query: string
   limit?: number
 }

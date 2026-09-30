@@ -178,3 +178,20 @@ Scheduler control-plane logs route through `createSchedulerLogger()` into
 `scheduler-YYYY-MM-DD.log`. Every task keeps its latest 100 terminal occurrence
 rows. The task row provides the efficient board projection; occurrence history
 remains available through the planning database facade.
+
+## Tasks chat list
+
+The Tasks page retains its schedule board and adds a separate **Chats**
+list below it. Both regions occupy equal height with independent list scrolling,
+so filter changes preserve the chat section position. All/Active/History filter only the schedule board; scheduled chats
+sort by chat update time and have an independent title search. Selecting a row
+opens the existing transcript using the normal workspace and hydration path.
+Load errors, empty states and navigation failures remain visible. Selection
+request and epoch guards prevent an obsolete asynchronous open from taking over.
+
+`chats.is_scheduled` persists execution origin independently of bounded occurrence
+history. The execution insertion transaction writes it, and startup backfills
+existing UUID associations after schema initialization. Chat updates preserve it.
+The shared all-chat store retains both kinds for background events; the ordinary
+chat list and its scoped title/message search exclude scheduled origin. Forks use
+the ordinary default. See [ADR-0032](../decisions/0032-scheduled-chat-list-ownership.md).

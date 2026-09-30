@@ -101,6 +101,13 @@ describe('ChatTitleList performance behavior', () => {
     container.remove()
   })
 
+  it('excludes scheduled chats from regular date groups', async () => {
+    useChatStore.getState().updateChatList({ ...chatTwo, isScheduled: true })
+    await renderList()
+    expect(container.querySelectorAll('[data-chat-title-row]')).toHaveLength(1)
+    expect(container.textContent).not.toContain(chatTwo.title)
+  })
+
   it('renders grouped rows with CSS hover and off-screen containment', async () => {
     await renderList()
 

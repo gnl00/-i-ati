@@ -18,6 +18,7 @@ export const toChatRow = (
   now = Date.now(),
   overrides: ChatRowOverrides = {}
 ): ChatRow => ({
+  ...(chat.isScheduled ? { is_scheduled: 1 } : {}),
   id: overrides.id ?? chat.id ?? 0,
   uuid: chat.uuid,
   title: chat.title,
@@ -37,6 +38,7 @@ export const toChatRow = (
 })
 
 export const toChatEntity = (row: ChatRow): ChatEntity => ({
+  ...(row.is_scheduled ? { isScheduled: true } : {}),
   id: row.id,
   uuid: row.uuid,
   title: row.title,

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MessageRepository } from '../MessageRepository'
+import type { ChatRow } from '../../dao/ChatDao'
 import {
   CHAT_SEARCH_HIGHLIGHT_END,
   CHAT_SEARCH_HIGHLIGHT_START
@@ -85,7 +86,7 @@ const createMessageSearchRepo = (messageRepo: ReturnType<typeof createMessageRep
 }
 
 const createChatRepo = () => ({
-  getAllChats: vi.fn(() => []),
+  getAllChats: vi.fn((): Partial<ChatRow>[] => []),
   updateMessageCount: vi.fn()
 })
 
@@ -111,6 +112,22 @@ describe('MessageRepository', () => {
     expect(repository.getMessageById(entity.id)?.revision).toBe(3)
     repository.updateMessage(entity)
     expect(entity.revision).toBe(4)
+  })
+
+  it('filters chat search scope before applying the result limit', () => {
+    const messageRepo = createMessageRepo()
+    const chatRepo = createChatRepo()
+    chatRepo.getAllChats.mockReturnValue([
+      { id: 1, uuid: 'scheduled', title: 'Result', is_scheduled: 1, update_time: 20, create_time: 20 },
+      { id: 2, uuid: 'regular', title: 'Result', update_time: 10, create_time: 10 }
+    ])
+    const repository = new MessageRepository({ hasDb: (): boolean => true,
+      getChatRepo: (): ReturnType<MessageRepositoryDeps['getChatRepo']> => chatRepo as unknown as ReturnType<MessageRepositoryDeps['getChatRepo']>,
+      getMessageRepo: (): ReturnType<MessageRepositoryDeps['getMessageRepo']> => messageRepo as unknown as ReturnType<MessageRepositoryDeps['getMessageRepo']>,
+      getMessageSearchRepo: (): ReturnType<MessageRepositoryDeps['getMessageSearchRepo']> => createMessageSearchRepo(messageRepo) as unknown as ReturnType<MessageRepositoryDeps['getMessageSearchRepo']> })
+    expect(repository.searchChats({ query: 'Result', scope: 'regular', limit: 1 }).map(result => result.chat.uuid)).toEqual(['regular'])
+    expect(repository.searchChats({ query: 'Result', scope: 'scheduled', limit: 1 }).map(result => result.chat.uuid)).toEqual(['scheduled'])
+    expect(repository.searchChats({ query: 'Result' })).toHaveLength(2)
   })
 
   it('increments chat msg_count when saving a user or assistant message', () => {
