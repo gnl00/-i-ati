@@ -29,7 +29,7 @@ export const buildAssistantMessageTokenUsageDisplay = (
   const cacheHitRate = formatHitRate(cacheTokens, inputTokens)
 
   return {
-    compactLabel: `Usage ${formatTokenCountInK(totalTokens)}`,
+    compactLabel: formatTokenCountInK(totalTokens),
     tooltipItems: [
       `Total tokens: ${formatTokenCountInK(totalTokens)}`,
       `Input tokens: ${formatTokenCountInK(inputTokens)}`,

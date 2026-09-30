@@ -4,7 +4,7 @@ import {
   type CopyActionHandler
 } from '@renderer/shared/hooks/useCopyFeedback'
 import { cn } from '@renderer/shared/lib/utils'
-import { Split } from 'lucide-react'
+import { ChartNoAxesColumn, Split } from 'lucide-react'
 import React, { useState } from 'react'
 import { toast } from 'sonner'
 
@@ -39,7 +39,7 @@ export interface MessageOperationButtonsProps {
   showBranch?: boolean
 }
 
-const operationMetaTextClassName = 'min-w-0 truncate text-[11px] font-medium leading-none text-gray-400 tabular-nums dark:text-gray-500'
+const operationMetaTextClassName = 'min-w-0 truncate text-[11px] font-medium leading-none text-(--chat-text-muted) tabular-nums'
 const operationTooltipSurfaceClassName = cn(
   'border border-transparent bg-gray-900 text-white shadow-lg',
   'dark:border-(--app-border-standard) dark:bg-(--app-surface-raised) dark:text-(--app-text-primary)',
@@ -83,16 +83,16 @@ const OperationButton: React.FC<OperationButtonProps> = ({
         className={cn(
           'flex items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2',
           operationButtonMotionClassName,
-          'disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent disabled:active:scale-100 dark:disabled:text-(--app-text-muted) dark:disabled:hover:bg-transparent',
+          'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:active:scale-100 dark:disabled:hover:bg-transparent',
           isCompact
             ? [
-              'h-6 w-6 text-zinc-400',
-              'hover:bg-black/5 hover:text-zinc-700 dark:text-zinc-500 dark:hover:bg-white/6 dark:hover:text-zinc-200',
+              'h-6 w-6 text-(--chat-text-muted)',
+              'hover:bg-(--chat-surface-hover) hover:text-(--chat-text-secondary)',
               'focus-visible:ring-zinc-400/40 dark:focus-visible:ring-zinc-500/60'
             ]
             : [
-              'h-7 w-7 text-gray-400 dark:text-gray-500',
-              'hover:bg-gray-200/70 hover:text-gray-600 dark:hover:bg-(--app-surface-hover) dark:hover:text-gray-300',
+              'h-7 w-7 text-(--chat-text-muted)',
+              'hover:bg-(--chat-surface-hover) hover:text-(--chat-text-secondary)',
               'focus-visible:ring-blue-500/30',
               'backdrop-blur-sm'
             ]
@@ -195,14 +195,15 @@ const TokenUsageInfo: React.FC<{
 
   return (
     <div
-      className="relative h-7 min-w-0 flex items-center"
+      className="relative h-7 shrink-0 flex items-center"
       onMouseEnter={() => setShowTooltip(true)}
       onMouseLeave={() => setShowTooltip(false)}
     >
       <span
         aria-label={display.ariaLabel}
-        className={operationMetaTextClassName}
+        className="inline-flex items-center gap-1 text-[11px] font-medium leading-none text-(--chat-text-muted) tabular-nums whitespace-nowrap"
       >
+        <ChartNoAxesColumn aria-hidden="true" className="h-3 w-3" />
         {display.compactLabel}
       </span>
 
@@ -288,6 +289,10 @@ export const MessageOperations: React.FC<MessageOperationButtonsProps> = ({
         <TokenUsageInfo display={tokenUsageDisplay} />
       )}
 
+      {!isUser && tokenUsageDisplay && assistantDateLabel && (
+        <span aria-hidden="true" className="h-2.5 w-px shrink-0 bg-(--chat-border-standard)" />
+      )}
+
       {!isUser && assistantDateLabel && (
         <div className={cn(operationMetaTextClassName, 'h-7 flex items-center')}>
           {assistantDateLabel}
@@ -300,12 +305,12 @@ export const MessageOperations: React.FC<MessageOperationButtonsProps> = ({
     return (
       <div
         id="assistant-message-operation"
-        className="mt-0.5 min-h-6 pl-2 flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 text-gray-500 dark:text-gray-400"
+        className="mt-0.5 min-h-6 pl-2 flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 text-(--chat-text-muted)"
       >
         <div
           data-testid="assistant-message-actions"
           className={cn(
-            'gap-1 flex',
+            'gap-1 flex shrink-0 items-center',
             assistantHoverVisibilityClassName
           )}
         >
@@ -315,7 +320,7 @@ export const MessageOperations: React.FC<MessageOperationButtonsProps> = ({
         <div
           data-testid="assistant-message-meta"
           className={cn(
-            'ml-auto flex min-w-0 items-center justify-end gap-2 pr-2',
+            'ml-auto flex shrink-0 items-center justify-end gap-3 pr-2',
             assistantHoverVisibilityClassName
           )}
         >
@@ -330,7 +335,7 @@ export const MessageOperations: React.FC<MessageOperationButtonsProps> = ({
       id="usr-msg-operation"
       className={cn(
         'min-h-6 transition-[opacity,transform] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none motion-reduce:translate-y-0',
-        'mt-0.5 pr-2 gap-1 flex text-gray-500 dark:text-gray-400',
+        'mt-0.5 pr-2 gap-1 flex text-(--chat-text-muted)',
         isHovered
           ? 'opacity-100 translate-y-0'
           : 'opacity-0 translate-y-1 pointer-events-none'

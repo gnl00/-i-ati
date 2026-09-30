@@ -76,7 +76,7 @@ describe('buildAssistantMessageLayoutModels', () => {
     expect(models.footer).toEqual({
       messageMeta: undefined,
       tokenUsageDisplay: {
-        compactLabel: 'Usage 165.2k',
+        compactLabel: '165.2k',
         tooltipItems: [
           'Total tokens: 165.2k',
           'Input tokens: 164.8k',

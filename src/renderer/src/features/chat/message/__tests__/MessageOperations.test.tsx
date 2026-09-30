@@ -134,9 +134,9 @@ describe('MessageOperations', () => {
     expect(footerButton?.className).toContain('duration-[160ms]')
     expect(footerButton?.className).toContain('active:scale-[0.97]')
     expect(footerButton?.className).toContain('backdrop-blur-sm')
-    expect(footerButton?.className).toContain('text-gray-400')
-    expect(footerButton?.className).toContain('hover:bg-gray-200/70')
-    expect(footerButton?.className).toContain('dark:hover:bg-(--app-surface-hover)')
+    expect(footerButton?.className).toContain('text-(--chat-text-muted)')
+    expect(footerButton?.className).toContain('hover:bg-(--chat-surface-hover)')
+    expect(footerButton?.className).toContain('hover:text-(--chat-text-secondary)')
     expect(footerSlot?.className).toContain('h-3.5')
     expect(footerSlot?.className).toContain('w-3.5')
     expect(footerIcon?.getAttribute('class')).toContain('h-full')
@@ -145,7 +145,7 @@ describe('MessageOperations', () => {
     expect(compactButton?.className).toContain('w-6')
     expect(compactButton?.className).toContain('transition-[color,background-color,box-shadow,transform]')
     expect(compactButton?.className).toContain('duration-[160ms]')
-    expect(compactButton?.className).toContain('hover:bg-black/5')
+    expect(compactButton?.className).toContain('hover:bg-(--chat-surface-hover)')
     expect(compactButton?.className).toContain('active:scale-[0.97]')
     expect(compactButton?.className).not.toContain('backdrop-blur-sm')
     expect(compactSlot?.className).toContain('h-3')
@@ -351,7 +351,7 @@ describe('MessageOperations', () => {
           type="assistant"
           message={{ createdAt: 1 }}
           tokenUsageDisplay={{
-            compactLabel: 'Usage 165.2k',
+            compactLabel: '165.2k',
             tooltipItems: [
               'Total tokens: 165.2k',
               'Input tokens: 164.8k',
@@ -377,8 +377,8 @@ describe('MessageOperations', () => {
     expect(actionsGroup?.textContent).toContain('Copy')
     expect(actionsGroup?.textContent).toContain('Regenerate')
     expect(actionsGroup?.textContent).toContain('Edit')
-    expect(actionsGroup?.textContent).not.toContain('Usage 165.2k')
-    expect(metaGroup?.textContent).toContain('Usage 165.2k')
+    expect(actionsGroup?.textContent).not.toContain('165.2k')
+    expect(metaGroup?.textContent).toContain('165.2k')
     const pad = (value: number): string => String(value).padStart(2, '0')
     const createdAtDate = new Date(1)
     const expectedDateLabel = `${createdAtDate.getFullYear()}-${pad(createdAtDate.getMonth() + 1)}-${pad(createdAtDate.getDate())} ${pad(createdAtDate.getHours())}:${pad(createdAtDate.getMinutes())}:${pad(createdAtDate.getSeconds())}`
@@ -442,13 +442,44 @@ describe('MessageOperations', () => {
     const editButton = container.querySelector<HTMLButtonElement>('[aria-label="Edit"]')
     expect(editButton?.disabled).toBe(true)
     expect(editButton?.className).toContain('disabled:cursor-not-allowed')
-    expect(editButton?.className).toContain('dark:disabled:text-(--app-text-muted)')
+    expect(editButton?.className).toContain('disabled:opacity-50')
 
     act(() => {
       editButton?.click()
     })
 
     expect(onEditClick).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    { usage: true, timestamp: true, separator: true },
+    { usage: true, timestamp: false, separator: false },
+    { usage: false, timestamp: true, separator: false },
+    { usage: false, timestamp: false, separator: false }
+  ])('shows the usage separator only between available metadata: %j', ({ usage, timestamp, separator }) => {
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    act(() => {
+      root?.render(
+        <MessageOperations
+          type="assistant"
+          message={timestamp ? { createdAt: 1 } : undefined}
+          tokenUsageDisplay={usage ? {
+            compactLabel: '165.2k',
+            tooltipItems: ['Total tokens: 165.2k'],
+            ariaLabel: 'Total tokens 165.2k'
+          } : undefined}
+          isHovered
+          onCopyClick={vi.fn()}
+        />
+      )
+    })
+
+    const metaGroup = container.querySelector('[data-testid="assistant-message-meta"]')
+    expect(Boolean(metaGroup?.querySelector('span[aria-hidden="true"]'))).toBe(separator)
+    expect(Boolean(metaGroup?.querySelector('svg[aria-hidden="true"]'))).toBe(usage)
   })
 
   it('shows detailed token usage when the usage label is hovered', () => {
@@ -462,7 +493,7 @@ describe('MessageOperations', () => {
           type="assistant"
           message={{ createdAt: 1 }}
           tokenUsageDisplay={{
-            compactLabel: 'Usage 165.2k',
+            compactLabel: '165.2k',
             tooltipItems: [
               'Total tokens: 165.2k',
               'Input tokens: 164.8k',
@@ -481,7 +512,7 @@ describe('MessageOperations', () => {
       )
     })
 
-    expect(container.textContent).toContain('Usage 165.2k')
+    expect(container.textContent).toContain('165.2k')
     expect(container.textContent).not.toContain('Input tokens: 164.8k')
 
     const actionsGroup = container.querySelector('[data-testid="assistant-message-actions"]')

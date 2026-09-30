@@ -9,7 +9,7 @@ describe('buildAssistantMessageTokenUsageDisplay', () => {
       totalTokens: 165173,
       promptCacheHitTokens: 88576
     })).toEqual({
-      compactLabel: 'Usage 165.2k',
+      compactLabel: '165.2k',
       tooltipItems: [
         'Total tokens: 165.2k',
         'Input tokens: 164.8k',
@@ -27,7 +27,7 @@ describe('buildAssistantMessageTokenUsageDisplay', () => {
       completionTokens: 82,
       totalTokens: 82660
     })).toEqual({
-      compactLabel: 'Usage 82.7k',
+      compactLabel: '82.7k',
       tooltipItems: [
         'Total tokens: 82.7k',
         'Input tokens: 82.6k',
