@@ -11,8 +11,8 @@ export const WELCOME_EMOTION_FALLBACK: { label: EmotionLabel; intensity: number 
   intensity: 4
 }
 
-export function useWelcomeEmotionState(): { label: EmotionLabel; intensity: number } {
-  const [emotion, setEmotion] = useState(WELCOME_EMOTION_FALLBACK)
+export function useWelcomeEmotionState(): { label: EmotionLabel; intensity: number } | undefined {
+  const [emotion, setEmotion] = useState<{ label: EmotionLabel; intensity: number }>()
 
   useEffect(() => {
     let isMounted = true
@@ -45,7 +45,7 @@ export function useWelcomeEmotionState(): { label: EmotionLabel; intensity: numb
 
     void loadEmotionState()
 
-    return () => {
+    return (): void => {
       isMounted = false
     }
   }, [])

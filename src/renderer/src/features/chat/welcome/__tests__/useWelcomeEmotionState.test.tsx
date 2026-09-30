@@ -7,6 +7,7 @@ import {
   useWelcomeEmotionState,
   WELCOME_EMOTION_FALLBACK
 } from '../useWelcomeEmotionState'
+import SmartWelcomeEntrance from '../SmartWelcomeEntrance'
 
 const { getEmotionStateMock } = vi.hoisted(() => ({
   getEmotionStateMock: vi.fn()
@@ -14,6 +15,15 @@ const { getEmotionStateMock } = vi.hoisted(() => ({
 
 vi.mock('@renderer/infrastructure/persistence/EmotionStateRepository', () => ({
   getEmotionState: getEmotionStateMock
+}))
+
+vi.mock('@renderer/infrastructure/persistence/SmartMessageRepository', () => ({
+  getActiveSmartMessages: async (): Promise<[]> => []
+}))
+
+vi.mock('@renderer/infrastructure/config/appConfig', () => ({
+  useAppConfigStore: (selector: (state: { appConfig: { emotion: { assetPack: string } } }) => unknown): unknown =>
+    selector({ appConfig: { emotion: { assetPack: 'default' } } })
 }))
 
 const flushPromises = async (): Promise<void> => {
@@ -26,7 +36,7 @@ describe('useWelcomeEmotionState', () => {
   let root: Root
   let latestEmotion: ReturnType<typeof useWelcomeEmotionState> | undefined
 
-  function Probe() {
+  function Probe(): null {
     latestEmotion = useWelcomeEmotionState()
     return null
   }
@@ -47,14 +57,15 @@ describe('useWelcomeEmotionState', () => {
     container.remove()
   })
 
-  it('starts from the welcome emotion fallback', async () => {
+  it('waits for persistence before choosing an emotion', async () => {
     getEmotionStateMock.mockReturnValue(new Promise(() => {}))
 
     await act(async () => {
       root.render(<Probe />)
     })
 
-    expect(latestEmotion).toEqual(WELCOME_EMOTION_FALLBACK)
+    expect(latestEmotion).toBeUndefined()
+    expect(getEmotionStateMock).toHaveBeenCalledTimes(1)
   })
 
   it('maps the latest snapshot current emotion', async () => {
@@ -77,6 +88,31 @@ describe('useWelcomeEmotionState', () => {
       label: 'happiness',
       intensity: 9
     })
+  })
+
+  it('mounts only the persisted image after the initial read completes', async () => {
+    let resolveSnapshot!: (snapshot: unknown) => void
+    getEmotionStateMock.mockReturnValue(new Promise(resolve => { resolveSnapshot = resolve }))
+    await act(async () => root.render(<SmartWelcomeEntrance />))
+    expect(container.querySelector('.welcome-v2-emotion-asset')).toBeNull()
+    expect(container.querySelector('.welcome-v2-emotion-emoji')).toBeNull()
+
+    await act(async () => resolveSnapshot({ current: { label: 'neutral', intensity: 9 } }))
+    expect(container.querySelector('.welcome-v2-emotion-asset')?.getAttribute('src'))
+      .toBe('emotion-asset://default/neutral/9.webp')
+    expect(getEmotionStateMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('mounts the default image only after persistence returns no state', async () => {
+    let resolveSnapshot!: (snapshot: unknown) => void
+    getEmotionStateMock.mockReturnValue(new Promise(resolve => { resolveSnapshot = resolve }))
+    await act(async () => root.render(<SmartWelcomeEntrance />))
+    expect(container.querySelector('.welcome-v2-emotion-asset')).toBeNull()
+
+    await act(async () => resolveSnapshot(undefined))
+    expect(container.querySelector('.welcome-v2-emotion-asset')?.getAttribute('src'))
+      .toBe('emotion-asset://default/happiness/4.webp')
+    expect(getEmotionStateMock).toHaveBeenCalledTimes(1)
   })
 
   it('falls back for unsupported labels', async () => {

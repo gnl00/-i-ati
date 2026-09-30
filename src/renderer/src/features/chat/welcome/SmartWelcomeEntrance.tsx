@@ -182,7 +182,9 @@ const Greeting: React.FC<GreetingProps> = (props) => (
 
 const EmotionBadge: React.FC<{ active: boolean }> = ({ active }) => {
   const emotionAssetPack = useAppConfigStore(state => state.appConfig.emotion?.assetPack || 'default')
-  const { label, intensity } = useWelcomeEmotionState()
+  const emotion = useWelcomeEmotionState()
+  const label = emotion?.label
+  const intensity = emotion?.intensity
   const [assetFailed, setAssetFailed] = useState(false)
   const emojiLabel = assetFailed ? WELCOME_EMOTION_FALLBACK.label : label
   const emojiIntensity = assetFailed ? WELCOME_EMOTION_FALLBACK.intensity : intensity
@@ -214,9 +216,9 @@ const EmotionBadge: React.FC<{ active: boolean }> = ({ active }) => {
             className="welcome-v2-emotion-asset"
             onError={() => setAssetFailed(true)}
           />
-        ) : (
+        ) : emotion ? (
           <span className="welcome-v2-emotion-emoji">{mainEmoji}</span>
-        )}
+        ) : null}
       </div>
     </div>
   )

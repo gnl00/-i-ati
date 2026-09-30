@@ -465,3 +465,16 @@ trace 记录 864 个 Script 请求，这是 Vite 开发环境，不代表生产�
 ati-blocks-after-frames.json、ati-blocks-performance-analysis.json、
 ati-welcome-startup-trace.json、ati-welcome-startup-analysis.json。
 临时 main-window 采样代码已按原文件恢复，未新增业务实现或 LCP 视觉修改。
+
+### 欢迎页表情首次加载顺序
+
+`useWelcomeEmotionState` 初始返回 `undefined`，挂载后读取一次持久化状态。
+读取期间 EmotionBadge 保留现有容器，不挂载图片或 emoji；得到有效 current
+表情后直接挂载对应图片。没有状态、标签无效或读取失败时，才选择默认
+`happiness/4`。图片本身加载失败时继续使用原来的 emoji 降级行为。
+这里的“默认表情”是固定回退值，不会请求模型生成表情。
+
+该调整消除持久化表情不同于默认值时的默认图片先行加载；不改变素材、
+动画或图片协议缓存，也不宣称解决欢迎页初始化等待或取得 LCP 收益。
+组件回归覆盖读取中没有图片、有状态直接挂载对应图片、无状态才挂载
+默认图片，并验证每次挂载读取一次。旧 hook 下这三项回归失败，恢复后通过。
