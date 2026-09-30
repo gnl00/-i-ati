@@ -107,37 +107,34 @@ const SharedPromptSurface = React.forwardRef<HTMLTextAreaElement, SharedPromptSu
 
         {dropIndicator}
 
-        <Textarea
-          ref={ref}
-          className={cn(
-            'shared-prompt-textarea w-full resize-none border-0 bg-transparent shadow-none',
-            'px-5 pb-3 pt-3 text-[15px] font-medium leading-6 text-foreground',
-            'focus-visible:outline-hidden focus-visible:ring-0 focus-visible:ring-offset-0',
-            textareaClassName
-          )}
-          rows={1}
-          aria-label={placeholder}
-          value={value}
-          disabled={disabled}
-          onChange={onChange}
-          onKeyDown={onKeyDown}
-          onCompositionStart={onCompositionStart}
-          onCompositionEnd={onCompositionEnd}
-          onPaste={onPaste}
-          onBlur={onBlur}
-          onDragEnter={onDragEnter}
-          onDragLeave={onDragLeave}
-          onDragOver={onDragOver}
-          onDrop={onDrop}
-        />
+        <div className="shared-prompt-text-region relative">
+          <Textarea
+            ref={ref}
+            className={cn(
+              'shared-prompt-textarea w-full resize-none border-0 bg-transparent shadow-none',
+              'px-5 pb-3 pt-3 text-[15px] font-medium leading-6 text-foreground',
+              'focus-visible:outline-hidden focus-visible:ring-0 focus-visible:ring-offset-0',
+              textareaClassName
+            )}
+            rows={1}
+            aria-label={placeholder}
+            placeholder={placeholder}
+            value={value}
+            disabled={disabled}
+            onChange={onChange}
+            onKeyDown={onKeyDown}
+            onCompositionStart={onCompositionStart}
+            onCompositionEnd={onCompositionEnd}
+            onPaste={onPaste}
+            onBlur={onBlur}
+            onDragEnter={onDragEnter}
+            onDragLeave={onDragLeave}
+            onDragOver={onDragOver}
+            onDrop={onDrop}
+          />
 
-        {!value && placeholder && (
-          <div className="shared-prompt-placeholder" aria-hidden="true">
-            {placeholder}
-          </div>
-        )}
-
-        {bodyOverlay}
+          {bodyOverlay}
+        </div>
       </div>
 
       <div

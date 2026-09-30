@@ -233,34 +233,18 @@
   color: var(--chat-text-primary);
 }
 
-.shared-prompt-placeholder {
-  position: absolute;
-  inset-inline: 20px;
-  top: 12px;
-  overflow: hidden;
-  pointer-events: none;
-  user-select: none;
-  -webkit-user-select: none;
+/* Native placeholder shares the textarea's font, padding and line layout. */
+.shared-prompt-textarea::placeholder {
   color: color-mix(in srgb, hsl(var(--muted-foreground)) 56%, transparent);
-  font-size: 15px;
-  font-weight: 500;
-  line-height: 24px;
+  opacity: 1;
 }
 
-.dark .shared-prompt-surface:not([data-variant='chat']) .shared-prompt-placeholder {
+.dark .shared-prompt-surface:not([data-variant='chat']) .shared-prompt-textarea::placeholder {
   color: var(--app-text-muted);
 }
 
-.dark .shared-prompt-surface[data-variant='chat'] .shared-prompt-placeholder {
+.dark .shared-prompt-surface[data-variant='chat'] .shared-prompt-textarea::placeholder {
   color: var(--chat-text-muted);
-}
-
-.shared-prompt-gallery ~ .shared-prompt-placeholder {
-  top: 70px;
-}
-
-.shared-prompt-surface[data-variant='chat'] .shared-prompt-gallery ~ .shared-prompt-placeholder {
-  top: 78px;
 }
 
 .shared-prompt-actions {
@@ -300,14 +284,6 @@
 .shared-prompt-surface[data-variant='chat'] .shared-prompt-gallery {
   margin: 10px 16px 0;
   height: 64px;
-}
-
-.shared-prompt-surface[data-variant='chat'] .shared-prompt-gallery + .shared-prompt-textarea {
-  padding-top: 12px;
-}
-
-.shared-prompt-gallery + .shared-prompt-textarea {
-  padding-top: 12px;
 }
 
 .shared-prompt-surface[data-dragging='true'] {
