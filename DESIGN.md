@@ -127,6 +127,24 @@ Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif
 
 中文与英文共享同一层级。长标题采用 truncate 或 line-clamp，正文采用明确 wrap，数字状态使用 `tabular-nums` 保持稳定。
 
+### 3.3 Assistant Markdown
+
+助手正文采用 14px、400 字重、1.8 行高；标题与重点使用 600 字重。
+段落上下间距为 10px，标题上方 24px、下方 12px。普通渲染与流式渲染共用
+`chat-assistant-prose`。正文采用清晰的中性墨色（Light `#343940`，Dark `#d0d3d7`）。
+
+行内代码使用等宽字体、正文 88% 的字号、400 字重、1px / 3px padding 与 3px 圆角；
+Light 使用 `#f0f2f4` 底色和 `#343a41` 文字，Dark 使用 `#2e3135` 底色和 `#e0e2e5`
+文字。隐藏装饰性反引号，长 token 允许换行。链接沿用现有强调与下划线，
+独立代码块沿用原有高亮与复制控件。
+
+表格采用 Ledger 样式：完整浅色 / graphite 表面、9px 圆角细外框、首列轻底色与
+列分隔线，表头使用中性 inset 底色。表格文字为 13px、1.75 行高，表头 padding
+为 10px / 16px，单元格为 16px。外部滚动容器提供局部横向滚动与上方 16px、
+下方 32px 的留白，末行不重复绘制底边。两列表格最小宽度为 700px，
+首列为 24% 且至少 230px；首列内代码作为任务标签使用系统字体和 500 字重、无底块。
+表格采用自动布局，保留 Markdown 对齐与语义结构。
+
 ## 4. 组件样式
 
 ### 4.1 应用外壳与 Header

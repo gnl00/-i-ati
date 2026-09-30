@@ -230,6 +230,7 @@ describe('markdown code copy feedback', () => {
     expect(table).not.toBeNull()
     expect(table?.querySelector('thead')).not.toBeNull()
     expect(table?.querySelector('tbody')).not.toBeNull()
+    expect(scrollContainer?.classList.contains('markdown-table-scroll')).toBe(true)
     expect(scrollContainer?.classList.contains('w-full')).toBe(true)
     expect(scrollContainer?.classList.contains('max-w-full')).toBe(true)
     expect(scrollContainer?.classList.contains('overflow-x-auto')).toBe(true)

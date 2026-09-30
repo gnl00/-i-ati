@@ -87,7 +87,7 @@ export const markdownCodeComponents = {
     const { children, node, ...rest } = props
 
     return (
-      <div className="w-full max-w-full overflow-x-auto">
+      <div className="markdown-table-scroll w-full max-w-full overflow-x-auto">
         <table {...rest}>{children}</table>
       </div>
     )
