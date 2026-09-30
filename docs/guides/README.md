@@ -13,6 +13,7 @@ project commands and record runtime acceptance separately from automated checks.
 - [CLI Host 实施指导](development/cli-host-implementation.md)
 - [CLI Thinking 配置实施指导](development/cli-thinking-implementation.md)
 - [Documentation maintenance](development/documentation-maintenance.md)
+- [Desktop packaging](development/desktop-packaging.md)
 - [Plugin Author Checklist](development/plugin-author-checklist.md)
 - [Schedule 每次尝试创建新会话：实施指导](development/schedule-fresh-chat-implementation.md)
 - [技能安装、残缺恢复与启动失败报告实施指导](development/skill-install-recovery-implementation.md)

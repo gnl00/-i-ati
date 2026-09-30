@@ -4,6 +4,9 @@ directories:
   buildResources: build
 files:
   - '!**/.vscode/*'
+  - '!dist{,/**/*}'
+  - '!logs{,/**/*}'
+  - '!*.log*'
   - '!native/**/.build/**/*'
   - '!src/*'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
@@ -43,6 +46,11 @@ nsis:
 mac:
   icon: build/icon.icns
   entitlementsInherit: build/entitlements.mac.plist
+  signIgnore:
+    # Data resources are sealed by their containing bundle, not signed as code.
+    - '/Resources/.*\.(pak|nib|dat|bin|webp|icns|onnx|asar)$'
+    # Sign framework code through Versions/A; these paths alias the same files.
+    - '/(Electron Framework|Mantle|ReactiveObjC|Squirrel)\.framework/(?!Versions/A/)'
   extendInfo:
     - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
     - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.

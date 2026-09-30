@@ -60,6 +60,12 @@ Use `pnpm` for local work.
 - `pnpm lint`: run full-repository ESLint with autofix. Use it when repository-wide cleanup is part of the requested task.
 - `pnpm test`: run Vitest interactively. Use `pnpm exec vitest run <test-paths>` for task-scoped verification, `pnpm test:run` for the full suite, and `pnpm test:coverage` for full-suite coverage.
 
+### Electron upgrades and macOS signing
+
+When upgrading Electron or changing macOS signing rules, read [Desktop packaging](docs/guides/development/desktop-packaging.md) and inspect `mac.signIgnore` in `electron-builder.yml`. The current rules sign Electron Framework, Mantle, ReactiveObjC and Squirrel through their physical `Versions/A/` paths and skip aliases. Confirm the upgraded frameworks still use that layout; update the rules if the physical version directory or framework structure changes. Ensure every packaged Mach-O executable, library and native module retains a signing path.
+
+Run a full signed `pnpm build:mac`, then `codesign --verify --deep --strict --verbose=2 dist/mac-arm64/at-i.app`. Verify packaged native module loading, computer-use helper diagnostics and app startup with an isolated user-data directory. Report signing verification and runtime observations separately.
+
 ## Coding Style & Naming Conventions
 Follow `.editorconfig`: UTF-8, LF, spaces, 2-space indentation, and final newlines. ESLint extends the Electron Toolkit TypeScript rules; prefer single quotes and resolve lint issues in the changed files before opening a PR.
 
