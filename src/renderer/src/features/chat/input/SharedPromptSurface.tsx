@@ -110,11 +110,12 @@ const SharedPromptSurface = React.forwardRef<HTMLTextAreaElement, SharedPromptSu
         <Textarea
           ref={ref}
           className={cn(
-            'shared-prompt-textarea h-full w-full resize-none border-0 bg-transparent shadow-none',
+            'shared-prompt-textarea w-full resize-none border-0 bg-transparent shadow-none',
             'px-5 pb-3 pt-3 text-[15px] font-medium leading-6 text-foreground',
             'focus-visible:outline-hidden focus-visible:ring-0 focus-visible:ring-offset-0',
             textareaClassName
           )}
+          rows={1}
           aria-label={placeholder}
           value={value}
           disabled={disabled}

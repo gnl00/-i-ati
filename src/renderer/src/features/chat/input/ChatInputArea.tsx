@@ -901,19 +901,19 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     <div
       ref={rootRef}
       id='inputArea'
-      className="h-full w-full rounded-md bg-transparent"
+      className="w-full rounded-md bg-transparent"
     >
       <div
         id="inputAreaContent"
-        className="relative flex h-full flex-col overflow-hidden bg-transparent px-2 py-1"
+        className="relative flex flex-col overflow-hidden bg-transparent px-2 py-1"
       >
         <div
           className={cn(
-            'chat-input-card relative flex min-h-0 flex-1 flex-col gap-2 overflow-hidden rounded-3xl transition-opacity duration-200 ease-out',
+            'chat-input-card relative flex min-h-0 flex-col gap-2 overflow-hidden rounded-3xl transition-opacity duration-200 ease-out',
             isSubmitBlocked && 'opacity-80'
           )}
         >
-          <div className="min-h-[112px] min-w-0 flex-auto overflow-hidden">
+          <div className="min-w-0 overflow-hidden">
             <SharedPromptSurface
               ref={textareaRef}
               surfaceRef={setInputAreaContentRef}

@@ -15,11 +15,6 @@ import {
   type ChatEntranceRequest,
 } from '@renderer/features/chat/state/sheetStore';
 import { cn } from '@renderer/shared/lib/utils';
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from '@renderer/shared/components/ui/resizable';
 import { AnimatePresence, motion } from 'framer-motion';
 import React, {
   useCallback,
@@ -567,18 +562,8 @@ const ChatWindow: React.FC = () => {
             </div>
           </ChatSidePanelLayout>
         ) : (
-          <ResizablePanelGroup
-            direction="vertical"
-            className="grow overflow-hidden"
-            id="vertical-panel-group"
-          >
-            <ResizablePanel
-              id="main-content-panel"
-              defaultSize={75}
-              minSize={30}
-              maxSize={85}
-              className="flex flex-col overflow-hidden"
-            >
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div id="main-content-panel" className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
               <ChatSidePanelLayout
                 open={artifactsPanelOpen}
                 onClose={closeArtifactsPanel}
@@ -675,28 +660,19 @@ const ChatWindow: React.FC = () => {
                   />
                 </div>
               </ChatSidePanelLayout>
-            </ResizablePanel>
+            </div>
 
-            <ResizableHandle className="hover:bg-primary/10 active:bg-primary/20 bg-transparent transition-colors duration-200 [&>div]:hidden [&::before]:hidden" />
-
-            <ResizablePanel
-              id="input-panel"
-              defaultSize={25}
-              minSize={10}
-              maxSize={70}
-              className="relative bg-transparent"
-              style={{ overflow: 'visible' }}
-            >
+            <div id="input-panel" className="relative shrink-0 bg-transparent">
               <div className="pointer-events-none absolute inset-x-0 bottom-full z-50 mb-2 grid gap-1 px-2">
                 <ChatInputUserQuestion className="pointer-events-auto px-0 pb-0" />
                 <ChatInputToolConfirmation className="pointer-events-auto px-0 pb-0" />
               </div>
 
-              <div className="h-full overflow-hidden">
+              <div>
                 <ChatInputArea ref={chatInputRef} />
               </div>
-            </ResizablePanel>
-          </ResizablePanelGroup>
+            </div>
+          </div>
         )}
       </div>
     </>

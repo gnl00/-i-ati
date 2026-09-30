@@ -151,7 +151,7 @@ Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif
 - Chat composer 是界面的主要操作锚点，展开态使用 24px 圆角、raised surface 和 44px 底部 action row。
 - composer 底部 workspace 按钮：默认 `workspaces/<UUID>` 与 `workspaces/tmp` 显示 `tmp`，包括定时任务继承的源会话目录，自选目录显示末级目录名，未确定路径时显示 `Workspace`；已有路径的悬浮提示保留完整路径。三个按钮变体共用这一规则。
 - Welcome composer 的折叠态使用 pill 轮廓，展开后进入完整输入面板。
-- 输入正文使用透明背景，外层 surface 负责材质、边界和 focus 层级。
+- 输入正文使用透明背景，外层 surface 负责材质、边界和 focus 层级。Chat 与展开后的 Welcome composer 正文从 96px 起随内容增长，上限为 `min(240px, 25dvh)`，超出后正文内部滚动；底部 action row 保持可见，Chat 底部锚定并向上增长。附件在正文上方独立占位，删除与清空即时回缩，逐行增长不添加高度过渡。
 - Model selector、approval mode、Workspace 和 Send 共享高度、圆角、间距与暗色 material。
 - 输入、搜索和内部编辑区使用 `--app-surface-inset`，形成向内的空间关系。
 - placeholder 使用 muted text，focus 通过 border、ring 和 surface 变化表达。
