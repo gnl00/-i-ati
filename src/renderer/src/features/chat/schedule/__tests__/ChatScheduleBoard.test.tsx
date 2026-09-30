@@ -119,7 +119,7 @@ describe('ChatScheduleBoard', () => {
   it('keeps an empty summary accessible for viewing task history', async () => {
     ipc.invokeDbScheduledTasksList.mockResolvedValue([task('completed')])
     await act(async () => root.render(<NextTaskSummary />))
-    expect(container.textContent).toContain('暂无待执行任务')
+    expect(container.textContent).toContain('No upcoming tasks')
     expect(
       container.querySelector<HTMLButtonElement>('[aria-label="Open Tasks"]')
         ?.disabled

@@ -20,7 +20,7 @@ export function NextTaskSummary(): React.ReactElement {
         TASK BOARD <ArrowUpRight className="size-3.5" aria-hidden="true" />
       </span>
       <span className="mt-2 block line-clamp-2 wrap-break-word text-xs font-semibold leading-5 dark:text-(--app-text-primary)">
-        {scheduleLoading ? 'Loading schedules...' : scheduleLoadError || nextTask?.goal || '暂无待执行任务'}
+        {scheduleLoading ? 'Loading schedules...' : scheduleLoadError || nextTask?.goal || 'No upcoming tasks'}
       </span>
       {nextTask && !scheduleLoading && !scheduleLoadError && (
         <span className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500 dark:text-(--app-text-secondary)">
