@@ -63,3 +63,36 @@ On 2026-09-30, signing selection reduced candidates from 789 to 50 and signing
 time from 291.04 seconds to 19.85 seconds. The full build took 51.44 seconds,
 compared with 324.25 seconds before this selection change. Notarization remained
 disabled in both builds.
+
+## Electron 44 compatibility
+
+The project targets Electron `^44.5.0`. Electron 44 requires macOS 13 or later
+and drops Windows ia32 and Linux armv7l distributions. See the upstream
+[breaking changes](https://www.electronjs.org/docs/latest/breaking-changes#breaking-api-changes-440).
+The packaged macOS `Info.plist` declares `LSMinimumSystemVersion: 13.0`.
+
+The native rebuild tool uses a scoped `@electron/rebuild>node-abi` override to
+`^4.35.0` in `pnpm-workspace.yaml`: the previously locked 4.26.0 cannot resolve
+Electron 44's ABI. `better-sqlite3` requires `^12.11.1`; the previously locked
+12.6.2 fails to compile against Electron 44's V8 headers. These updates retain
+the existing database API and do not introduce an application schema migration.
+pnpm records the explicitly selected Electron 44.5.0 release in
+`minimumReleaseAgeExclude`; the exception is limited to that version.
+
+After installation, run `pnpm exec electron --version` to ensure the runtime
+is downloaded, and `pnpm exec electron-builder install-app-deps` to rebuild
+native modules. Electron 42 and later download the runtime on first execution
+rather than during package postinstall.
+
+The 2026-09-30 arm64 upgrade passed both typechecks, all-suite coverage
+(327 test files / 2181 tests passed, 5 files / 20 tests skipped), full signed
+macOS packaging, strict recursive signature verification, packaged SQLite
+transactions and sqlite-vec loading, Sharp/ONNX loading and helper diagnostics.
+An isolated packaged startup rendered the Welcome screen, exposed the preload
+bridge and completed the `db:config:get` IPC request under Electron 44.5.0.
+All four frameworks retained `Versions/A/`; all Mach-O candidates retained a
+signing path. The build took 74.93 seconds, including a 16.62-second first-time
+Electron archive download, with 22.34 seconds spent signing.
+
+Windows/Linux packaging and detailed platform-specific interaction acceptance
+remain unverified by this macOS check.
