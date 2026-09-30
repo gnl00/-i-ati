@@ -27,6 +27,8 @@ pnpm tui --workspace /path/to/project --model <model-id> --account <account-id>
 
 TUI 使用 Electron 的主进程和原生 SQLite，不创建桌面窗口。批处理仍通过 `pnpm cli run` 使用 JSONL 协议。仓库 launcher 使用 `out/main/tui.js`；改动源码后需要重新构建。本次没有新增安装到系统 PATH 的发布命令。
 
+界面固定文案使用英文，与桌面 App 保持一致；用户输入、模型回答、工具内容和已有会话标题保留原始语言。新会话默认标题为 `TUI Chat`。
+
 ## 输入与命令
 
 | 操作 | 行为 |
@@ -60,9 +62,9 @@ TUI 使用 Electron 的主进程和原生 SQLite，不创建桌面窗口。批�
 
 每轮沿用同一个 `chatUuid`，由 Chat 请求准备载入历史。`submissionId` 区分每次运行。TUI 仅接收当前会话、当前提交的事件，过期的流式内容与交互不再修改画面。
 
-运行中 Enter 提交的 steering 在收到 `run.steering.consumed` 后移出队列。结束时未消费的输入显示为“已退回”。Alt+Enter 的 follow-up 只在前一轮成功完成、没有取消且没有退回输入时自动执行。停止或失败后，输入保持可见，通过 `/queue` 取回、编辑并重新提交。
+运行中 Enter 提交的 steering 在收到 `run.steering.consumed` 后移出队列。结束时未消费的输入显示为 `Returned`。Alt+Enter 的 follow-up 只在前一轮成功完成、没有取消且没有退回输入时自动执行。停止或失败后，输入保持可见，通过 `/queue` 取回、编辑并重新提交。
 
-审批和问答临时接管编辑区，原草稿保留。审批默认选中“拒绝”，允许后才继续执行工具。单选输入选项编号，多选输入逗号分隔编号，文本题直接填写；本地验证必选项、数量与长度。问答的超时和推荐答案规则沿用 Chat 的 `ToolUserQuestionManager`，终端收到解决事件后恢复编辑器。
+审批和问答临时接管编辑区，原草稿保留。审批默认选中 `Deny`，允许后才继续执行工具。单选输入选项编号，多选输入逗号分隔编号，文本题直接填写；本地验证必选项、数量与长度。问答的超时和推荐答案规则沿用 Chat 的 `ToolUserQuestionManager`，终端收到解决事件后恢复编辑器。
 
 `source: 'tui'` 是明确的交互来源。共享 `isInteractiveMessageSource()` 让桌面和 TUI 都能获取 `ask_user_question` 定义及运行时处理器；Telegram 等非交互来源保持原规则。TUI 不额外创建 AgentLoop，也不维护独立工具白名单。
 
@@ -86,7 +88,7 @@ TUI 使用 Electron 的主进程和原生 SQLite，不创建桌面窗口。批�
 
 ## 持久化与退出
 
-消息沿用 Chat SQLite 表；草稿与队列使用现有 configs 表中的 `tui:input:<chatUuid>`。正常退出或切换会话时保存，恢复时所有队列项标记为“已退回”，由用户重新提交。当前没有逐键落盘；强制终止进程可能丢失尚未保存的草稿与队列。
+消息沿用 Chat SQLite 表；草稿与队列使用现有 configs 表中的 `tui:input:<chatUuid>`。正常退出或切换会话时保存，恢复时所有队列项标记为 `Returned`，由用户重新提交。当前没有逐键落盘；强制终止进程可能丢失尚未保存的草稿与队列。
 
 退出先取消当前执行，等待运行、post-run 工作、命令进程清理及工具结果压缩，再断开 MCP、关闭数据库与日志。终端清理放在 `finally` 中，恢复光标、输入模式和配色通知。正常退出打印会话 UUID，便于 `--resume`。
 

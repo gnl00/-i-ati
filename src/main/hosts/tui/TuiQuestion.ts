@@ -8,19 +8,19 @@ export function parseQuestionAnswer(
   value: string
 ): ToolUserQuestionAnswer {
   if (question.type === 'text') {
-    if (question.required && !value.trim()) throw new Error('请填写此项。')
-    if (value.length > (question.maxLength ?? 2000)) throw new Error('回答超过字数限制。')
+    if (question.required && !value.trim()) throw new Error('This field is required.')
+    if (value.length > (question.maxLength ?? 2000)) throw new Error('Answer exceeds the character limit.')
     return { questionId: question.id, text: value }
   }
   const choices = value.trim() ? value.split(/[,，\s]+/).filter(Boolean) : []
-  if (choices.some((v) => !/^\d+$/.test(v))) throw new Error('请输入选项编号。')
+  if (choices.some((v) => !/^\d+$/.test(v))) throw new Error('Enter option numbers.')
   const indexes = choices.map(Number)
-  if (new Set(indexes).size !== indexes.length) throw new Error('选项编号重复。')
+  if (new Set(indexes).size !== indexes.length) throw new Error('Duplicate option numbers.')
   const options = question.options ?? []
-  if (indexes.some((i) => i < 1 || i > options.length)) throw new Error('选项编号不在范围内。')
+  if (indexes.some((i) => i < 1 || i > options.length)) throw new Error('Option number out of range.')
   const min = question.minSelections ?? (question.required ? 1 : 0)
   const max = question.type === 'single_select' ? 1 : (question.maxSelections ?? options.length)
-  if (indexes.length < min || indexes.length > max) throw new Error(`请选择 ${min} 至 ${max} 项。`)
+  if (indexes.length < min || indexes.length > max) throw new Error(`Select ${min} to ${max} options.`)
   return {
     questionId: question.id,
     optionIds: indexes.map((i) => options[i - 1].id)
@@ -75,14 +75,14 @@ export class TuiQuestion extends Container implements Focusable {
     this.clear()
     const question = this.questions[this.index]
     this.addChild(
-      new Text(this.theme.bold(`需要你的回答 · ${this.index + 1}/${this.questions.length}`), 0, 1)
+      new Text(this.theme.bold(`Your answer is needed · ${this.index + 1}/${this.questions.length}`), 0, 1)
     )
     this.addChild(new Text(displayText(question.prompt), 0, 0))
     for (const [i, option] of (question.options ?? []).entries()) {
       this.addChild(
         new Text(
           displayText(
-            `${i + 1}. ${option.label}${option.recommended ? '（推荐）' : ''}${option.description ? ` · ${option.description}` : ''}`
+            `${i + 1}. ${option.label}${option.recommended ? ' (Recommended)' : ''}${option.description ? ` · ${option.description}` : ''}`
           ),
           0,
           0
@@ -93,8 +93,8 @@ export class TuiQuestion extends Container implements Focusable {
       new Text(
         this.theme.muted(
           question.type === 'text'
-            ? '输入回答，Enter 确认，Esc 取消'
-            : '输入编号，多选用逗号分隔，Enter 确认，Esc 取消'
+            ? 'Type your answer, Enter to confirm, Esc to cancel'
+            : 'Enter option numbers separated by commas, Enter to confirm, Esc to cancel'
         ),
         0,
         1

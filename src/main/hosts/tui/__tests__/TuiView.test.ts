@@ -86,12 +86,12 @@ describe('TUI view lifecycle', () => {
       }
     ]
     vi.mocked(actions.answer).mockImplementation(() => {
-      throw new Error('此请求已结束。')
+      throw new Error('This request has ended.')
     })
     const running = view.start()
     const onInput = vi.mocked(terminal.start).mock.calls[0][0]
     expect(() => onInput('\r')).not.toThrow()
-    expect(state.notice).toBe('此请求已结束。')
+    expect(state.notice).toBe('This request has ended.')
     expect(view.editor.getText()).toBe('保留草稿')
     await view.exit()
     await running
@@ -105,14 +105,14 @@ describe('TUI presentation and command picker', () => {
     for (const width of [24, 45, 80, 120]) {
       const lines = view.ui.render(width)
       expect(lines.every((line) => visibleWidth(line) <= width)).toBe(true)
-      expect(displayText(lines.at(-2))).toContain('手动审批')
-      expect(displayText(lines.at(-1))).toContain('Enter 发送')
+      expect(displayText(lines.at(-2))).toContain('Manual approval')
+      expect(displayText(lines.at(-1))).toContain('Enter send')
     }
     state.activeRun = 'run'
     state.onChange(true)
-    expect(displayText(view.ui.render(45).at(-1))).toContain('Ctrl+C 停止')
+    expect(displayText(view.ui.render(45).at(-1))).toContain('Ctrl+C stop')
     state.queue = [{ id: 'q', text: '保留输入', mode: 'returned' }]
-    expect(displayText(view.ui.render(45).at(-1))).toContain('/queue 取回输入')
+    expect(displayText(view.ui.render(45).at(-1))).toContain('/queue recover input')
     await view.exit()
   })
 

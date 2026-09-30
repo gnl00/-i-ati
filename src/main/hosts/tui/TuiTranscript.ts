@@ -30,19 +30,19 @@ class ToolView implements Component {
     const status =
       tool?.status ??
       (this.segment.isError
-        ? '失败'
+        ? 'Failed'
         : ({
-            pending: '准备',
-            running: '运行',
-            success: '完成',
-            failed: '失败',
-            aborted: '已停止'
-          }[stored?.status ?? ''] ?? '完成'))
+            pending: 'Preparing',
+            running: 'Running',
+            success: 'Completed',
+            failed: 'Failed',
+            aborted: 'Stopped'
+          }[stored?.status ?? ''] ?? 'Completed'))
     const name = tool?.name ?? this.segment.name
     const color =
-      status === '失败'
+      status === 'Failed'
         ? this.theme.error
-        : status === '运行'
+        : status === 'Running'
           ? this.theme.accent
           : this.theme.muted
     let rawArgs = tool?.args ?? stored?.args
@@ -60,14 +60,14 @@ class ToolView implements Component {
     )
       .replace(/\s+/g, ' ')
       .slice(0, 200)
-    const symbol = status === '失败' ? '×' : status === '完成' ? '✓' : '›'
+    const symbol = status === 'Failed' ? '×' : status === 'Completed' ? '✓' : '›'
     const lines = [color(truncateToWidth(`  ${symbol} ${displayText(name)} · ${status}`, width))]
     if (args) lines.push(this.theme.muted(truncateToWidth(`    ${args}`, width)))
-    if (this.state.expandTools || status === '失败') {
+    if (this.state.expandTools || status === 'Failed') {
       const text = displayText(tool?.output || stored?.error || stored?.result || '')
       const output = new Text(text.slice(-65536), 4, 0).render(width)
       if (output.length > 40)
-        lines.push(this.theme.muted(truncateToWidth('  … 较早输出已折叠', width)))
+        lines.push(this.theme.muted(truncateToWidth('  … Earlier output collapsed', width)))
       lines.push(...output.slice(-40).map((line) => this.theme.muted(line)))
     }
     return lines
@@ -103,7 +103,7 @@ export class TuiTranscript implements Component {
     const current = new Set(messages)
     for (const key of this.cache.keys()) if (!current.has(key)) this.cache.delete(key)
     const lines: string[] = this.state.trimmed
-      ? [this.theme.muted(truncateToWidth('较早对话已收起，完整记录保存在会话中。', width)), '']
+      ? [this.theme.muted(truncateToWidth('Earlier messages collapsed. Full history is saved in this chat.', width)), '']
       : []
     for (const message of messages) {
       let component = this.cache.get(message)
@@ -126,7 +126,7 @@ export class TuiTranscript implements Component {
     container.addChild(
       new Text(
         body.role === 'user'
-          ? this.theme.accent(this.theme.bold('› 你'))
+          ? this.theme.accent(this.theme.bold('› You'))
           : this.theme.bold('● ati'),
         0,
         0
@@ -149,7 +149,7 @@ export class TuiTranscript implements Component {
             ? new Markdown(displayText(segment.content), 2, 0, this.theme.markdown, {
                 color: this.theme.muted
               })
-            : new Text(this.theme.muted('思考 · Ctrl+T 展开'), 2, 0)
+            : new Text(this.theme.muted('Thinking · Ctrl+T to expand'), 2, 0)
         )
       }
       if (segment.type === 'toolCall')

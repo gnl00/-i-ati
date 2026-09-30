@@ -83,14 +83,14 @@ describe('TUI event projection', () => {
     const { state, emit } = setup()
     const pending = { toolCallId: 'tool', name: 'exec', confirmationId: 'approval', submissionId: 'run', chatUuid: 'chat', status: 'pending' as const, version: 1, createdAt: 1, expiresAt: 300001 }
     emit('tool.confirmation.required', pending)
-    expect(state.tools.get('tool')?.status).toBe('等待审批')
+    expect(state.tools.get('tool')?.status).toBe('Awaiting approval')
     emit('tool.confirmation.resolved', { ...pending, status: 'approved', version: 2 })
     expect(state.interactions).toEqual([])
-    expect(state.tools.get('tool')?.status).toBe('已批准')
+    expect(state.tools.get('tool')?.status).toBe('Approved')
     emit('tool.confirmation.required', { ...pending, confirmationId: 'round-2', version: 3 })
     emit('tool.confirmation.resolved', { ...pending, status: 'approved', version: 2 })
     expect(state.interactions).toHaveLength(1)
-    expect(state.tools.get('tool')?.status).toBe('等待审批')
+    expect(state.tools.get('tool')?.status).toBe('Awaiting approval')
   })
   it('bounds output and removes an expired approval when a tool finishes', () => {
     const { state, emit } = setup()
@@ -108,7 +108,7 @@ describe('TUI event projection', () => {
       error: { name: 'Denied', message: 'timeout' }
     })
     expect(state.interactions).toEqual([])
-    expect(state.tools.get('tool')).toMatchObject({ status: '失败', output: 'timeout' })
+    expect(state.tools.get('tool')).toMatchObject({ status: 'Failed', output: 'timeout' })
   })
   it('trims only the display history at whole user turns', () => {
     const { state, emit } = setup()
@@ -146,7 +146,7 @@ describe('TUI event projection', () => {
     const transcript = new TuiTranscript(state, createTuiTheme('dark'))
     const text = displayText(transcript.render(60).join('\n'))
     expect(text).toContain('**literal** _path_')
-    expect(text).toContain('× exec · 失败')
+    expect(text).toContain('× exec · Failed')
     expect(text).toContain('cat missing.txt')
     expect(text).toContain('File not found')
     expect(text).not.toContain('risk_score')

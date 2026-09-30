@@ -37,17 +37,17 @@ export type TuiActions = {
 }
 
 export const TUI_COMMANDS = [
-  { name: 'help', description: '快捷键与命令' },
-  { name: 'new', description: '新建会话' },
-  { name: 'sessions', description: '恢复当前工作区会话' },
-  { name: 'model', description: '选择模型' },
-  { name: 'theme', description: '切换浅色 / 深色' },
-  { name: 'tools', description: '展开工具输出 · Ctrl+O' },
-  { name: 'thinking', description: '展开思考内容 · Ctrl+T' },
-  { name: 'cancel', description: '停止当前执行' },
-  { name: 'queue', description: '取回待发送内容到编辑器' },
-  { name: 'approval', description: '选择工具审批方式' },
-  { name: 'quit', description: '保存并退出' }
+  { name: 'help', description: 'Commands and shortcuts' },
+  { name: 'new', description: 'New Chat' },
+  { name: 'sessions', description: 'Resume a chat in this workspace' },
+  { name: 'model', description: 'Select Model' },
+  { name: 'theme', description: 'Switch Light / Dark mode' },
+  { name: 'tools', description: 'Toggle tool output · Ctrl+O' },
+  { name: 'thinking', description: 'Toggle thinking · Ctrl+T' },
+  { name: 'cancel', description: 'Stop the current run' },
+  { name: 'queue', description: 'Return queued input to the editor' },
+  { name: 'approval', description: 'Select tool approval mode' },
+  { name: 'quit', description: 'Save and quit' }
 ]
 
 export class TuiView {
@@ -93,7 +93,7 @@ export class TuiView {
       invalidate: (): void => {},
       render: (width): string[] => {
         const path = displayText(workspace).replace(/\s+/g, ' ')
-        const title = displayText(this.state.chat?.title || '新会话').replace(/\s+/g, ' ')
+        const title = displayText(this.state.chat?.title || 'New Chat').replace(/\s+/g, ' ')
         const lines = [
           '',
           this.theme.bold('  ati') +
@@ -103,8 +103,8 @@ export class TuiView {
         ]
         if (!this.state.messages.length && !this.state.preview) {
           lines.push(
-            ...new Text('描述任务，或输入 / 选择命令。', 2, 0).render(width),
-            this.theme.muted(truncateToWidth('  /model 选择模型   /sessions 恢复会话', width)),
+            ...new Text('Describe a task, or type / to choose a command.', 2, 0).render(width),
+            this.theme.muted(truncateToWidth('  /model select a model   /sessions resume a chat', width)),
             ''
           )
         }
@@ -235,7 +235,7 @@ export class TuiView {
         break
       case '/help':
         this.select(
-          '命令与快捷键',
+          'Commands and shortcuts',
           TUI_COMMANDS.filter((command) => command.name !== 'help').map((command) => ({
             value: command.name,
             label: `/${command.name}`,
@@ -248,14 +248,14 @@ export class TuiView {
         )
         break
       case '/model':
-        this.select('选择模型', this.actions.models(), (item) => {
+        this.select('Select Model', this.actions.models(), (item) => {
           const model = this.actions.models().find((m) => m.value === item.value)
           if (model) this.actions.setModel(model.ref)
         })
         break
       case '/sessions':
         this.select(
-          '当前工作区会话',
+          'Chats in this workspace',
           this.actions.sessions().map((c) => ({
             value: c.uuid,
             label: c.title,
@@ -270,24 +270,24 @@ export class TuiView {
         break
       case '/approval':
         this.select(
-          '工具审批',
+          'Tool approval',
           [
             {
               value: 'manual',
-              label: '手动审批',
-              description: '需要确认的操作逐项询问'
+              label: 'Manual approval',
+              description: 'Ask before each action that requires approval'
             },
             {
               value: 'auto',
-              label: '自动审批',
-              description: '允许工具执行需要确认的操作'
+              label: 'Auto approval',
+              description: 'Automatically approve actions that require approval'
             }
           ],
           (item) => this.actions.setApproval(item.value as 'manual' | 'auto')
         )
         break
       default:
-        throw new Error('未知命令。使用 /help 查看可用命令。')
+        throw new Error('Unknown command. Use /help to view available commands.')
     }
   }
 
@@ -297,8 +297,8 @@ export class TuiView {
     choose: (item: SelectItem) => void,
     allowDuringRun = false
   ): void {
-    if (!items.length) throw new Error('没有可选项，请先在 ati 设置中配置模型或创建会话。')
-    if (this.state.activeRun && !allowDuringRun) throw new Error('请先停止当前执行。')
+    if (!items.length) throw new Error('No options available. Configure a model in ati Settings or create a chat first.')
+    if (this.state.activeRun && !allowDuringRun) throw new Error('Stop the current run first.')
     const search = new Input()
     let list = new SelectList(
       items.map((item) => ({
@@ -326,7 +326,7 @@ export class TuiView {
       render: (width): string[] => [
         this.theme.muted('─'.repeat(width)),
         this.theme.bold(truncateToWidth(` ${title}`, width)),
-        this.theme.muted(truncateToWidth(' 输入筛选 · ↑↓ 选择 · Enter 确认 · Esc 返回', width)),
+        this.theme.muted(truncateToWidth(' Type to filter · ↑↓ select · Enter confirm · Esc back', width)),
         ...search.render(width),
         ...list.render(width),
         this.theme.muted('─'.repeat(width))
@@ -381,17 +381,17 @@ export class TuiView {
   }
 
   private renderFooter(width: number): string[] {
-    const approval = this.state.chat?.permissionApprovalMode === 'auto' ? '自动审批' : '手动审批'
-    const model = displayText(this.state.model?.modelId ?? '未选择模型').replace(/\s+/g, ' ')
+    const approval = this.state.chat?.permissionApprovalMode === 'auto' ? 'Auto approval' : 'Manual approval'
+    const model = displayText(this.state.model?.modelId ?? 'No model selected').replace(/\s+/g, ' ')
     const available = Math.max(0, width - visibleWidth(approval) - 5)
     const context = ` ${approval} · ${truncateToWidth(model, available, '')}`
     const hints = this.activeInteraction
-      ? ['Enter 确认', 'Esc 取消']
+      ? ['Enter confirm', 'Esc cancel']
       : this.state.queue.some((item) => item.mode === 'returned')
-        ? ['/queue 取回输入', '/help 命令']
+        ? ['/queue recover input', '/help commands']
         : this.state.activeRun
-          ? ['Ctrl+C 停止', 'Enter 插入指令', 'Alt+Enter 排队']
-          : ['Enter 发送', 'Ctrl+J 换行', '/help 命令', 'Tab 补全']
+          ? ['Ctrl+C stop', 'Enter steer', 'Alt+Enter queue']
+          : ['Enter send', 'Ctrl+J newline', '/help commands', 'Tab complete']
     let hint = ''
     for (const part of hints) {
       const next = hint ? `${hint} · ${part}` : ` ${part}`
@@ -448,8 +448,8 @@ export class TuiView {
     const spinning = this.state.activeRun
       ? `${['·', '•', '●', '•'][Math.floor(Date.now() / 120) % 4]} `
       : ''
-    const status = this.state.interactions.length ? '等待你的确认' : this.state.status
-    this.activity.setText(status === '就绪' ? '' : this.theme.muted(`  ${spinning}${status}`))
+    const status = this.state.interactions.length ? 'Awaiting your confirmation' : this.state.status
+    this.activity.setText(status === 'Ready' ? '' : this.theme.muted(`  ${spinning}${status}`))
     this.editor.borderColor = this.state.interactions.length
       ? this.theme.warning
       : this.state.activeRun
@@ -460,7 +460,7 @@ export class TuiView {
       this.state.queue
         .map((item) => {
           const label =
-            item.mode === 'steer' ? '插入' : item.mode === 'followUp' ? '续问' : '已退回'
+            item.mode === 'steer' ? 'Steering' : item.mode === 'followUp' ? 'Follow-up' : 'Returned'
           return this.theme.warning(
             `${label}  ${displayText(item.text).replace(/\s+/g, ' ').slice(0, 100)}`
           )
@@ -498,7 +498,7 @@ export class TuiView {
     } else {
       const p = next.payload
       this.prompt.addChild(
-        new Text(this.theme.warning(`需要批准 · ${displayText(p.ui?.title || p.name)}`), 0, 1)
+        new Text(this.theme.warning(`Approval required · ${displayText(p.ui?.title || p.name)}`), 0, 1)
       )
       this.prompt.addChild(
         new Text(displayText(p.ui?.command || p.args || '').slice(0, 4000), 0, 0)
@@ -506,8 +506,8 @@ export class TuiView {
       if (p.ui?.reason) this.prompt.addChild(new Text(displayText(p.ui.reason), 0, 1))
       const list = new SelectList(
         [
-          { value: 'deny', label: '拒绝' },
-          { value: 'approve', label: '允许本次操作' }
+          { value: 'deny', label: 'Deny' },
+          { value: 'approve', label: 'Allow this action' }
         ],
         2,
         this.theme.select

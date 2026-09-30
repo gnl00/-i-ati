@@ -58,7 +58,7 @@ export class TuiState {
   interactions: TuiInteraction[] = []
   private readonly approvalVersions = new Map<string, number>()
   activeRun?: string
-  status = '就绪'
+  status = 'Ready'
   notice = ''
   usage?: ITokenUsage
   trimmed = false
@@ -131,7 +131,7 @@ export class TuiState {
         this.tools.set(call.id, {
           name: call.name,
           args: call.args,
-          status: '准备',
+          status: 'Preparing',
           output: ''
         })
         break
@@ -140,7 +140,7 @@ export class TuiState {
         if ((this.approvalVersions.get(event.payload.confirmationId) ?? 0) >= event.payload.version) return
         this.approvalVersions.set(event.payload.confirmationId, event.payload.version)
         this.clearApproval(event.payload.toolCallId)
-        this.updateTool(event.payload.toolCallId, { name: event.payload.name, status: '等待审批' })
+        this.updateTool(event.payload.toolCallId, { name: event.payload.name, status: 'Awaiting approval' })
         this.interactions.push({
           kind: 'approval',
           submissionId: event.submissionId,
@@ -169,7 +169,7 @@ export class TuiState {
       case 'tool.execution.started':
         this.updateTool(event.payload.toolCallId, {
           name: event.payload.name,
-          status: '运行'
+          status: 'Running'
         })
         this.clearApproval(event.payload.toolCallId)
         break
@@ -184,27 +184,27 @@ export class TuiState {
       }
       case 'tool.execution.completed':
         this.updateTool(event.payload.toolCallId, {
-          status: event.payload.failure ? '失败' : '完成',
+          status: event.payload.failure ? 'Failed' : 'Completed',
           output: displayText(event.payload.result).slice(-65536)
         })
         this.clearApproval(event.payload.toolCallId)
         break
       case 'tool.execution.failed':
         this.updateTool(event.payload.toolCallId, {
-          status: '失败',
+          status: 'Failed',
           output: event.payload.error.message
         })
         this.clearApproval(event.payload.toolCallId)
         break
       case 'run.state.changed':
         this.status = {
-          preparing: '准备',
-          streaming: '生成',
-          executing_tools: '执行工具',
-          finalizing: '保存',
-          completed: '完成',
-          aborted: '已停止',
-          failed: '失败'
+          preparing: 'Preparing',
+          streaming: 'Generating',
+          executing_tools: 'Running tools',
+          finalizing: 'Saving',
+          completed: 'Completed',
+          aborted: 'Stopped',
+          failed: 'Failed'
         }[event.payload.state]
         break
       case 'run.steering.consumed':
@@ -217,14 +217,14 @@ export class TuiState {
         break
       case 'run.completed':
         this.usage = event.payload.usage
-        this.status = '完成'
+        this.status = 'Completed'
         break
       case 'run.failed':
         this.notice = event.payload.error.message
-        this.status = '失败'
+        this.status = 'Failed'
         break
       case 'run.aborted':
-        this.status = '已停止'
+        this.status = 'Stopped'
         break
     }
     this.trim()
@@ -239,10 +239,10 @@ export class TuiState {
     ))
     const tool = this.tools.get(confirmation.toolCallId)
     const awaitingAnotherRound = this.interactions.some(i => i.kind === 'approval' && i.payload.toolCallId === confirmation.toolCallId)
-    if (!awaitingAnotherRound && (!tool || ['准备', '等待审批', '已批准'].includes(tool.status))) {
+    if (!awaitingAnotherRound && (!tool || ['Preparing', 'Awaiting approval', 'Approved'].includes(tool.status))) {
       this.updateTool(confirmation.toolCallId, {
         name: confirmation.name,
-        status: { pending: '等待审批', approved: '已批准', denied: '已拒绝', expired: '已过期', cancelled: '已取消' }[confirmation.status]
+        status: { pending: 'Awaiting approval', approved: 'Approved', denied: 'Denied', expired: 'Expired', cancelled: 'Cancelled' }[confirmation.status]
       })
     }
   }
@@ -256,7 +256,7 @@ export class TuiState {
   private updateTool(id: string, patch: Partial<TuiTool>): void {
     this.tools.set(id, {
       name: id,
-      status: '准备',
+      status: 'Preparing',
       output: '',
       ...this.tools.get(id),
       ...patch

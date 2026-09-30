@@ -292,7 +292,7 @@ async function snapshot(tui, name, light = false) {
 }
 try {
   let tui = launch()
-  await waitFor(() => tui.screen().includes('未选择模型'), 'initial profile startup')
+  await waitFor(() => tui.screen().includes('No model selected'), 'initial profile startup')
   await quit(tui)
   const db = new DatabaseSync(join(profile, 'chat.db'))
   const now = Date.now()
@@ -328,19 +328,19 @@ try {
   await waitFor(() => tui.screen().includes('local-model'), 'configured model')
   await snapshot(tui, 'welcome-dark')
   tui.send('/model\r')
-  await waitFor(() => tui.screen().includes('输入筛选'), 'searchable model picker')
+  await waitFor(() => tui.screen().includes('Type to filter'), 'searchable model picker')
   tui.send('Local')
   await snapshot(tui, 'model-picker-dark')
   tui.send('\r')
   await delay(100)
   tui.send('/help\r')
-  await waitFor(() => tui.screen().includes('命令与快捷键'), 'command palette')
+  await waitFor(() => tui.screen().includes('Commands and shortcuts'), 'command palette')
   await snapshot(tui, 'help-dark')
   tui.send('\x1b')
   await delay(100)
   tui.send('记住代号青松\r')
   await waitFor(
-    () => tui.screen().includes('TUI_DONE_1') && tui.screen().includes('完成'),
+    () => tui.screen().includes('TUI_DONE_1') && tui.screen().includes('Completed'),
     'first turn'
   )
   tui.send('代号是什么？\r')
@@ -364,7 +364,7 @@ try {
   await waitFor(() => tui.screen().includes(`TUI_DONE_${requests.length}`), 'question completed')
   mode = 'approval'
   tui.send('请求批准\r')
-  await waitFor(() => tui.screen().includes('允许本次操作'), 'manual approval')
+  await waitFor(() => tui.screen().includes('Allow this action'), 'manual approval')
   await snapshot(tui, 'approval-dark')
   tui.send('\x1b[B\r')
   await waitFor(
@@ -408,15 +408,15 @@ try {
       (m) => m.role === 'user' && JSON.stringify(m.content).includes('TUI_FOLLOW_INPUT')
     )
   )
-  await waitFor(() => /^\s*完成\s*$/m.test(tui.screen().slice(-3000)), 'queued runs finish')
+  await waitFor(() => /^\s*Completed\s*$/m.test(tui.screen().slice(-3000)), 'queued runs finish')
   mode = 'cancel'
   tui.send('开始等待\r')
   await waitFor(() => tui.screen().includes('TUI_CANCEL_RUNNING'), 'cancel stream')
   tui.send('不要丢失这条指令\r')
-  await waitFor(() => tui.screen().includes('插入'), 'steering queue')
+  await waitFor(() => tui.screen().includes('Steering'), 'steering queue')
   tui.send('\x03')
   await waitFor(
-    () => tui.screen().includes('已停止') && tui.screen().includes('已退回'),
+    () => tui.screen().includes('Stopped') && tui.screen().includes('Returned'),
     'cancel and return steering'
   )
   await quit(tui)

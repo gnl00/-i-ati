@@ -72,14 +72,14 @@ export class TuiSession {
         )
       : []
     if (modelId && matches.length !== 1)
-      throw new Error('模型未找到或存在多个同名模型，请同时指定 --account。')
+      throw new Error('Model not found or ambiguous. Specify --account to identify the model.')
     this.state.model =
       matches[0]?.ref ??
       models.find(
         (m) => m.ref.accountId === preferred?.accountId && m.ref.modelId === preferred.modelId
       )?.ref ??
       (models.length === 1 ? models[0].ref : undefined)
-    if (!this.state.model) this.state.notice = '使用 /model 选择已配置的模型。'
+    if (!this.state.model) this.state.notice = 'Use /model to select a configured model.'
   }
 
   sessions(): ChatEntity[] {
@@ -97,7 +97,7 @@ export class TuiSession {
     const now = Date.now()
     const chat: ChatEntity = {
       uuid: randomUUID(),
-      title: 'TUI 会话',
+      title: 'TUI Chat',
       messages: [],
       workspacePath: this.workspace,
       modelRef: this.state.model,
@@ -109,20 +109,20 @@ export class TuiSession {
     this.state.draft = ''
     this.state.queue = []
     this.state.load(chat, [])
-    this.state.status = '就绪'
+    this.state.status = 'Ready'
   }
 
   resume(uuid: string): void {
     this.assertIdle()
     const chat = this.chats.getChatByUuid(uuid)
-    if (!chat) throw new Error('会话不存在。')
+    if (!chat) throw new Error('Chat not found.')
     if (!chat.workspacePath || resolve(chat.workspacePath) !== resolve(this.workspace))
-      throw new Error('会话属于其他工作区，请使用该工作区启动 TUI。')
+      throw new Error('This chat belongs to another workspace. Start TUI in that workspace.')
     this.saveInput()
     this.restoreInput(chat.uuid)
     this.state.load(chat, this.chats.getMessagesByChatUuid(chat.uuid))
     this.state.model = chat.modelRef ?? this.state.model
-    this.state.status = '就绪'
+    this.state.status = 'Ready'
   }
 
   setModel(ref: ModelRef): void {
@@ -130,7 +130,7 @@ export class TuiSession {
     if (
       !this.models().some((m) => m.ref.accountId === ref.accountId && m.ref.modelId === ref.modelId)
     )
-      throw new Error('模型不可用。')
+      throw new Error('Model unavailable.')
     this.state.model = ref
     if (this.state.chat) {
       this.state.chat = { ...this.state.chat, modelRef: ref }
@@ -142,10 +142,10 @@ export class TuiSession {
 
   async submit(text: string, mode: 'steer' | 'followUp' = 'steer'): Promise<void> {
     if (this.closing || !text.trim()) return
-    if (text.length > 256 * 1024) throw new Error('输入超过 256 KiB，请改为引用文件。')
-    if (!this.state.model) throw new Error('请先使用 /model 选择模型。')
+    if (text.length > 256 * 1024) throw new Error('Input exceeds 256 Ki characters. Reference a file instead.')
+    if (!this.state.model) throw new Error('Use /model to select a model first.')
     if (this.state.activeRun) {
-      if (this.state.queue.length >= 5) throw new Error('队列已满，请等待当前输入被处理。')
+      if (this.state.queue.length >= 5) throw new Error('Queue is full. Wait for the queued input to be processed.')
       const item: TuiQueueItem = { id: randomUUID(), text, mode }
       if (mode === 'steer') {
         const result = this.runs.steer({
@@ -155,7 +155,7 @@ export class TuiSession {
           text,
           images: []
         })
-        if (!result.accepted) throw new Error(`无法插入当前执行：${result.reason}`)
+        if (!result.accepted) throw new Error(`Unable to steer the current run: ${result.reason}`)
       }
       this.state.queue.push(item)
       this.state.onChange(true)
@@ -170,9 +170,9 @@ export class TuiSession {
     this.cancelRequested = false
     this.state.tools.clear()
     this.state.activeRun = id
-    this.state.status = '准备'
+    this.state.status = 'Preparing'
     this.state.notice = ''
-    if (chat.title === 'TUI 会话') {
+    if (chat.title === 'TUI Chat' || chat.title === 'TUI 会话') {
       this.state.chat = {
         ...chat,
         title: text.trim().split('\n')[0].slice(0, 80)
@@ -215,7 +215,7 @@ export class TuiSession {
       this.state.queue = this.state.queue.map((item) =>
         item.mode === 'steer' ? { ...item, mode: 'returned' } : item
       )
-      this.state.status = this.cancelRequested ? '已停止' : completed ? '完成' : '失败'
+      this.state.status = this.cancelRequested ? 'Stopped' : completed ? 'Completed' : 'Failed'
       this.state.onChange(true)
       if (
         completed &&
@@ -238,12 +238,12 @@ export class TuiSession {
       submissionId: this.state.activeRun,
       chatUuid: this.state.chat!.uuid
     })
-    this.state.status = '停止中'
+    this.state.status = 'Stopping'
     this.state.onChange(true)
   }
 
   recoverQueue(): string {
-    if (this.state.activeRun) throw new Error('请先停止当前执行，再取回队列。')
+    if (this.state.activeRun) throw new Error('Stop the current run before recovering the queue.')
     const text = this.state.queue.map((i) => i.text).join('\n\n')
     this.state.queue = []
     this.state.onChange(true)
@@ -255,7 +255,7 @@ export class TuiSession {
       interaction.submissionId !== this.state.activeRun ||
       !this.state.interactions.includes(interaction)
     )
-      throw new Error('此请求已结束。')
+      throw new Error('This request has ended.')
     if (interaction.kind === 'approval') {
       const result = this.runs.submitToolConfirmation({
         confirmationId: interaction.payload.confirmationId,
@@ -318,12 +318,12 @@ export class TuiSession {
             mode: 'returned'
           }))
     } catch {
-      this.state.notice = '未能恢复终端草稿。会话记录仍保存在数据库中。'
+      this.state.notice = 'Unable to restore the terminal draft. Chat history is saved in the database.'
     }
   }
 
   private assertIdle(): void {
     if (this.state.activeRun || this.state.queue.length)
-      throw new Error('请先停止执行并取回待发送队列。')
+      throw new Error('Stop the current run and recover the queued input first.')
   }
 }

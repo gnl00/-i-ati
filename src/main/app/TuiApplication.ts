@@ -172,7 +172,7 @@ export async function runTuiApplication(argv = process.argv.slice(2)): Promise<n
     process.on('SIGTERM', onSignal)
     await view.start()
     if (fatalError) throw fatalError
-    process.stdout.write(`\n会话已保存：${session.state.chat?.uuid}\n`)
+    process.stdout.write(`\nChat saved: ${session.state.chat?.uuid}\n`)
     return 0
   } catch (error) {
     await closeView?.()
