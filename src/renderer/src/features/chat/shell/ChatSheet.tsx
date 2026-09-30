@@ -1,5 +1,6 @@
 import { NextTaskSummary } from '../schedule/NextTaskSummary'
 import ChatTitleList from '@renderer/features/chat/title/ChatTitleList'
+import { Badge } from '@renderer/shared/components/ui/badge'
 import { Button } from '@renderer/shared/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@renderer/shared/components/ui/sheet'
 import TrafficLights from '@renderer/shared/components/ui/traffic-lights'
@@ -17,7 +18,7 @@ import { useChatStore } from '@renderer/features/chat/state/chatStore'
 import { useAppConfigStore } from '@renderer/infrastructure/config/appConfig'
 import { useSheetStore } from '@renderer/features/chat/state/sheetStore'
 import { switchWorkspace } from '@renderer/features/workspace'
-import { BadgePlus } from 'lucide-react'
+import { BadgePlus, Github, Puzzle } from 'lucide-react'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 const CHAT_LIST_SENTINEL: ChatEntity = { id: -1, title: '', uuid: '', createTime: 0, updateTime: 0, messages: [] }
 const SHEET_OPEN_ANIMATION_MS = 150
@@ -306,7 +307,7 @@ const ChatSheet: React.FC = () => {
             <SheetContent
                 side={"left"}
                 overlayClassName="bg-slate-950/18 dark:bg-(--app-scrim) dark:backdrop-blur-[2px]"
-                className="data-[state=open]:duration-150 data-[state=open]:ease-out [&>button]:hidden w-full outline-0 focus:outline-0 select-none flex flex-col h-full dark:border-(--app-border-standard) dark:bg-(--app-canvas) dark:text-(--app-text-primary) dark:shadow-2xl dark:shadow-black/35"
+                className="data-[state=open]:duration-150 data-[state=open]:ease-out [&>button]:hidden w-full pb-3 outline-0 focus:outline-0 select-none flex flex-col h-full dark:border-(--app-border-standard) dark:bg-(--app-canvas) dark:text-(--app-text-primary) dark:shadow-2xl dark:shadow-black/35"
             >
                 {/* Traffic Lights in Sheet */}
                 <div className="absolute top-4 left-4 z-50">
@@ -358,8 +359,8 @@ const ChatSheet: React.FC = () => {
                 {/* Footer - 固定在底部 */}
                 <div className="shrink-0 px-4 py-3 border-t border-gray-200 dark:border-(--app-border-subtle)">
                     <div className="flex items-center justify-between text-xs text-gray-500 dark:text-(--app-text-muted)">
-                        <span>v{appVersion}</span>
-                        <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="h-6 border-0 bg-(--app-surface-inset) px-2 text-[11px] font-normal text-(--app-text-muted) hover:bg-(--app-surface-inset) dark:bg-(--app-surface-raised) dark:hover:bg-(--app-surface-raised)">v{appVersion}</Badge>
+                        <div className="flex items-center gap-1">
                             <a
                                 id="github"
                                 href="https://github.com/gnl00/-i-ati"
@@ -367,11 +368,11 @@ const ChatSheet: React.FC = () => {
                                     event.preventDefault()
                                     void invokeOpenExternal('https://github.com/gnl00/-i-ati')
                                 }}
-                                className="hover:text-gray-700 dark:hover:text-(--app-text-primary) transition-colors"
+                                className="inline-flex h-7 items-center gap-1.5 rounded-md px-1.5 text-[11px] transition-colors hover:bg-(--app-surface-hover) hover:text-(--app-text-primary) focus-visible:outline focus-visible:outline-(--app-accent)"
                             >
+                                <Github aria-hidden="true" className="h-3 w-3 shrink-0" />
                                 GitHub
                             </a>
-                            <span>·</span>
                             <a
                                 id="plugins"
                                 href="https://github.com/gnl00/atiapp-plugins"
@@ -379,8 +380,9 @@ const ChatSheet: React.FC = () => {
                                     event.preventDefault()
                                     void invokeOpenExternal('https://github.com/gnl00/atiapp-plugins')
                                 }}
-                                className="hover:text-gray-700 dark:hover:text-(--app-text-primary) transition-colors"
+                                className="inline-flex h-7 items-center gap-1.5 rounded-md px-1.5 text-[11px] transition-colors hover:bg-(--app-surface-hover) hover:text-(--app-text-primary) focus-visible:outline focus-visible:outline-(--app-accent)"
                             >
+                                <Puzzle aria-hidden="true" className="h-3 w-3 shrink-0" />
                                 Plugins
                             </a>
                         </div>

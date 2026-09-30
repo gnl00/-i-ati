@@ -366,6 +366,13 @@ the Chats header. Light/Dark share the same geometry.
 
 ## Chat Sheet workspace groups
 
+The Chat Sheet uses 12px bottom padding. Its fixed footer retains 12px vertical
+padding, placing its text about 24px above the bottom edge. The separator and
+footer contents move together; horizontal alignment stays unchanged. Version
+uses a quiet 24px badge with muted 11px text and no border. GitHub and Plugins
+use compact 28px links with 12px icons, no separator, shared hover surfaces,
+and visible keyboard focus. Link destinations stay unchanged.
+
 The chat list groups regular chats by their saved workspace path. Recently stays
 first and includes chats without a path and default `workspaces/tmp` or
 `workspaces/<UUID>` directories. Custom workspace groups use the directory name,
