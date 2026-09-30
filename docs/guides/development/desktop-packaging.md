@@ -96,3 +96,11 @@ Electron archive download, with 22.34 seconds spent signing.
 
 Windows/Linux packaging and detailed platform-specific interaction acceptance
 remain unverified by this macOS check.
+
+## Windows release runner
+
+Release CI uses `windows-2022` with Visual Studio 2022. The locked
+`node-gyp` 11.5.0 used by Electron Rebuild recognizes Visual Studio through
+2022; `windows-latest` now selects a VS 2026 image and fails when rebuilding
+`better-sqlite3`. Keep the runner pinned until the native rebuild toolchain
+supports the newer compiler.

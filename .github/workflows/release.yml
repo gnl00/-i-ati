@@ -15,7 +15,8 @@ jobs:
 
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # node-gyp 11 requires Visual Studio 2022 for native module rebuilds.
+        os: [ubuntu-latest, macos-latest, windows-2022]
 
     steps:
       - name: Check out Git repository
@@ -43,7 +44,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
       - name: build-win
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-2022'
         run: pnpm build:win
 
       - name: release
