@@ -201,7 +201,7 @@ const TokenUsageInfo: React.FC<{
     >
       <span
         aria-label={display.ariaLabel}
-        className="inline-flex items-center gap-1 text-[11px] font-medium leading-none text-(--chat-text-muted) tabular-nums whitespace-nowrap"
+        className="inline-flex select-none items-center gap-1 text-[11px] font-medium leading-none text-(--chat-text-muted) tabular-nums whitespace-nowrap"
       >
         <ChartNoAxesColumn aria-hidden="true" className="h-3 w-3" />
         {display.compactLabel}
