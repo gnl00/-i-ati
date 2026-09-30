@@ -297,7 +297,7 @@ function resolveReadWindow(
     const targetIndex = Math.min(totalLines - 1, Math.max(0, normalizedAroundLine - 1))
     const linesBefore = Math.floor((implicitWindowSize - 1) / 2)
     let startIndex = Math.max(0, targetIndex - linesBefore)
-    let endIndex = Math.min(totalLines, startIndex + implicitWindowSize)
+    const endIndex = Math.min(totalLines, startIndex + implicitWindowSize)
     startIndex = Math.max(0, endIndex - implicitWindowSize)
 
     return {
@@ -511,7 +511,7 @@ export async function processReadTextFile(
       next_start_column: resultTruncated ? nextStartColumn : undefined,
       truncated: resultTruncated
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('read_text_file.failed', error)
     return {
       success: false,
@@ -587,7 +587,7 @@ export async function processWriteFile(
       file_path: displayResolvedPath(resolvedPath, file_path, contract),
       bytes_written: bytesWritten
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('write_file.failed', error)
     return {
       success: false,
@@ -1112,7 +1112,7 @@ export async function processEditFile(
         matches: matchLocations
       }
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('edit_file.failed', error)
     return {
       success: false,
@@ -1180,7 +1180,7 @@ export async function processSearchFile(
       matches,
       total_matches: matches.length
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('search_file.failed', error)
     return {
       success: false,
@@ -1308,7 +1308,7 @@ export async function processSearchFiles(
       total_matches: matches.length,
       files_searched: filesSearched
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('search_files.failed', error)
     return {
       success: false,
@@ -1380,8 +1380,8 @@ export async function processGrep(args: GrepArgs): Promise<GrepResponse> {
         total_matches: ripgrepResult.total_matches,
         files_searched: targetType === 'file' ? 1 : ripgrepResult.files_searched
       }
-    } catch (error: any) {
-      logger.warn('grep.ripgrep_fallback', { error: error.message || String(error) })
+    } catch (error: unknown) {
+      logger.warn('grep.ripgrep_fallback', { error: fileErrorMessage(error, String(error)) })
     }
 
     if (targetStats.isFile()) {
@@ -1431,7 +1431,7 @@ export async function processGrep(args: GrepArgs): Promise<GrepResponse> {
       error: directoryResult.error,
       failure: directoryResult.failure
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('grep.failed', error)
     return {
       success: false,
@@ -1493,7 +1493,7 @@ export async function processListDirectory(
       entries,
       total_count: entries.length
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('list_directory.failed', error)
     return {
       success: false,
@@ -1555,7 +1555,7 @@ export async function processListDirectoryWithSizes(
       entries,
       total_count: entries.length
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('list_directory_with_sizes.failed', error)
     return {
       success: false,
@@ -1593,7 +1593,7 @@ export async function processLs(args: LsArgs): Promise<LsResponse> {
       entries,
       total_count: result.total_count
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('ls.failed', error)
     return {
       success: false,
@@ -1674,7 +1674,7 @@ export async function processDirectoryTree(
       directory_path: displayResolvedPath(resolvedRoot, directory_path, contract),
       tree
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('directory_tree.failed', error)
     return {
       success: false,
@@ -1842,8 +1842,8 @@ export async function processGlob(args: GlobArgs): Promise<GlobResponse> {
         outputPrefix: resolvedRoot.relativePath,
         workspaceRoot: resolvedRoot.workspaceRoot
       })
-    } catch (error: any) {
-      logger.warn('glob.ripgrep_fallback', { error: error.message || String(error) })
+    } catch (error: unknown) {
+      logger.warn('glob.ripgrep_fallback', { error: fileErrorMessage(error, String(error)) })
       await collectGlobMatches(absoluteRootPath, absoluteRootPath, matcher, matches, limit, {
         includeFiles: true,
         includeDirectories: true,
@@ -1859,7 +1859,7 @@ export async function processGlob(args: GlobArgs): Promise<GlobResponse> {
       matches,
       total_matches: matches.length
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('glob.failed', error)
     return {
       success: false,
@@ -1904,11 +1904,15 @@ export async function processGetFileInfo(
     try {
       accessSync(absolutePath, constants.R_OK)
       isReadable = true
-    } catch { }
+    } catch {
+      // The default false flag records a failed readability check.
+    }
     try {
       accessSync(absolutePath, constants.W_OK)
       isWritable = true
-    } catch { }
+    } catch {
+      // The default false flag records a failed writability check.
+    }
 
     const info: FileInfo = {
       path: displayResolvedPath(resolvedPath, file_path, contract),
@@ -1925,7 +1929,7 @@ export async function processGetFileInfo(
 
     logger.info('get_file_info.success', { filePath: file_path })
     return { success: true, info }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('get_file_info.failed', error)
     return {
       success: false,
@@ -1954,7 +1958,7 @@ export async function processListAllowedDirectories(args: ListAllowedDirectories
     const directories = [workspace.canonicalWorkspaceRoot]
 
     return { success: true, directories }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('list_allowed_directories.failed', error)
     return {
       success: false,
@@ -1994,7 +1998,7 @@ export async function processCreateDirectory(
     logger.info('create_directory.success', { directoryPath: directory_path })
 
     return { success: true, directory_path: responseDirectoryPath, created: true }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('create_directory.failed', error)
     return {
       success: false,
@@ -2064,7 +2068,7 @@ export async function processMoveFile(
       source_path: displayResolvedPath(resolvedSource, source_path, contract),
       destination_path: displayResolvedPath(resolvedDestination, destination_path, contract)
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error('move_file.failed', error)
     return {
       success: false,

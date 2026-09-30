@@ -1,12 +1,17 @@
+Archived: 2026-09-30<br>
+Reason: Legacy cleanup implemented and verification gates completed<br>
+Original path: `docs/work/plans/legacy-cleanup.md`<br>
+Replaced by: [ADR-0030](../../../decisions/0030-retire-legacy-tool-input-compatibility.md), [Main architecture](../../../architecture/main-process-architecture.md), [Renderer architecture](../../../architecture/renderer-architecture.md)
+
 # Legacy cleanup
 
 Owner: Repository maintainers<br>
-Status: Active<br>
+Status: Done<br>
 Started: 2026-09-29<br>
 Target: Remove unused compatibility surfaces in bounded phases<br>
 Exit criteria: Every inventory item has a verified removal or retention decision; required checks and runtime acceptance are recorded<br>
-Related specs: [Documentation governance](../../specs/documentation-governance.md)<br>
-Related implementation: [Main architecture](../../architecture/main-process-architecture.md), [Renderer architecture](../../architecture/renderer-architecture.md)
+Related specs: [Documentation governance](../../../specs/documentation-governance.md)<br>
+Related implementation: [Main architecture](../../../architecture/main-process-architecture.md), [Renderer architecture](../../../architecture/renderer-architecture.md)
 
 ## Scope and baseline
 
@@ -133,9 +138,9 @@ separate evidence. A blocked check leaves acceptance open.
   taken. No Git commit or push was performed.
 
 The 2026-09-29 record above preserves the original baseline observations.
-The next phase and renewed verification are recorded below. The record remains
-Active because changed-file ESLint still has existing baseline errors in large
-files, despite no new lint errors from this cleanup.
+The next phase and renewed verification are recorded below. At that checkpoint,
+changed-file ESLint still had existing baseline errors; the final lint pass is
+recorded in the closure section.
 
 
 Final focused test command:
@@ -169,7 +174,7 @@ git diff --check
   the `legacy-compatible` resolver mode and `legacyInput` result field.
   Renderer IPC and embedded file tools now use the same workspace-contained
   resolver. Workspace-contained native absolute paths and stored workspace root
-  normalization remain supported. [ADR-0030](../../decisions/0030-retire-legacy-tool-input-compatibility.md)
+  normalization remain supported. [ADR-0030](../../../decisions/0030-retire-legacy-tool-input-compatibility.md)
   records the input contract change.
 - L04: removed the 5-second validation floor and silent clamping; values below
   60 seconds now fail with the declared 60–300 second validation range. The
@@ -195,3 +200,19 @@ git diff --check
   `HEAD` before treating them as regressions. `git diff --check` passed.
 - Unrelated staged `.gitignore` and CLI-guide changes are excluded from the
   phase checkpoint. No push is authorized.
+
+## 2026-09-30 closure
+
+- Fixed the remaining 21 ESLint errors in the file processor and Web Search
+  test without changing the file processor's failure handling. The two-file
+  ESLint command now reports zero errors. It still reports formatting warnings
+  from the repository's existing Prettier rule.
+- Focused file processor and Web Search tests passed (two files, 60 tests).
+  `pnpm run typecheck` passed. The full `pnpm test:coverage` suite passed again
+  (328 files, 2194 tests; five files and 20 tests skipped).
+- All 22 inventory groups have a disposition: twelve removed or narrowed and
+  ten retained because they serve active consumers or persisted-data access.
+  Remaining historical-data support is a separate product-policy decision,
+  not unfinished work in this cleanup.
+- The phase checkpoint is commit `fa5b34f1`. This lint and documentation
+  closure remains an uncommitted local change. No push was performed.

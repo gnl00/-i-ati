@@ -77,6 +77,10 @@ phase, not current behavior or fresh acceptance evidence. See
 
 - [Telegram 消息响应优化方案](2026/telegram/telegram-response-optimization.md)
 
+### Legacy cleanup
+
+- [Legacy cleanup inventory and completion](2026/legacy/2026-09-30-legacy-cleanup.md)
+
 ### Tools
 
 - [Web Fetch Workspace Artifacts](2026/tools/2026-09-29-web-fetch-workspace-artifacts.md)

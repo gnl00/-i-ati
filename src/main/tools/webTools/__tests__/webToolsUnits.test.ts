@@ -98,7 +98,7 @@ describe('Semaphore', () => {
         peak = Math.max(peak, inFlight)
         // 受控 task：挂起直到测试放行
         await new Promise<void>((resolve, reject) => {
-          releasers.push(fail ? () => reject(new Error('boom')) : resolve)
+          releasers.push(fail ? (): void => reject(new Error('boom')) : resolve)
         })
       } finally {
         inFlight--
