@@ -4,7 +4,6 @@ import {
   EMOTION_BASELINE_VECTOR,
   EMOTION_VAD_CENTROIDS,
   projectEmotionVector,
-  vectorFromEmotionPresentation,
   ZERO_EMOTION_STIMULUS
 } from '@shared/emotion/emotionVector'
 import {
@@ -53,37 +52,6 @@ describe('EmotionStateMapper', () => {
       state,
       status: 'current',
       issues: []
-    })
-  })
-
-  it('migrates a valid version 1 state to a deterministic version 2 vector', () => {
-    const legacyState = {
-      current: { label: 'happiness', intensity: 7, updatedAt: 150 },
-      background: { label: 'happiness', intensity: 5.2, driftFactor: 0.1, updatedAt: 140 },
-      accumulated: [{ label: 'fear', intensity: 2, decay: 0.95, updatedAt: 130 }],
-      history: [{ label: 'happiness', intensity: 6, timestamp: 120, source: 'tool' }]
-    }
-    const result = parseEmotionStateRow(row(JSON.stringify({
-      schemaVersion: 1,
-      state: legacyState
-    })))
-    const expectedVector = vectorFromEmotionPresentation('happiness', 7)
-    const expectedProjection = projectEmotionVector(expectedVector)
-
-    expect(result.status).toBe('migrated')
-    expect(result.issues).toContain('migrated_v1')
-    expect(result.state.baseline).toEqual(EMOTION_BASELINE_VECTOR)
-    expect(result.state.current).toEqual({
-      vector: expectedVector,
-      label: expectedProjection.label,
-      intensity: expectedProjection.intensity,
-      updatedAt: 150
-    })
-    expect(result.state.history.at(-1)).toMatchObject({
-      vector: expectedVector,
-      stimulus: ZERO_EMOTION_STIMULUS,
-      timestamp: 150,
-      source: 'computed'
     })
   })
 

@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { SMART_MESSAGE_TTL_MS } from '@shared/constants/smartMessages'
 
 const {
   dbExecMock,
@@ -52,20 +51,6 @@ describe('AppDatabase', () => {
     dbGetMock.mockReturnValue(undefined)
   })
 
-  it('migrates legacy smart message expiry from 48 hours to 7 days on initialize', async () => {
-    const { AppDatabase } = await import('../Database')
-
-    AppDatabase.getInstance().initialize()
-
-    const migrationStatement = dbPrepareMock.mock.calls.find(([sql]) =>
-      typeof sql === 'string' && sql.includes('UPDATE smart_messages')
-    )
-
-    expect(migrationStatement?.[0]).toContain('SET expires_at = generated_at + ?')
-    expect(migrationStatement?.[0]).toContain('WHERE expires_at = generated_at + ?')
-    expect(dbRunMock).toHaveBeenCalledWith(SMART_MESSAGE_TTL_MS, 48 * 60 * 60 * 1000)
-  })
-
   it('creates a unique chat skill index on chat and skill name', async () => {
     const { AppDatabase } = await import('../Database')
 
@@ -80,22 +65,6 @@ describe('AppDatabase', () => {
     expect(createIndexSql).toContain(
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_chat_skills_chat_skill_unique ON chat_skills(chat_id, skill_name)'
     )
-  })
-
-  it('drops the legacy assistants table before creating the active schema', async () => {
-    const { AppDatabase } = await import('../Database')
-
-    AppDatabase.getInstance().initialize()
-
-    expect(dbExecMock).toHaveBeenCalledWith('DROP TABLE IF EXISTS assistants')
-
-    const schemaSql = dbExecMock.mock.calls
-      .map(([sql]) => sql)
-      .filter((sql): sql is string => typeof sql === 'string')
-      .join('\n')
-
-    expect(schemaSql).not.toContain('CREATE TABLE IF NOT EXISTS assistants')
-    expect(schemaSql).not.toContain('idx_assistants_')
   })
 
   it('creates persisted schedule definitions, occurrences, and claim indexes', async () => {

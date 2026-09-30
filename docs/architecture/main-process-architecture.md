@@ -181,9 +181,9 @@ migration toward existing database application services. New small features
 should reuse the closest domain facade.
 
 The retired Assistant preset capability is removed across its database facade,
-repository, service, IPC handlers, and schema. Database initialization applies
-an idempotent destructive migration that drops the legacy `assistants` table
-and all rows stored in it. The transcript `assistant` role, chat-level User
+repository, service, IPC handlers, and schema. Earlier releases dropped the
+retired `assistants` table; current startup no longer repeats that migration.
+The transcript `assistant` role, chat-level User
 Instruction, Scheduled run instructions, and Subagent execution remain
 independent runtime contracts.
 

@@ -238,11 +238,11 @@ mapper 行为：
 
 - v2 校验 vector、baseline、history，并以共享投影重建 current label/intensity；
 - baseline 始终归一化为固定 `{5,3,5}`；
-- v1 current label/intensity 和 history 使用共享 centroid 转换为 v2 vector，
-  缺失 stimulus 补零；legacy background/accumulated 随旧 envelope 一并退出；
 - malformed JSON 恢复 v2 neutral baseline，issue 为 `invalid_json`；
 - 未知 schema 恢复 v2 neutral baseline，issue 为 `unsupported_schema`；
-- v1 读取状态返回 `migrated` 和 `migrated_v1` issue，后续 repository 写入使用 schema 2。
+
+v1 数据已在此前版本完成迁移；当前 mapper 只读取 v2，其他 schema 按
+`unsupported_schema` 恢复为 neutral。repository 不再回写旧格式迁移结果。
 
 repository 继续在一个 SQLite transaction 内完成 read/transition/conditional
 upsert，保留原始 `created_at` 并刷新 `updated_at`。所有 chat、host、awake 和
@@ -253,7 +253,7 @@ welcome 读取同一 singleton；删除 chat 不影响 emotion state。
 - tool processor：三字段必填、整数边界、范围边界、stateless response；
 - reducer：neutral/omitted 回归、连续 hostility 负向累积、respectful urgent
   arousal、apology/support 修复、history 上限和 computed presentation；
-- mapper：v2 round-trip、v1 确定性迁移、字段恢复、neutral recovery；
+- mapper：v2 round-trip、字段恢复、neutral recovery；
 - ChatStepStore：message presentation 与 singleton current 同源、tool omission、
   app-level transaction 顺序；
 - awake：baseline/current/history 结构化注入和 summary 同步；

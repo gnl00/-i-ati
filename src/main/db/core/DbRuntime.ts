@@ -37,7 +37,6 @@ import { TodoRepository } from '../repositories/TodoRepository'
 import { ToolResultCompactionRepository } from '../repositories/ToolResultCompactionRepository'
 import { ChatBranchRepository } from '../repositories/ChatBranchRepository'
 import { PluginBootstrapService } from '../services/PluginBootstrapService'
-import { McpServerMigrationService } from '../services/McpServerMigrationService'
 import { PluginManifestSyncService } from '../services/PluginManifestSyncService'
 import { createLogger } from '@main/logging/LogService'
 
@@ -223,18 +222,10 @@ export class DbRuntime {
       toolResultCompactionDao: this.toolResultCompactionDao
     })
 
-    new McpServerMigrationService({
-      configDao: () => this.configRepo,
-      mcpServerDao: () => this.mcpServerRepo,
-      mcpServerRepository: () => this._mcpServerRepository
-    }).migrateLegacyConfigIfNeeded()
-
     new PluginBootstrapService({
       getDb: () => this.db,
-      pluginRepository: () => this._pluginRepository,
       pluginDao: () => this.pluginRepo,
-      pluginCapabilityDao: () => this.pluginCapabilityRepo,
-      configDao: () => this.configRepo
+      pluginCapabilityDao: () => this.pluginCapabilityRepo
     }).initialize()
 
     this.initialized = true

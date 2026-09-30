@@ -1,49 +1,19 @@
 import { builtInPluginRegistry } from '@shared/plugins/builtInRegistry'
-import type { ConfigDao } from '@main/db/dao/ConfigDao'
 import type { PluginCapabilityDao } from '@main/db/dao/PluginCapabilityDao'
 import type { PluginDao } from '@main/db/dao/PluginDao'
-import type { PluginRepository } from '@main/db/repositories/PluginRepository'
 
 type PluginBootstrapServiceDeps = {
   getDb: () => ReturnType<import('@main/db/core/Database').AppDatabase['getDb']> | null
-  pluginRepository: () => PluginRepository | undefined
   pluginDao: () => PluginDao | undefined
   pluginCapabilityDao: () => PluginCapabilityDao | undefined
-  configDao: () => ConfigDao | undefined
 }
 
 export class PluginBootstrapService {
   constructor(private readonly deps: PluginBootstrapServiceDeps) {}
 
   initialize(): void {
-    this.migrateLegacyConfigIfNeeded()
     this.ensureBuiltInPlugins()
     this.ensureBuiltInPluginCapabilities()
-  }
-
-  private migrateLegacyConfigIfNeeded(): void {
-    const pluginDao = this.requirePluginDao()
-    if (pluginDao.countAll() > 0) return
-
-    const configDao = this.deps.configDao()
-    const configRow = configDao?.getConfig()
-    if (!configRow?.value) return
-
-    let config: IAppConfig
-    try {
-      config = JSON.parse(configRow.value) as IAppConfig
-    } catch {
-      return
-    }
-
-    const legacyPlugins = config.plugins?.items
-    const hasLegacyPlugins = Array.isArray(legacyPlugins) && legacyPlugins.length > 0
-    if (!hasLegacyPlugins) return
-
-    this.requirePluginRepository().savePluginConfigs(legacyPlugins)
-
-    const { plugins: _legacyPlugins, ...nextConfig } = config
-    configDao?.saveConfig(JSON.stringify(nextConfig), nextConfig.version ?? null, Date.now())
   }
 
   private ensureBuiltInPlugins(): void {
@@ -102,12 +72,6 @@ export class PluginBootstrapService {
     const db = this.deps.getDb()
     if (!db) throw new Error('Database not initialized')
     return db
-  }
-
-  private requirePluginRepository(): PluginRepository {
-    const repository = this.deps.pluginRepository()
-    if (!repository) throw new Error('Plugin repository not initialized')
-    return repository
   }
 
   private requirePluginDao(): PluginDao {

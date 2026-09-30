@@ -49,32 +49,6 @@ describe('EmotionStateRepository', () => {
     expect(repo.get).toHaveBeenCalledOnce()
   })
 
-  it('rewrites a version 1 singleton row as version 2 during read migration', () => {
-    const repo = createRepo({
-      ...persistedRow,
-      state_json: JSON.stringify({
-        schemaVersion: 1,
-        state: {
-          current: { label: 'happiness', intensity: 7, updatedAt: 120 },
-          history: []
-        }
-      })
-    })
-    const repository = new EmotionStateRepository({
-      hasDb: () => true,
-      getEmotionStateRepo: () => repo as any
-    })
-
-    const result = repository.getEmotionState()
-
-    expect(result?.baseline).toEqual(EMOTION_BASELINE_VECTOR)
-    expect(repo.upsert).toHaveBeenCalledWith(expect.objectContaining({
-      created_at: 100,
-      updated_at: 200,
-      state_json: expect.stringContaining('"schemaVersion":2')
-    }))
-  })
-
   it('preserves created_at and writes a version 2 envelope during upsert', () => {
     vi.spyOn(Date, 'now').mockReturnValue(300)
     const repo = createRepo()

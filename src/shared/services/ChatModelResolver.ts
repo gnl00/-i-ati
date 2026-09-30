@@ -1,11 +1,3 @@
-type LegacyModelSlotTools = {
-  defaultModel?: ModelRef
-  titleGenerateModel?: ModelRef
-  titleGenerateEnabled?: boolean
-}
-
-type ModelSlotTools = NonNullable<IAppConfig['tools']> & LegacyModelSlotTools
-
 const hasVisionToken = (items?: string[]): boolean => {
   return (items ?? []).some(item => {
     const token = item.toLowerCase()
@@ -24,51 +16,6 @@ export const isVisionModel = (model: AccountModel): boolean => {
 
   return hasVisionToken(model.modalities) || hasVisionToken(model.capabilities)
 }
-
-const normalizeModelSlotTools = (
-  tools?: ModelSlotTools
-): NonNullable<IAppConfig['tools']> | undefined => {
-  if (!tools) {
-    return undefined
-  }
-
-  const { defaultModel, titleGenerateModel } = tools
-  const nextTools = { ...tools }
-  delete nextTools.defaultModel
-  delete nextTools.titleGenerateModel
-  delete nextTools.titleGenerateEnabled
-
-  if (!nextTools.mainModel && defaultModel) {
-    nextTools.mainModel = defaultModel
-  }
-
-  if (!nextTools.liteModel && titleGenerateModel) {
-    nextTools.liteModel = titleGenerateModel
-  }
-
-  return nextTools
-}
-
-export const normalizeAppConfigModelSlots = (config: IAppConfig): IAppConfig => {
-  const nextTools = normalizeModelSlotTools(config.tools as ModelSlotTools | undefined)
-  const nextConfigForUpdate = config.configForUpdate
-    ? normalizeAppConfigModelSlots(config.configForUpdate)
-    : undefined
-
-  if (!nextTools && !nextConfigForUpdate) {
-    return config
-  }
-
-  return {
-    ...config,
-    ...(nextTools ? { tools: nextTools } : {}),
-    ...(nextConfigForUpdate ? { configForUpdate: nextConfigForUpdate } : {})
-  }
-}
-
-const getTools = (config: IAppConfig): ModelSlotTools | undefined => (
-  config.tools as ModelSlotTools | undefined
-)
 
 const findAvailableModelByRef = (
   config: IAppConfig,
@@ -146,33 +93,25 @@ export const resolveFirstAvailableVisionModelRef = (config: IAppConfig): ModelRe
 }
 
 export const resolveMainModelRef = (config: IAppConfig): ModelRef | undefined => {
-  const tools = getTools(config)
+  const tools = config.tools
   if (isModelRefAvailable(config, tools?.mainModel)) {
     return tools?.mainModel
-  }
-
-  if (isModelRefAvailable(config, tools?.defaultModel)) {
-    return tools?.defaultModel
   }
 
   return resolveFirstAvailableModelRef(config)
 }
 
 export const resolveLiteModelRef = (config: IAppConfig): ModelRef | undefined => {
-  const tools = getTools(config)
+  const tools = config.tools
   if (isModelRefAvailable(config, tools?.liteModel)) {
     return tools?.liteModel
-  }
-
-  if (isModelRefAvailable(config, tools?.titleGenerateModel)) {
-    return tools?.titleGenerateModel
   }
 
   return resolveMainModelRef(config)
 }
 
 export const resolveVisionModelRef = (config: IAppConfig): ModelRef | undefined => {
-  const tools = getTools(config)
+  const tools = config.tools
   if (isVisionModelRefAvailable(config, tools?.visionModel)) {
     return tools?.visionModel
   }

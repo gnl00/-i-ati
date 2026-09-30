@@ -2,11 +2,7 @@ import { create } from 'zustand'
 import { toast } from 'sonner'
 import { createRendererLogger } from '@renderer/shared/logging/rendererLogger'
 import type { RemotePluginCatalogItem } from '@shared/plugins/remoteRegistry'
-import {
-  isModelRefAvailable,
-  isVisionModelRefAvailable,
-  normalizeAppConfigModelSlots
-} from '@shared/services/ChatModelResolver'
+import { isModelRefAvailable, isVisionModelRefAvailable } from '@shared/services/ChatModelResolver'
 import { defaultConfig } from '@renderer/shared/config'
 import type { ModelOption } from '@renderer/shared/config/modelTypes'
 import { getConfig, initConfig, saveConfig } from '@renderer/infrastructure/persistence/ConfigRepository'
@@ -436,16 +432,15 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
 
   // Internal setter (used by initializeAppConfig)
   _setAppConfig: (config: IAppConfig) => {
-    const normalizedConfig = normalizeAppConfigModelSlots(config)
     const nextProviderDefinitions = normalizeProviderDefinitions(
-      normalizedConfig.providerDefinitions || []
+      config.providerDefinitions || []
     )
-    const nextAccounts = normalizeAccounts(normalizedConfig.accounts || [])
-    const nextKnowledgebase = normalizedConfig.knowledgebase ?? defaultConfig.knowledgebase
+    const nextAccounts = normalizeAccounts(config.accounts || [])
+    const nextKnowledgebase = config.knowledgebase ?? defaultConfig.knowledgebase
 
     set({
       appConfig: {
-        ...normalizedConfig,
+        ...config,
         knowledgebase: nextKnowledgebase,
         providerDefinitions: nextProviderDefinitions,
         accounts: nextAccounts
@@ -453,13 +448,13 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
       providerDefinitions: nextProviderDefinitions,
       accounts: nextAccounts,
       providersRevision: 0,
-      mainModel: normalizedConfig.tools?.mainModel || undefined,
-      liteModel: normalizedConfig.tools?.liteModel || undefined,
-      visionModel: normalizedConfig.tools?.visionModel || undefined,
-      memoryEnabled: normalizedConfig.tools?.memoryEnabled ?? true,
-      streamChunkDebugEnabled: normalizedConfig.tools?.streamChunkDebugEnabled ?? false,
+      mainModel: config.tools?.mainModel || undefined,
+      liteModel: config.tools?.liteModel || undefined,
+      visionModel: config.tools?.visionModel || undefined,
+      memoryEnabled: config.tools?.memoryEnabled ?? true,
+      streamChunkDebugEnabled: config.tools?.streamChunkDebugEnabled ?? false,
       knowledgebase: nextKnowledgebase,
-      compression: normalizedConfig.compression
+      compression: config.compression
     })
   },
 
@@ -491,15 +486,14 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
 
   // Public setter (saves to SQLite)
   setAppConfig: async (updatedConfig: IAppConfig) => {
-    const normalizedUpdatedConfig = normalizeAppConfigModelSlots(updatedConfig)
     const nextProviderDefinitions = normalizeProviderDefinitions(
-      normalizedUpdatedConfig.providerDefinitions || []
+      updatedConfig.providerDefinitions || []
     )
-    const nextAccounts = normalizeAccounts(normalizedUpdatedConfig.accounts || [])
+    const nextAccounts = normalizeAccounts(updatedConfig.accounts || [])
 
     const nextConfig = {
-      ...normalizedUpdatedConfig,
-      knowledgebase: normalizedUpdatedConfig.knowledgebase ?? defaultConfig.knowledgebase,
+      ...updatedConfig,
+      knowledgebase: updatedConfig.knowledgebase ?? defaultConfig.knowledgebase,
       providerDefinitions: nextProviderDefinitions,
       accounts: nextAccounts
     }

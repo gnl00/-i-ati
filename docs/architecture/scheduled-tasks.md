@@ -31,9 +31,9 @@ A new attempt clears `execution_chat_uuid` before preparation; prior attempt
 associations remain queryable. The nullable column and association table are
 added idempotently to the current occurrence schema while preserving its rows.
 
-This feature starts a fresh storage generation. Database initialization detects
-the earlier table shape through the absence of `schedule_type`, removes the old
-schedule tables, and creates the definition-and-occurrence schema.
+The current schema requires `schedule_type`. Earlier releases reset the prior
+table generation before creating the definition-and-occurrence schema; current
+startup no longer accepts that earlier shape.
 
 The database enforces unique `(task_id, scheduled_for)` identity and one active
 occurrence per task. A due claim changes the occurrence from `pending` to

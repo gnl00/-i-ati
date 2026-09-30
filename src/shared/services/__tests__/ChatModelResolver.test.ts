@@ -3,7 +3,6 @@ import {
   isVisionModel,
   isModelRefAvailable,
   isVisionModelRefAvailable,
-  normalizeAppConfigModelSlots,
   resolveExistingChatModelRef,
   resolveFirstAvailableModelRef,
   resolveFirstAvailableVisionModelRef,
@@ -139,27 +138,6 @@ describe('ChatModelResolver', () => {
     })
   })
 
-  it('uses the legacy default model as the main model fallback', () => {
-    const config = {
-      ...buildConfig(),
-      tools: {
-        defaultModel: {
-          accountId: 'account-2',
-          modelId: 'model-c'
-        }
-      }
-    } as unknown as IAppConfig
-
-    expect(resolveMainModelRef(config)).toEqual({
-      accountId: 'account-2',
-      modelId: 'model-c'
-    })
-    expect(resolveNewChatModelRef(config)).toEqual({
-      accountId: 'account-2',
-      modelId: 'model-c'
-    })
-  })
-
   it('resolves lite model before falling back to main model', () => {
     const config = buildConfig()
 
@@ -179,27 +157,6 @@ describe('ChatModelResolver', () => {
     })).toEqual({
       accountId: 'account-2',
       modelId: 'model-c'
-    })
-  })
-
-  it('uses the legacy title generation model as the lite model fallback', () => {
-    const config = {
-      ...buildConfig(),
-      tools: {
-        mainModel: {
-          accountId: 'account-2',
-          modelId: 'model-c'
-        },
-        titleGenerateModel: {
-          accountId: 'account-1',
-          modelId: 'model-a'
-        }
-      }
-    } as unknown as IAppConfig
-
-    expect(resolveLiteModelRef(config)).toEqual({
-      accountId: 'account-1',
-      modelId: 'model-a'
     })
   })
 
@@ -351,67 +308,6 @@ describe('ChatModelResolver', () => {
     expect(resolveVisionModelRef(config)).toEqual({
       accountId: 'account-1',
       modelId: 'model-a'
-    })
-  })
-
-  it('normalizes legacy model slots into main and lite slots', () => {
-    const legacyConfig = {
-      ...buildConfig(),
-      tools: {
-        defaultModel: {
-          accountId: 'account-2',
-          modelId: 'model-c'
-        },
-        titleGenerateModel: {
-          accountId: 'account-1',
-          modelId: 'model-a'
-        },
-        titleGenerateEnabled: false,
-        maxWebSearchItems: 5
-      }
-    } as unknown as IAppConfig
-
-    expect(normalizeAppConfigModelSlots(legacyConfig).tools).toEqual({
-      mainModel: {
-        accountId: 'account-2',
-        modelId: 'model-c'
-      },
-      liteModel: {
-        accountId: 'account-1',
-        modelId: 'model-a'
-      },
-      maxWebSearchItems: 5
-    })
-  })
-
-  it('normalizes legacy model slots inside configForUpdate', () => {
-    const legacyConfig = {
-      version: 1,
-      configForUpdate: {
-        version: 2,
-        tools: {
-          defaultModel: {
-            accountId: 'account-2',
-            modelId: 'model-c'
-          },
-          titleGenerateModel: {
-            accountId: 'account-1',
-            modelId: 'model-a'
-          },
-          titleGenerateEnabled: true
-        }
-      }
-    } as unknown as IAppConfig
-
-    expect(normalizeAppConfigModelSlots(legacyConfig).configForUpdate?.tools).toEqual({
-      mainModel: {
-        accountId: 'account-2',
-        modelId: 'model-c'
-      },
-      liteModel: {
-        accountId: 'account-1',
-        modelId: 'model-a'
-      }
     })
   })
 

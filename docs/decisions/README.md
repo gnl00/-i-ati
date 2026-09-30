@@ -42,3 +42,4 @@ Use sequential names such as `0001-chat-runtime-host-boundary.md`.
 - [0028: Renderer run 消费与消息版本](0028-renderer-run-ingress-and-message-revisions.md) - Accepted
 - [0029: Unified run submission and early chat identity](0029-unified-run-submission.md) - Accepted
 - [0030: Retire legacy tool input compatibility](0030-retire-legacy-tool-input-compatibility.md) - Accepted
+- [0031: Retire pre-1.2 persisted-data compatibility](0031-retire-pre-1.2-persisted-data-compatibility.md) - Accepted

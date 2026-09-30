@@ -12,7 +12,6 @@ import {
 } from '@shared/emotion/emotionAssetCatalog'
 
 export const EMOTION_STATE_SCHEMA_VERSION = 2
-const LEGACY_EMOTION_STATE_SCHEMA_VERSION = 1
 const DEFAULT_INTENSITY = 5
 const HISTORY_LIMIT = 10
 
@@ -23,7 +22,7 @@ type PersistedEmotionState = {
   state: EmotionStateSnapshot
 }
 
-export type EmotionStateParseStatus = 'current' | 'migrated' | 'recovered'
+export type EmotionStateParseStatus = 'current' | 'recovered'
 
 export type EmotionStateParseResult = {
   state: EmotionStateSnapshot
@@ -64,15 +63,6 @@ export const parseEmotionStateRow = (row: EmotionStateRow): EmotionStateParseRes
     return {
       state,
       status: issues.length > 0 ? 'recovered' : 'current',
-      issues
-    }
-  }
-
-  if (envelope?.schemaVersion === LEGACY_EMOTION_STATE_SCHEMA_VERSION) {
-    const issues = ['migrated_v1']
-    return {
-      state: migrateV1State(envelope.state, row.updated_at, issues),
-      status: 'migrated',
       issues
     }
   }
@@ -198,88 +188,6 @@ const normalizeHistoryV2 = (
       intensity: projection.intensity,
       timestamp: finiteTimestamp(entry?.timestamp, fallbackUpdatedAt),
       source: source || 'computed'
-    }]
-  }).slice(-HISTORY_LIMIT)
-}
-
-const migrateV1State = (
-  value: unknown,
-  fallbackUpdatedAt: number,
-  issues: string[]
-): EmotionStateSnapshot => {
-  const state = asRecord(value)
-  if (!state) {
-    issues.push('state_not_object')
-    return createNeutralState(fallbackUpdatedAt)
-  }
-
-  const legacyCurrent = asRecord(state.current)
-  const label = normalizeEmotionLabel(asString(legacyCurrent?.label)) || 'neutral'
-  const intensity = normalizeIntensity(legacyCurrent?.intensity)
-  if (!normalizeEmotionLabel(asString(legacyCurrent?.label))) {
-    issues.push('v1.current.label')
-  }
-  if (!isValidIntensity(legacyCurrent?.intensity)) {
-    issues.push('v1.current.intensity')
-  }
-
-  const currentVector = vectorFromEmotionPresentation(label, intensity)
-  const currentProjection = projectEmotionVector(currentVector)
-  const currentUpdatedAt = finiteTimestamp(legacyCurrent?.updatedAt, fallbackUpdatedAt)
-  const current: EmotionStateEntry = {
-    vector: currentVector,
-    label: currentProjection.label,
-    intensity: currentProjection.intensity,
-    updatedAt: currentUpdatedAt
-  }
-
-  const history = normalizeLegacyHistory(state.history, fallbackUpdatedAt, issues)
-  history.push({
-    vector: currentVector,
-    stimulus: { ...ZERO_EMOTION_STIMULUS },
-    label: current.label,
-    intensity: current.intensity,
-    timestamp: currentUpdatedAt,
-    source: 'computed'
-  })
-
-  return {
-    current,
-    baseline: { ...EMOTION_BASELINE_VECTOR },
-    history: history.slice(-HISTORY_LIMIT)
-  }
-}
-
-const normalizeLegacyHistory = (
-  value: unknown,
-  fallbackUpdatedAt: number,
-  issues: string[]
-): EmotionStateHistoryEntry[] => {
-  if (!Array.isArray(value)) {
-    if (value != null) issues.push('v1.history')
-    return []
-  }
-
-  return value.flatMap((candidate, index) => {
-    const entry = asRecord(candidate)
-    const label = normalizeEmotionLabel(asString(entry?.label))
-    if (!label) {
-      issues.push(`v1.history[${index}].label`)
-      return []
-    }
-    const intensity = normalizeIntensity(entry?.intensity)
-    if (!isValidIntensity(entry?.intensity)) {
-      issues.push(`v1.history[${index}].intensity`)
-    }
-    const vector = vectorFromEmotionPresentation(label, intensity)
-    const projection = projectEmotionVector(vector)
-    return [{
-      vector,
-      stimulus: { ...ZERO_EMOTION_STIMULUS },
-      label: projection.label,
-      intensity: projection.intensity,
-      timestamp: finiteTimestamp(entry?.timestamp, fallbackUpdatedAt),
-      source: normalizeSource(entry?.source) || 'computed'
     }]
   }).slice(-HISTORY_LIMIT)
 }
