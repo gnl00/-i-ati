@@ -8,7 +8,10 @@ import { useSheetStore } from '@renderer/features/chat/state/sheetStore'
 const testState = vi.hoisted(() => ({
   chatStore: null as any,
   sheetStore: null as any,
-  animate: null as any
+  animate: null as any,
+  headerRenders: 0,
+  inputRenders: 0,
+  transcriptRenders: 0
 }))
 
 vi.mock('@renderer/features/artifacts', () => ({
@@ -16,7 +19,10 @@ vi.mock('@renderer/features/artifacts', () => ({
 }))
 
 vi.mock('../ChatHeader', () => ({
-  default: () => <div data-testid="chat-header">Header</div>
+  default: () => {
+    testState.headerRenders++
+    return <div data-testid="chat-header">Header</div>
+  }
 }))
 
 vi.mock('../ChatSidePanelLayout', () => ({
@@ -32,7 +38,10 @@ vi.mock('../ChatSidePanelLayout', () => ({
 }))
 
 vi.mock('@renderer/features/chat/input/ChatInputArea', () => ({
-  default: forwardRef(() => <div data-testid="chat-input">Input</div>)
+  default: forwardRef(() => {
+    testState.inputRenders++
+    return <div data-testid="chat-input">Input</div>
+  })
 }))
 
 vi.mock('@renderer/features/chat/input/ChatInputToolConfirmation', () => ({
@@ -44,18 +53,21 @@ vi.mock('@renderer/features/chat/input/ChatInputUserQuestion', () => ({
 }))
 
 vi.mock('../ChatTranscriptScroller', () => ({
-  default: ({ displayMessages }: { displayMessages: MessageEntity[] }) => (
+  default: ({ displayMessages }: { displayMessages: MessageEntity[] }) => {
+    testState.transcriptRenders++
+    return (
     <div data-testid="transcript">
       {displayMessages.map((message) => String(message.body.content)).join('|')}
     </div>
-  )
+    )
+  }
 }))
 
 vi.mock('@renderer/features/chat/state/chatStore', async () => {
   const { create } = await import('zustand')
   type MockChatState = {
     messages: MessageEntity[]
-    preview: { message: null }
+    preview: { message: MessageEntity | null }
     pendingUserMessage: null
     artifactsPanelOpen: boolean
     currentChatUuid: string | null
@@ -206,6 +218,28 @@ describe('ChatWindow history visibility', () => {
     document.body.appendChild(container)
     root = createRoot(container)
     rootUnmounted = false
+  })
+
+  it('keeps shell children stable across preview content patches', async () => {
+    const user = { id: 1, body: { role: 'user', content: 'Question' } } as MessageEntity
+    const assistant = { id: 2, body: { role: 'assistant', content: 'First' } } as MessageEntity
+    testState.chatStore.setState({
+      messages: [user, assistant],
+      currentChatUuid: 'streaming-chat',
+      runPhase: 'streaming',
+      preview: { message: assistant }
+    })
+    await act(async () => root.render(<ChatWindow />))
+    const counts = [testState.headerRenders, testState.inputRenders, testState.transcriptRenders]
+    expect(counts.every((count) => count > 0)).toBe(true)
+    for (let i = 0; i < 20; i++) {
+      await act(async () => testState.chatStore.setState({
+        preview: { message: { ...assistant, body: { ...assistant.body, content: `Patch ${i}` } } }
+      }))
+    }
+    expect([testState.headerRenders, testState.inputRenders, testState.transcriptRenders]).toEqual(counts)
+    await act(async () => testState.chatStore.setState({ preview: { message: null } }))
+    expect(testState.transcriptRenders).toBeGreaterThan(counts[2])
   })
 
   afterEach(async () => {

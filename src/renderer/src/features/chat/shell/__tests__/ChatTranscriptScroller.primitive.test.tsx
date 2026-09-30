@@ -9,6 +9,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
 const scrollerMocks = vi.hoisted(() => ({
   store: {
+    preview: { message: null as MessageEntity | null },
     scrollHint: { type: 'none' },
     clearScrollHint: vi.fn(),
     upsertMessage: vi.fn(),

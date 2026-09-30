@@ -74,7 +74,8 @@ const WorkspaceTabs = ({
 }
 
 export const ArtifactsPanel: React.FC = () => {
-  const { artifactsActiveTab, setArtifactsActiveTab } = useChatStore()
+  const artifactsActiveTab = useChatStore(state => state.artifactsActiveTab)
+  const setArtifactsActiveTab = useChatStore(state => state.setArtifactsActiveTab)
   const [searchQuery, setSearchQuery] = useState('')
   const isWorkspaceTabActive = artifactsActiveTab === 'preview' || artifactsActiveTab === 'files'
   const [hasMountedWorkspaceTabs, setHasMountedWorkspaceTabs] = useState(

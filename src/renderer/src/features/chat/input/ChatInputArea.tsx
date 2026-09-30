@@ -5,7 +5,7 @@ import { useMcpConnection } from '@renderer/features/settings'
 import { cn } from '@renderer/shared/lib/utils'
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
 import { useAppConfigStore } from '@renderer/infrastructure/config/appConfig'
-import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import React, { memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import {
   getEffectiveThinkingLevel,
@@ -993,4 +993,4 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
   )
 })
 
-export default ChatInputArea
+export default memo(ChatInputArea)

@@ -111,11 +111,16 @@ export function buildChatStatsModel({
   }
 }
 
+const compactTokenFormatter = new Intl.NumberFormat('en-US', {
+  notation: 'compact',
+  maximumFractionDigits: 1
+})
+const progressPercentFormatter = new Intl.NumberFormat('en-US', {
+  maximumFractionDigits: 1
+})
+
 export function formatCompactTokenCount(value: number): string {
-  return new Intl.NumberFormat('en-US', {
-    notation: 'compact',
-    maximumFractionDigits: 1
-  }).format(value)
+  return compactTokenFormatter.format(value)
 }
 
 export function formatProgressPercent(progress: number | undefined): string {
@@ -123,7 +128,5 @@ export function formatProgressPercent(progress: number | undefined): string {
     return '—'
   }
 
-  return `${new Intl.NumberFormat('en-US', {
-    maximumFractionDigits: 1
-  }).format(progress * 100)}%`
+  return `${progressPercentFormatter.format(progress * 100)}%`
 }

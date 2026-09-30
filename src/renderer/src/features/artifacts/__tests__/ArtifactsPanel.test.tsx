@@ -112,6 +112,30 @@ describe('ArtifactsPanel', () => {
     expect(container.querySelector('[data-testid="artifacts-footer"]')).toBeNull()
   })
 
+  it('ignores preview-only updates while continuing to respond to tab changes', async () => {
+    useChatStore.setState({ artifactsActiveTab: 'stats' })
+    const onRender = vi.fn()
+    await act(async () => root.render(
+      <Profiler id="artifacts-panel" onRender={onRender}>
+        <ArtifactsPanel />
+      </Profiler>
+    ))
+    rootIsMounted = true
+    onRender.mockClear()
+
+    for (let index = 0; index < 20; index += 1) {
+      await act(async () => useChatStore.setState(state => ({
+        preview: { ...state.preview }
+      })))
+    }
+
+    expect(onRender).not.toHaveBeenCalled()
+    await act(async () => useChatStore.getState().setArtifactsActiveTab('preview'))
+    expect(onRender).toHaveBeenCalled()
+    expect(container.querySelector('[role="tabpanel"][data-state="active"]')?.textContent)
+      .toContain('Preview content')
+  })
+
   it('shows the Files toolbar only when the workspace contains files', async () => {
     useChatStore.setState({ artifactsActiveTab: 'files' })
     await renderPanel()

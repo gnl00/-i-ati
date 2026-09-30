@@ -20,7 +20,7 @@ import { getEmotionState } from '@renderer/infrastructure/persistence/EmotionSta
 import { normalizeEmotionLabel, pickEmotionEmoji } from '@shared/emotion/emotionAssetCatalog'
 import { useSheetStore } from '@renderer/features/chat/state/sheetStore'
 import { PanelRight } from 'lucide-react'
-import React, { useEffect, useState } from 'react'
+import React, { memo, useEffect, useState } from 'react'
 
 const headerActionButtonClassName = [
   'app-undragable pointer-events-auto h-8 w-8 rounded-lg border border-transparent bg-transparent p-0',
@@ -272,4 +272,4 @@ const ChatHeader: React.FC = () => {
   )
 }
 
-export default ChatHeader
+export default memo(ChatHeader)

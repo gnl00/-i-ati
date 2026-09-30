@@ -236,7 +236,7 @@ const ChatMessageBodyPlaceholder: React.FC = memo(() => (
 const ChatMessageRow: React.FC<{
   messageIndex: number;
   message: MessageEntity;
-  previewMessage?: ChatMessage;
+  hasPreview: boolean;
   lastAssistantIndex: number;
   lastMessageIndex: number;
   isPending?: boolean;
@@ -244,11 +244,14 @@ const ChatMessageRow: React.FC<{
   ({
     messageIndex,
     message,
-    previewMessage,
+    hasPreview,
     lastAssistantIndex,
     lastMessageIndex,
     isPending = false,
   }) => {
+    const previewMessage = useChatStore((state) =>
+      hasPreview ? state.preview.message?.body : undefined,
+    );
     const isLatest =
       message.body.role === 'assistant'
         ? messageIndex === lastAssistantIndex
@@ -271,20 +274,21 @@ const ChatMessageRow: React.FC<{
 const ChatPendingAssistantRow: React.FC<{
   messageIndex: number;
   pendingAssistantModel: PendingAssistantModel;
-  previewMessage?: ChatMessage;
-}> = memo(({ messageIndex, pendingAssistantModel, previewMessage }) => (
-  <ChatMessageComponent
-    index={messageIndex}
-    pendingAssistantModel={pendingAssistantModel}
-    previewMessage={previewMessage}
-    isLatest
-  />
-));
+}> = memo(({ messageIndex, pendingAssistantModel }) => {
+  const previewMessage = useChatStore((state) => state.preview.message?.body);
+  return (
+    <ChatMessageComponent
+      index={messageIndex}
+      pendingAssistantModel={pendingAssistantModel}
+      previewMessage={previewMessage}
+      isLatest
+    />
+  );
+});
 
 export interface ChatTranscriptScrollerProps {
   chatUuid?: string;
   displayMessages: MessageEntity[];
-  previewMessage?: MessageEntity;
   previewRenderIndex: number;
   lastAssistantIndex: number;
   lastMessageIndex: number;
@@ -300,7 +304,6 @@ export interface ChatTranscriptScrollerProps {
 const ChatTranscriptScrollerBody: React.FC<ChatTranscriptScrollerProps> = ({
   chatUuid,
   displayMessages,
-  previewMessage,
   previewRenderIndex,
   lastAssistantIndex,
   lastMessageIndex,
@@ -472,30 +475,14 @@ const ChatTranscriptScrollerBody: React.FC<ChatTranscriptScrollerProps> = ({
     topOcclusionPx,
   ]);
 
-  const renderedLatestAssistant = useMemo(() => {
-    if (shouldRenderPendingAssistant) {
-      return previewMessage;
-    }
-    if (
-      lastAssistantIndex < 0 ||
-      lastAssistantIndex >= displayMessages.length
-    ) {
-      return undefined;
-    }
-    if (previewMessage && previewRenderIndex === lastAssistantIndex) {
-      return previewMessage;
-    }
-    return displayMessages[lastAssistantIndex];
-  }, [
-    displayMessages,
-    lastAssistantIndex,
-    previewMessage,
-    previewRenderIndex,
-    shouldRenderPendingAssistant,
-  ]);
-
   const handleJumpToLatestClick = useCallback(() => {
-    const lastAssistantMessage = renderedLatestAssistant;
+    // Read at click time so scrolling does not subscribe the entire transcript to tokens.
+    const previewMessage = useChatStore.getState().preview.message;
+    const lastAssistantMessage = shouldRenderPendingAssistant
+      ? previewMessage
+      : previewMessage && previewRenderIndex === lastAssistantIndex
+        ? previewMessage
+        : displayMessages[lastAssistantIndex];
     const typewriterCompleted = Boolean(
       lastAssistantMessage?.body?.typewriterCompleted,
     );
@@ -520,10 +507,11 @@ const ChatTranscriptScrollerBody: React.FC<ChatTranscriptScrollerProps> = ({
       }
     }
   }, [
-    displayMessages.length,
+    displayMessages,
     isRunStreaming,
-    lastMessageIndex,
-    renderedLatestAssistant,
+    lastAssistantIndex,
+    previewRenderIndex,
+    shouldRenderPendingAssistant,
   ]);
 
   return (
@@ -556,11 +544,7 @@ const ChatTranscriptScrollerBody: React.FC<ChatTranscriptScrollerProps> = ({
                 <ChatMessageRow
                   messageIndex={item.messageIndex}
                   message={item.message}
-                  previewMessage={
-                    previewMessage && previewRenderIndex === item.messageIndex
-                      ? previewMessage.body
-                      : undefined
-                  }
+                  hasPreview={previewRenderIndex === item.messageIndex}
                   lastAssistantIndex={lastAssistantIndex}
                   lastMessageIndex={lastMessageIndex}
                   isPending={item.message.id === PENDING_USER_MESSAGE_ID}
@@ -569,9 +553,6 @@ const ChatTranscriptScrollerBody: React.FC<ChatTranscriptScrollerProps> = ({
                 <ChatPendingAssistantRow
                   messageIndex={item.messageIndex}
                   pendingAssistantModel={pendingAssistantModel}
-                  previewMessage={
-                    !hasCurrentTurnAssistant ? previewMessage?.body : undefined
-                  }
                 />
               ) : (
                 <ChatMessageBodyPlaceholder />

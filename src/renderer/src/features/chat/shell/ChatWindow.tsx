@@ -52,7 +52,7 @@ const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 const ChatWindow: React.FC = () => {
   const tasksPageOpen = useChatStore(state => state.tasksPageOpen);
   const messages = useChatStore((state) => state.messages);
-  const previewMessage = useChatStore((state) => state.preview.message);
+  const hasPreviewMessage = useChatStore((state) => Boolean(state.preview.message));
   const pendingUserMessage = useChatStore((state) => state.pendingUserMessage);
   const chatLoading = useSheetStore((state) => state.chatLoading);
   const chatEntranceRequest = useSheetStore(
@@ -105,7 +105,7 @@ const ChatWindow: React.FC = () => {
   const shouldRenderPendingAssistant =
     latestUserIndex >= 0 &&
     !hasCurrentTurnAssistant &&
-    (isAssistantResponseActive || Boolean(previewMessage));
+    (isAssistantResponseActive || hasPreviewMessage);
   const pendingAssistantModel = useMemo(
     () => ({
       model: selectedModel?.model.label ?? selectedModelRef?.modelId,
@@ -118,7 +118,7 @@ const ChatWindow: React.FC = () => {
     }),
     [selectedModel?.model.label, selectedModelRef],
   );
-  const previewRenderIndex = previewMessage
+  const previewRenderIndex = hasPreviewMessage
     ? hasCurrentTurnAssistant
       ? committedLastAssistantIndex
       : -1
@@ -661,7 +661,6 @@ const ChatWindow: React.FC = () => {
                   <ChatTranscriptScroller
                     chatUuid={chatUuid}
                     displayMessages={displayMessages}
-                    previewMessage={previewMessage ?? undefined}
                     previewRenderIndex={previewRenderIndex}
                     lastAssistantIndex={lastAssistantIndex}
                     lastMessageIndex={lastMessageIndex}

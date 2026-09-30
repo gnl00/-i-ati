@@ -9,12 +9,21 @@ import type { ChatRunScrollHint } from '@renderer/features/chat/state/chatRunUiS
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
 const scrollerMocks = vi.hoisted(() => ({
+  chatStore: null as unknown as {
+    setState: (state: Partial<{
+      preview: { message: MessageEntity | null }
+      scrollHint: ChatRunScrollHint
+    }>, replace?: boolean) => void
+  },
+  messageRenders: {} as Record<number, number>,
+  itemRenders: 0,
   scrollToMessage: vi.fn(() => true),
   visibility: {
     currentAnchorId: null,
     visibleMessageIds: [] as string[],
   },
   store: {
+    preview: { message: null as MessageEntity | null },
     scrollHint: { type: 'none' } as ChatRunScrollHint,
     clearScrollHint: vi.fn(),
     upsertMessage: vi.fn(),
@@ -36,11 +45,14 @@ vi.mock('@renderer/shared/components/ui/message-scroller', () => {
   const Item = ({ children, messageId, scrollAnchor, ...props }: React.PropsWithChildren<{
     messageId?: string
     scrollAnchor?: boolean
-  }>) => (
+  }>) => {
+    scrollerMocks.itemRenders++
+    return (
     <div data-testid="message-scroller-item" data-message-id={messageId} data-scroll-anchor={String(scrollAnchor)} {...props}>
       {children}
     </div>
-  )
+    )
+  }
   const Button = (props: React.ButtonHTMLAttributes<HTMLButtonElement>) => <button type="button" {...props} />
 
   return {
@@ -56,21 +68,30 @@ vi.mock('@renderer/shared/components/ui/message-scroller', () => {
 })
 
 vi.mock('@renderer/features/chat/message/ChatMessageComponent', () => ({
-  default: ({ message, pendingAssistantModel }: {
+  default: ({ messageId = -1, message, previewMessage, pendingAssistantModel }: {
+    messageId?: number
     message?: ChatMessage
+    previewMessage?: ChatMessage
     pendingAssistantModel?: { model?: string }
-  }) => (
-    <div data-testid="chat-message" data-role={message?.role ?? 'assistant'}>
-      {pendingAssistantModel?.model ?? message?.role}
-    </div>
-  ),
+  }) => {
+    scrollerMocks.messageRenders[messageId] = (scrollerMocks.messageRenders[messageId] ?? 0) + 1
+    return (
+      <div data-testid="chat-message" data-role={message?.role ?? 'assistant'}>
+        {String(previewMessage?.content ?? pendingAssistantModel?.model ?? message?.role ?? '')}
+      </div>
+    )
+  },
 }))
 
-vi.mock('@renderer/features/chat/state/chatStore', () => {
-  const useChatStore = Object.assign(
-    (selector: (state: typeof scrollerMocks.store) => unknown) => selector(scrollerMocks.store),
-    { getState: () => scrollerMocks.store },
-  )
+vi.mock('@renderer/features/chat/state/chatStore', async () => {
+  const { create } = await import('zustand')
+  const useChatStore = create(() => scrollerMocks.store)
+  scrollerMocks.chatStore = {
+    setState: (state, replace) => {
+      if (replace) useChatStore.setState({ ...scrollerMocks.store, ...state }, true)
+      else useChatStore.setState(state)
+    },
+  }
   return { useChatStore }
 })
 
@@ -95,6 +116,10 @@ describe('ChatTranscriptScroller demand-mounted bodies', () => {
     root = createRoot(container)
     scrollerMocks.visibility = { currentAnchorId: null, visibleMessageIds: [] }
     scrollerMocks.store.scrollHint = { type: 'none' }
+    scrollerMocks.store.preview = { message: null }
+    scrollerMocks.chatStore.setState(scrollerMocks.store, true)
+    scrollerMocks.messageRenders = {}
+    scrollerMocks.itemRenders = 0
     scrollerMocks.store.clearScrollHint.mockReset()
     scrollerMocks.scrollToMessage.mockReset()
     scrollerMocks.scrollToMessage.mockReturnValue(true)
@@ -107,6 +132,7 @@ describe('ChatTranscriptScroller demand-mounted bodies', () => {
 
   const renderScroller = async ({
     chatUuid = 'chat-a',
+    previewRenderIndex = -1,
     displayMessages,
     latestUserIndex = -1,
     lastAssistantIndex = -1,
@@ -116,6 +142,7 @@ describe('ChatTranscriptScroller demand-mounted bodies', () => {
     scrollHint = { type: 'none' } as ChatRunScrollHint,
   }: {
     chatUuid?: string
+    previewRenderIndex?: number
     displayMessages: MessageEntity[]
     latestUserIndex?: number
     lastAssistantIndex?: number
@@ -126,11 +153,12 @@ describe('ChatTranscriptScroller demand-mounted bodies', () => {
   }) => {
     scrollerMocks.store.scrollHint = scrollHint
     await act(async () => {
+      scrollerMocks.chatStore.setState({ scrollHint })
       root.render(
         <ChatTranscriptScroller
           chatUuid={chatUuid}
           displayMessages={displayMessages}
-          previewRenderIndex={-1}
+          previewRenderIndex={previewRenderIndex}
           lastAssistantIndex={lastAssistantIndex}
           lastMessageIndex={lastMessageIndex}
           latestUserIndex={latestUserIndex}
@@ -143,6 +171,38 @@ describe('ChatTranscriptScroller demand-mounted bodies', () => {
       )
     })
   }
+
+  it('updates only the preview owner and reads the latest preview when jumping', async () => {
+    const messages = [createMessage(1, 'user'), createMessage(2, 'assistant')]
+    await renderScroller({ displayMessages: messages, lastAssistantIndex: 1,
+      lastMessageIndex: 1, latestUserIndex: 0, hasCurrentTurnAssistant: true, previewRenderIndex: 1 })
+    const userRenders = scrollerMocks.messageRenders[1]
+    const assistantRenders = scrollerMocks.messageRenders[2]
+    const itemRenders = scrollerMocks.itemRenders
+    const node = container.querySelector('[data-message-id="2"]')
+    const latest = { ...messages[1], body: { ...messages[1].body, content: 'Latest patch',
+      segments: [{ segmentId: 'text-1', type: 'text', content: 'Latest patch', timestamp: 1 }] } } as MessageEntity
+    await act(async () => scrollerMocks.chatStore.setState({ preview: { message: latest } }))
+    expect(container.textContent).toContain('Latest patch')
+    expect(scrollerMocks.itemRenders).toBe(itemRenders)
+    expect(scrollerMocks.messageRenders[1]).toBe(userRenders)
+    expect(scrollerMocks.messageRenders[2]).toBe(assistantRenders + 1)
+    expect(container.querySelector('[data-message-id="2"]')).toBe(node)
+    await act(async () => container.querySelector('button')!.click())
+    expect(scrollerMocks.store.upsertMessage).toHaveBeenCalledWith({ ...latest,
+      body: { ...latest.body, typewriterCompleted: true } })
+    await act(async () => scrollerMocks.chatStore.setState({ preview: { message: null } }))
+    expect(container.textContent).not.toContain('Latest patch')
+  })
+
+  it('renders preview patches before the assistant message is committed', async () => {
+    await renderScroller({ displayMessages: [createMessage(1, 'user')], latestUserIndex: 0,
+      shouldRenderPendingAssistant: true })
+    await act(async () => scrollerMocks.chatStore.setState({ preview: {
+      message: { body: { role: 'assistant', content: 'Pending preview' } } as MessageEntity
+    } }))
+    expect(container.textContent).toContain('Pending preview')
+  })
 
   it('keeps every shell registered while bounding initial message body mounts', async () => {
     const messages = [

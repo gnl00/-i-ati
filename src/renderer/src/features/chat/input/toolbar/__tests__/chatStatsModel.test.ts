@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildChatStatsModel,
+  formatCompactTokenCount,
   formatProgressPercent,
   type ChatStatsModel
 } from '../chatStatsModel'
@@ -111,5 +112,18 @@ describe('buildChatStatsModel', () => {
 
     expect(stats.toolCallCount).toBe(1)
     expect(stats.toolResultCount).toBe(1)
+  })
+})
+
+describe('chat statistics formatting', () => {
+  it('preserves compact tokens and progress rounding across repeated calls', () => {
+    for (let index = 0; index < 20; index += 1) {
+      expect(formatCompactTokenCount(1234)).toBe('1.2K')
+      expect(formatCompactTokenCount(1000000)).toBe('1M')
+      expect(formatCompactTokenCount(0)).toBe('0')
+      expect(formatProgressPercent(0.999)).toBe('99.9%')
+      expect(formatProgressPercent(0)).toBe('0%')
+      expect(formatProgressPercent(undefined)).toBe('—')
+    }
   })
 })

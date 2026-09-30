@@ -12,6 +12,7 @@ const scrollerMocks = vi.hoisted(() => ({
   scrollToMessage: vi.fn(),
   clearScrollHint: vi.fn(),
   store: {
+    preview: { message: null as MessageEntity | null },
     scrollHint: { type: 'none' } as ChatRunScrollHint,
     clearScrollHint: vi.fn(),
     upsertMessage: vi.fn(),
