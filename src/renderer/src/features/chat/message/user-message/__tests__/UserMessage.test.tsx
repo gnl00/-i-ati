@@ -35,7 +35,7 @@ vi.mock('@renderer/shared/lib/styleLoaders', () => ({
 }))
 
 vi.mock('../../message-operations', () => ({
-  MessageOperations: () => <div data-testid="message-operations" />
+  MessageOperations: ({ onCopyClick }: { onCopyClick: () => void }) => <button data-testid="message-operations" onClick={onCopyClick}>Copy message</button>
 }))
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
@@ -301,6 +301,60 @@ describe('UserMessage collapse behavior', () => {
       expect(container.querySelector<HTMLElement>('[data-testid="user-message-collapsible-content"]')?.style.maxHeight).toBe(collapsible ? '140px' : '')
     }
   )
+
+  it('separates image attachments from text measurement and preserves text order and copy', async () => {
+    const onCopyClick = vi.fn()
+    const message: ChatMessage = {
+      role: 'user', segments: [], content: [
+        { type: 'image_url', image_url: { url: 'data:image/png;base64,first', detail: 'auto' } },
+        { type: 'text', text: 'First text with ![inline](inline.png)' },
+        { type: 'image_url', image_url: { url: 'data:image/png;base64,second', detail: 'auto' } },
+        { type: 'text', text: 'Second text' }
+      ]
+    }
+    const originalContent = structuredClone(message.content)
+    await act(async () => root.render(<UserMessage index={0} message={message} isLatest={false} isHovered={false} onHover={() => {}} onCopyClick={onCopyClick} />))
+    await flushAnimationFrames()
+
+    const content = container.querySelector<HTMLElement>('[data-testid="user-message-collapsible-content"]')!
+    expect(content.querySelector('img')).toBeNull()
+    expect(content.textContent).toBe('First text with ![inline](inline.png)\n\nSecond text')
+    expect(container.querySelector('[data-testid="user-message-images"]')?.querySelectorAll('img')).toHaveLength(2)
+    expect(container.querySelector('[data-testid="user-message-expand-button"]')).toBeNull()
+    expect(container.querySelectorAll('[data-testid="message-operations"]')).toHaveLength(1)
+    await act(async () => container.querySelector<HTMLButtonElement>('[data-testid="message-operations"]')?.click())
+    expect(onCopyClick).toHaveBeenCalledWith('First text with ![inline](inline.png)\nSecond text')
+    expect(message.content).toEqual(originalContent)
+  })
+
+  it('omits an empty text bubble for image-only pending messages', async () => {
+    const message: ChatMessage = { role: 'user', segments: [], content: [
+      { type: 'text', text: '   ' },
+      { type: 'image_url', image_url: { url: 'data:image/png;base64,only', detail: 'auto' } }
+    ] }
+    await act(async () => root.render(<UserMessage index={0} message={message} isLatest={false} isPending isHovered={false} onHover={() => {}} onCopyClick={() => undefined} />))
+    await flushAnimationFrames()
+    expect(container.querySelector('[data-testid="user-message-images"]')).not.toBeNull()
+    expect(container.querySelector('#usr-msg-content')).toBeNull()
+    expect(container.querySelector('[data-testid="user-message-collapsible-content"]')).toBeNull()
+    expect(container.querySelector('[data-testid="message-operations"]')).toBeNull()
+    expect(scrollHeightReads).toBe(0)
+  })
+
+  it('keeps thumbnails visible while a long image message expands and collapses', async () => {
+    const message: ChatMessage = { role: 'user', segments: [], content: [
+      { type: 'image_url', image_url: { url: 'data:image/png;base64,long', detail: 'auto' } },
+      { type: 'text', text: longMessage }
+    ] }
+    await act(async () => root.render(<UserMessage index={0} message={message} isLatest={false} isHovered={false} onHover={() => {}} onCopyClick={() => undefined} />))
+    await flushAnimationFrames()
+    const strip = container.querySelector('[data-testid="user-message-images"]')
+    await act(async () => container.querySelector<HTMLButtonElement>('[data-testid="user-message-expand-button"]')?.click())
+    expect(container.querySelector('[data-testid="user-message-images"]')).toBe(strip)
+    await act(async () => container.querySelector<HTMLButtonElement>('[data-testid="user-message-collapse-button"]')?.click())
+    expect(container.querySelector('[data-testid="user-message-images"]')).toBe(strip)
+    expect(container.querySelector<HTMLElement>('[data-testid="user-message-collapsible-content"]')?.style.maxHeight).toBe('140px')
+  })
 
   it('defers the first layout measurement to a batched animation frame', async () => {
     await act(async () => {

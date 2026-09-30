@@ -182,6 +182,8 @@ Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif
 - 常规卡片使用 12px 圆角，紧凑控件和 disclosure 使用 8px 至 10px 圆角。
 - 助手消息操作行的 token usage 位于右侧时间戳前，使用 12px 用量图标与 11px 系统字体数值，图标与数值间隔 4px；背景透明，无 badge padding、边框或圆角。操作图标、用量图标与数值、时间戳统一使用 Chat muted text token，用量图标不单独降低 opacity；按钮 hover 使用 Chat secondary text 与 hover surface，禁用按钮沿用同色并降至 50% opacity；usage 与时间戳之间使用 1×10px standard border token 竖线，竖线两侧各间隔 12px，仅两项同时存在时显示。详细用量保留在 tooltip 中。usage 与时间戳同组靠右，窄窗口时整组可换行靠右，整行沿用消息 hover 显示规则。
 - 长用户消息使用 140px 折叠预览，实际内容超过 164px 时显示折叠操作。仅预览末尾 32px 渐隐，不叠加模糊；左下角使用 11px 次级文字与小箭头的 `Show more` / `Show less`，按钮左边缘与正文左边缘对齐，默认透明，hover 显示轻背景，保留 28px 点击高度。展开与收起即时切换，展开正文随内容自然增长；收起时若消息顶部已被视口或顶部 overlay 遮住，通过 MessageScroller 将该消息顶部恢复到可读位置。
+- 用户消息的上传图片在正文气泡上方独立成行，与气泡右对齐并间隔 8px；单图 128×96px，多图 96×96px、8px 间距，窄窗口等比缩小，保留原图比例。最多显示四个缩略图，超过四张时末格以 `+N` 汇总包含该格在内的剩余图片；点击打开大图，支持左右切换、方向键、Escape 和关闭后焦点恢复。折叠只作用于正文，纯图片不显示空气泡，整条消息共用一组操作；Markdown 内嵌图片保持正文位置。图片加载失败显示固定尺寸 `Image unavailable` 占位。 缩略图默认使用 subtle border，hover 仅提升至 standard border 和轻 hover surface，颜色过渡 150ms；键盘 focus-visible 保留 accent ring。
+- 图片预览遵循来源轨迹：指针打开时，从当前缩略图的实际图片区域等比展开至大图（220ms strong ease-out），关闭时重新测量并回到当前图片的缩略图（180ms）；隐藏图片回到 `+N` 汇总格并渐隐。遮罩同步渐变，控件在入场后段淡入，多图切换只在查看器内淡入（120ms）。快速关闭从当前视觉位置接续；来源离开可视区时使用 120ms 渐隐。键盘操作、reduced-motion 和缺少 WAAPI 时即时切换；窗口改变、偏好改变或卸载时取消旧动画。
 - Settings section 使用 raised surface、standard border 和连续 footer 或 inset region。
 - 连续工具调用与任务列表使用外层容器加 subtle separator，减少重复卡片边框。
 - Chat 的整轮处理过程使用无卡片边框的次级文字标题、小箭头与连续列表；执行中展开，正常完成后统一收起。短思考直接展示，工具行突出动作描述；独立工具详情保留原有布局。

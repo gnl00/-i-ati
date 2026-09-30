@@ -11,6 +11,7 @@ import { useEnterTransition } from '../typewriter/use-enter-transition'
 import { loadKatexStyles } from '@renderer/shared/lib/styleLoaders'
 import { useMessageScroller } from '@renderer/shared/components/ui/message-scroller'
 import { ChevronDown, ChevronUp, Send } from 'lucide-react'
+import { UserMessageImages } from './user-message-images'
 
 export interface UserMessageProps {
   index: number
@@ -24,16 +25,6 @@ export interface UserMessageProps {
 
 const COLLAPSED_USER_MESSAGE_HEIGHT = 140
 const COLLAPSE_OVERFLOW_BUFFER = 24
-
-const getContentSignature = (content: ChatMessage['content']): string => {
-  if (typeof content === 'string') {
-    return content
-  }
-
-  return content
-    .map((item) => `${item.type ?? 'unknown'}:${item.text ?? ''}:${item.image_url?.url ?? ''}`)
-    .join('\n')
-}
 
 const CollapsibleUserMessageContent: React.FC<{
   children: React.ReactNode
@@ -71,7 +62,7 @@ const CollapsibleUserMessageContent: React.FC<{
     if (!node) return
 
     let active = true
-    const scheduleMeasurement = () => {
+    const scheduleMeasurement = (): void => {
       if (!active || measurementFrameRef.current !== null) return
 
       measurementFrameRef.current = window.requestAnimationFrame(() => {
@@ -91,7 +82,7 @@ const CollapsibleUserMessageContent: React.FC<{
       resizeObserver.observe(node)
     }
 
-    return () => {
+    return (): void => {
       active = false
       if (measurementFrameRef.current !== null) {
         window.cancelAnimationFrame(measurementFrameRef.current)
@@ -211,45 +202,11 @@ const AnimatedMarkdown: React.FC<{
   )
 }
 
-const VLMContentRenderer: React.FC<{
-  content: VLMContent[]
-  animateOnEnter?: boolean
-  markdownClassName?: string
-  imageClassName?: string
-}> = ({ content, animateOnEnter = true, markdownClassName, imageClassName }) => (
-  <div className="">
-    {content.map((vlmContent: VLMContent, idx) => {
-      if (vlmContent.image_url) {
-        return (
-          <img
-            key={idx}
-            src={vlmContent.image_url?.url}
-            onDoubleClick={e => e}
-            className={cn("max-w-full rounded-lg", imageClassName)}
-          ></img>
-        )
-      } else {
-        return (
-          <AnimatedMarkdown
-            key={idx}
-            markdown={vlmContent.text ?? ''}
-            animateOnEnter={animateOnEnter}
-            className={cn(
-              "chat-user-message-prose prose prose-code:text-gray-400 text-sm text-blue-gray-600 font-medium max-w-full prose-a:text-blue-600 dark:prose-a:text-(--chat-accent-strong) prose-a:underline prose-a:underline-offset-2 prose-a:decoration-blue-400/60 dark:prose-a:decoration-(--chat-accent)/60 hover:prose-a:text-blue-700 dark:hover:prose-a:text-(--chat-text-primary)",
-              markdownClassName
-            )}
-          />
-        )
-      }
-    })}
-  </div>
-)
-
 /**
  * User message component (right-aligned).
  * Supports both plain text and VLM content (text + images).
  */
-export const UserMessage: React.FC<UserMessageProps> = memo(({
+export const UserMessage = memo(function UserMessage({
   index,
   message: m,
   isLatest,
@@ -257,9 +214,11 @@ export const UserMessage: React.FC<UserMessageProps> = memo(({
   isHovered,
   onHover,
   onCopyClick
-}) => {
+}: UserMessageProps): React.ReactElement | null {
   const telegramAttachmentCount = m.host?.attachments?.length ?? 0
-  const contentSignature = useMemo(() => getContentSignature(m.content), [m.content])
+  const textContent = useMemo(() => typeof m.content === 'string' ? m.content : m.content.map(part => part.text ?? '').filter(Boolean).join('\n\n'), [m.content])
+  const imageUrls = useMemo(() => typeof m.content === 'string' ? [] : m.content.flatMap(part => part.image_url?.url ? [part.image_url.url] : []), [m.content])
+  const contentSignature = textContent
   const [isExpanded, setIsExpanded] = useState(false)
 
   useLayoutEffect(() => {
@@ -279,7 +238,7 @@ export const UserMessage: React.FC<UserMessageProps> = memo(({
     }
   }
 
-  if (!m.content) return null
+  if (!textContent.trim() && imageUrls.length === 0) return null
   const shouldAnimateMarkdownEnter = isLatest || isPending
 
   return (
@@ -302,33 +261,33 @@ export const UserMessage: React.FC<UserMessageProps> = memo(({
         </div>
       )}
 
-      <div
-        id="usr-msg-content"
-        className={cn(
-          "chat-user-message-surface max-w-[85%] rounded-xl py-3 px-3 bg-slate-100",
-          isLatest && "animate-shine animate-message-in",
-          isPending && "opacity-75 saturate-90 shadow-sm shadow-slate-900/5 transition-[opacity,filter,box-shadow] duration-200 ease-out dark:shadow-black/20"
-        )}
-      >
-        <CollapsibleUserMessageContent
-          contentSignature={contentSignature}
-          isExpanded={isExpanded}
-          onToggleExpanded={() => setIsExpanded(current => !current)}
-        >
-          {typeof m.content !== 'string' ? (
-            <VLMContentRenderer
-              content={m.content}
-              animateOnEnter={shouldAnimateMarkdownEnter}
-            />
-          ) : (
-            <AnimatedMarkdown
-              markdown={m.content}
-              animateOnEnter={shouldAnimateMarkdownEnter}
-              className={cn("chat-user-message-prose prose prose-code:text-gray-400 text-sm text-blue-gray-600 font-medium max-w-full prose-a:text-blue-600 dark:prose-a:text-(--chat-accent-strong) prose-a:underline prose-a:underline-offset-2 prose-a:decoration-blue-400/60 dark:prose-a:decoration-(--chat-accent)/60 hover:prose-a:text-blue-700 dark:hover:prose-a:text-(--chat-text-primary)")}
-            />
+      {imageUrls.length > 0 && (
+        <UserMessageImages key={imageUrls.join('\n')} urls={imageUrls} isPending={isPending} />
+      )}
+
+      {textContent.trim() && (
+        <div
+          id="usr-msg-content"
+          className={cn(
+            'chat-user-message-surface max-w-[85%] rounded-xl py-3 px-3 bg-slate-100',
+            imageUrls.length > 0 && 'mt-2',
+            isLatest && 'animate-shine animate-message-in',
+            isPending && 'opacity-75 saturate-90 shadow-sm shadow-slate-900/5 transition-[opacity,filter,box-shadow] duration-200 ease-out dark:shadow-black/20'
           )}
-        </CollapsibleUserMessageContent>
-      </div>
+        >
+          <CollapsibleUserMessageContent
+            contentSignature={contentSignature}
+            isExpanded={isExpanded}
+            onToggleExpanded={() => setIsExpanded(current => !current)}
+          >
+            <AnimatedMarkdown
+              markdown={textContent}
+              animateOnEnter={shouldAnimateMarkdownEnter}
+              className="chat-user-message-prose prose prose-code:text-gray-400 text-sm text-blue-gray-600 font-medium max-w-full prose-a:text-blue-600 dark:prose-a:text-(--chat-accent-strong) prose-a:underline prose-a:underline-offset-2 prose-a:decoration-blue-400/60 dark:prose-a:decoration-(--chat-accent)/60 hover:prose-a:text-blue-700 dark:hover:prose-a:text-(--chat-text-primary)"
+            />
+          </CollapsibleUserMessageContent>
+        </div>
+      )}
 
       {!isPending && (
         <MessageOperations

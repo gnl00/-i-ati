@@ -46,6 +46,25 @@ History items use `content-visibility:auto` and intrinsic size. The current user
 current assistant, pending assistant and explicit search target use real layout
 visibility. ResizeObserver recalculates sizes when content expands or wraps.
 
+User-message image attachments render in a bounded thumbnail strip above the
+text bubble, inside the same registered MessageScroller item. Image dimensions
+do not contribute to text collapse measurement. At most four thumbnails render;
+the last tile summarizes the remaining images, while the dialog can navigate
+all original URLs. Image-only messages omit the text bubble. Inline Markdown
+images remain in the text. This is a renderer presentation split: original
+message content/order, model requests, persistence and shared copy operations
+retain their existing contracts. The preview uses Radix modal primitives for
+focus trapping and Escape, and returns focus to the current image's thumbnail
+(or the summary tile for hidden images). Local `useImagePreviewMotion` owns
+cancellable WAAPI animations. Pointer entry expands from contained image pixels
+in the thumbnail (220ms); exit remeasures the current thumbnail (180ms). Missing,
+offscreen or top-overlay-covered sources fade instead; the visible top boundary
+includes the transcript item's computed `scrollMarginBlockStart`. Closing during entry captures the current
+computed transform before cancellation. Image navigation stays within the viewer;
+keyboard, reduced motion and missing WAAPI use immediate state changes. Resize,
+reduced-motion changes and unmount cancel stale animations. No animation changes
+the transcript item's layout or scroll anchor.
+
 Long user messages expand and collapse without a height transition. On explicit
 collapse, the user-message component checks its registered item's top against
 the viewport and the item's top scroll margin. If the top is obscured, it calls
@@ -54,14 +73,16 @@ after the collapsed DOM commits. A visible top and expansion do not request a
 scroll correction; the provider retains scroll ownership and following behavior.
 
 The user-message tests cover short and long content, the overflow buffer,
-accessible toggle labels, deferred measurements, and collapse correction with
+accessible toggle labels, attachment/text separation, image preview navigation,
+load failures, focus return, reversible preview motion, immediate-motion fallbacks,
+deferred measurements, and collapse correction with
 visible, offscreen, and overlay-obscured item tops. Run the focused suites and
 renderer checks with:
 
 ```sh
-pnpm exec vitest run src/renderer/src/features/chat/message/user-message/__tests__/UserMessage.test.tsx src/renderer/src/features/chat/message/__tests__/ChatMessageComponent.test.tsx src/renderer/src/features/chat/shell/__tests__/ChatTranscriptScroller.primitive.test.tsx
+pnpm exec vitest run src/renderer/src/features/chat/message/user-message/__tests__/UserMessage.test.tsx src/renderer/src/features/chat/message/user-message/__tests__/UserMessageImages.test.tsx src/renderer/src/features/chat/message/user-message/__tests__/UserMessageImages.motion.test.tsx src/renderer/src/features/chat/message/__tests__/ChatMessageComponent.test.tsx src/renderer/src/features/chat/shell/__tests__/ChatTranscriptScroller.primitive.test.tsx
 pnpm exec vitest run src/renderer/src/features/chat/shell/__tests__/ChatTranscriptScroller.test.ts src/renderer/src/features/chat/shell/__tests__/ChatTranscriptScroller.mounting.test.tsx src/renderer/src/features/chat/shell/__tests__/ChatWindow.message-scroller.test.tsx
-pnpm exec eslint src/renderer/src/features/chat/message/user-message/index.tsx src/renderer/src/features/chat/message/user-message/__tests__/UserMessage.test.tsx
+pnpm exec eslint src/renderer/src/features/chat/message/user-message/index.tsx src/renderer/src/features/chat/message/user-message/user-message-images.tsx src/renderer/src/features/chat/message/user-message/use-image-preview-motion.ts src/renderer/src/features/chat/message/user-message/__tests__/UserMessage.test.tsx src/renderer/src/features/chat/message/user-message/__tests__/UserMessageImages.test.tsx src/renderer/src/features/chat/message/user-message/__tests__/UserMessageImages.motion.test.tsx
 pnpm run typecheck:web
 pnpm run check:renderer-boundaries
 pnpm run test:renderer-architecture
