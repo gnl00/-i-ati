@@ -103,6 +103,39 @@ describe('QueuedMessageRail', () => {
     expect(container.querySelector<HTMLButtonElement>('[aria-label="Queued message actions"]')?.disabled).toBe(true)
   })
 
+  it('shows compaction while inserting and restores waiting when compaction ends', async () => {
+    const renderRail = async (compacting: boolean): Promise<void> => {
+      await act(async () => {
+        root.render(
+          <QueuedMessageRail
+            message={message({ status: 'inserting' })}
+            remainingCount={0}
+            compacting={compacting}
+            canInsert
+            onInsert={() => undefined}
+            onEdit={() => undefined}
+            onRemove={() => undefined}
+          />
+        )
+      })
+    }
+
+    await renderRail(true)
+    expect(container.querySelector('[role="status"]')?.textContent).toBe(
+      `Compacting: ${message().text}`
+    )
+    expect(container.querySelector('button')?.textContent).toBe('Compacting')
+    expect(container.querySelector('button')?.disabled).toBe(true)
+    expect(container.querySelector<HTMLButtonElement>('[aria-label="Queued message actions"]')?.disabled).toBe(true)
+
+    await renderRail(false)
+    expect(container.querySelector('[role="status"]')?.textContent).toBe(
+      `Guiding: ${message().text}`
+    )
+    expect(container.querySelector('button')?.textContent).toBe('Waiting')
+    expect(container.querySelector('button')?.disabled).toBe(true)
+  })
+
   it('offers edit and remove actions for the queued head', async () => {
     const onEdit = vi.fn()
     const onRemove = vi.fn()
@@ -134,7 +167,7 @@ describe('QueuedMessageRail', () => {
     await openMenu()
     const menu = document.querySelector<HTMLElement>('[role="menu"][aria-label="Queued message actions"]')
     expect(menu?.querySelectorAll('[role="menuitem"]')).toHaveLength(2)
-    expect(menu?.querySelectorAll('[role="separator"]')).toHaveLength(1)
+    expect(menu?.querySelectorAll('[role="separator"]')).toHaveLength(0)
 
     const editItem = Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]'))
       .find(item => item.textContent?.includes('Edit'))

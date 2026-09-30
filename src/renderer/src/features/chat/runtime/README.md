@@ -19,7 +19,10 @@ the item into the active run's FIFO and consumes one item at the next stable
 checkpoint that has budget for a continuation step. Queue payload, paused state,
 and the current editing item live in a feature-owned store keyed by `chatUuid` or
 the pending `submissionId`. `chatRunEvent` routes events through the active-run
-lifetime, including intervals where the composer is remounting. Renderer queue
+lifetime, including intervals where the composer is remounting. The queue rail
+projects pending compression maintenance as `Compacting`, including
+while an inserted message awaits its checkpoint. When compression finishes or
+fails, the rail returns to the underlying queue state. Renderer queue
 state follows two shared events:
 
 - `run.steering.consumed` removes the matching `queueItemId` after the inserted

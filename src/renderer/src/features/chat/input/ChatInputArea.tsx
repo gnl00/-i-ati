@@ -786,6 +786,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
       message={firstQueuedMessage}
       remainingCount={Math.max(0, queuedMessages.length - 1)}
       paused={queuePaused}
+      compacting={postRunJobs.compression === 'pending'}
       canInsert={
         !editingQueue
         && !hasPendingUserQuestion
