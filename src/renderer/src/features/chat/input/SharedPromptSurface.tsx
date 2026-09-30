@@ -140,7 +140,10 @@ const SharedPromptSurface = React.forwardRef<HTMLTextAreaElement, SharedPromptSu
         {bodyOverlay}
       </div>
 
-      <div className="shared-prompt-actions min-h-0 overflow-hidden">
+      <div
+        className="shared-prompt-actions min-h-0 overflow-hidden"
+        onClick={event => event.stopPropagation()}
+      >
         <div className="shared-prompt-baseline grid min-h-10 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-2.5 pb-2 pt-1">
           <div className="shared-prompt-baseline-left flex min-w-0 items-center justify-start gap-2">
             {leftActions}

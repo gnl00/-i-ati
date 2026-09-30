@@ -27,6 +27,7 @@ interface ChatInputToolbarProps {
   onNewChat?: () => void
   onBaselineInteractionStart?: () => void
   onBaselinePopoverOpenChange?: (open: boolean) => void
+  onBaselinePopoverCloseAutoFocus?: () => void
   variant?: 'default' | 'baseline' | 'surface'
 }
 
@@ -43,6 +44,7 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
   onNewChat,
   onBaselineInteractionStart,
   onBaselinePopoverOpenChange,
+  onBaselinePopoverCloseAutoFocus,
   variant = 'default'
 }) => {
   const [selectModelPopoutState, setSelectModelPopoutState] = React.useState(false)
@@ -112,16 +114,19 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
               collisionBoundary={modelMenuCollisionBoundary}
               isOpen={selectModelPopoutState}
               onOpenChange={handleModelPopoverOpenChange}
+              onCloseAutoFocus={onBaselinePopoverCloseAutoFocus}
               onModelSelect={handleModelSelect}
               triggerClassName="w-full min-w-0"
               variant="baseline"
             />
           </div>
 
-          <div className="shrink-0">
+          <div className="shrink-0" onPointerDownCapture={onBaselineInteractionStart}>
             <PermissionApprovalModeSelector
               value={permissionApprovalMode}
               onChange={setPermissionApprovalMode}
+              onOpenChange={onBaselinePopoverOpenChange}
+              onCloseAutoFocus={onBaselinePopoverCloseAutoFocus}
               variant="baseline"
             />
           </div>

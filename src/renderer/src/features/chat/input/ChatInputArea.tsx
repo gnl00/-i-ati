@@ -188,7 +188,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
   // Custom Caret Ref
   const caretOverlayRef = useRef<CustomCaretRef>(null)
   const queueTimerRef = useRef<number | null>(null)
-  const welcomeInteractionReleaseTimerRef = useRef<number | null>(null)
+  const welcomeInteractionReleaseFrameRef = useRef<number | null>(null)
   const queueFlushingRef = useRef(false)
   const isComposingRef = useRef(false)
   const previousQueueKeyRef = useRef(queueKey)
@@ -266,27 +266,29 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
       return
     }
 
-    if (welcomeInteractionReleaseTimerRef.current) {
-      window.clearTimeout(welcomeInteractionReleaseTimerRef.current)
-      welcomeInteractionReleaseTimerRef.current = null
+    if (welcomeInteractionReleaseFrameRef.current) {
+      window.cancelAnimationFrame(welcomeInteractionReleaseFrameRef.current)
+      welcomeInteractionReleaseFrameRef.current = null
     }
 
     setIsWelcomeInteractionHeld(true)
   }, [welcomeVisualMode])
 
-  const releaseWelcomeInteraction = useCallback((delay = 120) => {
+  const releaseWelcomeInteraction = useCallback(() => {
     if (!welcomeVisualMode) {
       return
     }
 
-    if (welcomeInteractionReleaseTimerRef.current) {
-      window.clearTimeout(welcomeInteractionReleaseTimerRef.current)
+    if (welcomeInteractionReleaseFrameRef.current) {
+      window.cancelAnimationFrame(welcomeInteractionReleaseFrameRef.current)
     }
 
-    welcomeInteractionReleaseTimerRef.current = window.setTimeout(() => {
+    // Radix restores trigger focus after onCloseAutoFocus returns.
+    welcomeInteractionReleaseFrameRef.current = window.requestAnimationFrame(() => {
+      setIsWelcomeFocused(Boolean(rootRef.current?.contains(document.activeElement)))
       setIsWelcomeInteractionHeld(false)
-      welcomeInteractionReleaseTimerRef.current = null
-    }, delay)
+      welcomeInteractionReleaseFrameRef.current = null
+    })
   }, [welcomeVisualMode])
 
   useEffect(() => {
@@ -301,9 +303,9 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
 
   useEffect(() => {
     return () => {
-      if (welcomeInteractionReleaseTimerRef.current) {
-        window.clearTimeout(welcomeInteractionReleaseTimerRef.current)
-        welcomeInteractionReleaseTimerRef.current = null
+      if (welcomeInteractionReleaseFrameRef.current) {
+        window.cancelAnimationFrame(welcomeInteractionReleaseFrameRef.current)
+        welcomeInteractionReleaseFrameRef.current = null
       }
     }
   }, [])
@@ -804,14 +806,16 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
         id='inputArea'
         data-expanded={isWelcomeExpanded ? 'true' : 'false'}
         className="shared-prompt-welcome-frame rounded-md bg-transparent"
-        onFocusCapture={() => updateWelcomeFocus(true)}
+        onFocusCapture={event => {
+          if (event.currentTarget.contains(event.target)) {
+            setIsWelcomeFocused(true)
+          }
+          onWelcomeFocusStateChange?.((event.target as EventTarget) === textareaRef.current)
+        }}
         onBlurCapture={event => {
           const nextFocusTarget = event.relatedTarget
-          if (nextFocusTarget instanceof Node && event.currentTarget.contains(nextFocusTarget)) {
-            return
-          }
-
-          updateWelcomeFocus(false)
+          setIsWelcomeFocused(nextFocusTarget instanceof Node && event.currentTarget.contains(nextFocusTarget))
+          onWelcomeFocusStateChange?.(nextFocusTarget === textareaRef.current)
         }}
       >
         <SharedPromptSurface
@@ -865,11 +869,9 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
                 setIsWelcomePopoverOpen(open)
                 if (open) {
                   holdWelcomeInteraction()
-                  return
                 }
-
-                releaseWelcomeInteraction()
               }}
+              onBaselinePopoverCloseAutoFocus={releaseWelcomeInteraction}
             />
           )}
           rightActions={(

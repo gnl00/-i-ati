@@ -21,6 +21,8 @@ interface PermissionApprovalModeSelectorProps {
   value: PermissionApprovalMode
   onChange: (mode: PermissionApprovalMode) => void
   variant?: 'default' | 'baseline' | 'surface'
+  onOpenChange?: (open: boolean) => void
+  onCloseAutoFocus?: () => void
 }
 
 const MODE_META: Record<PermissionApprovalMode, {
@@ -62,7 +64,9 @@ const triggerClassName = (variant: PermissionApprovalModeSelectorProps['variant'
 const PermissionApprovalModeSelector: React.FC<PermissionApprovalModeSelectorProps> = ({
   value,
   onChange,
-  variant = 'baseline'
+  variant = 'baseline',
+  onOpenChange,
+  onCloseAutoFocus
 }) => {
   const [open, setOpen] = React.useState(false)
   const current = MODE_META[value]
@@ -76,7 +80,10 @@ const PermissionApprovalModeSelector: React.FC<PermissionApprovalModeSelectorPro
     <TooltipProvider delayDuration={350}>
       <div className={wrapperClassName()}>
         <Tooltip>
-          <DropdownMenu open={open} onOpenChange={setOpen}>
+          <DropdownMenu open={open} onOpenChange={nextOpen => {
+            setOpen(nextOpen)
+            onOpenChange?.(nextOpen)
+          }}>
             <TooltipTrigger asChild>
               <DropdownMenuTrigger asChild>
                 <button
@@ -97,6 +104,7 @@ const PermissionApprovalModeSelector: React.FC<PermissionApprovalModeSelectorPro
               </DropdownMenuTrigger>
             </TooltipTrigger>
             <DropdownMenuContent
+              onCloseAutoFocus={onCloseAutoFocus}
               align="start"
               sideOffset={8}
               className={cn(

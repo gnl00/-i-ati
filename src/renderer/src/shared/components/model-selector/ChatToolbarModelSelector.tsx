@@ -46,6 +46,7 @@ interface ChatToolbarModelSelectorProps {
   collisionBoundary?: Element | null
   isOpen: boolean
   onOpenChange: (open: boolean) => void
+  onCloseAutoFocus?: () => void
   onModelSelect: (ref: ModelRef, thinkingLevel?: ThinkingLevel) => void
   triggerClassName?: string
   hideSelectedHoverShine?: boolean
@@ -516,6 +517,7 @@ const ChatToolbarModelSelector: React.FC<ChatToolbarModelSelectorProps> = (props
         />
       </DropdownMenuTrigger>
       <DropdownMenuContent
+        onCloseAutoFocus={props.onCloseAutoFocus}
         align="start"
         side={contentSide}
         sideOffset={contentSideOffset}

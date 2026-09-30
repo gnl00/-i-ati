@@ -198,7 +198,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
                       'hover:border-slate-500 hover:bg-slate-600 active:scale-[0.97]',
                       'dark:border-(--chat-border-standard) dark:bg-(--chat-accent) dark:text-(--chat-canvas)',
                       'dark:hover:border-(--chat-accent-strong) dark:hover:bg-(--chat-accent-strong)',
-                      'disabled:pointer-events-none disabled:border-slate-200/50 disabled:bg-slate-100/65 disabled:text-slate-400 disabled:opacity-100',
+                      'disabled:pointer-events-auto disabled:border-slate-200/50 disabled:bg-slate-100/65 disabled:text-slate-400 disabled:opacity-100',
                       'dark:disabled:border-(--chat-border-subtle) dark:disabled:bg-(--chat-surface) dark:disabled:text-(--chat-text-muted)'
                     )}
                   >
@@ -316,7 +316,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
               'hover:scale-105 hover:shadow-xl hover:shadow-slate-500/30 active:scale-95',
               'dark:border-(--app-border-standard) dark:bg-(--app-accent) dark:bg-none dark:text-(--app-canvas) dark:shadow-none',
               'dark:hover:border-(--app-accent-strong) dark:hover:bg-(--app-accent-strong) dark:hover:shadow-none',
-              'disabled:pointer-events-none disabled:opacity-[0.24]'
+              'disabled:pointer-events-auto disabled:opacity-[0.24]'
             )}
           >
             <div className="absolute inset-0 -translate-x-full bg-linear-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 ease-out group-hover:translate-x-full" />
