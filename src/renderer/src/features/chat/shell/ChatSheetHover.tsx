@@ -1,63 +1,99 @@
 import { useEffect, useRef, useState } from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ArrowDownRight } from 'lucide-react';
 import { useSheetStore } from '@renderer/features/chat/state/sheetStore';
+
+const HINT_TIMEOUT_MS = 2500;
 
 const ChatSheetHover = (): React.JSX.Element | null => {
   const sheetOpenState = useSheetStore((state) => state.sheetOpenState);
   const setSheetOpenState = useSheetStore((state) => state.setSheetOpenState);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [pending, setPending] = useState(false);
+  const [revealed, setRevealed] = useState(false);
 
-  const cancelHover = (): void => {
+  const clearTimer = (): void => {
     if (timer.current !== null) clearTimeout(timer.current);
     timer.current = null;
-    setPending(false);
+  };
+
+  const hideHint = (): void => {
+    clearTimer();
+    setRevealed(false);
+  };
+
+  const openSheet = (): void => {
+    hideHint();
+    setSheetOpenState(true);
+  };
+
+  const scheduleHide = (): void => {
+    clearTimer();
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      setRevealed(false);
+    }, HINT_TIMEOUT_MS);
+  };
+
+  const toggleHint = (): void => {
+    if (revealed) {
+      hideHint();
+    } else {
+      setRevealed(true);
+      scheduleHide();
+    }
   };
 
   useEffect(() => {
-    if (sheetOpenState) {
-      if (timer.current !== null) clearTimeout(timer.current);
-      timer.current = null;
-      setPending(false);
-    }
-    return (): void => {
-      if (timer.current !== null) clearTimeout(timer.current);
-      timer.current = null;
-    };
+    if (sheetOpenState) hideHint();
+    return clearTimer;
   }, [sheetOpenState]);
-
-  const openSheet = (): void => {
-    cancelHover();
-    setSheetOpenState(true);
-  };
 
   if (sheetOpenState) return null;
 
   return (
-    <button
-      type="button"
-      aria-label="Open sidebar"
-      aria-expanded={false}
-      data-pending={pending}
-      className="app-undragable group fixed left-0 top-16 z-40 flex h-[28vh] w-[22px] cursor-pointer items-center justify-start select-none focus-visible:outline-hidden"
-      onPointerEnter={(event) => {
-        if (event.pointerType !== 'mouse') return;
-        cancelHover();
-        setPending(true);
-        timer.current = setTimeout(openSheet, 250);
-      }}
-      onPointerLeave={cancelHover}
-      onPointerCancel={cancelHover}
-      onBlur={cancelHover}
-      onClick={openSheet}
-    >
-      <span
-        aria-hidden="true"
-        className="pointer-events-none relative -top-6 flex h-10 w-full items-center justify-center rounded-r-lg bg-(--app-surface-raised) text-(--app-text-muted) opacity-65 transition-[background-color,color,opacity,transform] duration-150 group-data-[pending=true]:bg-(--app-surface-hover) group-data-[pending=true]:text-(--app-text-primary) group-data-[pending=true]:opacity-100 group-focus-visible:bg-(--app-surface-hover) group-focus-visible:text-(--app-text-primary) group-focus-visible:opacity-100 group-focus-visible:ring-1 group-focus-visible:ring-(--app-accent) group-active:scale-95 motion-reduce:transition-none motion-reduce:transform-none"
+    <>
+      <button
+        type="button"
+        aria-label="Reveal sidebar shortcut"
+        aria-expanded={revealed}
+        className="app-undragable peer fixed left-0 top-10 z-50 h-5 w-5 cursor-pointer bg-transparent focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-(--app-accent)"
+        onPointerEnter={(event) => {
+          if (event.pointerType === 'mouse') toggleHint();
+        }}
+        onFocus={() => {
+          if (!revealed) {
+            setRevealed(true);
+            scheduleHide();
+          }
+        }}
+        onClick={() => {
+          if (revealed) openSheet();
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') hideHint();
+        }}
+      />
+      <button
+        type="button"
+        aria-label="Open sidebar"
+        aria-hidden={!revealed}
+        tabIndex={revealed ? 0 : -1}
+        data-revealed={revealed}
+        className={`app-undragable fixed left-0 top-10 z-40 flex size-14 origin-top-left items-center justify-center rounded-br-full border border-t-0 border-l-0 border-white/70 bg-slate-200/55 text-(--app-text-body) shadow-[0_6px_18px_-8px_rgba(15,23,42,0.22)] backdrop-blur-xl transition-[opacity,scale] ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-slate-200/70 hover:text-(--app-text-primary) focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-(--app-accent) peer-focus-visible:transition-none motion-reduce:transition-none dark:border-white/10 dark:bg-zinc-700/60 dark:shadow-black/20 dark:backdrop-blur-none dark:hover:bg-zinc-700/75 ${revealed ? 'pointer-events-auto scale-100 opacity-100 duration-[190ms]' : 'pointer-events-none scale-[0.92] opacity-0 duration-[140ms]'}`}
+        onPointerEnter={clearTimer}
+        onPointerLeave={scheduleHide}
+        onFocus={clearTimer}
+        onBlur={scheduleHide}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') hideHint();
+        }}
+        onClick={openSheet}
       >
-        <ChevronRight className="h-3.5 w-3.5" />
-      </span>
-    </button>
+        <ArrowDownRight
+          aria-hidden="true"
+          className="size-[18px] -translate-x-1 -translate-y-1"
+        />
+      </button>
+    </>
   );
 };
 

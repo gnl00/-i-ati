@@ -7,10 +7,18 @@ import ChatSheetHover from '../ChatSheetHover';
 
 let container: HTMLDivElement;
 let root: Root;
-const button = (): HTMLButtonElement => container.querySelector('button')!;
-const pointer = async (type: string, pointerType = 'mouse'): Promise<void> => {
+const corner = (): HTMLButtonElement =>
+  container.querySelector('button[aria-label="Reveal sidebar shortcut"]')!;
+const hint = (): HTMLButtonElement | null =>
+  container.querySelector('button[aria-label="Open sidebar"]');
+const hintVisible = (): boolean => hint()?.dataset.revealed === 'true';
+const pointer = async (
+  target: HTMLElement,
+  type: string,
+  pointerType = 'mouse',
+): Promise<void> => {
   await act(async () =>
-    button().dispatchEvent(
+    target.dispatchEvent(
       new PointerEvent(type, { bubbles: true, pointerType }),
     ),
   );
@@ -36,62 +44,91 @@ afterEach(async () => {
   vi.useRealTimers();
 });
 
-it('shows feedback immediately and opens only after 250ms; closing restores the idle trigger', async () => {
-  await pointer('pointerover');
-  expect(button().dataset.pending).toBe('true');
-  await advance(249);
-  expect(useSheetStore.getState().sheetOpenState).toBe(false);
+it('starts invisible, reveals on corner hover, and hides after 2.5 seconds without opening', async () => {
+  expect(hintVisible()).toBe(false);
+  expect(hint()!.tabIndex).toBe(-1);
+  await pointer(corner(), 'pointerover');
+  expect(hintVisible()).toBe(true);
+  expect(corner().getAttribute('aria-expanded')).toBe('true');
+  expect(hint()!.tabIndex).toBe(0);
+  await advance(2499);
+  expect(hintVisible()).toBe(true);
   await advance(1);
+  expect(hintVisible()).toBe(false);
+  expect(hint()!.tabIndex).toBe(-1);
+  expect(useSheetStore.getState().sheetOpenState).toBe(false);
+});
+
+it('pauses the timeout while the pointer is on the hint and restarts on leave', async () => {
+  await pointer(corner(), 'pointerover');
+  await advance(1000);
+  await pointer(hint()!, 'pointerover');
+  await advance(3000);
+  expect(hintVisible()).toBe(true);
+  await pointer(hint()!, 'pointerout');
+  await advance(2500);
+  expect(hintVisible()).toBe(false);
+});
+
+it('hides on another corner entry and opens the sheet when the hint is clicked', async () => {
+  await pointer(corner(), 'pointerover');
+  await pointer(corner(), 'pointerout');
+  await pointer(corner(), 'pointerover');
+  expect(hintVisible()).toBe(false);
+  expect(useSheetStore.getState().sheetOpenState).toBe(false);
+  await act(async () => corner().click());
+  expect(useSheetStore.getState().sheetOpenState).toBe(false);
+  await pointer(corner(), 'pointerout');
+  await pointer(corner(), 'pointerover');
+  await act(async () => hint()!.click());
   expect(useSheetStore.getState().sheetOpenState).toBe(true);
   expect(container.querySelector('button')).toBeNull();
   await act(async () => useSheetStore.getState().setSheetOpenState(false));
-  expect(button().dataset.pending).toBe('false');
-  await advance(500);
-  expect(useSheetStore.getState().sheetOpenState).toBe(false);
+  expect(hintVisible()).toBe(false);
 });
 
-it('cancels on leaving and starts a fresh dwell on re-entry', async () => {
-  await pointer('pointerover');
-  await advance(200);
-  await pointer('pointerout');
-  expect(button().dataset.pending).toBe('false');
-  await advance(300);
+it('opens from the overlapping corner only while the hint is visible', async () => {
+  await act(async () => corner().click());
   expect(useSheetStore.getState().sheetOpenState).toBe(false);
-  await pointer('pointerover');
-  await advance(249);
-  expect(useSheetStore.getState().sheetOpenState).toBe(false);
-  await advance(1);
+  await pointer(corner(), 'pointerover');
+  expect(hintVisible()).toBe(true);
+  await act(async () => corner().click());
   expect(useSheetStore.getState().sheetOpenState).toBe(true);
 });
 
-it('opens on click immediately and cancels the pending timer', async () => {
-  await pointer('pointerover');
-  await act(async () => button().click());
+it('supports keyboard discovery, activation, and dismissal', async () => {
+  await act(async () =>
+    corner().dispatchEvent(new FocusEvent('focusin', { bubbles: true })),
+  );
+  expect(hintVisible()).toBe(true);
+  await act(async () => corner().click());
   expect(useSheetStore.getState().sheetOpenState).toBe(true);
   await act(async () => useSheetStore.getState().setSheetOpenState(false));
-  await advance(500);
-  expect(useSheetStore.getState().sheetOpenState).toBe(false);
+  await act(async () =>
+    corner().dispatchEvent(new FocusEvent('focusin', { bubbles: true })),
+  );
+  expect(hintVisible()).toBe(true);
+  await act(async () =>
+    hint()!.dispatchEvent(
+      new KeyboardEvent('keydown', { bubbles: true, key: 'Escape' }),
+    ),
+  );
+  expect(hintVisible()).toBe(false);
+  await pointer(corner(), 'pointerover');
+  await act(async () => hint()!.click());
+  expect(useSheetStore.getState().sheetOpenState).toBe(true);
 });
 
-it('clears waiting when another entry opens the sheet or the trigger unmounts', async () => {
-  await pointer('pointerover');
+it('ignores touch hover and clears pending hint on external open or unmount', async () => {
+  await pointer(corner(), 'pointerover', 'touch');
+  expect(hintVisible()).toBe(false);
+  await pointer(corner(), 'pointerover');
   await act(async () => useSheetStore.getState().setSheetOpenState(true));
   await act(async () => useSheetStore.getState().setSheetOpenState(false));
-  await advance(500);
-  expect(useSheetStore.getState().sheetOpenState).toBe(false);
-  await pointer('pointerover');
+  await advance(3000);
+  expect(hintVisible()).toBe(false);
+  await pointer(corner(), 'pointerover');
   await act(async () => root.render(null));
-  await advance(500);
-  expect(useSheetStore.getState().sheetOpenState).toBe(false);
-});
-
-it('ignores touch hover and cancels interrupted pointers', async () => {
-  await pointer('pointerover', 'touch');
-  await advance(500);
-  expect(useSheetStore.getState().sheetOpenState).toBe(false);
-  await pointer('pointerover');
-  await pointer('pointercancel');
-  await advance(500);
-  expect(button().dataset.pending).toBe('false');
+  await advance(3000);
   expect(useSheetStore.getState().sheetOpenState).toBe(false);
 });

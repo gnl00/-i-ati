@@ -43,7 +43,7 @@ it('keeps the chat DOM, draft and scroll position when entering and returning fr
   try {
     await act(async () => root.render(<Home />));
     const hoverTrigger = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="Open sidebar"]',
+      'button[aria-label="Reveal sidebar shortcut"]',
     )!;
     const input = container.querySelector('textarea')!;
     input.value = 'Keep this draft';
@@ -53,9 +53,9 @@ it('keeps the chat DOM, draft and scroll position when entering and returning fr
     transcript.scrollTop = 120;
     await act(async () => useChatStore.getState().setTasksPageOpen(true));
     expect(container.querySelector('textarea')).toBe(input);
-    expect(container.querySelector('button[aria-label="Open sidebar"]')).toBe(
-      hoverTrigger,
-    );
+    expect(
+      container.querySelector('button[aria-label="Reveal sidebar shortcut"]'),
+    ).toBe(hoverTrigger);
     const tasksPage = container.querySelector('[aria-label="Tasks page"]')!;
     expect(tasksPage.nextElementSibling).toBe(hoverTrigger);
     vi.useFakeTimers();
@@ -68,15 +68,20 @@ it('keeps the chat DOM, draft and scroll position when entering and returning fr
           }),
         ),
       );
-      expect(hoverTrigger.dataset.pending).toBe('true');
-      await act(async () => vi.advanceTimersByTime(249));
-      expect(container.querySelector('button[aria-label="Open sidebar"]')).toBe(
-        hoverTrigger,
-      );
-      await act(async () => vi.advanceTimersByTime(1));
       expect(
-        container.querySelector('button[aria-label="Open sidebar"]'),
-      ).toBeNull();
+        container
+          .querySelector('button[aria-label="Open sidebar"]')
+          ?.getAttribute('data-revealed'),
+      ).toBe('true');
+      await act(async () => vi.advanceTimersByTime(2500));
+      expect(
+        container
+          .querySelector('button[aria-label="Open sidebar"]')
+          ?.getAttribute('data-revealed'),
+      ).toBe('false');
+      expect(
+        container.querySelector('button[aria-label="Reveal sidebar shortcut"]'),
+      ).toBe(hoverTrigger);
     } finally {
       vi.useRealTimers();
     }
