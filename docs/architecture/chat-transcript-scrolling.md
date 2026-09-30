@@ -29,6 +29,29 @@ History items use `content-visibility:auto` and intrinsic size. The current user
 current assistant, pending assistant and explicit search target use real layout
 visibility. ResizeObserver recalculates sizes when content expands or wraps.
 
+Long user messages expand and collapse without a height transition. On explicit
+collapse, the user-message component checks its registered item's top against
+the viewport and the item's top scroll margin. If the top is obscured, it calls
+the provider's `scrollToMessage()` with start alignment and instant behavior
+after the collapsed DOM commits. A visible top and expansion do not request a
+scroll correction; the provider retains scroll ownership and following behavior.
+
+The user-message tests cover short and long content, the overflow buffer,
+accessible toggle labels, deferred measurements, and collapse correction with
+visible, offscreen, and overlay-obscured item tops. Run the focused suites and
+renderer checks with:
+
+```sh
+pnpm exec vitest run src/renderer/src/features/chat/message/user-message/__tests__/UserMessage.test.tsx src/renderer/src/features/chat/message/__tests__/ChatMessageComponent.test.tsx src/renderer/src/features/chat/shell/__tests__/ChatTranscriptScroller.primitive.test.tsx
+pnpm exec vitest run src/renderer/src/features/chat/shell/__tests__/ChatTranscriptScroller.test.ts src/renderer/src/features/chat/shell/__tests__/ChatTranscriptScroller.mounting.test.tsx src/renderer/src/features/chat/shell/__tests__/ChatWindow.message-scroller.test.tsx
+pnpm exec eslint src/renderer/src/features/chat/message/user-message/index.tsx src/renderer/src/features/chat/message/user-message/__tests__/UserMessage.test.tsx
+pnpm run typecheck:web
+pnpm run check:renderer-boundaries
+pnpm run test:renderer-architecture
+pnpm run check:renderer-doc-paths
+git diff --check
+```
+
 ## Navigation and user intent
 
 | Trigger | Target and behavior |

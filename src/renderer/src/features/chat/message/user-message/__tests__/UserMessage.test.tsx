@@ -6,6 +6,12 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { UserMessage } from '../index'
 
+const { scrollToMessage } = vi.hoisted(() => ({ scrollToMessage: vi.fn() }))
+
+vi.mock('@renderer/shared/components/ui/message-scroller', () => ({
+  useMessageScroller: () => ({ scrollToMessage })
+}))
+
 vi.mock('react-markdown', () => ({
   default: ({ children, className }: { children: React.ReactNode; className?: string }) => (
     <div className={className} data-testid="mock-markdown">{children}</div>
@@ -88,6 +94,7 @@ describe('UserMessage collapse behavior', () => {
   let measuredHeight: number
 
   beforeEach(() => {
+    scrollToMessage.mockReset().mockReturnValue(true)
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
@@ -192,19 +199,25 @@ describe('UserMessage collapse behavior', () => {
     expect(content?.style.maxHeight).toBe('140px')
     expect(container.querySelector('[data-testid="user-message-collapse-fade"]')).not.toBeNull()
     expect(expandButton).not.toBeNull()
+    expect(expandButton?.textContent).toBe('Show more')
+    expect(expandButton?.getAttribute('aria-expanded')).toBe('false')
+    expect(expandButton?.getAttribute('aria-controls')).toBe(content?.id)
 
     await act(async () => {
       expandButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
     expect(content?.dataset.expanded).toBe('true')
-    expect(content?.style.maxHeight).toBe('420px')
+    expect(content?.style.maxHeight).toBe('')
     expect(container.querySelector('[data-testid="user-message-expand-button"]')).toBeNull()
     expect(container.querySelector('[data-testid="user-message-collapse-fade"]')).toBeNull()
 
     const collapseButton = container.querySelector<HTMLButtonElement>('[data-testid="user-message-collapse-button"]')
 
     expect(collapseButton).not.toBeNull()
+    expect(collapseButton?.textContent).toBe('Show less')
+    expect(collapseButton?.getAttribute('aria-expanded')).toBe('true')
+    expect(collapseButton?.getAttribute('aria-controls')).toBe(content?.id)
 
     await act(async () => {
       collapseButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
@@ -216,6 +229,78 @@ describe('UserMessage collapse behavior', () => {
     expect(container.querySelector('[data-testid="user-message-collapse-fade"]')).not.toBeNull()
     expect(container.querySelector('[data-testid="user-message-collapse-button"]')).toBeNull()
   })
+
+  it.each([
+    { itemTop: 80, scrollMargin: 0, shouldScroll: true },
+    { itemTop: 110, scrollMargin: 32, shouldScroll: true },
+    { itemTop: 132, scrollMargin: 32, shouldScroll: false },
+    { itemTop: 160, scrollMargin: 32, shouldScroll: false }
+  ])('restores an obscured top on collapse: %j', async ({ itemTop, scrollMargin, shouldScroll }) => {
+    await act(async () => {
+      root.render(
+        <div data-slot="message-scroller-viewport">
+          <div data-slot="message-scroller-item" data-message-id="user-42" style={{ scrollMarginBlockStart: `${scrollMargin}px` }}>
+            <UserMessage
+              index={0}
+              message={createUserMessage(longMessage)}
+              isLatest={false}
+              isHovered={false}
+              onHover={() => {}}
+              onCopyClick={() => {}}
+            />
+          </div>
+        </div>
+      )
+    })
+    await flushAnimationFrames()
+
+    const viewport = container.querySelector<HTMLElement>('[data-slot="message-scroller-viewport"]')!
+    const item = container.querySelector<HTMLElement>('[data-slot="message-scroller-item"]')!
+    vi.spyOn(viewport, 'getBoundingClientRect').mockReturnValue({ top: 100 } as DOMRect)
+    vi.spyOn(item, 'getBoundingClientRect').mockReturnValue({ top: itemTop } as DOMRect)
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[data-testid="user-message-expand-button"]')?.click()
+    })
+    expect(scrollToMessage).not.toHaveBeenCalled()
+
+    scrollToMessage.mockImplementation(() => {
+      expect(container.querySelector<HTMLElement>('[data-testid="user-message-collapsible-content"]')?.style.maxHeight).toBe('140px')
+      return true
+    })
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[data-testid="user-message-collapse-button"]')?.click()
+    })
+
+    if (shouldScroll) {
+      expect(scrollToMessage).toHaveBeenCalledExactlyOnceWith('user-42', { align: 'start', behavior: 'instant' })
+    } else {
+      expect(scrollToMessage).not.toHaveBeenCalled()
+    }
+  })
+
+  it.each([{ height: 164, collapsible: false }, { height: 165, collapsible: true }])(
+    'keeps the overflow buffer at height $height',
+    async ({ height, collapsible }) => {
+      measuredHeight = height
+      await act(async () => {
+        root.render(
+          <UserMessage
+            index={0}
+            message={createUserMessage(longMessage)}
+            isLatest={false}
+            isHovered={false}
+            onHover={() => {}}
+            onCopyClick={() => {}}
+          />
+        )
+      })
+      await flushAnimationFrames()
+
+      expect(!!container.querySelector('[data-testid="user-message-expand-button"]')).toBe(collapsible)
+      expect(container.querySelector<HTMLElement>('[data-testid="user-message-collapsible-content"]')?.style.maxHeight).toBe(collapsible ? '140px' : '')
+    }
+  )
 
   it('defers the first layout measurement to a batched animation frame', async () => {
     await act(async () => {

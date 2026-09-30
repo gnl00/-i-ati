@@ -356,13 +356,8 @@
     background: linear-gradient(
       to bottom,
       transparent,
-      color-mix(in oklab, var(--chat-user-bubble) 72%, transparent),
       var(--chat-user-bubble)
     );
-  }
-
-  .dark .chat-user-message-collapse-blur {
-    background-color: color-mix(in oklab, var(--chat-user-bubble) 42%, transparent);
   }
 }
 

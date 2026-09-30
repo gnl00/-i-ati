@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import React, { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeKatex from 'rehype-katex'
 import remarkGfm from 'remark-gfm'
@@ -9,6 +9,7 @@ import { remarkPreserveLineBreaks } from '../markdown/markdown-plugins'
 import { MessageOperations, type CopyActionResult } from '../message-operations'
 import { useEnterTransition } from '../typewriter/use-enter-transition'
 import { loadKatexStyles } from '@renderer/shared/lib/styleLoaders'
+import { useMessageScroller } from '@renderer/shared/components/ui/message-scroller'
 import { ChevronDown, ChevronUp, Send } from 'lucide-react'
 
 export interface UserMessageProps {
@@ -41,9 +42,11 @@ const CollapsibleUserMessageContent: React.FC<{
   onToggleExpanded: () => void
 }> = ({ children, contentSignature, isExpanded, onToggleExpanded }) => {
   const contentRef = useRef<HTMLDivElement>(null)
+  const contentId = useId()
+  const { scrollToMessage } = useMessageScroller()
+  const collapseScrollTargetRef = useRef<string | null>(null)
   const [canCollapse, setCanCollapse] = useState(false)
   const [hasMeasured, setHasMeasured] = useState(false)
-  const [measuredExpandedHeight, setMeasuredExpandedHeight] = useState<number | null>(null)
   const [measuredContentSignature, setMeasuredContentSignature] = useState(contentSignature)
   const measurementFrameRef = useRef<number | null>(null)
 
@@ -55,14 +58,12 @@ const CollapsibleUserMessageContent: React.FC<{
     const nextCanCollapse = nextHeight > COLLAPSED_USER_MESSAGE_HEIGHT + COLLAPSE_OVERFLOW_BUFFER
 
     setMeasuredContentSignature(current => current === contentSignature ? current : contentSignature)
-    setMeasuredExpandedHeight(current => current === nextHeight ? current : nextHeight)
     setCanCollapse(current => current === nextCanCollapse ? current : nextCanCollapse)
     setHasMeasured(current => current ? current : true)
   }, [contentSignature])
 
   useLayoutEffect(() => {
     setHasMeasured(false)
-    setMeasuredExpandedHeight(null)
   }, [contentSignature])
 
   useEffect(() => {
@@ -101,12 +102,32 @@ const CollapsibleUserMessageContent: React.FC<{
     }
   }, [contentSignature, measureContent])
 
+  useLayoutEffect(() => {
+    const messageId = collapseScrollTargetRef.current
+    collapseScrollTargetRef.current = null
+    if (!isExpanded && messageId) {
+      scrollToMessage(messageId, { align: 'start', behavior: 'instant' })
+    }
+  }, [isExpanded, scrollToMessage])
+
+  const handleToggleExpanded = (): void => {
+    if (isExpanded) {
+      const item = contentRef.current?.closest<HTMLElement>('[data-slot="message-scroller-item"]')
+      const viewport = item?.closest<HTMLElement>('[data-slot="message-scroller-viewport"]')
+      if (item && viewport) {
+        const scrollMargin = parseFloat(window.getComputedStyle(item).scrollMarginBlockStart) || 0
+        if (item.getBoundingClientRect().top < viewport.getBoundingClientRect().top + scrollMargin) {
+          collapseScrollTargetRef.current = item.dataset.messageId ?? null
+        }
+      }
+    }
+    onToggleExpanded()
+  }
+
   const hasCurrentMeasurement = hasMeasured && measuredContentSignature === contentSignature
-  const maxHeight = isExpanded && hasCurrentMeasurement && measuredExpandedHeight !== null
-    ? `${measuredExpandedHeight}px`
-    : !isExpanded && (canCollapse || !hasCurrentMeasurement)
-      ? `${COLLAPSED_USER_MESSAGE_HEIGHT}px`
-      : undefined
+  const maxHeight = !isExpanded && (canCollapse || !hasCurrentMeasurement)
+    ? `${COLLAPSED_USER_MESSAGE_HEIGHT}px`
+    : undefined
   const showCollapseControls = hasCurrentMeasurement && canCollapse
 
   return (
@@ -114,109 +135,44 @@ const CollapsibleUserMessageContent: React.FC<{
       <div className="relative">
         <div
           ref={contentRef}
+          id={contentId}
           data-testid="user-message-collapsible-content"
           data-expanded={isExpanded ? 'true' : 'false'}
-          className={cn(
-            "overflow-hidden transition-[max-height,opacity,filter] duration-[280ms] ease-[cubic-bezier(0.25,1,0.5,1)]",
-            "motion-reduce:transition-none motion-reduce:opacity-100 motion-reduce:filter-none",
-            showCollapseControls && !isExpanded ? "opacity-[0.992] saturate-[0.98]" : "opacity-100 saturate-100"
-          )}
+          className="overflow-hidden"
           style={maxHeight ? { maxHeight } : undefined}
         >
           {children}
         </div>
 
-        {showCollapseControls && (
-          <>
-            <div
-              aria-hidden="true"
-              data-testid={isExpanded ? undefined : 'user-message-collapse-fade'}
-              className={cn(
-                "pointer-events-none absolute inset-x-0 bottom-0 h-24",
-                "chat-user-message-collapse-fade",
-                "bg-linear-to-b from-slate-100/0 via-slate-100/72 to-slate-100",
-                "transition-opacity duration-260 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none",
-                isExpanded ? "opacity-0" : "opacity-100"
-              )}
-            />
-            <div
-              aria-hidden="true"
-              className={cn(
-                "pointer-events-none absolute inset-x-0 bottom-0 h-[72px]",
-                "chat-user-message-collapse-blur",
-                "bg-slate-100/38 backdrop-blur-[3px]",
-                "mask-[linear-gradient(to_bottom,transparent_0%,black_48%)]",
-                "[-webkit-mask-image:linear-gradient(to_bottom,transparent_0%,black_48%)]",
-                "transition-opacity duration-260 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none",
-                isExpanded ? "opacity-0" : "opacity-100"
-              )}
-            />
-          </>
+        {showCollapseControls && !isExpanded && (
+          <div
+            aria-hidden="true"
+            data-testid="user-message-collapse-fade"
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-8 chat-user-message-collapse-fade bg-linear-to-b from-slate-100/0 to-slate-100"
+          />
         )}
       </div>
 
       {showCollapseControls && (
-        <div
-          className={cn(
-            "relative z-10 mt-2 flex justify-center",
-            "transition-[opacity,transform,filter] duration-240 ease-[cubic-bezier(0.25,1,0.5,1)]",
-            "motion-reduce:transition-none motion-reduce:translate-y-0 motion-reduce:scale-100 motion-reduce:filter-none"
-          )}
-        >
+        <div className="mt-1 flex justify-start">
           <button
             type="button"
             aria-expanded={isExpanded}
+            aria-controls={contentId}
             data-testid={isExpanded ? 'user-message-collapse-button' : 'user-message-expand-button'}
-            onClick={onToggleExpanded}
+            onClick={handleToggleExpanded}
             className={cn(
-              "inline-flex h-7 min-w-27 items-center justify-center gap-1 rounded-full px-2.5",
-              "bg-white/25 text-xs font-medium text-slate-600",
-              "shadow-[0_8px_24px_-16px_rgba(15,23,42,0.58)] backdrop-blur-md",
-              "transition-[background-color,border-color,color,box-shadow,transform] duration-200 ease-out",
-              "hover:scale-[1.015] hover:bg-white/35 hover:text-slate-800 hover:shadow-[0_10px_28px_-16px_rgba(15,23,42,0.72)]",
-              "active:scale-[0.99]",
-              "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500/30",
-              "motion-reduce:transition-none motion-reduce:hover:scale-100 motion-reduce:active:scale-100",
-              "dark:border-(--chat-border-standard) dark:bg-(--chat-surface) dark:text-(--chat-text-body) dark:shadow-none",
-              "dark:hover:border-(--chat-border-standard) dark:hover:bg-(--chat-surface-hover) dark:hover:text-(--chat-text-primary)"
+              'inline-flex h-7 items-center justify-center gap-1 rounded-lg px-2 text-[11px] font-medium',
+              'text-slate-500 hover:bg-slate-200/60 hover:text-slate-700 active:scale-[0.98]',
+              'transition-[background-color,color,transform] duration-150 motion-reduce:transition-none motion-reduce:active:scale-100',
+              'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-(--chat-accent)/40',
+              'dark:text-(--chat-text-secondary) dark:hover:bg-(--chat-surface-hover) dark:hover:text-(--chat-text-primary)'
             )}
           >
-            <span className="relative flex h-3.5 w-3.5 items-center justify-center">
-              <ChevronDown
-                className={cn(
-                  "absolute h-3.5 w-3.5 transition-[opacity,transform,filter] duration-220 ease-[cubic-bezier(0.25,1,0.5,1)]",
-                  "motion-reduce:transition-none motion-reduce:rotate-0 motion-reduce:scale-100 motion-reduce:filter-none",
-                  isExpanded ? "opacity-0 rotate-90 scale-90 blur-[1px]" : "opacity-100 rotate-0 scale-100 blur-0"
-              )}
-              />
-              <ChevronUp
-                className={cn(
-                  "absolute h-3.5 w-3.5 transition-[opacity,transform,filter] duration-220 ease-[cubic-bezier(0.25,1,0.5,1)]",
-                  "motion-reduce:transition-none motion-reduce:rotate-0 motion-reduce:scale-100 motion-reduce:filter-none",
-                  isExpanded ? "opacity-100 rotate-0 scale-100 blur-0" : "opacity-0 -rotate-90 scale-90 blur-[1px]"
-                )}
-              />
-            </span>
-            <span className="relative inline-grid min-w-[4.75rem] grid-cols-1 justify-items-center overflow-hidden">
-              <span
-                className={cn(
-                  "col-start-1 row-start-1 transition-[opacity,transform,filter] duration-[220ms] ease-[cubic-bezier(0.25,1,0.5,1)]",
-                  "motion-reduce:transition-none motion-reduce:scale-100 motion-reduce:filter-none",
-                  isExpanded ? "opacity-0 scale-[0.98] blur-[1px]" : "opacity-100 scale-100 blur-0"
-                )}
-              >
-                Show More
-              </span>
-              <span
-                className={cn(
-                  "col-start-1 row-start-1 transition-[opacity,transform,filter] duration-[220ms] ease-[cubic-bezier(0.25,1,0.5,1)]",
-                  "motion-reduce:transition-none motion-reduce:scale-100 motion-reduce:filter-none",
-                  isExpanded ? "opacity-100 scale-100 blur-0" : "opacity-0 scale-[0.98] blur-[1px]"
-                )}
-              >
-                Hide
-              </span>
-            </span>
+            {isExpanded
+              ? <ChevronUp aria-hidden="true" className="h-3 w-3" />
+              : <ChevronDown aria-hidden="true" className="h-3 w-3" />}
+            {isExpanded ? 'Show less' : 'Show more'}
           </button>
         </div>
       )}

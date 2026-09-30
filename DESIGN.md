@@ -179,6 +179,7 @@ Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif
 ### 4.6 卡片、列表与 disclosure
 
 - 常规卡片使用 12px 圆角，紧凑控件和 disclosure 使用 8px 至 10px 圆角。
+- 长用户消息使用 140px 折叠预览，实际内容超过 164px 时显示折叠操作。仅预览末尾 32px 渐隐，不叠加模糊；左下角使用 11px 次级文字与小箭头的 `Show more` / `Show less`，按钮左边缘与正文左边缘对齐，默认透明，hover 显示轻背景，保留 28px 点击高度。展开与收起即时切换，展开正文随内容自然增长；收起时若消息顶部已被视口或顶部 overlay 遮住，通过 MessageScroller 将该消息顶部恢复到可读位置。
 - Settings section 使用 raised surface、standard border 和连续 footer 或 inset region。
 - 连续工具调用与任务列表使用外层容器加 subtle separator，减少重复卡片边框。
 - Chat 的整轮处理过程使用无卡片边框的次级文字标题、小箭头与连续列表；执行中展开，正常完成后统一收起。短思考直接展示，工具行突出动作描述；独立工具详情保留原有布局。
