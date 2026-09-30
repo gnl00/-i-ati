@@ -1,5 +1,5 @@
 import { app, shell, BrowserWindow } from 'electron'
-import { is } from '@electron-toolkit/utils'
+import { is, platform } from '@electron-toolkit/utils'
 import { join } from 'path'
 import icon from '../../build/icon.png?asset'
 import { WIN_FULLSCREEN_STATE_CHANGED } from '@shared/constants'
@@ -52,6 +52,7 @@ function createWindow(onCreated?: (window: BrowserWindow) => void): void {
     icon,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
+      scrollBounce: platform.isMacOS,
       // Keep the renderer sandboxed and expose only the preload bridge surface.
       sandbox: true,
       contextIsolation: true,

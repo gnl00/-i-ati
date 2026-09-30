@@ -1,6 +1,6 @@
 # Chat transcript scrolling
 
-Last verified against source: 2026-09-29.
+Last verified against source: 2026-09-30.
 
 ## Ownership
 
@@ -11,6 +11,23 @@ and provider own following, anchors, manual browsing, prepend preservation and
 resize measurement. [ChatWindow](../../src/renderer/src/features/chat/shell/ChatWindow.tsx)
 retains the plan overlay measurement, Welcome, side panel and input layout.
 TanStack Virtual and the old scroll controller have exited production.
+
+## Native boundary bounce
+
+The [main window](../../src/main/main-window.ts) enables Electron's
+`webPreferences.scrollBounce` only on macOS. Chromium owns the boundary
+rubber-banding; MessageScroller retains following, anchors and navigation.
+The viewport keeps `overflow-y-auto` and `overscroll-contain`, which prevents
+scroll chaining to its ancestors while allowing local boundary feedback.
+There is no application-level wheel interception or spring animation for bounce.
+
+This preference applies to all scrollable regions in the main window, including
+Settings, the chat sheet and nested message content. Each region retains its
+existing overflow and chaining rules. Windows and Linux keep their platform
+defaults. The preference is applied when the window is created, so main-process
+changes require restarting the app. Real trackpad acceptance should cover both
+transcript edges, short content, streaming, Scroll to latest, nested scrolling,
+and Light/Dark at normal and compact window sizes.
 
 ## Provider and items
 

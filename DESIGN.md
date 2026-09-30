@@ -97,6 +97,7 @@ inset 17.5% < canvas 19% < surface 22.5% < raised 25% < hover 27%
 - 固定深色代码与输出容器使用 `scrollbar-code-surface`，通过局部 scrollbar token 保持浅色 thumb 与 `#09090b` 材质的对比度。
 - `no-scrollbar`、composer textarea、横向 toolbar、tabs 与搜索结果 carousel 继续使用隐藏型 scrollbar 规则。
 - 全局规则负责 scrollbar 外观；每个容器继续拥有 `overflow`、`overscroll`、scroll chaining、virtualizer anchoring 与 `scrollbar-gutter` 行为语义。
+- macOS 主窗口开启 Electron 内建 `scrollBounce`，由 Chromium 提供滚动边界回弹；消息列表保留 `overscroll-contain`，其他滚动容器遵循各自的 chaining 规则。此开关作用于主窗口内所有滚动区域；Windows 和 Linux 保持平台默认行为。
 
 ## 3. 排版规则
 
