@@ -443,7 +443,7 @@ export const MCPServersManagerContent: React.FC<
       icon={<Server className="h-5 w-5 text-gray-400 dark:text-gray-500" />}
       title="No servers installed"
       description="Browse the registry or paste a JSON config to get started."
-      className="h-full pb-10 py-0"
+      className="min-h-full justify-center"
     >
       <div className="flex items-center gap-2 mt-1">
         <button

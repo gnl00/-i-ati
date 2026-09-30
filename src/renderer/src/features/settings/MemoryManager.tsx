@@ -158,6 +158,7 @@ const MemoryManager: React.FC<MemoryManagerProps> = ({
         <SettingsList className="bg-transparent dark:bg-transparent">
           {memoryItems.length === 0 ? (
             <SettingsEmptyState
+              className="min-h-full justify-center"
               icon={<Brain className="h-4 w-4" />}
               title={
                 isMemoryLoading ? 'Loading memories…' : 'No memories stored'
