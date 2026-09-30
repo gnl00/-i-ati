@@ -1,5 +1,4 @@
-import type { HostRunRequest } from '@main/agent/runtime/host/bootstrap/HostRunRequest'
-import type { AgentContentPart } from '@main/agent/runtime/transcript/AgentContentPart'
+import { type AgentContentPart, type HostRunRequest } from '@main/agent/contracts/HostRuntimeContracts'
 import type { MainAgentRunInput, RunPreparationResult } from '../preparation'
 import type { ChatInitialTranscriptSeed } from '@main/agent/contracts'
 

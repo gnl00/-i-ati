@@ -105,7 +105,10 @@ boundaries.
 - [HostRenderEventMapper.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/shared/render/HostRenderEventMapper.ts)
 - [HostStepOutputPolicy.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/shared/render/HostStepOutputPolicy.ts)
 - [AgentRenderSegmentMapper.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/shared/render/AgentRenderSegmentMapper.ts)
-- [CommittedAssistantMessageController.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/shared/render/CommittedAssistantMessageController.ts)
+
+committed assistant 的 DB 实体锚点不在 `shared/render/`：它由宿主侧的
+[ChatRenderOutput.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/runtime/ChatRenderOutput.ts)
+持有（见下方 Host Output / Transport）。
 
 ### 3. Host-Specific Mapper / Policy
 
@@ -126,7 +129,7 @@ boundaries.
 
 ## Host Runtime Entry
 
-当前 host runtime 统一消费 `HostRenderEvent`。
+按 `HostRenderEvent` 消费的 host runtime（chat / telegram）走这条主链：
 
 ```text
 AgentEvent
@@ -140,7 +143,12 @@ AgentEvent
 - chat runtime
 - telegram runtime
 
-`RunEventEnvelope` 仍然存在于 orchestration/run-output 层，但不再是 host runtime 的主输入。
+另外两个 host 不走这条链，直接消费更底层的输入：
+
+- `hosts/cli/` 的 `CliEventSink` 把原始 `AgentEvent` 转成 JSONL
+- `hosts/tui/` 的 `TuiState` fold orchestration 的 `RunEventEnvelope`
+
+`RunEventEnvelope` 仍然存在于 orchestration/run-output 层，对 chat / telegram 不再是主输入。
 
 ## Current Concrete Shape
 
@@ -154,7 +162,6 @@ chat
         -> ChatRenderResponder
           -> AgentRenderSegmentMapper
           -> ChatRenderMapper
-          -> CommittedAssistantMessageController
           -> ChatRenderOutput
             -> ChatEventMapper / step store / renderer protocol
 ```

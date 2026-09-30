@@ -23,7 +23,7 @@ import {
 } from './request'
 import { LoadedSkillsContextProvider } from './request/LoadedSkillsContextProvider'
 import type { HostRunInputState, RunEnvironment, StepBootstrap } from './types'
-import type { AgentRequestSpec } from '@main/agent/runtime/request/AgentRequestSpec'
+import type { AgentRequestSpec } from '@main/agent/contracts/HostRuntimeContracts'
 import type { ChatInitialTranscriptSeed } from '@main/agent/contracts'
 import { chatDb } from '@main/db/chat'
 

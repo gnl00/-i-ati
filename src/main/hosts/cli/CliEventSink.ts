@@ -1,6 +1,5 @@
 import { appendFile } from 'node:fs/promises'
-import type { AgentEvent } from '@main/agent/runtime/events/AgentEvent'
-import type { AgentEventSink } from '@main/agent/runtime/events/AgentEventSink'
+import { type AgentEvent, type AgentEventSink } from '@main/agent/contracts/HostRuntimeContracts'
 import { redactCliValue } from './CliRedaction'
 
 export interface CliJsonlEnvelope {

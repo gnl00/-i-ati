@@ -1,4 +1,4 @@
-import type { ToolResultFact } from '@main/agent/runtime/tools/ToolResultFact'
+import type { ToolResultFact } from '@main/agent/contracts/HostRuntimeContracts'
 
 export interface ToolResultCompactionTrigger {
   schedule(input: {

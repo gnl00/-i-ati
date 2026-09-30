@@ -99,6 +99,30 @@ test('reports every host import form that reaches run infrastructure', async (t)
   ])
 })
 
+test('reports host imports that bypass the stable agent contract surface', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'main-boundaries-host-agent-surface-'))
+  t.after(() => rm(root, { recursive: true, force: true }))
+  await writeFixture(root, 'hosts/render/runtime-static.ts', "import type { AgentEvent } from '@main/agent/runtime/events/AgentEvent'\n")
+  await writeFixture(root, 'hosts/render/tools-relative.ts', "export * from '../../agent/runtime/tools/ToolResultFact.ts'\n")
+  await writeFixture(root, 'hosts/render/tools-facade.ts', "import type { ToolOutputBatch } from '../../agent/tools'\n")
+  await writeFixture(root, 'hosts/render/dynamic.ts', "void import('@main/agent/runtime/step/AgentStep.mjs')\n")
+  await writeFixture(root, 'hosts/render/agent-root.ts', "import '../../agent/index.ts'\n")
+  await writeFixture(root, 'hosts/render/allowed.ts', [
+    "import type { AgentEvent } from '@main/agent/contracts'",
+    "import type { ToolResultFact } from '@main/agent/contracts/HostRuntimeContracts'",
+    "export * from '../../agent/contracts/RunEvents.ts'"
+  ].join('\n'))
+  await writeFixture(root, 'services/agent-runtime.ts', "import type { AgentEvent } from '@main/agent/runtime/events/AgentEvent'\n")
+  const violations = await checkMainBoundaries({ mainRoot: root })
+  assertRuleViolations(root, violations, 'hosts must consume agent core through stable agent contracts', [
+    'hosts/render/runtime-static.ts',
+    'hosts/render/tools-relative.ts',
+    'hosts/render/tools-facade.ts',
+    'hosts/render/dynamic.ts',
+    'hosts/render/agent-root.ts'
+  ])
+})
+
 test('reports direct DatabaseService imports outside approved facades', async (t) => {
   const root = await mkdtemp(join(tmpdir(), 'main-boundaries-direct-db-'))
   t.after(() => rm(root, { recursive: true, force: true }))

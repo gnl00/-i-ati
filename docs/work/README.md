@@ -23,5 +23,6 @@ An implemented feature can remain Active while runtime acceptance is pending.
 
 ## Investigations
 
+- [Agent runtime architecture issues](investigations/agent-runtime-architecture-issues.md)
 - [Unified chat run submission](investigations/unified-run-submission.md)
 - [Knowledgebase Recall Issues And Plan](investigations/knowledgebase/recall-issues-and-plan.md)

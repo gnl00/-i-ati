@@ -1,5 +1,8 @@
 # model
 
+Source: [实现目录](../../../../src/main/agent/runtime/model/)<br>
+Documentation: [Agent runtime](../README.md)
+
 这一层定义当前 runtime 和模型调用设施之间的桥接 contract。
 
 它显式解决两段转换：

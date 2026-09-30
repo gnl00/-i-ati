@@ -1,9 +1,9 @@
-import type {
-  LoadedSkillsTranscriptContextProvider as RuntimeLoadedSkillsTranscriptContextProvider,
-  LoadedSkillsTranscriptContextProviderInput
-} from '@main/agent/runtime/skills/LoadedSkillsTranscriptContextProvider'
-import type { AgentTranscriptUserRecord } from '@main/agent/runtime/transcript/AgentTranscriptRecord'
-import type { AgentContentPart } from '@main/agent/runtime/transcript/AgentContentPart'
+import {
+  type AgentContentPart,
+  type AgentTranscriptUserRecord,
+  type LoadedSkillsTranscriptContextProvider as RuntimeLoadedSkillsTranscriptContextProvider,
+  type LoadedSkillsTranscriptContextProviderInput
+} from '@main/agent/contracts/HostRuntimeContracts'
 import { LoadedSkillsContextProvider } from '../preparation/request/LoadedSkillsContextProvider'
 
 export class ChatLoadedSkillsTranscriptContextProvider

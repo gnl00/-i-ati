@@ -1,5 +1,16 @@
 # Current Architecture Issues
 
+Owner: Agent runtime maintainers<br>
+Status: Active<br>
+Started: 2026-09-30 (documentation migration; original investigation date unspecified)<br>
+Target: Track runtime, transcript and host output boundary convergence<br>
+Exit criteria: Verify remaining claims against current code, resolve confirmed boundary issues, and record the resulting architecture<br>
+Related specs: [Documentation governance](../../specs/documentation-governance.md)<br>
+Related implementation: [Agent runtime](../../../src/main/agent/runtime/), [Hosts](../../../src/main/hosts/)<br>
+Related architecture: [Agent runtime](../../architecture/agent-runtime/README.md)
+
+这份调查保留原问题分析与后续修正。各节的问题描述需要逐项复核，不能作为所有问题仍存在的证明；当前结构以架构文档和实现为准。本次迁移未将调查标记为完成。
+
 这份文档总结当前主线架构里已经暴露出来的问题，用来作为当前 runtime 收敛工作的背景参照。
 
 目标不是复述所有历史细节，而是回答两个问题：
@@ -165,8 +176,8 @@ runtime、transcript、output 这三层还没有彻底解耦。
   负责单步结果
 - `transcript/`
   负责协议历史
-- `host/output/`
-  负责外部可见输出
+- `hosts/shared/render/`
+  负责外部可见输出（core runtime 内不设 output 层）
 
 这样以后讨论和实现都可以直接围绕固定边界展开，而不用每次重新扫当前架构。
 
@@ -179,8 +190,9 @@ runtime、transcript、output 这三层还没有彻底解耦。
 > - `hosts/shared/render/HostRenderEventMapper` 是唯一状态 fold 点 / output builder 入口；
 > - `hosts/shared/render/HostStepOutputPolicy`（P1 新增）集中 visible/hidden/tool-only 策略，
 >   供 chat + telegram 共用，消除了两处重复的 hidden-tool 名单；
-> - `agent/runtime/host/output/` 的三个空壳保留为占位 / 历史说明，不再计划把 render
->   状态族搬进 core runtime（详见 `host/output/README.md`）。
+> - `agent/runtime/host/output/` 不再预留任何占位模块：三个 `export {}` 空壳已于
+>   2026-09 删除，边界说明已迁移到 [Output 归属](../../architecture/agent-runtime/host/output/README.md)，不再计划把 render
+>   状态族搬进 core runtime。
 >
 > 即：诊断里「两个 output 层」的问题，按边界正确的方式解决为「output 只有一层，在 `hosts/`」，
 > 而不是去填充 core runtime 内的空壳。

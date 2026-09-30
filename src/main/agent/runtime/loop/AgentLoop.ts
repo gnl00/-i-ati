@@ -430,23 +430,10 @@ export class DefaultAgentLoop implements AgentLoop {
 
       incompleteResponseRecoveryAttempts = 0
       const completedAt = dependencies.runtimeClock.now()
-      if (draft.snapshot.toolCalls.length > 0) {
-        draft = {
-          ...draft,
-          status: 'awaiting_tools',
-          updatedAt: completedAt
-        }
-      }
-
-      draft = {
+      const completedDraft: AgentStepDraft & { status: 'completed' } = {
         ...draft,
         status: 'completed',
         updatedAt: completedAt
-      }
-
-      const completedDraft: AgentStepDraft & { status: 'completed' } = {
-        ...draft,
-        status: 'completed'
       }
       const step = dependencies.agentStepMaterializer.materialize({
         draft: completedDraft,
@@ -490,7 +477,7 @@ export class DefaultAgentLoop implements AgentLoop {
         })
       }
 
-      const readyToolCalls = collectReadyToolCallFacts(step, draft.deltas).map(fact => (
+      const readyToolCalls = collectReadyToolCallFacts(step, completedDraft.deltas).map(fact => (
         dependencies.readyToolCallMaterializer.materialize({
           stepId: step.stepId,
           fact

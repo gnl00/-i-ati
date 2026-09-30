@@ -13,25 +13,15 @@
  * 约束：
  * - source of truth 应是 runtime deltas / facts
  * - 允许维护 snapshot cache，但 snapshot 只是派生视图
+ * - `streaming` 是唯一在途状态
+ * - `completed | failed | aborted` 是稳定终态，可以直接进入 `AgentStepMaterializer`
+ * - 检测到可执行 tool calls 不改变 draft 状态；收口时才一次性推进到 `completed`
  */
 export type AgentStepDraftStatus =
   | 'streaming'
-  | 'awaiting_tools'
   | 'completed'
   | 'failed'
   | 'aborted'
-
-/**
- * awaiting_tools
- *
- * 生命周期约束：
- * - 它只是 loop 内部短暂过渡态，表示当前 step 已经检测到可执行 tool calls，
- *   正在进入 tool batch 收集 / dispatch 前的收口阶段
- * - 它不是稳定 step 终态
- * - 它不能直接进入 `AgentStepMaterializer`
- * - 如果当前 step 需要写入 `assistant_step` transcript record，loop 必须先把它推进到
- *   `completed`，再进入 stable event / transcript write-back 链
- */
 
 export interface AgentStepDraftDeltaBase {
   timestamp: number

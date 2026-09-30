@@ -1,5 +1,8 @@
 # events
 
+Source: [实现目录](../../../../src/main/agent/runtime/events/)<br>
+Documentation: [Agent runtime](../README.md)
+
 这一层定义 `AgentLoop` 对外发出的 runtime 事实。
 
 核心思想：
@@ -77,21 +80,21 @@ runtime 里的事件至少要分成三类：
 
 ## 文件说明
 
-- `AgentEvent.ts`
+- [AgentEvent.ts](../../../../src/main/agent/runtime/events/AgentEvent.ts)
   - runtime 事件统一入口类型
-- `AgentEventEmitter.ts`
+- [AgentEventEmitter.ts](../../../../src/main/agent/runtime/events/AgentEventEmitter.ts)
   - loop 使用的高层事件发射 contract
-- `StepEvent.ts`
+- [StepEvent.ts](../../../../src/main/agent/runtime/events/StepEvent.ts)
   - 单个 step 相关事件定义
-- `ToolEvent.ts`
+- [ToolEvent.ts](../../../../src/main/agent/runtime/events/ToolEvent.ts)
   - tool 执行阶段事件定义
-- `LoopEvent.ts`
+- [LoopEvent.ts](../../../../src/main/agent/runtime/events/LoopEvent.ts)
   - 整轮 loop 终态事件定义
-- `SteeringEvent.ts`
+- [SteeringEvent.ts](../../../../src/main/agent/runtime/events/SteeringEvent.ts)
   - stable checkpoint 消费的引导消息事实
-- `AgentEventSink.ts`
+- [AgentEventSink.ts](../../../../src/main/agent/runtime/events/AgentEventSink.ts)
   - 事件消费接口
-- `AgentEventBus.ts`
+- [AgentEventBus.ts](../../../../src/main/agent/runtime/events/AgentEventBus.ts)
   - 事件分发协调器
 
 ## 推荐组织方式

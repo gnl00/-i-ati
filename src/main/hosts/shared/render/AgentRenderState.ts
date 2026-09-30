@@ -1,4 +1,4 @@
-import type { AgentStepFailureInfo } from '@main/agent/runtime/step/AgentStep'
+import type { AgentStepFailureInfo } from '@main/agent/contracts/HostRuntimeContracts'
 import type { ToolFailure } from '@shared/tools/toolFailure'
 
 export type AgentRenderToolCallStatus =

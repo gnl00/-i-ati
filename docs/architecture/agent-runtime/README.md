@@ -1,15 +1,31 @@
-# runtime
+# Agent runtime
+
+Source: [实现目录](../../../src/main/agent/runtime/)<br>
+Documentation: [Agent runtime](README.md)
 
 这一层负责把当前 agent runtime 的核心件组装成一套可运行的 runtime。
 
 参照文档：
 
-- `CURRENT_ARCHITECTURE_ISSUES.md`
+- [架构问题调查](../../work/investigations/agent-runtime-architecture-issues.md)
   - 当前主线路径仍需持续收敛的问题清单
-- `SCENARIOS.md`
+- [运行时场景](scenarios.md)
   - runtime 核心时序真值表
-- `TYPE_CHECKLIST.md`
+- [类型清单](type-checklist.md)
   - 场景到 contract 的类型对照表
+
+## 模块导航
+
+- [Loop](loop/README.md)
+- [Step](step/README.md)
+- [Events](events/README.md)
+- [Request](request/README.md)
+- [Model](model/README.md)
+- [Transcript](transcript/README.md)
+- [Tools](tools/README.md)
+- [Host 输入边界](host/README.md)
+- [Bootstrap](host/bootstrap/README.md)
+- [Output 归属](host/output/README.md)
 
 ## 这一层负责什么
 
@@ -27,15 +43,15 @@
 
 ## 文件说明
 
-- `AgentRuntime.ts`
+- [AgentRuntime.ts](../../../src/main/agent/runtime/AgentRuntime.ts)
   - runtime 的 composition root，以及稳定 run 入口 contract
-- `AgentRuntimeRunInput.ts`
+- [AgentRuntimeRunInput.ts](../../../src/main/agent/runtime/AgentRuntimeRunInput.ts)
   - runtime run 入口的稳定输入 contract
-- `AgentRuntimeContext.ts`
+- [AgentRuntimeContext.ts](../../../src/main/agent/runtime/AgentRuntimeContext.ts)
   - runtime 运行所需的 provider / source / bridge 输入
-- `RuntimeInfrastructure.ts`
+- [RuntimeInfrastructure.ts](../../../src/main/agent/runtime/RuntimeInfrastructure.ts)
   - bootstrap 和 loop 共享使用的稳定基础设施 contract
-- `AgentLoopDependenciesFactory.ts`
+- [AgentLoopDependenciesFactory.ts](../../../src/main/agent/runtime/AgentLoopDependenciesFactory.ts)
   - runtime 内部把 context 收敛成 `AgentLoopDependencies` 的映射接口
 
 ## 组装原则
@@ -43,7 +59,7 @@
 - runtime 只负责把 `sources`、`bootstrap`、`loop` 和 `loop dependencies` 接起来
 - runtime 也负责显式 wiring bootstrap 所需的 materializers
 - runtime 不重新定义 step 结果，也不重新定义事件语义
-- host-specific 逻辑应该留在 `host/`，而不是侵入 loop 内部状态
+- host-specific 逻辑应该留在 `hosts/`，而不是侵入 loop 内部状态
 
 ## 和 loop 的关系
 
@@ -60,7 +76,7 @@
 - `AgentRuntime.run(...)` 的入参应停留在 `AgentRuntimeRunInput` 这一层
 - `AgentRuntime.run(...)` 的出参应是稳定的 `AgentLoopResult`
 - `AgentRuntime.run(...)` 运行中的可观察变化应通过 `events/` side channel 发出，而不是塞进返回值
-- `host/output/` 的可见结果也不应作为 `run(...)` 的直接返回值
+- 宿主 output 的可见结果也不应作为 `run(...)` 的直接返回值
 - runtime 应通过显式的 `AgentLoopDependenciesFactory` 把低层 bridges / providers / event emitter 收敛成 `AgentLoopDependencies`
 
 ## run 内部顺序

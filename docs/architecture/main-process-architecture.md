@@ -28,6 +28,27 @@ Small capabilities remain flat within `services`, `tools`, and `ipc`. Larger
 capabilities may introduce internal subdirectories when their own file count
 and responsibilities justify them.
 
+Agent-core module boundaries, runtime scenarios and type mappings are documented
+in [Agent runtime](agent-runtime/README.md).
+
+### Host to agent-core contract surface
+
+`hosts/` consumes the agent core only through `src/main/agent/contracts/`.
+The runtime types a host actually needs are re-exported from
+`src/main/agent/contracts/HostRuntimeContracts.ts`, so the public surface of
+`agent/runtime/` is declared in one reviewable place instead of being implied by
+whatever deep path a host imports. Definitions stay in `agent/runtime/`;
+`HostRuntimeContracts.ts` performs no mapping and adds no behaviour.
+
+`pnpm run check:main-boundaries` enforces this direction with the rule
+"hosts must consume agent core through stable agent contracts": any `hosts/`
+module that reaches `src/main/agent/**` outside `agent/contracts/` fails the
+check. Adding a name to `HostRuntimeContracts.ts` widens the core's public
+surface and belongs in the same review as the host change that needs it.
+
+Composition roots under `orchestration/` and `services/subagent/` still import
+`agent/runtime/*` directly, because assembling the runtime is their job.
+
 ## Application lifecycle
 
 `src/main/index.ts` performs two explicit actions:
@@ -243,6 +264,8 @@ The boundary check enforces confirmed rules only:
 
 - production services do not import main-process tool processors;
 - services and hosts consume stable event contracts instead of run infrastructure;
+- hosts consume the agent core through `agent/contracts/` instead of deep
+  `agent/runtime/` paths;
 - production callers reach `DatabaseService` through approved database facades;
 - the root Electron entry depends only on `app/`.
 

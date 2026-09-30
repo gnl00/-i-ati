@@ -6,6 +6,7 @@ in [specs](../specs/README.md); historical records live in [archive](../archive/
 ## Current documents
 
 - [Agent Abstraction Layer](agent-abstraction.md)
+- [Agent runtime](agent-runtime/README.md)
 - [Awake State Design](awake/awake-state-design.md)
 - [Chat Runtime Architecture Current](chat-runtime-architecture-current.md)
 - [Chat Session Dataflow Optimization](chat-session-dataflow-optimization.md)

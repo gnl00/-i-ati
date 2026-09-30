@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { AgentEvent } from '@main/agent/runtime/events/AgentEvent'
+import type { AgentEvent } from '@main/agent/contracts/HostRuntimeContracts'
 import { HostRenderEventMapper } from '@main/hosts/shared/render'
 import { RUN_TOOL_EVENTS } from '@shared/run/tool-events'
 import { RUN_STEERING_EVENTS } from '@shared/run/steering-events'

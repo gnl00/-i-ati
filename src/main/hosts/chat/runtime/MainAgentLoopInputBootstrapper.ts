@@ -1,5 +1,4 @@
-import type { LoopInputBootstrapper, LoopInputBootstrapperInput } from '@main/agent/runtime/host/bootstrap/LoopInputBootstrapper'
-import type { AgentLoopInput } from '@main/agent/runtime/loop/AgentLoopInput'
+import { type AgentLoopInput, type LoopInputBootstrapper, type LoopInputBootstrapperInput } from '@main/agent/contracts/HostRuntimeContracts'
 import {
   DefaultChatInitialTranscriptRecordFactory,
   type ChatInitialTranscriptRecordFactory

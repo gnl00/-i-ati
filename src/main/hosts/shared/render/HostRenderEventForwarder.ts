@@ -1,6 +1,5 @@
 import { HostOutputDispatcher, type HostOutputAdapter } from '../output/HostOutputDispatcher'
-import type { AgentEvent } from '@main/agent/runtime/events/AgentEvent'
-import type { AgentEventSink } from '@main/agent/runtime/events/AgentEventSink'
+import { type AgentEvent, type AgentEventSink } from '@main/agent/contracts/HostRuntimeContracts'
 import { HostRenderEventMapper } from './HostRenderEventMapper'
 import type { HostRenderEventSink } from './HostRenderEventSink'
 

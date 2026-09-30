@@ -1,5 +1,8 @@
 # Scenarios
 
+Source: [实现目录](../../../src/main/agent/runtime/)<br>
+Documentation: [Agent runtime](README.md)
+
 这份文档给当前 runtime 提供最小的时序真值表。
 
 目标不是描述完整实现，而是固定几条最关键的 contract：
@@ -42,9 +45,9 @@
    - loop 先通过 `AgentStepMaterializer` 把当前 `AgentStepDraft` 收成稳定 `AgentStep`
    - loop 通过 `TranscriptRecordFactory` 生成一条 `assistant_step` record
    - loop 通过 `AgentTranscriptAppender` 把它写回 live transcript
-2. 在 tool 执行前，loop 可以短暂把 draft 标成 `awaiting_tools`
-   - 这只是内部过渡态，不能直接 materialize
-   - 如果当前 step 需要进入 stable event / transcript write-back 链，必须先推进到 `completed`
+2. draft 只收口一次：`streaming -> completed`
+   - 检测到 tool calls 不改变 draft 状态，也不产生独立的过渡态
+   - stable event / transcript write-back 只消费已收口的 `completed` step，不消费 draft
 3. 在 tool 执行前，loop 先完成执行桥接：
    - 收集当前 step 中的 `tool_call_ready`
    - 先提炼成 `ToolCallReadyFact`
@@ -85,7 +88,7 @@
 ### host-visible effect
 
 - 宿主通过 `events/` 感知运行中状态
-- 是否显示中间 step，由 `host/output/` 决定
+- 是否显示中间 step，由 `hosts/shared/render/` 和宿主 output 决定
 - core 不保证中间 step 一定对用户可见
 
 ## 2. tool result then final answer
@@ -121,9 +124,9 @@
    - loop 先通过 `AgentStepMaterializer` 把当前 `AgentStepDraft` 收成稳定 `AgentStep`
    - loop 通过 `TranscriptRecordFactory` 生成一条 `assistant_step` record
    - loop 通过 `AgentTranscriptAppender` 把它写回 live transcript
-2. 在 tool 执行前，loop 可以短暂把 draft 标成 `awaiting_tools`
-   - 这只是内部过渡态，不能直接 materialize
-   - 如果当前 step 需要进入 stable event / transcript write-back 链，必须先推进到 `completed`
+2. draft 只收口一次：`streaming -> completed`
+   - 检测到 tool calls 不改变 draft 状态，也不产生独立的过渡态
+   - stable event / transcript write-back 只消费已收口的 `completed` step，不消费 draft
 3. 在 tool 执行前，loop 先完成执行桥接：
    - 收集当前 step 中的 `tool_call_ready`
    - 先提炼成 `ToolCallReadyFact`
@@ -161,7 +164,7 @@
 
 - 宿主可以显示最后一个可见 step
 - 也可以只显示最终 assistant step
-- 具体显示策略属于 `host/output/`，不属于 loop
+- 具体显示策略属于 `hosts/shared/render/` 和宿主 output，不属于 loop
 
 ## 3. abort during streaming
 
@@ -249,4 +252,4 @@
 ### host-visible effect
 
 - 宿主通过事件感知“等待确认”和“确认被拒绝”
-- 是否把拒绝结果显示为消息、状态条或静默处理，属于 `host/output/`
+- 是否把拒绝结果显示为消息、状态条或静默处理，属于 `hosts/shared/render/` 和宿主 output

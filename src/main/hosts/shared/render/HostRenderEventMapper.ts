@@ -1,5 +1,5 @@
 import { RUN_STATES } from '@shared/run/lifecycle-events'
-import type { AgentEvent } from '@main/agent/runtime/events/AgentEvent'
+import type { AgentEvent } from '@main/agent/contracts/HostRuntimeContracts'
 import { AgentRenderStateReducer } from './AgentRenderStateReducer'
 import type { AgentRenderState } from './AgentRenderState'
 import type { HostRenderEvent } from './HostRenderEvent'

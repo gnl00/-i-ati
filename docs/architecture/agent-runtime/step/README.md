@@ -1,5 +1,8 @@
 # step
 
+Source: [实现目录](../../../../src/main/agent/runtime/step/)<br>
+Documentation: [Agent runtime](../README.md)
+
 这一层定义单次模型请求的 runtime 单元。
 
 `step` 是 `loop` 驱动的基本执行单位，但它本身不是 `loop` 的内部细节，因此和 `loop` 作为同级目录存在。
@@ -25,13 +28,13 @@
 
 ## 文件说明
 
-- `AgentStep.ts`
+- [AgentStep.ts](../../../../src/main/agent/runtime/step/AgentStep.ts)
   - 单次模型请求的 runtime 结果对象
-- `AgentStepDraft.ts`
+- [AgentStepDraft.ts](../../../../src/main/agent/runtime/step/AgentStepDraft.ts)
   - 单次模型请求的流式工作区
   - 以 append-only 的 typed deltas 作为事实真源
   - snapshot 只是从这些 deltas 派生出来的缓存视图
-- `AgentStepMaterializer.ts`
+- [AgentStepMaterializer.ts](../../../../src/main/agent/runtime/step/AgentStepMaterializer.ts)
   - 把 `AgentStepDraft` 物化成稳定的 `AgentStep`
 
 ## 和 host output 的关系
@@ -40,16 +43,17 @@
   - 回答“这一次 step 实际发生了什么”
   - 持有 step 结束后稳定下来的 runtime 事实
   - 可以进入 transcript，供后续请求继续构造上下文
-- `HostStepOutput`
+- host-facing output
   - 回答“外部宿主应该从这次 step 看到什么”
-  - 是从 `AgentStep` 派生出来的 host-facing 输出
+  - 从 `AgentEvent` 流 fold 出来，不属于 core runtime
   - 不能反过来作为 loop state 或 transcript source of truth
 
 关键约束：
 
-- 不是每个 `AgentStep` 都必须生成 `HostStepOutput`
+- 不是每个 `AgentStep` 都必须产生外部可见输出
 - hidden intermediate step 可以只进入 transcript，不对 chat / renderer 暴露普通消息
-- `HostStepOutput` 的可见性和形态由 `host/output/` 下的 policy 和 builder 决定
+- 可见性和形态由 `hosts/shared/render/`（`HostRenderEventMapper` + `HostStepOutputPolicy`）决定；
+  core runtime 内不再预留 `HostStepOutput` / `HostStepOutputBuilder` / `HostStepOutputPolicy` 占位
 
 ## 和 transcript 的关系
 
@@ -63,12 +67,12 @@
   - 负责 `AgentStepDraft -> AgentStep`
   - 是 stable step 事件和 transcript write-back 之前的显式收口节点
   - 只允许 `completed | failed | aborted` draft 进入 materialize
-  - `streaming | awaiting_tools` draft 不能直接收口成稳定 step
+  - 在途 draft（`streaming`）不能直接收口成稳定 step
 
 一句话：
 
 - `AgentStep` 是“发生了什么”
-- `HostStepOutput` 是“外部看到了什么”
+- host-facing output 是“外部看到了什么”
 - `AgentTranscriptRecord` 是“把这次 step 作为一条 transcript record 放进去”
 - `AgentStepMaterializer` 是“什么时候从 draft 收成稳定 step”
 
@@ -78,10 +82,8 @@
 - 只有 `completed | failed | aborted` draft 才能进入 stable 收口
 - `failed` draft 必须显式带 `failure`
 - `aborted` draft 必须显式带 `abortReason`
-- `streaming | awaiting_tools` draft 不应直接 materialize 成 `AgentStep`
-- `awaiting_tools` 只是 loop 内部短暂过渡态
-- 它表示当前 step 已经拿到可执行 tool calls，正在进入 tool batch 收集 / dispatch 前的收口阶段
-- 如果当前 step 需要进入 stable event / transcript write-back 链，loop 必须先把 `awaiting_tools` 推进成 `completed`
+- `streaming` draft 不应直接 materialize 成 `AgentStep`
+- 存在可执行 tool calls 时，draft 保持在途；收口时一次性推进到 `completed`
 
 ## draft delta 约束
 

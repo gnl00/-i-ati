@@ -1,5 +1,8 @@
 # tools
 
+Source: [实现目录](../../../../src/main/agent/runtime/tools/)<br>
+Documentation: [Agent runtime](../README.md)
+
 这一层只关心 tool call 自身，不关心 chat transcript。
 
 ## 这一层负责什么
@@ -56,21 +59,21 @@
 
 ## 文件说明
 
-- `ToolBatch.ts`
+- [ToolBatch.ts](../../../../src/main/agent/runtime/tools/ToolBatch.ts)
   - 同一 step 内待执行的 tool 集合
-- `ReadyToolCall.ts`
+- [ReadyToolCall.ts](../../../../src/main/agent/runtime/tools/ReadyToolCall.ts)
   - 已经完整可执行、可以进入 batch 组装的 tool call contract
-- `ToolCallReadyFact.ts`
+- [ToolCallReadyFact.ts](../../../../src/main/agent/runtime/tools/ToolCallReadyFact.ts)
   - 从 step facts 中提炼出来、供 tools 层消费的 ready tool call 事实
-- `ReadyToolCallMaterializer.ts`
+- [ReadyToolCallMaterializer.ts](../../../../src/main/agent/runtime/tools/ReadyToolCallMaterializer.ts)
   - 把 `ToolCallReadyFact` 物化成 `ReadyToolCall`
-- `ToolBatchAssembler.ts`
+- [ToolBatchAssembler.ts](../../../../src/main/agent/runtime/tools/ToolBatchAssembler.ts)
   - 把 step 中已经 ready 的 tool calls 组装成 `ToolBatch`
-- `ToolDispatchOutcome.ts`
+- [ToolDispatchOutcome.ts](../../../../src/main/agent/runtime/tools/ToolDispatchOutcome.ts)
   - 描述 dispatcher 执行完一个 `ToolBatch` 之后的稳定结果
-- `ToolConfirmationPolicy.ts`
+- [ToolConfirmationPolicy.ts](../../../../src/main/agent/runtime/tools/ToolConfirmationPolicy.ts)
   - tool 执行前确认策略
-- `ToolExecutorDispatcher.ts`
+- [ToolExecutorDispatcher.ts](../../../../src/main/agent/runtime/tools/ToolExecutorDispatcher.ts)
   - 面向 loop 的工具执行分发接口
 
 ## 和 events / transcript 的关系

@@ -1,6 +1,6 @@
 import { RUN_LIFECYCLE_EVENTS } from '@shared/run/lifecycle-events'
 import { RUN_TOOL_EVENTS } from '@shared/run/tool-events'
-import type { ToolResultFact } from '@main/agent/runtime/tools/ToolResultFact'
+import type { ToolResultFact } from '@main/agent/contracts/HostRuntimeContracts'
 import { ChatEventMapper } from '../mapping/ChatEventMapper'
 import { ChatStepStore } from '../persistence/ChatStepStore'
 import {
@@ -21,7 +21,7 @@ import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 import type {
   AgentSteeringContext,
   AgentSteeringMessage
-} from '@main/agent/runtime/steering/SteeringMessageSource'
+} from '@main/agent/contracts/HostRuntimeContracts'
 import type { VisionObservationService } from '../vision'
 import { createLogger } from '@main/logging/LogService'
 

@@ -1,7 +1,6 @@
 import { assertMessageEntitySegmentsHaveIds } from '@shared/chat/segmentId'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
-import { projectToolResultContentForDisplay } from '@main/agent/runtime/tools/ToolResultContentProjector'
-import type { ToolResultFact } from '@main/agent/runtime/tools/ToolResultFact'
+import { projectToolResultContentForDisplay, type ToolResultFact } from '@main/agent/contracts/HostRuntimeContracts'
 import { createLogger } from '@main/logging/LogService'
 import type { AgentRenderMessageState } from '@main/hosts/shared/render'
 import { ChatEventMapper } from '../mapping/ChatEventMapper'

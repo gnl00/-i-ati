@@ -1,5 +1,8 @@
 # loop
 
+Source: [实现目录](../../../../src/main/agent/runtime/loop/)<br>
+Documentation: [Agent runtime](../README.md)
+
 这一层只放 agent loop 自身的核心运行时对象。
 
 这里不应该出现：
@@ -29,21 +32,21 @@
 
 ## 文件说明
 
-- `AgentLoopInput.ts`
+- [AgentLoopInput.ts](../../../../src/main/agent/runtime/loop/AgentLoopInput.ts)
   - 启动一次 loop 所需的最小输入 contract
-- `LoopRunDescriptor.ts`
+- [LoopRunDescriptor.ts](../../../../src/main/agent/runtime/loop/LoopRunDescriptor.ts)
   - 单次 loop / run 的稳定标识信息
-- `LoopExecutionConfig.ts`
+- [LoopExecutionConfig.ts](../../../../src/main/agent/runtime/loop/LoopExecutionConfig.ts)
   - loop 运行期间共享的稳定执行配置
-- `LoopIdentityProvider.ts`
+- [LoopIdentityProvider.ts](../../../../src/main/agent/runtime/loop/LoopIdentityProvider.ts)
   - loop 内部稳定标识的分配接口
-- `RuntimeClock.ts`
+- [RuntimeClock.ts](../../../../src/main/agent/runtime/loop/RuntimeClock.ts)
   - loop 运行过程中使用的稳定时间来源
-- `AgentLoopDependencies.ts`
+- [AgentLoopDependencies.ts](../../../../src/main/agent/runtime/loop/AgentLoopDependencies.ts)
   - `AgentLoop` 真正消费的最小依赖面
-- `AgentLoop.ts`
+- [AgentLoop.ts](../../../../src/main/agent/runtime/loop/AgentLoop.ts)
   - 当前 runtime 的唯一核心 orchestrator
-- `AgentLoopResult.ts`
+- [AgentLoopResult.ts](../../../../src/main/agent/runtime/loop/AgentLoopResult.ts)
   - 整个 loop 的最终输出
 
 ## 输入输出边界
@@ -90,7 +93,7 @@
 - `failed` / `aborted` outcome 只有在显式携带 `partialResults` 时才允许先写回 transcript
 - `failed` / `aborted` outcome 应由 loop 显式决定是否进入 terminal
 - `AgentLoopResult` 回答的是“整轮 run 最后怎样了”，不是“外部该显示什么”
-- host-visible 内容应该继续通过 `events/` 和 `host/output/` 获得
+- host-visible 内容应该继续通过 runtime `events/` 与宿主侧 `hosts/shared/render/` 获得
 - `AgentTranscript -> AgentTranscriptSnapshot` 的终态收口应通过显式 materializer 完成
 
 ## 和 events 的关系

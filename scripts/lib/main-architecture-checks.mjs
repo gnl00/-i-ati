@@ -58,6 +58,10 @@ export async function checkMainBoundaries({ mainRoot }) {
       } else if (normalizedFile.startsWith(`${normalizedRoot}/hosts/`)
         && isWithinBoundary(target, `${normalizedRoot}/orchestration/chat/run/infrastructure`)) {
         rule = 'hosts must use stable agent contracts instead of run infrastructure'
+      } else if (normalizedFile.startsWith(`${normalizedRoot}/hosts/`)
+        && isWithinBoundary(target, `${normalizedRoot}/agent`)
+        && !isWithinBoundary(target, `${normalizedRoot}/agent/contracts`)) {
+        rule = 'hosts must consume agent core through stable agent contracts'
       } else if (target === `${normalizedRoot}/db/DatabaseService`
         || target === `${normalizedRoot}/db/services/DatabaseService`) {
         const relativeSource = normalize(relative(mainRoot, file))

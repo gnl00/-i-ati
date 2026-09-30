@@ -1,6 +1,4 @@
-import type { AgentEvent } from '@main/agent/runtime/events/AgentEvent'
-import type { AgentStep } from '@main/agent/runtime/step/AgentStep'
-import type { ToolResultFact } from '@main/agent/runtime/tools/ToolResultFact'
+import { type AgentEvent, type AgentStep, type ToolResultFact } from '@main/agent/contracts/HostRuntimeContracts'
 import type {
   AgentRenderBlock,
   AgentRenderMessageState,

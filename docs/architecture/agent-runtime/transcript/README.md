@@ -1,5 +1,8 @@
 # transcript
 
+Source: [实现目录](../../../../src/main/agent/runtime/transcript/)<br>
+Documentation: [Agent runtime](../README.md)
+
 这一层定义给模型继续推理用的内部协议历史。
 
 这里的 transcript 不是 chat transcript，而是 runtime 协议历史。
@@ -32,23 +35,23 @@
 
 ## 文件说明
 
-- `AgentTranscript.ts`
+- [AgentTranscript.ts](../../../../src/main/agent/runtime/transcript/AgentTranscript.ts)
   - runtime 内部协议历史容器，以及终态 transcript snapshot 定义
-- `AgentContentPart.ts`
+- [AgentContentPart.ts](../../../../src/main/agent/runtime/transcript/AgentContentPart.ts)
   - runtime 内部用于表达 typed user input 的内容块定义
-- `AgentTranscriptRecord.ts`
+- [AgentTranscriptRecord.ts](../../../../src/main/agent/runtime/transcript/AgentTranscriptRecord.ts)
   - transcript 内的单条记录定义
-- `UserRecordMaterializer.ts`
+- [UserRecordMaterializer.ts](../../../../src/main/agent/runtime/transcript/UserRecordMaterializer.ts)
   - 把首条用户输入物化成稳定的 `user` record
-- `InitialTranscriptMaterializer.ts`
+- [InitialTranscriptMaterializer.ts](../../../../src/main/agent/runtime/transcript/InitialTranscriptMaterializer.ts)
   - 把首批 records 物化成初始 live transcript
-- `AgentTranscriptAppender.ts`
+- [AgentTranscriptAppender.ts](../../../../src/main/agent/runtime/transcript/AgentTranscriptAppender.ts)
   - 把稳定 records 追加进 live transcript
-- `AgentTranscriptSnapshotMaterializer.ts`
+- [AgentTranscriptSnapshotMaterializer.ts](../../../../src/main/agent/runtime/transcript/AgentTranscriptSnapshotMaterializer.ts)
   - 把 live transcript 物化成终态 `AgentTranscriptSnapshot`
-- `TranscriptRecordFactory.ts`
+- [TranscriptRecordFactory.ts](../../../../src/main/agent/runtime/transcript/TranscriptRecordFactory.ts)
   - 把 `AgentStep` / `ToolResultFact` 物化成稳定的 write-back records
-- `RequestMaterializer.ts`
+- [RequestMaterializer.ts](../../../../src/main/agent/runtime/transcript/RequestMaterializer.ts)
   - 从 transcript 构造协议层请求 contract
 
 ## 和 RequestMaterializer 的关系

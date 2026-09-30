@@ -1,5 +1,8 @@
 # bootstrap
 
+Source: [实现目录](../../../../../src/main/agent/runtime/host/bootstrap/)<br>
+Documentation: [Agent runtime](../../README.md)
+
 这一层定义外部宿主输入如何被规范化成 `AgentLoopInput`。
 
 它解决的不是 host 如何显示结果，而是：
@@ -29,7 +32,7 @@
 一句话：
 
 - `host/bootstrap` 负责“怎么进入 loop”
-- `host/output` 负责“怎么离开 loop”
+- “怎么离开 loop”不由 core runtime 定义，合法归属在 `hosts/`
 
 补充约束：
 

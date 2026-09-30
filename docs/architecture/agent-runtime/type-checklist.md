@@ -1,6 +1,9 @@
 # Type Checklist
 
-这份文档把 `SCENARIOS.md` 里的场景，映射到当前 runtime 已经定义的 contract。
+Source: [实现目录](../../../src/main/agent/runtime/)<br>
+Documentation: [Agent runtime](README.md)
+
+这份文档把 [运行时场景](scenarios.md) 里的场景，映射到当前 runtime 已经定义的 contract。
 
 目标不是替代时序文档，而是回答两个问题：
 
@@ -52,7 +55,7 @@
 - `runtime/model/ModelResponseStream`
 - `runtime/model/ModelStreamExecutor`
 - `runtime/model/ModelResponseParser`
-- `host/output/HostStepOutput`
+- `hosts/shared/render/HostRenderEvent`
 
 ### 这一组最需要补的字段
 
@@ -92,7 +95,7 @@
   - `content_delta` / `reasoning_delta` / `tool_call_started` / `tool_call_ready` / `finish_reason` / `usage_delta` / `response_metadata`
   - `tool_call_started` 用于开始渲染 tool call
   - `tool_call_ready` 用于标记这条 tool call 已完整可执行
-  - `awaiting_tools` 只是 loop 内部短暂过渡态，不能直接进入 materialize
+  - 在途 draft（`streaming`）不能直接进入 materialize
 - `AgentStep`
   - finish reason / tool calls / usage / raw response metadata
 - `AgentStepMaterializer`
@@ -187,8 +190,6 @@
 - `runtime/model/ModelResponseStream`
 - `runtime/model/ModelStreamExecutor`
 - `runtime/model/ModelResponseParser`
-- `host/output/HostStepOutputPolicy`
-- `host/output/HostStepOutputBuilder`
 
 ### 这一组最需要补的字段
 
@@ -196,9 +197,9 @@
   - completed payload 的终态字段
 - `AgentLoopResult`
   - final assistant step 与 loop terminal status 的关系
-- `HostStepOutputPolicy`
+- `hosts/shared/render/HostStepOutputPolicy`
   - final answer 是否可见
-- `HostStepOutputBuilder`
+- `hosts/shared/render/HostRenderEventMapper`
   - 最终 assistant step 如何变成宿主输出
 
 ## 3. abort during streaming
@@ -234,7 +235,7 @@
 - `runtime/model/ModelResponseChunk`
 - `runtime/model/ModelResponseStream`
 - `runtime/model/ModelResponseParser`
-- `host/output/HostStepOutputPolicy`
+- `hosts/shared/render/HostStepOutputPolicy`
 
 ### 这一组最需要补的字段
 
@@ -345,6 +346,6 @@
 
 1. 先给 `AgentStepDraft`、`AgentStep`、`AgentTranscriptRecord`、`AgentLoopResult` 补稳定字段
 2. 再给 `ToolConfirmationPolicy`、`ToolEvent`、`LoopEvent` 补 approval / abort 所需字段
-3. 最后再补 `host/output/` 需要的最小展示字段
+3. 最后再补 `hosts/shared/render/` 和宿主 output 需要的最小展示字段
 
 这样可以先把 core runtime contract 钉死，再去接 host 可见层。

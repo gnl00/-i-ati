@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { LoopIdentityProvider } from '@main/agent/runtime/loop/LoopIdentityProvider'
+import type { LoopIdentityProvider } from '@main/agent/contracts/HostRuntimeContracts'
 import { DefaultChatInitialTranscriptRecordFactory } from '../ChatInitialTranscriptRecordFactory'
 
 const createLoopIdentityProvider = (): LoopIdentityProvider => {

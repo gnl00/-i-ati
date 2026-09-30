@@ -1,5 +1,8 @@
 # request
 
+Source: [实现目录](../../../../src/main/agent/runtime/request/)<br>
+Documentation: [Agent runtime](../README.md)
+
 这一层定义一次模型请求所需的稳定请求规格。
 
 它回答的问题是：
@@ -33,7 +36,7 @@
 
 ## 文件说明
 
-- `AgentRequestSpec.ts`
+- [AgentRequestSpec.ts](../../../../src/main/agent/runtime/request/AgentRequestSpec.ts)
   - 单次模型请求所需的稳定请求规格
 
 ## 和 loop / transcript 的关系

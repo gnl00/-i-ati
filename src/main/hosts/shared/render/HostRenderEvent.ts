@@ -1,9 +1,11 @@
 import type { RunState } from '@shared/run/lifecycle-events'
-import type { ToolResultFact } from '@main/agent/runtime/tools/ToolResultFact'
+import type {
+  AgentSteeringMessage,
+  ToolOutputBatch,
+  ToolResultFact
+} from '@main/agent/contracts/HostRuntimeContracts'
 import type { AgentRenderMessageState } from './AgentRenderState'
-import type { ToolOutputBatch } from '@main/agent/tools'
 import type { PreviewEffect } from './AgentRenderStateReducer'
-import type { AgentSteeringMessage } from '@main/agent/runtime/steering/SteeringMessageSource'
 
 export interface HostRenderPreviewUpdatedEvent {
   type: 'host.preview.updated'

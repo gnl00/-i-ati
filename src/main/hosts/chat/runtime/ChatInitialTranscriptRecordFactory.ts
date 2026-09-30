@@ -1,12 +1,12 @@
-import type { LoopIdentityProvider } from '@main/agent/runtime/loop/LoopIdentityProvider'
-import { projectToolResultContentForHistoryImport } from '@main/agent/runtime/tools/ToolResultContentProjector'
-import type { AgentContentPart } from '@main/agent/runtime/transcript/AgentContentPart'
-import type {
-  AgentTranscriptAssistantStepRecord,
-  AgentTranscriptRecord,
-  AgentTranscriptToolResultRecord,
-  AgentTranscriptUserRecord
-} from '@main/agent/runtime/transcript/AgentTranscriptRecord'
+import {
+  projectToolResultContentForHistoryImport,
+  type AgentContentPart,
+  type AgentTranscriptAssistantStepRecord,
+  type AgentTranscriptRecord,
+  type AgentTranscriptToolResultRecord,
+  type AgentTranscriptUserRecord,
+  type LoopIdentityProvider
+} from '@main/agent/contracts/HostRuntimeContracts'
 import type { ChatInitialTranscriptSeed } from '@main/agent/contracts'
 
 export interface ChatInitialTranscriptRecordFactoryInput {

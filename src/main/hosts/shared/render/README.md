@@ -13,8 +13,7 @@
 这一层负责：
 
 - fold agent facts or run-output facts
-- 维护 assistant render/message 真源
-- 维护 committed assistant entity
+- 维护 assistant render/message 真源（preview + committed 状态）
 - 生成 stable patch / artifact 所需的共享状态
 
 这一层不负责：
@@ -33,7 +32,7 @@ runtime facts
       -> host output protocol
 ```
 
-当前有两种入口：
+当前走这条入口的 host：
 
 ```text
 AgentEvent
@@ -41,6 +40,9 @@ AgentEvent
     -> HostRenderEvent
       -> host mapper/output
 ```
+
+chat 和 telegram 走这条入口；`hosts/cli` 与 `hosts/tui` 不经过 `HostRenderEvent`，
+分别消费原始 `AgentEvent` 和 orchestration 的 `RunEventEnvelope`。
 
 ## Main Types And Controllers
 
@@ -101,19 +103,13 @@ AgentEvent
 - 统一生成 text / reasoning / toolCall / error segment
 - 保持 preview / committed segment identity 稳定，供 chat、telegram 和后续 host 复用
 
-### `CommittedAssistantMessageController`
+### committed assistant message entity
 
-文件：
-
-- [CommittedAssistantMessageController.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/shared/render/CommittedAssistantMessageController.ts)
-
-职责：
-
-- 持有 committed assistant message entity 真源
-- 更新 in-memory message list
-- 生成 committed assistant artifact
-
-这个 controller 的意义是把“提交 assistant message”这件事从具体 host output 中抽出来。
+committed assistant message entity 的真源不在 `shared/render/`。render 侧只持有
+`AgentRenderState.committed`（由 `AgentRenderStateReducer` fold 出来）；DB 实体锚点、
+in-memory message list 更新和 committed artifact 由宿主侧
+[ChatRenderOutput.ts](/Users/gnl/Workspace/code/-i-ati/src/main/hosts/chat/runtime/ChatRenderOutput.ts)
+负责。此前的 `CommittedAssistantMessageController` 已删除。
 
 ## Recommended Composition
 
@@ -140,8 +136,7 @@ chat 侧当前大致是：
 ChatRenderResponder
   -> ChatRenderMapper
   -> AgentRenderSegmentMapper
-  -> CommittedAssistantMessageController
-  -> ChatRenderOutput
+  -> ChatRenderOutput (committed entity + step store)
 ```
 
 telegram 侧当前大致是：
