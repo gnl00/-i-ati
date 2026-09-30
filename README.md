@@ -92,7 +92,7 @@ Dark mode:
 
 ### Chat list
 
-![Chat list populated with fictional conversations](./screenshot/current/chats-light.png)
+![Chat list grouped into Recently and workspaces, with inline search and the updated footer, in light mode](./screenshot/current/chats-light.png)
 
 ### Tool settings
 

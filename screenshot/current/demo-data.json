@@ -21,7 +21,8 @@
           "role": "user",
           "content": "Map the main, preload, and renderer responsibilities."
         }
-      ]
+      ],
+      "workspace": "desktop-app"
     },
     {
       "title": "Compare API integration options",
@@ -30,7 +31,8 @@
           "role": "user",
           "content": "Compare the integration options for a small internal tool."
         }
-      ]
+      ],
+      "workspace": "integration-lab"
     },
     {
       "title": "Draft weekly project notes",
