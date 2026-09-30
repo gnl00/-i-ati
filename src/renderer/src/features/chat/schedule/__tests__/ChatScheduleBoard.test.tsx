@@ -225,6 +225,19 @@ describe('ChatScheduleBoard', () => {
       })
     ).toBe('Cron: 0 9 * * 1-5')
   })
+  it('keeps task actions independent from summary disclosure', async () => {
+    ipc.invokeDbScheduledTasksList.mockResolvedValue([task()])
+    await act(async () => root.render(<ChatScheduleBoard />))
+    const trigger = container.querySelector<HTMLButtonElement>('[aria-expanded]')!
+    await act(async () => trigger.click())
+    expect(trigger.getAttribute('aria-expanded')).toBe('true')
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Cancel task"]')!.click())
+    expect(trigger.getAttribute('aria-expanded')).toBe('true')
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Keep task"]')!.click())
+    expect(trigger.getAttribute('aria-expanded')).toBe('true')
+    await act(async () => trigger.click())
+    expect(trigger.getAttribute('aria-expanded')).toBe('false')
+  })
   it('expands real task details and opens the associated chat', async () => {
     ipc.invokeDbScheduledTasksList.mockResolvedValue([
       {

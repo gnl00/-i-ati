@@ -222,7 +222,7 @@ export default function ChatScheduleBoard(): React.ReactElement {
         ))}
       </div>
       <div className="flex min-h-0 flex-col overflow-hidden">
-        <div className="hidden shrink-0 grid-cols-[minmax(0,1fr)_140px_96px_128px] gap-4 border-b border-(--app-border-subtle) px-4 py-2 text-[10px] font-medium uppercase tracking-wide text-slate-400 sm:grid dark:text-(--app-text-muted)">
+        <div className="hidden shrink-0 grid-cols-[minmax(0,1fr)_140px_96px_128px] gap-4 overflow-hidden border-b border-(--app-border-subtle) px-4 py-2 text-[10px] font-medium uppercase tracking-wide text-slate-400 [scrollbar-gutter:stable] sm:grid dark:text-(--app-text-muted)">
           <span>Task</span>
           <span>Scheduled for</span>
           <span>Status</span>
@@ -246,7 +246,7 @@ export default function ChatScheduleBoard(): React.ReactElement {
           </p>
         ) : (
           <div
-            className="min-h-0 overflow-y-auto overscroll-contain"
+            className="min-h-0 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]"
             aria-label="Task list"
           >
             {visibleTasks.map((task) => {
@@ -260,20 +260,20 @@ export default function ChatScheduleBoard(): React.ReactElement {
                   key={task.id}
                   className="border-b border-(--app-border-subtle) last:border-b-0"
                 >
-                  <div className="grid grid-cols-[minmax(0,1fr)_128px] items-center gap-x-4 gap-y-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_140px_96px_128px]">
-                    <div className="min-w-0">
+                  <div className="relative grid grid-cols-[minmax(0,1fr)_128px] items-center gap-x-4 gap-y-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_140px_96px_128px]">
+                    <button
+                      type="button"
+                      aria-label={task.goal}
+                      aria-expanded={expandedId === task.id}
+                      aria-controls={`task-detail-${task.id}`}
+                      onClick={() =>
+                        setExpandedId(expandedId === task.id ? null : task.id)
+                      }
+                      className="absolute inset-0 cursor-pointer transition-colors duration-150 hover:bg-(--app-surface-hover) focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-(--app-accent) motion-reduce:transition-none"
+                    />
+                    <div className="pointer-events-none relative min-w-0">
                       <h2 className="wrap-break-word text-[13px] font-medium leading-5 text-slate-700 dark:text-(--app-text-primary)">
-                        <button
-                          type="button"
-                          aria-expanded={expandedId === task.id}
-                          aria-controls={`task-detail-${task.id}`}
-                          onClick={() =>
-                            setExpandedId(
-                              expandedId === task.id ? null : task.id
-                            )
-                          }
-                          className="flex w-full items-start gap-2 rounded text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-(--app-accent) active:scale-[0.99]"
-                        >
+                        <span className="flex w-full items-start gap-2 text-left">
                           <ChevronRight
                             className={cn(
                               'mt-1 size-3 shrink-0 text-slate-400',
@@ -283,7 +283,7 @@ export default function ChatScheduleBoard(): React.ReactElement {
                           <span className="min-w-0 wrap-break-word">
                             {task.goal}
                           </span>
-                        </button>
+                        </span>
                       </h2>
                       <p className="mt-1 pl-5 wrap-break-word text-[11px] text-slate-400 dark:text-(--app-text-muted)">
                         {scheduleLabel(task)}
@@ -302,13 +302,13 @@ export default function ChatScheduleBoard(): React.ReactElement {
                       title={new Date(task.run_at).toLocaleString('en-US', {
                         timeZoneName: 'short'
                       })}
-                      className="col-start-1 row-start-2 text-[11px] tabular-nums text-slate-500 sm:col-auto sm:row-auto dark:text-(--app-text-secondary)"
+                      className="pointer-events-none relative col-start-1 row-start-2 text-[11px] tabular-nums text-slate-500 sm:col-auto sm:row-auto dark:text-(--app-text-secondary)"
                     >
                       {taskTime(task.run_at, now)}
                     </time>
                     <span
                       className={cn(
-                        'col-start-1 row-start-3 inline-flex items-center gap-1.5 text-[11px] sm:col-auto sm:row-auto',
+                        'pointer-events-none relative col-start-1 row-start-3 inline-flex items-center gap-1.5 text-[11px] sm:col-auto sm:row-auto',
                         meta.color
                       )}
                     >
@@ -321,7 +321,7 @@ export default function ChatScheduleBoard(): React.ReactElement {
                       />
                       {meta.label}
                     </span>
-                    <div className="col-start-2 row-start-1 flex flex-wrap justify-end gap-1 sm:col-auto sm:row-auto">
+                    <div className="pointer-events-none relative col-start-2 row-start-1 flex flex-wrap justify-end gap-1 [&>button]:pointer-events-auto sm:col-auto sm:row-auto">
                       {confirming && (
                         <button
                           type="button"

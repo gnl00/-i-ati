@@ -181,6 +181,11 @@ remains available through the planning database facade.
 
 ## Tasks chat list
 
+The entire task summary row toggles inline details, with subtle hover and keyboard
+focus feedback. Cancel, Keep, and Remove remain independent buttons; detail text
+and execution chat links sit outside the disclosure trigger. The task list and
+its separate column header reserve matching stable scrollbar gutters.
+
 The Tasks page retains its schedule board and adds a separate **Chats**
 list below it. Both regions occupy equal height with independent list scrolling,
 so filter changes preserve the chat section position. All/Active/History filter only the schedule board; scheduled chats
