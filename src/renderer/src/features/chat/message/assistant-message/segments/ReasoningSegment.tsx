@@ -1,7 +1,7 @@
 import React, { memo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { useReducedMotion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { SizeAnimatedPanel } from '@renderer/shared/components/ui/size-animated-panel'
 import { formatDuration } from '@renderer/shared/lib/formatDuration'
@@ -120,6 +120,7 @@ const ReasoningSegmentComponent: React.FC<ReasoningSegmentProps> = ({
   const [isOpen, setIsOpen] = React.useState(isStreaming)
   const wasStreaming = React.useRef(isStreaming)
   const shouldReduceMotion = useReducedMotion()
+  const animateDisclosure = React.useRef(false)
   const durationText = useReasoningDurationText(segment, isStreaming)
   const panelId = React.useId()
   const shouldUseStreamingPresentation = isStreaming && !shouldReduceMotion
@@ -148,7 +149,7 @@ const ReasoningSegmentComponent: React.FC<ReasoningSegmentProps> = ({
 
     return (
       <div data-testid="reasoning-segment" className="px-2 py-1 text-[12.5px] leading-6 text-slate-500 dark:text-(--chat-text-secondary)">
-        <div className="relative flex items-start gap-2">
+        <div className="relative">
           {isOpen && (
             <div
               data-testid="reasoning-guide"
@@ -161,26 +162,43 @@ const ReasoningSegmentComponent: React.FC<ReasoningSegmentProps> = ({
             aria-label={isOpen ? 'Collapse thinking' : 'Expand thinking'}
             aria-expanded={isOpen}
             aria-controls={isOpen ? panelId : undefined}
-            onClick={() => setIsOpen(value => !value)}
-            className={cn(
-              'flex cursor-pointer items-start gap-2 rounded-sm text-left hover:text-slate-600 focus-visible:ring-2 focus-visible:ring-slate-400 dark:hover:text-(--chat-text-body)',
-              isOpen ? 'shrink-0' : 'w-full'
-            )}
+            onClick={event => {
+              animateDisclosure.current = event.detail > 0 && !shouldReduceMotion
+              setIsOpen(value => !value)
+            }}
+            className="group/reasoning relative z-10 flex w-full cursor-pointer items-start gap-2 rounded-sm text-left transition-colors duration-150 hover:bg-slate-100/70 hover:text-slate-600 focus-visible:ring-2 focus-visible:ring-slate-400 dark:hover:bg-(--chat-surface-hover) dark:hover:text-(--chat-text-body) motion-reduce:transition-none"
           >
             <ChevronRight
               aria-hidden="true"
-              className={cn('mt-1.5 h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-(--chat-text-secondary)', isOpen && 'rotate-90')}
+              className={cn('mt-1.5 h-3.5 w-3.5 shrink-0 text-slate-400 transition-colors duration-150 group-hover/reasoning:text-slate-600 dark:text-(--chat-text-secondary) dark:group-hover/reasoning:text-(--chat-text-body) motion-reduce:transition-none', isOpen && 'rotate-90')}
             />
-            {!isOpen && <span className="min-w-0 wrap-break-word">{preview}</span>}
+            {isOpen ? (
+              <motion.span
+                initial={animateDisclosure.current && !shouldReduceMotion
+                  ? { clipPath: 'inset(0 100% 0 0)', x: -6, opacity: 0.2 }
+                  : false}
+                animate={{ clipPath: 'inset(0 0% 0 0)', x: 0, opacity: 1 }}
+                transition={{ duration: shouldReduceMotion ? 0 : 0.22, ease: [0.22, 1, 0.36, 1] }}
+                className="min-w-0"
+              >
+                Hide
+              </motion.span>
+            ) : <span className="min-w-0 wrap-break-word">{preview}</span>}
           </button>
           {isOpen && (
-            <div id={panelId} className="min-w-0 flex-1">
+            <motion.div
+              id={panelId}
+              initial={animateDisclosure.current && !shouldReduceMotion ? { y: -24, opacity: 0.35 } : false}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: shouldReduceMotion ? 0 : 0.22, ease: [0.22, 1, 0.36, 1] }}
+              className="mt-1 ml-5.5 min-w-0"
+            >
               <ReasoningSegmentPanel
                 content={panelContent}
                 streamingPresentation={shouldUseStreamingPresentation}
                 inline
               />
-            </div>
+            </motion.div>
           )}
         </div>
       </div>

@@ -279,8 +279,11 @@ describe('ReasoningSegment', () => {
     expect(panel.firstElementChild!.classList.contains('overflow-y-auto')).toBe(true)
     const collapse = container.querySelector<HTMLButtonElement>('button[aria-label="Collapse thinking"]')!
     expect(collapse).toBe(preview)
-    expect(collapse.textContent).toBe('')
-    expect(container.textContent).toBe(content)
+    expect(collapse.textContent).toBe('Hide')
+    expect(collapse.classList.contains('w-full')).toBe(true)
+    expect(collapse.contains(panel)).toBe(false)
+    expect(collapse.nextElementSibling).toBe(panel.parentElement)
+    expect(container.textContent).toBe('Hide' + content)
     const guide = container.querySelector('[data-testid="reasoning-guide"]')!
     expect(guide.classList.contains('border-l')).toBe(true)
     expect(guide.getAttribute('aria-hidden')).toBe('true')
@@ -294,7 +297,7 @@ describe('ReasoningSegment', () => {
     expect(container.querySelector('button[aria-label="Expand thinking"]')!.textContent).toBe('Inspect the current code.…')
   })
 
-  it('renders complete Markdown once beside the collapse arrow', async () => {
+  it('renders complete Markdown once below the collapse handler without collapsing on content clicks', async () => {
     const content = 'Check **current code**. Then inspect the result.\n\n- Preserve the list\n- Keep `inline code`'
     await act(async () => root.render(<ReasoningSegment segment={createSegment({ content })} nestedDisclosure />))
     await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="Expand thinking"]')!.click())
@@ -303,6 +306,22 @@ describe('ReasoningSegment', () => {
     expect(container.querySelectorAll('li')).toHaveLength(2)
     expect(container.querySelector('code')!.textContent).toBe('inline code')
     expect(container.textContent!.match(/Check/g)).toHaveLength(1)
+    await act(async () => container.querySelector<HTMLElement>('strong')!.click())
+    expect(container.querySelector('button[aria-label="Collapse thinking"]')?.getAttribute('aria-expanded')).toBe('true')
+  })
+
+  it('keeps the focused trigger while toggling and shows content immediately with reduced motion', async () => {
+    motionTestState.reducedMotion = true
+    await act(async () => root.render(<ReasoningSegment segment={createSegment()} nestedDisclosure />))
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Expand thinking"]')!
+    trigger.focus()
+    await act(async () => trigger.click())
+    expect(document.activeElement).toBe(trigger)
+    expect(trigger.textContent).toBe('Hide')
+    expect((container.querySelector('[data-testid="reasoning-think-content"]')!.parentElement as HTMLElement).style.opacity).toBe('1')
+    await act(async () => trigger.click())
+    expect(document.activeElement).toBe(trigger)
+    expect(container.querySelector('[data-testid="reasoning-think-content"]')).toBeNull()
   })
 
   it.each([
