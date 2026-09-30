@@ -417,7 +417,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
                       <div className="min-w-0 flex items-center gap-2">
                         <span
                           className={cn(
-                            'line-clamp-1 text-sm font-medium text-gray-700 transition-colors duration-200 dark:text-(--app-text-body) group-hover:text-gray-900 dark:group-hover:text-(--app-text-primary)'
+                            'line-clamp-1 text-[13px] font-medium text-gray-700 transition-colors duration-200 dark:text-(--app-text-body) group-hover:text-gray-900 dark:group-hover:text-(--app-text-primary)'
                           )}
                         >
                           {renderHighlightedTitle(item.title, searchQuery)}
@@ -461,7 +461,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
               <button
                 type="button"
                 className={cn(
-                  'flex h-9 w-full items-center gap-2 rounded-md px-2 pr-9 text-xs font-medium hover:bg-(--app-surface-hover) hover:text-(--app-text-primary) focus-visible:outline focus-visible:outline-(--app-accent)',
+                  'flex h-9 w-full items-center gap-2 rounded-md px-2 pr-9 text-[13px] font-medium hover:bg-(--app-surface-hover) hover:text-(--app-text-primary) focus-visible:outline focus-visible:outline-(--app-accent)',
                   collapsedGroups.has(key)
                     ? 'text-(--app-text-secondary)'
                     : 'bg-slate-50 text-slate-800 dark:bg-(--app-surface-hover) dark:text-(--app-text-primary)'
@@ -516,7 +516,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
                     <div className="min-w-0 flex-1">
                       {showChatItemEditConform && chatItemEditId === item.id ? (
                         <Input
-                          className="h-7 border-0 bg-transparent px-0 text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
+                          className="h-7 border-0 bg-transparent px-0 text-[13px] font-medium focus-visible:ring-0 focus-visible:ring-offset-0"
                           onClick={e => e.stopPropagation()}
                           onChange={e => onChatItemTitleChange(e, item)}
                           value={item.title}
@@ -525,7 +525,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
                       ) : (
                         <span
                           className={cn(
-                            'line-clamp-1 text-sm font-medium text-gray-700 transition-colors duration-200 dark:text-(--app-text-body) group-hover:text-gray-900 dark:group-hover:text-(--app-text-primary)'
+                            'line-clamp-1 text-[13px] font-medium text-gray-700 transition-colors duration-200 dark:text-(--app-text-body) group-hover:text-gray-900 dark:group-hover:text-(--app-text-primary)'
                           )}
                         >
                           {item.title}
@@ -541,7 +541,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
                     <div className="relative flex h-6 w-13 shrink-0 items-center">
                       <span
                         className={cn(
-                          'absolute right-0 top-1/2 flex h-5.5 min-w-8 -translate-y-1/2 items-center justify-center rounded-full bg-gray-50 px-1.5 text-[11px] font-medium text-gray-500 dark:bg-(--app-surface-inset) dark:text-(--app-text-muted) group-hover:pointer-events-none group-hover:opacity-0 group-focus-within:opacity-0'
+                          'absolute right-0 top-1/2 flex h-5.5 min-w-8 -translate-y-1/2 items-center justify-center px-1.5 text-[11px] font-normal tabular-nums text-(--app-text-muted) group-hover:pointer-events-none group-hover:opacity-0 group-focus-within:opacity-0'
                         )}
                       >
                         {item.msgCount ?? 0}

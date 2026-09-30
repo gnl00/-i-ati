@@ -211,7 +211,7 @@ describe('ChatTitleList performance behavior', () => {
     expect(title?.className).toContain('group-hover:text-gray-900')
     expect(title?.className).toContain('dark:group-hover:text-(--app-text-primary)')
 
-    const count = rows[0]?.querySelector<HTMLElement>('.rounded-full')
+    const count = rows[0]?.querySelector<HTMLElement>('.tabular-nums')
     expect(count?.className).toContain('group-hover:pointer-events-none')
     expect(count?.className).toContain('h-5.5')
 

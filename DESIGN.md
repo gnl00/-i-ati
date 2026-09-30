@@ -424,8 +424,10 @@ Workspace chat groups initially show the five most recently updated chats.
 Show more adds ten chats for that group until all are visible. Collapsing a group resets its visible limit to five;
 reopening starts with the five most recent chats. Search results remain unpaginated.
 Grouped chat rows use 6px vertical padding, a 40px minimum height, centered
-content, and a 2px gap. Telegram metadata grows the row naturally. Counts use a
-quiet 32px minimum-width × 22px pill; edit/delete actions use 24px buttons.
+content, and a 2px gap. Telegram metadata grows the row naturally. Group labels and chat titles share 13px medium typography, including title editing
+and search result titles. Counts use 11px regular tabular numerals in muted text,
+without a pill background; the existing 32px minimum-width × 22px slot stays stable.
+Edit/delete actions use 24px buttons.
 Row hover changes background only, without scale or shadow. Show more aligns
 with chat titles and uses 11px text.
 A BadgePlus new-chat action, matching New Chat, appears at the right of each header on hover or keyboard focus;
