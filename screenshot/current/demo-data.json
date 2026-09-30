@@ -1,0 +1,66 @@
+{
+  "description": "Fictional local demo content for README screenshots. No model requests were made.",
+  "chats": [
+    {
+      "title": "Plan a release checklist",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Help me prepare a release checklist for our desktop app. Keep it focused on what we can verify today."
+        },
+        {
+          "role": "assistant",
+          "content": "## Release checklist\n\nStart with the user journeys that matter most, then verify the packaged app.\n\n| Area | Check | Status |\n| --- | --- | --- |\n| Chat | Send a message and inspect tool results | Ready |\n| Workspace | Open files and preview an artifact | Ready |\n| Settings | Confirm provider and model selection | Ready |\n| Packaging | Launch a clean install on each platform | Pending |\n\n### Next steps\n\n1. Run the focused tests and TypeScript checks.\n2. Capture the chat flow in light and dark mode.\n3. Record platform checks in the release notes.\n\nThe checklist is ready for review. Platform acceptance remains a separate step."
+        }
+      ]
+    },
+    {
+      "title": "Review workspace architecture",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Map the main, preload, and renderer responsibilities."
+        }
+      ]
+    },
+    {
+      "title": "Compare API integration options",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Compare the integration options for a small internal tool."
+        }
+      ]
+    },
+    {
+      "title": "Draft weekly project notes",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Summarize completed work and the next milestones."
+        }
+      ]
+    }
+  ],
+  "plan": {
+    "goal": "Prepare desktop release",
+    "steps": [
+      {
+        "title": "Review the core user journeys",
+        "status": "done"
+      },
+      {
+        "title": "Run focused verification",
+        "status": "done"
+      },
+      {
+        "title": "Capture light and dark screenshots",
+        "status": "doing"
+      },
+      {
+        "title": "Verify platform packages",
+        "status": "todo"
+      }
+    ]
+  }
+}

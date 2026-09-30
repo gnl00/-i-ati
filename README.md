@@ -1,17 +1,20 @@
 # @i
 
-`@i` is an AI Agent application with tool calling, subagent execution, long-term memory, and workspace operations.
+`@i` is an AI agent workspace for desktop and terminal. Chat with models from multiple providers, work with local files and tools, and track multi-step tasks in one place.
+
+Built with Electron, React, and TypeScript.
 
 ## Core Capabilities
 
-- Unified multi-provider access: built-in adapters for OpenAI-compatible / Claude-compatible / Gemini-compatible providers.
+- Model providers: configure accounts and models through OpenAI-compatible, Claude-compatible, and Gemini-compatible adapters.
 - Agent toolchain: built-in file read/write, directory traversal, command execution, web search/fetch, subagent spawn/wait, plan management, skill loading, memory read/write, and scheduled tasks.
 - MCP support: connect to local or remote MCP servers, and search/import configs from the MCP Registry.
 - Skills system: ship built-in `resources/skills`, scan local folders, import `SKILL.md`, and enable skills per chat.
 - Long-term memory: main process uses `better-sqlite3 + sqlite-vec` for semantic memory storage and vector retrieval.
 - Tasks and scheduling: plan review, step status management, and scheduled prompt delivery to specific chats.
 - Subagents: spawn background researcher/coder/reviewer-style subagents with isolated execution context, live status updates, and parent-run confirmation bridging.
-- Artifacts / Workspace: each session is bound to an isolated workspace for file browsing and previewing dev services.
+- Artifacts / Workspace: use a chat workspace for file browsing, artifact previews, and local development services.
+- Desktop and terminal: use the graphical app, an interactive TUI, or the batch CLI with JSONL output.
 - Telegram bot support: receive Telegram messages and attachments through a gateway, map them into the shared chat runtime, and reply back through the same unified agent pipeline.
 
 ## Project Structure
@@ -32,6 +35,31 @@ pnpm install
 pnpm dev
 ```
 
+In **Settings → Providers**, add a provider, configure its account and models, and save. Select a model in the chat composer before sending your first message. Choose a workspace when working with local files.
+
+Build and launch the production bundles:
+
+```bash
+pnpm build
+pnpm start
+```
+
+For terminal use, build the bundles first:
+
+```bash
+pnpm tui --workspace .
+pnpm cli --help
+```
+
+The TUI uses configured accounts and models. The batch CLI accepts a task instruction file, workspace, and model configuration. See the [CLI guide](./docs/guides/development/cli-host-implementation.md) for configuration and run examples.
+
+Useful checks:
+
+```bash
+pnpm run typecheck
+pnpm exec vitest run <test-paths>
+```
+
 ## Architecture
 
 The app follows a clear split:
@@ -46,27 +74,29 @@ Telegram follows the same main-process path through a host adapter and gateway l
 
 ## Screenshots
 
-Main chat window
+Captured from the Electron app on macOS on September 30, 2026, using a separate temporary profile and [fictional demo data](./screenshot/current/demo-data.json). Chat responses and plan progress are seeded examples; no model requests were made for these screenshots.
 
-![chat-welcome](./screenshot/welcomepage.png)
+### Welcome
 
-Chat sidebar
+![Welcome screen in light mode](./screenshot/current/welcome-light.png)
 
-![chat-sheet](./screenshot/chatsheet-20260320113626.png)
+### Chat and task progress
 
-Setting section
+Light mode:
 
-![setting-providers-sections](./screenshot/providers.png)
+![Chat with a release checklist and task progress in light mode](./screenshot/current/chat-light.png)
 
-![setting-tools-sections](./screenshot/setting-sections.png)
+Dark mode:
 
-![setting-skills-sections](./screenshot/skills.png)
+![The same chat and task progress in dark mode](./screenshot/current/chat-dark.png)
 
-![setting-knowledgebase-sections](./screenshot/knowledgebase.png)
+### Chat list
 
-Task plan bar
+![Chat list populated with fictional conversations](./screenshot/current/chats-light.png)
 
-![task-plan-bar](./screenshot/plantaskbar-260319.png)
+### Tool settings
+
+![Tool settings in dark mode](./screenshot/current/tools-dark.png)
 
 ## FAQ
 
@@ -86,11 +116,16 @@ sudo update-desktop-database /usr/share/applications
 
 ## References
 
-- https://github.com/openai/openai-node
-- https://developers.openai.com/api/docs
-- https://platform.claude.com/docs/en/home
-- https://ai.google.dev/gemini-api/docs
-- https://icons.lobehub.com/
+- [Project documentation](./docs/README.md)
+- [Design language](./DESIGN.md)
+- [Renderer architecture](./docs/architecture/renderer-architecture.md)
+- [Main-process architecture](./docs/architecture/main-process-architecture.md)
+
+- [OpenAI Node SDK](https://github.com/openai/openai-node)
+- [OpenAI API documentation](https://developers.openai.com/api/docs)
+- [Claude documentation](https://platform.claude.com/docs/en/home)
+- [Gemini API documentation](https://ai.google.dev/gemini-api/docs)
+- [LobeHub icons](https://icons.lobehub.com/)
 
 ## License
 
