@@ -7,6 +7,14 @@ import type { ToolDefinition } from '../registry'
 const INTERNAL_ONLY_TOOL_NAMES = ['list_allowed_directories']
 
 describe('embeddedToolMetadata', () => {
+  it('keeps tg_gateway_tool global with read-only status and controlled lifecycle actions', () => {
+    expect(embeddedToolMetadata.tg_gateway_tool).toMatchObject({
+      needChatUUID: false, capability: 'telegram', riskLevel: 'warning',
+      mutatesWorkspace: false, subagent: 'deny',
+      actionOverrides: { status: { riskLevel: 'none' } }
+    })
+  })
+
   it('stays aligned with public tool definitions', () => {
     const toolNames = (tools as ToolDefinition[]).map(tool => tool.function.name).sort()
     const metadataNames = Object.keys(embeddedToolMetadata)

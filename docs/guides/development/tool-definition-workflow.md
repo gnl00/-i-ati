@@ -63,3 +63,21 @@ For model-output tools used only to constrain a maintenance request:
 - Add parser tests for `response.toolCalls`, missing tool calls, malformed arguments, and field validation.
 
 When adding or changing a tool, verify the schema with targeted tests plus `pnpm run typecheck:node`. Include `pnpm run typecheck:web` when renderer IPC or UI reads the result.
+
+## Telegram gateway lifecycle
+
+The `tg_gateway_tool` embedded tool accepts `{ action: 'start' | 'stop' | 'status' }`
+and reuses the existing Main-owned Telegram gateway service. It returns
+`success`, `action`, `message`, and a `status` snapshot when available. The
+snapshot includes running/starting state, configuration readiness, bot identity,
+last error and activity timestamps; it excludes bot credentials.
+
+`start` uses saved configuration and queues asynchronous startup. A successful
+queued result has `starting: true`; call `status` to inspect completion or
+failure. Missing token, disabled integration, or unavailable main model returns
+a failed result with the prerequisite. Use `telegram_setup_tool` to configure a
+new token. `stop` invalidates startup and initiates polling shutdown through the
+existing service. None of these actions changes saved configuration.
+
+The tool does not receive an injected `chat_uuid` and is unavailable to
+subagents. `status` has no risk; `start` and `stop` retain warning risk metadata.

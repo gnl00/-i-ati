@@ -3,6 +3,8 @@ import { configDb } from '@main/db/config'
 import { chatDb } from '@main/db/chat'
 import { telegramGatewayService } from '@main/services/telegram'
 import type {
+  TelegramGatewayToolArgs,
+  TelegramGatewayToolResponse,
   TelegramSearchTargetItem,
   TelegramSearchTargetsArgs,
   TelegramSearchTargetsResponse,
@@ -536,6 +538,41 @@ export async function processTelegramSendMessage(
       botUsername: status.botUsername,
       botId: status.botId,
       message: `Failed to send Telegram message: ${error instanceof Error ? error.message : String(error)}`
+    }
+  }
+}
+
+export async function processTelegramGateway(
+  args: TelegramGatewayToolArgs
+): Promise<TelegramGatewayToolResponse> {
+  const action = args?.action
+  if (action !== 'start' && action !== 'stop' && action !== 'status') {
+    return { success: false, action: String(action ?? ''), message: 'action must be start, stop, or status.' }
+  }
+
+  try {
+    if (action === 'start') await telegramGatewayService.start()
+    if (action === 'stop') telegramGatewayService.stop()
+    const status = telegramGatewayService.getStatus()
+    if (action === 'start' && !status.running && !status.starting) {
+      return {
+        success: false, action, status,
+        message: !status.configured ? 'Configure Telegram with telegram_setup_tool first.'
+          : !status.enabled ? 'Enable Telegram in Settings first.'
+            : !status.hasMainModel ? 'Configure an available main model first.'
+              : 'Telegram gateway did not start. Check status.lastError.'
+      }
+    }
+    return {
+      success: true, action, status,
+      message: action === 'status' ? 'Telegram gateway status retrieved.'
+        : action === 'stop' ? 'Telegram gateway stopped.'
+          : status.running ? 'Telegram gateway is running.' : 'Telegram gateway startup queued. Use status to check progress.'
+    }
+  } catch (error) {
+    return {
+      success: false, action,
+      message: `Telegram gateway ${action} failed: ${error instanceof Error ? error.message : String(error)}`
     }
   }
 }

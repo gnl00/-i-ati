@@ -8,6 +8,16 @@ import {
 import type { ToolDefinition } from '../registry'
 
 describe('tool definitions', () => {
+  it('exposes tg_gateway_tool with the required lifecycle action and shared reason', () => {
+    const tool = (tools as ToolDefinition[]).find(tool => tool.function.name === 'tg_gateway_tool')
+    expect(tool?.function.parameters.required).toEqual(['action', TOOL_CALL_REASON_PARAMETER_NAME])
+    expect(tool?.function.parameters.additionalProperties).toBe(false)
+    expect(tool?.function.parameters.properties.action).toEqual(
+      expect.objectContaining({ type: 'string', enum: ['start', 'stop', 'status'] })
+    )
+    expect(tool?.function.parameters.properties).not.toHaveProperty('chat_uuid')
+  })
+
   it('keeps tool names unique', () => {
     const toolNames = (tools as ToolDefinition[]).map(tool => tool.function.name)
 

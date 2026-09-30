@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  processTelegramGateway,
   processTelegramSearchTargets,
   processTelegramSendMessage,
   processTelegramSetupTool
@@ -9,6 +10,7 @@ const {
   getConfigMock,
   initConfigMock,
   saveConfigMock,
+  startMock,
   startWithTokenMock,
   stopMock,
   getStatusMock,
@@ -17,6 +19,7 @@ const {
   getConfigMock: vi.fn(),
   initConfigMock: vi.fn(),
   saveConfigMock: vi.fn(),
+  startMock: vi.fn(),
   startWithTokenMock: vi.fn(),
   stopMock: vi.fn(),
   getStatusMock: vi.fn(),
@@ -49,6 +52,7 @@ vi.mock('@main/db/config', () => ({
 
 vi.mock('@main/services/telegram', () => ({
   telegramGatewayService: {
+    start: startMock,
     startWithToken: startWithTokenMock,
     stop: stopMock,
     getStatus: getStatusMock,
@@ -367,5 +371,76 @@ describe('TelegramToolsProcessor', () => {
     expect(result.success).toBe(false)
     expect(result.message).toContain('not running')
     expect(sendTextMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('tg_gateway_tool', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    getStatusMock.mockReturnValue({
+      running: false, starting: false, configured: true, enabled: true,
+      hasMainModel: true, lastUpdateId: 0
+    })
+  })
+
+  it('returns status without starting, stopping, or changing config', async () => {
+    const result = await processTelegramGateway({ action: 'status' })
+    expect(result).toMatchObject({ success: true, action: 'status', status: { running: false } })
+    expect(startMock).not.toHaveBeenCalled()
+    expect(stopMock).not.toHaveBeenCalled()
+    expect(saveConfigMock).not.toHaveBeenCalled()
+  })
+
+  it('queues startup and returns the starting state', async () => {
+    startMock.mockImplementation(async () => {
+      getStatusMock.mockReturnValue({ running: false, starting: true })
+    })
+    expect(await processTelegramGateway({ action: 'start' })).toMatchObject({
+      success: true, status: { running: false, starting: true }
+    })
+    expect(startMock).toHaveBeenCalledOnce()
+    expect(startWithTokenMock).not.toHaveBeenCalled()
+    expect(saveConfigMock).not.toHaveBeenCalled()
+  })
+
+  it('reports an already running gateway', async () => {
+    getStatusMock.mockReturnValue({ running: true, starting: false })
+    expect(await processTelegramGateway({ action: 'start' })).toMatchObject({ success: true })
+  })
+
+  it.each([
+    [{ configured: false }, 'telegram_setup_tool'],
+    [{ enabled: false }, 'Enable Telegram'],
+    [{ hasMainModel: false }, 'main model'],
+    [{ lastError: 'Network failed' }, 'status.lastError']
+  ])('reports skipped startup for %j', async (status, message) => {
+    getStatusMock.mockReturnValue({
+      running: false, starting: false, configured: true, enabled: true,
+      hasMainModel: true, ...status
+    })
+    const result = await processTelegramGateway({ action: 'start' })
+    expect(result.success).toBe(false)
+    expect(result.message).toContain(message)
+  })
+
+  it('stops the gateway without changing configuration', async () => {
+    const result = await processTelegramGateway({ action: 'stop' })
+    expect(stopMock).toHaveBeenCalledOnce()
+    expect(result).toMatchObject({ success: true, status: { running: false, starting: false } })
+    expect(saveConfigMock).not.toHaveBeenCalled()
+  })
+
+  it('reports startup exceptions', async () => {
+    startMock.mockRejectedValue(new Error('Config unavailable'))
+    expect(await processTelegramGateway({ action: 'start' })).toMatchObject({
+      success: false, message: 'Telegram gateway start failed: Config unavailable'
+    })
+  })
+
+  it.each([undefined, 'restart', ''])('rejects invalid action %s without side effects', async action => {
+    expect(await processTelegramGateway({ action } as Parameters<typeof processTelegramGateway>[0])).toMatchObject({ success: false })
+    expect(startMock).not.toHaveBeenCalled()
+    expect(stopMock).not.toHaveBeenCalled()
+    expect(getStatusMock).not.toHaveBeenCalled()
   })
 })

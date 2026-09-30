@@ -1,5 +1,5 @@
+import { telegramFetch } from './telegram-fetch'
 import { v4 as uuidv4 } from 'uuid'
-import { net } from 'electron'
 import { Bot } from 'grammy'
 import { configDb } from '@main/db/config'
 import { RunService } from '@main/orchestration/chat/run'
@@ -174,13 +174,6 @@ export class TelegramGatewayService {
       : envelope.chatId
   }
 
-  private resolveFetch(): typeof fetch {
-    if (typeof net?.fetch === 'function') {
-      return net.fetch.bind(net) as typeof fetch
-    }
-    return fetch
-  }
-
   private toPreview(value: string, limit = 400): string {
     const normalized = value.replace(/\r\n?/g, '\n').trim()
     return normalized.length > limit ? `${normalized.slice(0, limit)}…` : normalized
@@ -349,7 +342,7 @@ export class TelegramGatewayService {
 
       const bot = new Bot(token, {
         client: {
-          fetch: this.resolveFetch()
+          fetch: telegramFetch
         }
       })
       const me = await this.withTimeout(
@@ -548,7 +541,7 @@ export class TelegramGatewayService {
     })
     const bot = new Bot(botToken, {
       client: {
-        fetch: this.resolveFetch()
+        fetch: telegramFetch
       }
     })
     let readySettled = false

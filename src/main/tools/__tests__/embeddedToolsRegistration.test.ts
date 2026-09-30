@@ -27,6 +27,13 @@ vi.mock('@main/main-window', () => ({
 }))
 
 describe('main embedded tool handlers', () => {
+  it('routes tg_gateway_tool to the Telegram lifecycle processor', async () => {
+    const { toolHandlers } = await import('../index')
+    const { processTelegramGateway } = await import('../telegram/TelegramToolsProcessor')
+    expect(toolHandlers.tg_gateway_tool).toBe(processTelegramGateway)
+    await expect(toolHandlers.tg_gateway_tool({ action: 'restart' })).resolves.toMatchObject({ success: false })
+  })
+
   it('has a handler for every public embedded tool definition', async () => {
     const { toolHandlers } = await import('../index')
     const missing = (tools as ToolDefinition[])

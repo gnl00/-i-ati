@@ -1,3 +1,28 @@
+export type TelegramGatewayToolArgs = {
+  action: 'start' | 'stop' | 'status'
+}
+
+export type TelegramGatewayToolResponse = {
+  success: boolean
+  action: string
+  message: string
+  status?: {
+    running: boolean
+    starting: boolean
+    configured: boolean
+    enabled: boolean
+    hasMainModel: boolean
+    mode?: string
+    lastUpdateId: number
+    botUsername?: string
+    botId?: string
+    lastError?: string
+    lastErrorAt?: number
+    lastSuccessfulPollAt?: number
+    lastMessageProcessedAt?: number
+  }
+}
+
 export type TelegramSetupToolArgs = {
   bot_token?: string
 }

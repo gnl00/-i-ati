@@ -1,6 +1,16 @@
 import type { EmbeddedToolMetadataMap } from '../metadata-types'
 
 export const telegramToolMetadata = {
+  tg_gateway_tool: {
+    needChatUUID: false,
+    capability: 'telegram',
+    riskLevel: 'warning',
+    mutatesWorkspace: false,
+    subagent: 'deny',
+    actionOverrides: {
+      status: { riskLevel: 'none' }
+    }
+  },
   telegram_setup_tool: {
     capability: 'telegram',
     riskLevel: 'warning',

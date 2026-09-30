@@ -45,6 +45,7 @@ import {
   processPluginUninstall
 } from '@main/tools/plugins/PluginToolsProcessor'
 import {
+  processTelegramGateway,
   processTelegramSearchTargets,
   processTelegramSendMessage,
   processTelegramSetupTool
@@ -104,6 +105,7 @@ export const toolHandlers: Record<
   list_plugins: processListPlugins,
   plugin_install: processPluginInstall,
   plugin_uninstall: processPluginUninstall,
+  tg_gateway_tool: processTelegramGateway,
   telegram_setup_tool: processTelegramSetupTool,
   telegram_search_targets: processTelegramSearchTargets,
   telegram_send_message: processTelegramSendMessage,

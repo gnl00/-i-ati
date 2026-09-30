@@ -1,4 +1,4 @@
-import { net } from 'electron'
+import { telegramFetch } from './telegram-fetch'
 import { Bot } from 'grammy'
 import { lookup as lookupMimeType } from 'mime-types'
 import { createLogger } from '@main/logging/LogService'
@@ -24,13 +24,6 @@ export type TelegramAttachmentContext = {
 export class TelegramFileService {
   private readonly logger = createLogger('TelegramFileService')
 
-  private resolveFetch(): typeof fetch {
-    if (typeof net?.fetch === 'function') {
-      return net.fetch.bind(net) as typeof fetch
-    }
-    return fetch
-  }
-
   async buildAttachmentContext(bot: Bot, envelope: TelegramInboundEnvelope): Promise<TelegramAttachmentContext> {
     const mediaCtx: string[] = []
     const documentTextBlocks: string[] = []
@@ -42,7 +35,7 @@ export class TelegramFileService {
           continue
         }
 
-        const response = await this.resolveFetch()(`https://api.telegram.org/file/bot${bot.token}/${file.file_path}`)
+        const response = await telegramFetch(`https://api.telegram.org/file/bot${bot.token}/${file.file_path}`)
         if (!response.ok) {
           throw new Error(`Failed to download telegram file: ${response.status}`)
         }

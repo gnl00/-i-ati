@@ -4,6 +4,25 @@ export const telegramTools = [
   {
     type: 'function',
     function: {
+      name: 'tg_gateway_tool',
+      description: 'Start, stop, or inspect the configured Telegram gateway without changing its configuration. Start queues asynchronous startup; use status to check running, starting, and lastError. Configure bot access with telegram_setup_tool first when needed.',
+      parameters: {
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            enum: ['start', 'stop', 'status'],
+            description: 'Gateway operation to perform.'
+          }
+        },
+        additionalProperties: false,
+        required: ['action']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
       name: 'telegram_setup_tool',
       description: 'Configure Telegram bot access with a bot token, start the Telegram gateway, and persist the token only after startup succeeds.',
       parameters: {

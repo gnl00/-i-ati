@@ -317,3 +317,18 @@ job set. TUI shutdown also awaits toolResultCompactionScheduler.waitForIdle()
 before closing database/logging, so deferred jobs retain their persistence
 resources. See [the TUI guide](../guides/development/ati-tui.md) and
 [ADR 0022](../decisions/0022-interactive-terminal-host.md).
+
+## Telegram transport
+
+`services/telegram/telegram-fetch.ts` supplies the fetch implementation for both
+Bot API calls (gateway startup, connection tests, polling and replies) and file
+downloads. It uses Electron `net.fetch`, with a global fetch fallback for runtimes
+without Electron networking. grammY supplies a polyfill `AbortSignal`; the adapter
+converts it to a native signal for Electron, forwards cancellation (including
+already aborted signals and their reasons), and removes listeners when fetch
+settles.
+
+Transport failures emit `TelegramFetch/request.failed` diagnostics with the
+underlying error name and message. Bot credentials and recognized sensitive text
+are redacted before logging; request payloads and raw error stacks are excluded.
+The original exception is rethrown so grammY retains its existing error behavior.
