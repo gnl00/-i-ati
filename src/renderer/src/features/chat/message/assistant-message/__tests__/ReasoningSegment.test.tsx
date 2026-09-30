@@ -263,16 +263,78 @@ describe('ReasoningSegment', () => {
       .toBe(false)
   })
 
-  it('shows reasoning inline without a repeated Thought header inside the process', async () => {
-    await act(async () => root.render(<ReasoningSegment segment={createSegment({ content: 'Reasoning. '.repeat(30) })} fullWidth nestedDisclosure />))
+  it('expands reasoning by clicking the first sentence and restores the preview on collapse', async () => {
+    const content = 'Inspect the current code. Then verify the implementation.'
+    await act(async () => root.render(<ReasoningSegment segment={createSegment({ content })} nestedDisclosure />))
     expect(container.querySelector('[data-testid="reasoning-label"]')).toBeNull()
-    expect(container.querySelector('[data-testid="reasoning-think-content"]')).not.toBeNull()
-    const trigger = container.querySelector<HTMLButtonElement>('button[aria-label="Expand thinking"]')!
-    expect(trigger.textContent).toBe('Expand')
-    expect(trigger.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true')
-    await act(async () => trigger.click())
-    expect(trigger.textContent).toBe('Collapse')
-    expect(trigger.getAttribute('aria-label')).toBe('Collapse thinking')
-    expect(trigger.getAttribute('aria-expanded')).toBe('true')
+    expect(container.querySelector('[data-testid="reasoning-think-content"]')).toBeNull()
+    const preview = container.querySelector<HTMLButtonElement>('button[aria-label="Expand thinking"]')!
+    expect(preview.textContent).toBe('Inspect the current code.…')
+    expect(preview.getAttribute('aria-expanded')).toBe('false')
+    expect(preview.firstElementChild?.tagName.toLowerCase()).toBe('svg')
+    expect(preview.querySelector('svg')?.classList.contains('rotate-90')).toBe(false)
+    await act(async () => preview.click())
+    const panel = container.querySelector('[data-testid="reasoning-think-content"]')!
+    expect(panel.textContent).toBe(content)
+    expect(panel.firstElementChild!.classList.contains('overflow-y-auto')).toBe(true)
+    const collapse = container.querySelector<HTMLButtonElement>('button[aria-label="Collapse thinking"]')!
+    expect(collapse).toBe(preview)
+    expect(collapse.textContent).toBe('')
+    expect(container.textContent).toBe(content)
+    const guide = container.querySelector('[data-testid="reasoning-guide"]')!
+    expect(guide.classList.contains('border-l')).toBe(true)
+    expect(guide.getAttribute('aria-hidden')).toBe('true')
+    expect(panel.classList.contains('pl-3')).toBe(false)
+    expect(collapse.querySelector('svg')?.classList.contains('rotate-90')).toBe(true)
+    expect(collapse.getAttribute('aria-controls')).toBe(panel.parentElement!.id)
+    expect(collapse.getAttribute('aria-expanded')).toBe('true')
+    await act(async () => collapse.click())
+    expect(container.querySelector('[data-testid="reasoning-guide"]')).toBeNull()
+    expect(container.querySelector('[data-testid="reasoning-think-content"]')).toBeNull()
+    expect(container.querySelector('button[aria-label="Expand thinking"]')!.textContent).toBe('Inspect the current code.…')
+  })
+
+  it('renders complete Markdown once beside the collapse arrow', async () => {
+    const content = 'Check **current code**. Then inspect the result.\n\n- Preserve the list\n- Keep `inline code`'
+    await act(async () => root.render(<ReasoningSegment segment={createSegment({ content })} nestedDisclosure />))
+    await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="Expand thinking"]')!.click())
+    expect(container.querySelectorAll('strong')).toHaveLength(1)
+    expect(container.querySelector('strong')!.textContent).toBe('current code')
+    expect(container.querySelectorAll('li')).toHaveLength(2)
+    expect(container.querySelector('code')!.textContent).toBe('inline code')
+    expect(container.textContent!.match(/Check/g)).toHaveLength(1)
+  })
+
+  it.each([
+    ['先查看代码。再验证行为。', '先查看代码。…'],
+    ['Is this correct? Check the tests.', 'Is this correct?…'],
+    ['Use version 3.14. Then verify.', 'Use version 3.14.…'],
+    ['First line\nSecond line', 'First line…'],
+    ['One complete sentence.', 'One complete sentence.'],
+    ['No sentence punctuation', 'No sentence punctuation'],
+    ['  First sentence.  \n ', 'First sentence.']
+  ])('previews the first sentence of %s', async (content, expected) => {
+    await act(async () => root.render(<ReasoningSegment segment={createSegment({ content })} nestedDisclosure />))
+    expect(container.querySelector('button[aria-label="Expand thinking"]')!.textContent).toBe(expected)
+  })
+
+  it('allows wheel and touch gestures to reach the outer chat container', async () => {
+    await act(async () => root.render(<ReasoningSegment segment={createSegment()} nestedDisclosure />))
+    await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="Expand thinking"]')!.click())
+    const viewport = container.querySelector('[data-testid="reasoning-think-content"]')!.firstElementChild!
+    expect(viewport.classList.contains('overflow-y-auto')).toBe(true)
+    expect(viewport.classList.contains('overscroll-contain')).toBe(false)
+    const onWheel = vi.fn()
+    const onTouchMove = vi.fn()
+    container.addEventListener('wheel', onWheel)
+    container.addEventListener('touchmove', onTouchMove)
+    const wheel = new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: 100 })
+    const touchMove = new Event('touchmove', { bubbles: true, cancelable: true })
+    viewport.dispatchEvent(wheel)
+    viewport.dispatchEvent(touchMove)
+    expect(onWheel).toHaveBeenCalledOnce()
+    expect(onTouchMove).toHaveBeenCalledOnce()
+    expect(wheel.defaultPrevented).toBe(false)
+    expect(touchMove.defaultPrevented).toBe(false)
   })
 })

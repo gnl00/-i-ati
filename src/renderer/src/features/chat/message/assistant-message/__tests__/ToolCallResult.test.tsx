@@ -179,6 +179,11 @@ describe('ToolCallResult', () => {
     expect(container.textContent).not.toContain('1.086s')
   })
 
+  it.each([[60_000, '1m'], [225_000, '3m45s']])('formats a long tool duration of %s ms', async (cost, expected) => {
+    await act(async () => root.render(<ToolCallResult toolCall={{ ...createToolCall(), cost: Number(cost) }} index={0} />))
+    expect(container.textContent).toContain(expected)
+  })
+
   it('updates the running duration from the execution start', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(10_000)

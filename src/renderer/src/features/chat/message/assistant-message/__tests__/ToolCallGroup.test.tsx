@@ -200,6 +200,21 @@ describe('ToolCallGroup', () => {
     expect(chevron?.classList.contains('opacity-[0.45]')).toBe(false)
   })
 
+  it('places tool identity and duration in the Tool header and preserves parameter copying', async () => {
+    await act(async () => root.render(<ToolCallGroup items={[toolCallItem('1', 0)]} nestedDisclosure />))
+    await act(async () => container.querySelector<HTMLButtonElement>('[data-testid="support-segment-row-segment-1"]')!.click())
+    const section = container.querySelector('[data-testid="tool-inspector-tool"]')!
+    expect(section.textContent).toContain('Tool')
+    expect(section.textContent).toContain('tool_1')
+    expect(section.textContent).toContain('0.02s')
+    expect(section.querySelector('button[aria-label="Copy parameters"]')).not.toBeNull()
+    expect(container.querySelector('[data-testid="tool-inspector-parameters"]')).toBeNull()
+    const details = container.querySelector('[data-testid="tool-call-detail-surface-segment-1"]')!
+    expect(details.firstElementChild?.getAttribute('data-testid')).toBe('tool-call-inspector-details')
+    expect(section.textContent).toContain('input')
+    expect(container.querySelector('[data-testid="tool-inspector-result"]')).not.toBeNull()
+  })
+
   it('uses restrained append motion and disables it for reduced motion', async () => {
     await act(async () => root.render(<ToolCallGroup items={[toolCallItem('1', 0)]} />))
     const animatedRow = container.querySelector('[data-testid="tool-call-group-row-segment-1"]')

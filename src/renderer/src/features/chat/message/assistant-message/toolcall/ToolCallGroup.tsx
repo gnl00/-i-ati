@@ -171,17 +171,22 @@ const ToolCallGroupRow = memo(({
           data-testid={`tool-call-detail-surface-${item.segment.segmentId}`}
           className="border-t border-slate-200/35 bg-gray-100/45 px-1 py-1 dark:border-(--chat-border-subtle) dark:bg-(--chat-surface)"
         >
-          {nestedDisclosure && (hasOpened || expanded) && (
-            <div className="flex items-center gap-2 px-2 py-1 text-[11px] text-slate-500 dark:text-(--chat-text-secondary)">
-              <span>{item.segment.name}</span>
-              <ToolCallDuration cost={item.segment.cost} isRunning={isRunning} runningStartedAt={item.segment.executionStartedAt ?? item.segment.timestamp} />
-            </div>
-          )}
           {hasOpened || expanded ? (
             <ToolCallInspectorDetails
               toolCall={item.segment}
               toolResponse={toolResponse}
               liveOutput={liveOutput}
+              headerMetadata={nestedDisclosure ? (
+                <div className="mr-2 flex min-w-0 items-center gap-2.5 text-[11px] leading-4 text-slate-500 dark:text-(--chat-text-secondary)">
+                  <span className="min-w-0 wrap-anywhere rounded-sm bg-slate-200/50 px-1.5 py-0.5 font-mono font-medium text-slate-600 dark:bg-(--chat-surface-raised) dark:text-(--chat-text-body)">{item.segment.name}</span>
+                  <ToolCallDuration
+                    cost={item.segment.cost}
+                    isRunning={isRunning}
+                    runningStartedAt={item.segment.executionStartedAt ?? item.segment.timestamp}
+                    className="shrink-0 tabular-nums text-slate-400 dark:text-(--chat-text-secondary)"
+                  />
+                </div>
+              ) : undefined}
             />
           ) : null}
         </div>

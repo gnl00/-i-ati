@@ -180,7 +180,11 @@ Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif
 - Settings section 使用 raised surface、standard border 和连续 footer 或 inset region。
 - 连续工具调用与任务列表使用外层容器加 subtle separator，减少重复卡片边框。
 - Chat 的整轮处理过程使用无卡片边框的次级文字标题、小箭头与连续列表；执行中展开，正常完成后统一收起。短思考直接展示，工具行突出动作描述；独立工具详情保留原有布局。
-- 处理过程标题与操作使用英文；耗时（如 `9s`）和工具次数（如 `3 tool calls`）使用低对比度浅色 badge，信息之间不使用圆点分隔。
+- 处理过程内部的 reasoning 收起时以第一句作为可点击预览，后续有内容时追加省略号；无句末标点时取第一行。小号低对比度箭头放在首句前，收起向右、展开向下；收起时点击首句整行展开，展开后全文在原位置替换预览，首句只出现一次；箭头作为独立收起入口，正文保留选择、复制与 Markdown 交互，并保留高度上限与内部滚动。
+- reasoning 内部滚动遵循原生 scroll chaining：内容可滚动时优先滚动内部，到达顶部或底部后继续滚动外层 Chat；wheel 和 touchmove 事件保持冒泡。
+- reasoning 展开时的 1px 浅色引导线从开头箭头下方沿图标列延伸到内容底部；正文与收起态首句及相邻 toolcall 标题对齐。
+- 处理过程内的工具详情以 `Tool` 为首个区块标题，右侧紧凑排列等宽工具名浅底标识、低对比度耗时和参数复制入口；下方直接展示参数，不再单独占一行元信息。
+- 处理过程标题与操作使用英文；耗时（不足一分钟如 `9s`，达到一分钟如 `3m45s`，整分钟如 `4m`）和工具次数（如 `3 tool calls`）使用低对比度浅色 badge，信息之间不使用圆点分隔。
 - 状态图标、duration 和 chevron 保持固定槽位，展开时内容与 header 边界连续。
 
 ### 4.7 Sheet、Settings 与右侧面板

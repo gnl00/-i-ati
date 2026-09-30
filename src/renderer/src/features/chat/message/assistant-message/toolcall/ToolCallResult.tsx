@@ -1,4 +1,5 @@
 import { SpeedCodeHighlight } from '@renderer/features/chat/common/SpeedCodeHighlight'
+import { formatDuration } from '@renderer/shared/lib/formatDuration'
 import { cn } from '@renderer/shared/lib/utils'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 import { motion, useReducedMotion } from 'framer-motion'
@@ -168,6 +169,7 @@ function formatWikiCount(count: number | undefined, singular: string, plural: st
 }
 
 function formatToolCost(costMs: number): string {
+  if (costMs >= 60_000) return formatDuration(costMs / 1000)
   return `${(Math.max(0, costMs) / 1000).toFixed(2)}s`
 }
 
@@ -782,6 +784,7 @@ export type ToolCallInspectorDetailsProps = {
   toolCall: ToolCallSegment
   toolResponse: ToolCallResponse | undefined
   liveOutput?: ToolLiveOutput
+  headerMetadata?: React.ReactNode
 }
 
 const LiveToolOutput = React.memo(({ output }: { output: ToolLiveOutput }) => {
@@ -961,6 +964,8 @@ const InspectorSection: React.FC<{
   copyContent: unknown
   children: React.ReactNode
   action?: React.ReactNode
+  metadata?: React.ReactNode
+  copyLabel?: string
   isFirst?: boolean
   isLast?: boolean
 }> = ({
@@ -968,6 +973,8 @@ const InspectorSection: React.FC<{
   copyContent,
   children,
   action,
+  metadata,
+  copyLabel = label.toLowerCase(),
   isFirst = false,
   isLast = false
 }) => (
@@ -993,15 +1000,16 @@ const InspectorSection: React.FC<{
       )} />
     </span>
     <div className="min-w-0 overflow-hidden">
-      <div className="flex h-8 items-center justify-between px-3">
-        <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+      <div className={cn('flex items-center justify-between px-3', metadata ? 'min-h-8 flex-wrap gap-x-3 gap-y-1 py-1' : 'h-8')}>
+        <span className={cn('font-mono text-[9px] font-semibold tracking-[0.16em] text-slate-500 dark:text-slate-400', !metadata && 'uppercase')}>
           {label}
         </span>
-        <div className="flex items-center gap-1">
+        <div className={cn('flex items-center gap-1', metadata && 'ml-auto min-w-0 flex-wrap justify-end')}>
+          {metadata}
           {action}
           <CopyButton
             variant="compact"
-            label={`Copy ${label.toLowerCase()}`}
+            label={`Copy ${copyLabel}`}
             feedbackKey={copyContent}
             onClick={() => navigator.clipboard.writeText(serializeInspectorValue(copyContent))}
           />
@@ -1015,7 +1023,8 @@ const InspectorSection: React.FC<{
 export const ToolCallInspectorDetails = React.memo(({
   toolCall,
   toolResponse,
-  liveOutput
+  liveOutput,
+  headerMetadata
 }: ToolCallInspectorDetailsProps) => {
   const shouldReduceMotion = Boolean(useReducedMotion())
   const [areParametersExpanded, setAreParametersExpanded] = useState(false)
@@ -1085,7 +1094,9 @@ export const ToolCallInspectorDetails = React.memo(({
       data-testid="tool-call-inspector-details"
     >
       <InspectorSection
-        label="Parameters"
+        label={headerMetadata ? 'Tool' : 'Parameters'}
+        metadata={headerMetadata}
+        copyLabel="parameters"
         copyContent={parametersCopyContent}
         isFirst
         action={areArgsReady && parameterPreview.isTruncated ? (

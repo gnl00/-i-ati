@@ -2,8 +2,9 @@ import React, { memo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { useReducedMotion } from 'framer-motion'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { SizeAnimatedPanel } from '@renderer/shared/components/ui/size-animated-panel'
+import { formatDuration } from '@renderer/shared/lib/formatDuration'
 import { cn } from '@renderer/shared/lib/utils'
 import { StreamingMarkdownLite } from '@renderer/features/chat/message/typewriter/StreamingMarkdownLite'
 import { useReasoningTypewriter } from '@renderer/features/chat/message/typewriter/useReasoningTypewriter'
@@ -21,6 +22,7 @@ interface ReasoningSegmentProps {
 interface ReasoningSegmentPanelProps {
   content: string
   streamingPresentation: boolean
+  inline?: boolean
 }
 
 const REASONING_PROSE_CLASS_NAME = cn(
@@ -36,19 +38,21 @@ const REASONING_PROSE_CLASS_NAME = cn(
 
 export const ReasoningSegmentPanel: React.FC<ReasoningSegmentPanelProps> = ({
   content,
-  streamingPresentation
+  streamingPresentation,
+  inline = false
 }) => {
   const fixedContent = React.useMemo(() => fixMalformedCodeBlocks(content), [content])
 
   return (
     <div
       data-testid="reasoning-think-content"
-      className="relative border-l border-slate-200/70 pl-3 dark:border-(--chat-border-standard)"
+      className={cn(
+        'relative',
+        inline ? '[&_.prose>:first-child]:mt-0' : 'border-l border-slate-200/70 pl-3 dark:border-(--chat-border-standard)'
+      )}
     >
       <div
-        className="max-h-[min(456px,calc(100vh-160px))] overflow-y-auto overscroll-contain pr-1"
-        onWheel={(event) => event.stopPropagation()}
-        onTouchMove={(event) => event.stopPropagation()}
+        className="max-h-[min(456px,calc(100vh-160px))] overflow-y-auto pr-1"
       >
         {streamingPresentation ? (
           <StreamingMarkdownLite
@@ -84,7 +88,7 @@ export function getReasoningDurationMs(
 }
 
 export function formatReasoningDurationText(durationMs: number | undefined): string | undefined {
-  return durationMs != null ? `${Math.max(1, Math.ceil(durationMs / 1000))}s` : undefined
+  return durationMs != null ? formatDuration(Math.max(1, Math.ceil(durationMs / 1000))) : undefined
 }
 
 export function useReasoningDurationText(
@@ -138,23 +142,47 @@ const ReasoningSegmentComponent: React.FC<ReasoningSegmentProps> = ({
   }, [isStreaming, nestedDisclosure])
 
   if (nestedDisclosure) {
+    const content = panelContent.trim()
+    const firstSentence = content.match(/^.*?(?:[。！？!?]+|\.+(?=\s|$)|\n|$)/s)?.[0].trim() ?? content
+    const preview = firstSentence + (firstSentence.length < content.length ? '…' : '')
+
     return (
       <div data-testid="reasoning-segment" className="px-2 py-1 text-[12.5px] leading-6 text-slate-500 dark:text-(--chat-text-secondary)">
-        <div className={cn(!isOpen && (segment.content.length > 240 || segment.content.split('\n').length > 4) && 'line-clamp-4')}>
-          <ReasoningSegmentPanel content={panelContent} streamingPresentation={shouldUseStreamingPresentation} />
-        </div>
-        {(segment.content.length > 240 || segment.content.split('\n').length > 4) && (
+        <div className="relative flex items-start gap-2">
+          {isOpen && (
+            <div
+              data-testid="reasoning-guide"
+              aria-hidden="true"
+              className="pointer-events-none absolute bottom-0 left-[6.5px] top-6 border-l border-slate-200/70 dark:border-(--chat-border-standard)"
+            />
+          )}
           <button
             type="button"
             aria-label={isOpen ? 'Collapse thinking' : 'Expand thinking'}
             aria-expanded={isOpen}
+            aria-controls={isOpen ? panelId : undefined}
             onClick={() => setIsOpen(value => !value)}
-            className="inline-flex cursor-pointer items-center gap-1 rounded-sm text-[11px] hover:underline focus-visible:ring-2 focus-visible:ring-slate-400"
+            className={cn(
+              'flex cursor-pointer items-start gap-2 rounded-sm text-left hover:text-slate-600 focus-visible:ring-2 focus-visible:ring-slate-400 dark:hover:text-(--chat-text-body)',
+              isOpen ? 'shrink-0' : 'w-full'
+            )}
           >
-            {isOpen ? 'Collapse' : 'Expand'}
-            <ChevronDown aria-hidden="true" className={cn('h-3 w-3', isOpen && 'rotate-180')} />
+            <ChevronRight
+              aria-hidden="true"
+              className={cn('mt-1.5 h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-(--chat-text-secondary)', isOpen && 'rotate-90')}
+            />
+            {!isOpen && <span className="min-w-0 wrap-break-word">{preview}</span>}
           </button>
-        )}
+          {isOpen && (
+            <div id={panelId} className="min-w-0 flex-1">
+              <ReasoningSegmentPanel
+                content={panelContent}
+                streamingPresentation={shouldUseStreamingPresentation}
+                inline
+              />
+            </div>
+          )}
+        </div>
       </div>
     )
   }

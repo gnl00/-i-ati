@@ -51,6 +51,17 @@ describe('AssistantCompletedWorkGroup', () => {
     expect(trigger.getAttribute('aria-expanded')).toBe('true')
   })
 
+  it.each([[59, '59s'], [60, '1m'], [225, '3m45s'], [240, '4m']])(
+    'shows completed work lasting %s seconds as %s', async (seconds, expected) => {
+      await act(async () => root.render(
+        <AssistantCompletedWorkGroup startedAt={1000} endedAt={1000 + Number(seconds) * 1000}>
+          Work content
+        </AssistantCompletedWorkGroup>
+      ))
+      expect(container.querySelector('button')!.textContent).toBe(`Work details${expected}`)
+    }
+  )
+
   it('respects a manual reopen during execution across completion', async () => {
     const trigger = await render('running')
     await act(async () => trigger.click())

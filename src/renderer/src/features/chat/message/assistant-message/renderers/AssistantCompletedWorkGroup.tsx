@@ -1,4 +1,5 @@
 import { SizeAnimatedPanel } from '@renderer/shared/components/ui/size-animated-panel'
+import { formatDuration } from '@renderer/shared/lib/formatDuration'
 import { cn } from '@renderer/shared/lib/utils'
 import { useReducedMotion } from 'framer-motion'
 import { ChevronRight } from 'lucide-react'
@@ -70,7 +71,7 @@ export const AssistantCompletedWorkGroup: React.FC<AssistantCompletedWorkGroupPr
       >
         <ChevronRight aria-hidden="true" className={cn('h-3 w-3 shrink-0', isOpen && 'rotate-90')} />
         <span data-testid="completed-work-label">{labels[status]}</span>
-        {duration != null && <span className={metadataBadgeClassName}>{duration}s</span>}
+        {duration != null && <span className={metadataBadgeClassName}>{formatDuration(duration)}</span>}
         {toolCount > 0 && <span className={metadataBadgeClassName}>{toolCount} {toolCount === 1 ? 'tool call' : 'tool calls'}</span>}
       </button>
       <SizeAnimatedPanel
