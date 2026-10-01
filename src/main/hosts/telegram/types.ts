@@ -26,6 +26,7 @@ export type TelegramInboundEnvelope = {
   media: TelegramInboundMedia[]
   isMentioned: boolean
   replyToBot: boolean
+  replyToMessageId?: string
   receivedAt: number
 }
 

@@ -352,3 +352,15 @@ A failed execution edit is reported through the responder's existing error path.
 No duplicate completion message is sent as a fallback. Terminal message records
 retain the latest 500 entries; pending and running entries are kept until settled.
 No database schema or agent event contract changes are involved.
+
+## Telegram delivery ownership
+
+Proactive Telegram delivery keeps its receipt and transcript copy in the source
+chat. `chat_telegram_targets` stores each chat's outbound recipient separately
+from `chat_host_bindings`, which continues to route ordinary inbound messages.
+`telegram_delivery_receipts` maps a bot/peer/topic/message tuple back to the
+source message, allowing replies to a proactive push to select its source chat
+without rebinding the ordinary inbound session. Persistence remains behind
+`db/chat.ts`; transport handling remains in the Telegram tool and host adapter.
+See [ADR 0032](../decisions/0032-telegram-delivery-source-routing.md) for resolution
+order, ambiguity handling, failure semantics, and compatibility.

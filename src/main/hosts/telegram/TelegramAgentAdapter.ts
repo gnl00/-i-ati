@@ -1,3 +1,4 @@
+import { chatDb } from '@main/db/chat'
 import { HostChatBindingService } from '@main/hosts/shared/HostChatBindingService'
 import type { MainTelegramRunInput, TelegramInboundEnvelope } from './types'
 import { buildTelegramInputText } from './telegram-input-text'
@@ -7,10 +8,30 @@ export class TelegramAgentAdapter {
     private readonly hostChatBindingService = new HostChatBindingService()
   ) {}
 
-  async resolveOrCreateSession(
+  resolveOrCreateSession(
     envelope: TelegramInboundEnvelope,
     modelRef: ModelRef
-  ): Promise<{ chat: ChatEntity; binding: ChatHostBindingEntity; created: boolean }> {
+  ): Promise<{ chat: ChatEntity; binding: ChatHostBindingEntity; created: boolean }>
+  resolveOrCreateSession(
+    envelope: TelegramInboundEnvelope,
+    modelRef: ModelRef,
+    botId: string | undefined
+  ): Promise<{ chat: ChatEntity; binding?: ChatHostBindingEntity; created: boolean }>
+  async resolveOrCreateSession(
+    envelope: TelegramInboundEnvelope,
+    modelRef: ModelRef,
+    botId?: string
+  ): Promise<{ chat: ChatEntity; binding?: ChatHostBindingEntity; created: boolean }> {
+    if (botId && envelope.replyToBot && envelope.replyToMessageId) {
+      const chatUuid = chatDb.getTelegramReplyChat(
+        botId, envelope.chatId, envelope.replyToMessageId, envelope.threadId
+      )
+      const chat = chatUuid ? chatDb.getChatByUuid(chatUuid) : undefined
+      if (chat) {
+        // A reply selects its source chat for this run only; ordinary inbound routing stays unchanged.
+        return { chat, created: false }
+      }
+    }
     const result = await this.hostChatBindingService.resolveOrCreate({
       hostType: 'telegram',
       hostChatId: envelope.chatId,

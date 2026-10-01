@@ -21,6 +21,7 @@ describe('TelegramUpdateMapper', () => {
           first_name: 'Alice'
         },
         reply_to_message: {
+          message_id: 6,
           from: { is_bot: true }
         }
       }
@@ -39,6 +40,7 @@ describe('TelegramUpdateMapper', () => {
       media: [],
       isMentioned: true,
       replyToBot: true,
+      replyToMessageId: '6',
       receivedAt: expect.any(Number)
     })
   })

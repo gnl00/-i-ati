@@ -408,6 +408,16 @@ declare interface ChatHostBindingEntity {
   updateTime: number
 }
 
+declare interface ChatTelegramTargetEntity {
+  chatId: number
+  chatUuid: string
+  botId: string
+  hostChatId: string
+  hostThreadId?: string
+  hostUserId?: string
+  metadata?: Record<string, unknown>
+}
+
 declare interface ChatHostBindingSummary {
   hostType: string
   hostChatId: string

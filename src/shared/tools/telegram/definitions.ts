@@ -68,7 +68,7 @@ export const telegramTools = [
     type: 'function',
     function: {
       name: 'telegram_send_message',
-      description: 'Proactively send a Telegram message through the configured Telegram bot. Prefer target_chat_uuid from telegram_search_targets, or rely on the current chat binding when already inside a Telegram chat.',
+      description: 'Send a Telegram message from the current chat and keep the delivery record in that chat. Reuse its saved delivery target or inbound binding. An unassociated chat automatically selects a target only when exactly one reachable Telegram peer/topic exists; otherwise ask the user to select a recipient using telegram_search_targets and pass target_chat_uuid or chat_id. An explicit target is saved for future sends without changing Telegram inbound routing. If success is true, never resend solely because deliveryRecorded is false.',
       parameters: {
         type: 'object',
         properties: {

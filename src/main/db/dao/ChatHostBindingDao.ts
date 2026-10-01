@@ -23,10 +23,35 @@ class ChatHostBindingDao {
     updateBindingById: Database.Statement
     updateLastHostMessageId: Database.Statement
     updateStatus: Database.Statement
+    getTelegramTarget: Database.Statement
+    saveTelegramTarget: Database.Statement
+    saveTelegramReceipt: Database.Statement
+    getTelegramReplyChat: Database.Statement
   }
 
   constructor(db: Database.Database) {
     this.stmts = {
+      getTelegramTarget: db.prepare(`
+        SELECT target_json FROM chat_telegram_targets WHERE chat_uuid = ? AND bot_id = ?
+      `),
+      saveTelegramTarget: db.prepare(`
+        INSERT INTO chat_telegram_targets (chat_uuid, chat_id, bot_id, target_json)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(chat_uuid) DO UPDATE SET
+          chat_id = excluded.chat_id, bot_id = excluded.bot_id, target_json = excluded.target_json
+      `),
+      saveTelegramReceipt: db.prepare(`
+        INSERT INTO telegram_delivery_receipts
+          (bot_id, host_chat_id, host_thread_id, host_message_id, message_id)
+        VALUES (?, ?, ?, ?, ?)
+      `),
+      getTelegramReplyChat: db.prepare(`
+        SELECT messages.chat_uuid FROM telegram_delivery_receipts AS receipts
+        JOIN messages ON messages.id = receipts.message_id
+        JOIN chats ON chats.id = messages.chat_id AND chats.uuid = messages.chat_uuid
+        WHERE receipts.bot_id = ? AND receipts.host_chat_id = ?
+          AND receipts.host_thread_id = ? AND receipts.host_message_id = ?
+      `),
       insertBinding: db.prepare(`
         INSERT INTO chat_host_bindings (
           host_type, host_chat_id, host_thread_id, host_user_id,
@@ -68,6 +93,28 @@ class ChatHostBindingDao {
         WHERE id = ?
       `)
     }
+  }
+
+  getTelegramTarget(chatUuid: string, botId: string): ChatTelegramTargetEntity | undefined {
+    const row = this.stmts.getTelegramTarget.get(chatUuid, botId) as { target_json: string } | undefined
+    return row ? JSON.parse(row.target_json) as ChatTelegramTargetEntity : undefined
+  }
+
+  saveTelegramTarget(target: ChatTelegramTargetEntity): void {
+    this.stmts.saveTelegramTarget.run(target.chatUuid, target.chatId, target.botId, JSON.stringify(target))
+  }
+
+  saveTelegramReceipt(target: ChatTelegramTargetEntity, hostMessageId: string, messageId: number): void {
+    this.stmts.saveTelegramReceipt.run(
+      target.botId, target.hostChatId, target.hostThreadId ?? '', hostMessageId, messageId
+    )
+  }
+
+  getTelegramReplyChat(botId: string, hostChatId: string, hostMessageId: string, hostThreadId?: string): string | undefined {
+    const row = this.stmts.getTelegramReplyChat.get(
+      botId, hostChatId, hostThreadId ?? '', hostMessageId
+    ) as { chat_uuid: string } | undefined
+    return row?.chat_uuid
   }
 
   insertBinding(row: ChatHostBindingRow): number {

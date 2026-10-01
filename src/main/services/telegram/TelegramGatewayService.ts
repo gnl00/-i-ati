@@ -446,7 +446,7 @@ export class TelegramGatewayService {
       return
     }
 
-    const { chat, binding, created } = await this.adapter.resolveOrCreateSession(envelope, mainModelRef)
+    const { chat, binding, created } = await this.adapter.resolveOrCreateSession(envelope, mainModelRef, this.botId)
     const chatModelRef = this.resolveModelRefForChat(chat, mainModelRef)
     const attachmentContext = this.bot
       ? await this.fileService.buildAttachmentContext(this.bot, envelope)
@@ -490,7 +490,7 @@ export class TelegramGatewayService {
       ...(responder ? { hostRenderSinks: [responder] } : {})
     }).completion)()
       .then(() => {
-        if (binding.id) {
+        if (binding?.id) {
           chatDb.updateChatHostBindingLastMessage(binding.id, envelope.messageId)
         }
 

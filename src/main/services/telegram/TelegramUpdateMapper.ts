@@ -93,6 +93,9 @@ export class TelegramUpdateMapper {
       media,
       isMentioned,
       replyToBot: Boolean(message.reply_to_message?.from?.is_bot),
+      ...(message.reply_to_message?.message_id
+        ? { replyToMessageId: String(message.reply_to_message.message_id) }
+        : {}),
       receivedAt: Date.now()
     }
   }

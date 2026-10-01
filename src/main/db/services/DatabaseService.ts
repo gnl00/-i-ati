@@ -147,6 +147,22 @@ class DatabaseService {
     this.requireChatService().addSkill(chatId, skillName)
   }
 
+  getTelegramTarget(chatUuid: string, botId: string): ChatTelegramTargetEntity | undefined {
+    return this.requireChatService().getTelegramTarget(chatUuid, botId)
+  }
+
+  saveTelegramTarget(target: ChatTelegramTargetEntity): void {
+    this.requireChatService().saveTelegramTarget(target)
+  }
+
+  saveTelegramReceipt(target: ChatTelegramTargetEntity, hostMessageId: string, messageId: number): void {
+    this.requireChatService().saveTelegramReceipt(target, hostMessageId, messageId)
+  }
+
+  getTelegramReplyChat(botId: string, hostChatId: string, hostMessageId: string, hostThreadId?: string): string | undefined {
+    return this.requireChatService().getTelegramReplyChat(botId, hostChatId, hostMessageId, hostThreadId)
+  }
+
   public saveChatHostBinding(data: ChatHostBindingEntity): number {
     return this.requireChatService().saveChatHostBinding(data)
   }

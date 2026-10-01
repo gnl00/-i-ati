@@ -32,13 +32,19 @@ const {
   saveMessageMock,
   getChatByUuidMock,
   updateChatMock,
-  updateChatHostBindingLastMessageMock
+  updateChatHostBindingLastMessageMock,
+  getTelegramTargetMock,
+  saveTelegramTargetMock,
+  saveTelegramReceiptMock
 } = vi.hoisted(() => ({
   getAllChatsMock: vi.fn(),
   getChatHostBindingsByChatUuidMock: vi.fn(),
   saveMessageMock: vi.fn(),
   getChatByUuidMock: vi.fn(),
   updateChatMock: vi.fn(),
+  getTelegramTargetMock: vi.fn(),
+  saveTelegramTargetMock: vi.fn(),
+  saveTelegramReceiptMock: vi.fn(),
   updateChatHostBindingLastMessageMock: vi.fn()
 }))
 
@@ -62,6 +68,9 @@ vi.mock('@main/services/telegram', () => ({
 
 vi.mock('@main/db/DatabaseService', () => ({
   default: {
+    getTelegramTarget: getTelegramTargetMock,
+    saveTelegramTarget: saveTelegramTargetMock,
+    saveTelegramReceipt: saveTelegramReceiptMock,
     getAllChats: getAllChatsMock,
     getChatHostBindingsByChatUuid: getChatHostBindingsByChatUuidMock,
     saveMessage: saveMessageMock,
@@ -332,7 +341,95 @@ describe('TelegramToolsProcessor', () => {
       })
     }))
     expect(updateChatMock).toHaveBeenCalled()
-    expect(updateChatHostBindingLastMessageMock).toHaveBeenCalledWith(11, '9001')
+    expect(updateChatHostBindingLastMessageMock).not.toHaveBeenCalled()
+    expect(saveTelegramReceiptMock).toHaveBeenCalledWith(expect.objectContaining({ chatUuid: 'chat-1', botId: '123' }), '9001', 77)
+  })
+
+  const source = { id: 2, uuid: 'medicine', title: 'Medicine', messages: [10], createTime: 1, updateTime: 2 }
+  const targetChat = { id: 1, uuid: 'gold', title: 'Gold', messages: [1], createTime: 1, updateTime: 2 }
+  const binding = { id: 11, hostType: 'telegram', hostChatId: '1001', chatId: 1, chatUuid: 'gold',
+    status: 'active', metadata: { chatType: 'private' }, createTime: 1, updateTime: 2 }
+  const setupCrossChat = (): void => {
+    getChatByUuidMock.mockImplementation((uuid: string) => uuid === 'medicine' ? source : uuid === 'gold' ? targetChat : undefined)
+    getAllChatsMock.mockReturnValue([targetChat])
+    getChatHostBindingsByChatUuidMock.mockImplementation((uuid: string) => uuid === 'gold' ? [binding] : [])
+  }
+
+  it('records a cross-chat send in its source and associates the recipient without rebinding inbound', async () => {
+    setupCrossChat()
+    const result = await processTelegramSendMessage({ text: 'reminder', chat_uuid: 'medicine', target_chat_uuid: 'gold' })
+    expect(saveMessageMock).toHaveBeenCalledWith(expect.objectContaining({ chatId: 2, chatUuid: 'medicine', body: expect.objectContaining({ content: 'reminder', source: 'telegram_delivery' }) }))
+    expect(result).toMatchObject({ success: true, sourceChatUuid: 'medicine', deliveryRecorded: true })
+    expect(saveTelegramTargetMock).toHaveBeenCalledWith(expect.objectContaining({ chatId: 2, chatUuid: 'medicine', hostChatId: '1001', botId: '123' }))
+    expect(updateChatMock).toHaveBeenCalledWith(expect.objectContaining({ uuid: 'medicine', messages: [10, 77] }))
+    expect(updateChatHostBindingLastMessageMock).not.toHaveBeenCalled()
+  })
+
+  it('reuses the saved delivery target for a chat without an inbound binding', async () => {
+    setupCrossChat()
+    getTelegramTargetMock.mockReturnValue({ chatId: 2, chatUuid: 'medicine', botId: '123', hostChatId: '2002', hostThreadId: '9' })
+    await processTelegramSendMessage({ text: 'next', chat_uuid: 'medicine' })
+    expect(getTelegramTargetMock).toHaveBeenCalledWith('medicine', '123')
+    expect(sendTextMock).toHaveBeenCalledWith(expect.objectContaining({ chatId: '2002', threadId: '9' }))
+  })
+
+  it('associates the only reachable recipient automatically', async () => {
+    setupCrossChat()
+    expect(await processTelegramSendMessage({ text: 'reminder', chat_uuid: 'medicine' })).toMatchObject({ success: true })
+    expect(sendTextMock).toHaveBeenCalledWith(expect.objectContaining({ chatId: '1001' }))
+  })
+
+  it('deduplicates peers but requires selection for different recipients or topics', async () => {
+    setupCrossChat()
+    getChatHostBindingsByChatUuidMock.mockImplementation((uuid: string) => uuid === 'gold' ? [binding, { ...binding, id: 12 }] : [])
+    expect((await processTelegramSendMessage({ text: 'one', chat_uuid: 'medicine' })).success).toBe(true)
+    sendTextMock.mockClear()
+    saveTelegramTargetMock.mockClear()
+    getChatHostBindingsByChatUuidMock.mockImplementation((uuid: string) => uuid === 'gold' ? [binding, { ...binding, id: 12, hostThreadId: '9' }] : [])
+    const result = await processTelegramSendMessage({ text: 'ambiguous', chat_uuid: 'medicine' })
+    expect(result).toMatchObject({ success: false, candidates: expect.any(Array) })
+    expect(result.candidates).toHaveLength(2)
+    expect(sendTextMock).not.toHaveBeenCalled()
+    expect(saveTelegramTargetMock).not.toHaveBeenCalled()
+  })
+
+  it('honors explicit peer selection even when the current chat has a binding', async () => {
+    setupCrossChat()
+    await processTelegramSendMessage({ text: 'override', chat_uuid: 'gold', chat_id: '2002', thread_id: '8' })
+    expect(sendTextMock).toHaveBeenCalledWith(expect.objectContaining({ chatId: '2002', threadId: '8' }))
+  })
+
+  it('does not fall back from invalid explicit targets or archived current bindings', async () => {
+    setupCrossChat()
+    expect((await processTelegramSendMessage({ text: 'invalid', chat_uuid: 'medicine', target_chat_uuid: 'missing' })).success).toBe(false)
+    getChatHostBindingsByChatUuidMock.mockReturnValue([{ ...binding, status: 'archived' }])
+    expect((await processTelegramSendMessage({ text: 'archived', chat_uuid: 'gold' })).message).toContain('archived')
+    expect(sendTextMock).not.toHaveBeenCalled()
+  })
+
+  it('requires a source chat and fails before sending if association persistence fails', async () => {
+    setupCrossChat()
+    expect((await processTelegramSendMessage({ text: 'no source', target_chat_uuid: 'gold' })).success).toBe(false)
+    saveTelegramTargetMock.mockImplementation(() => { throw new Error('database unavailable') })
+    expect((await processTelegramSendMessage({ text: 'failed association', chat_uuid: 'medicine' })).success).toBe(false)
+    expect(sendTextMock).not.toHaveBeenCalled()
+  })
+
+  it('does not record successful delivery after a network failure', async () => {
+    setupCrossChat()
+    sendTextMock.mockRejectedValue(new Error('network unavailable'))
+    expect((await processTelegramSendMessage({ text: 'failed', chat_uuid: 'medicine' })).success).toBe(false)
+    expect(saveMessageMock).not.toHaveBeenCalled()
+    expect(saveTelegramReceiptMock).not.toHaveBeenCalled()
+  })
+
+  it('reports sent success separately when local receipt persistence fails', async () => {
+    setupCrossChat()
+    saveTelegramReceiptMock.mockImplementation(() => { throw new Error('disk full') })
+    const result = await processTelegramSendMessage({ text: 'sent', chat_uuid: 'medicine' })
+    expect(result).toMatchObject({ success: true, sentMessageId: '9001', deliveryRecorded: false })
+    expect(result.message).toContain('Do not resend')
+    expect(sendTextMock).toHaveBeenCalledTimes(1)
   })
 
   it('fails Telegram send when the gateway is not running', async () => {

@@ -12,6 +12,22 @@ type ChatHostBindingRepositoryDeps = {
 export class ChatHostBindingRepository {
   constructor(private readonly deps: ChatHostBindingRepositoryDeps) {}
 
+  getTelegramTarget(chatUuid: string, botId: string): ChatTelegramTargetEntity | undefined {
+    return this.requireRepo().getTelegramTarget(chatUuid, botId)
+  }
+
+  saveTelegramTarget(target: ChatTelegramTargetEntity): void {
+    this.requireRepo().saveTelegramTarget(target)
+  }
+
+  saveTelegramReceipt(target: ChatTelegramTargetEntity, hostMessageId: string, messageId: number): void {
+    this.requireRepo().saveTelegramReceipt(target, hostMessageId, messageId)
+  }
+
+  getTelegramReplyChat(botId: string, hostChatId: string, hostMessageId: string, hostThreadId?: string): string | undefined {
+    return this.requireRepo().getTelegramReplyChat(botId, hostChatId, hostMessageId, hostThreadId)
+  }
+
   saveBinding(data: ChatHostBindingEntity): number {
     const repo = this.requireRepo()
     const now = Date.now()

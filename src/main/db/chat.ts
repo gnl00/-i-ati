@@ -21,6 +21,14 @@ export const chatDb = {
   getSkills: (chatId: number): string[] => DatabaseService.getSkills(chatId),
   addSkill: (chatId: number, skillName: string): void => DatabaseService.addSkill(chatId, skillName),
   removeSkill: (chatId: number, skillName: string): void => DatabaseService.removeSkill(chatId, skillName),
+  getTelegramTarget: (chatUuid: string, botId: string): ChatTelegramTargetEntity | undefined =>
+    DatabaseService.getTelegramTarget(chatUuid, botId),
+  saveTelegramTarget: (target: ChatTelegramTargetEntity): void =>
+    DatabaseService.saveTelegramTarget(target),
+  saveTelegramReceipt: (target: ChatTelegramTargetEntity, hostMessageId: string, messageId: number): void =>
+    DatabaseService.saveTelegramReceipt(target, hostMessageId, messageId),
+  getTelegramReplyChat: (botId: string, hostChatId: string, hostMessageId: string, hostThreadId?: string): string | undefined =>
+    DatabaseService.getTelegramReplyChat(botId, hostChatId, hostMessageId, hostThreadId),
   saveChatHostBinding: (data: ChatHostBindingEntity): number => DatabaseService.saveChatHostBinding(data),
   upsertChatHostBinding: (data: ChatHostBindingEntity): void => DatabaseService.upsertChatHostBinding(data),
   getChatHostBindingByHost: (

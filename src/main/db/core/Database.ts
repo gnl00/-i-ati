@@ -278,6 +278,27 @@ class AppDatabase {
     `)
 
     this.db.exec(`
+      CREATE TABLE IF NOT EXISTS chat_telegram_targets (
+        chat_uuid TEXT PRIMARY KEY,
+        chat_id INTEGER NOT NULL,
+        bot_id TEXT NOT NULL,
+        target_json TEXT NOT NULL,
+        FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
+      );
+      CREATE TABLE IF NOT EXISTS telegram_delivery_receipts (
+        bot_id TEXT NOT NULL,
+        host_chat_id TEXT NOT NULL,
+        host_thread_id TEXT NOT NULL DEFAULT '',
+        host_message_id TEXT NOT NULL,
+        message_id INTEGER NOT NULL,
+        PRIMARY KEY (bot_id, host_chat_id, host_thread_id, host_message_id),
+        FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_telegram_delivery_receipts_message
+        ON telegram_delivery_receipts(message_id);
+    `)
+
+    this.db.exec(`
       CREATE TABLE IF NOT EXISTS configs (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL,

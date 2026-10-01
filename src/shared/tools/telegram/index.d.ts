@@ -86,6 +86,10 @@ export type TelegramSendMessageArgs = {
 
 export type TelegramSendMessageResponse = {
   success: boolean
+  sourceChatUuid?: string
+  deliveryRecorded?: boolean
+  deliveryMessageId?: number
+  candidates?: TelegramSearchTargetItem[]
   sentMessageId?: string
   targetChatUuid?: string
   chatId?: string

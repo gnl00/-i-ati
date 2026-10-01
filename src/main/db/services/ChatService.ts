@@ -70,6 +70,22 @@ export class ChatService {
     this.requireChatRepository().removeSkill(chatId, skillName)
   }
 
+  getTelegramTarget(chatUuid: string, botId: string): ChatTelegramTargetEntity | undefined {
+    return this.requireChatHostBindingRepository().getTelegramTarget(chatUuid, botId)
+  }
+
+  saveTelegramTarget(target: ChatTelegramTargetEntity): void {
+    this.requireChatHostBindingRepository().saveTelegramTarget(target)
+  }
+
+  saveTelegramReceipt(target: ChatTelegramTargetEntity, hostMessageId: string, messageId: number): void {
+    this.requireChatHostBindingRepository().saveTelegramReceipt(target, hostMessageId, messageId)
+  }
+
+  getTelegramReplyChat(botId: string, hostChatId: string, hostMessageId: string, hostThreadId?: string): string | undefined {
+    return this.requireChatHostBindingRepository().getTelegramReplyChat(botId, hostChatId, hostMessageId, hostThreadId)
+  }
+
   saveChatHostBinding(data: ChatHostBindingEntity): number {
     return this.requireChatHostBindingRepository().saveBinding(data)
   }

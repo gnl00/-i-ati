@@ -206,17 +206,16 @@ const findTelegramTargetByChatTuple = (
 
 const persistTelegramOutboundMessage = (args: {
   target: ResolvedTelegramTarget
+  source: ChatEntity
+  association: ChatTelegramTargetEntity
   text: string
   sentMessageId?: string
   replyToMessageId?: string
-}): void => {
-  if (!args.target.chatId) {
-    return
-  }
-
-  const chat = chatDb.getChatByUuid(args.target.targetChatUuid)
+}): number => {
+  // Reload after the network wait so concurrent messages are preserved.
+  const chat = chatDb.getChatByUuid(args.source.uuid)
   if (!chat?.id) {
-    return
+    throw new Error('Source chat no longer exists.')
   }
 
   const createdAt = Date.now()
@@ -245,51 +244,76 @@ const persistTelegramOutboundMessage = (args: {
     }
   })
 
+  if (args.sentMessageId) {
+    chatDb.saveTelegramReceipt(args.association, args.sentMessageId, messageId)
+  }
   chatDb.updateChat({
     ...chat,
     messages: [...(chat.messages || []), messageId],
     updateTime: createdAt
   })
+  return messageId
+}
 
-  const binding = chatDb.getChatHostBindingsByChatUuid(chat.uuid)
-    .find((item) =>
-      item.hostType === 'telegram'
-      && item.hostChatId === args.target.telegramChatId
-      && (item.hostThreadId ?? undefined) === (args.target.telegramThreadId ?? undefined)
-    )
-
-  if (binding?.id && args.sentMessageId) {
-    chatDb.updateChatHostBindingLastMessage(binding.id, args.sentMessageId)
+const findSavedTelegramTarget = (chatUuid: string, botId: string): ResolvedTelegramTarget | undefined => {
+  const saved = chatDb.getTelegramTarget(chatUuid, botId)
+  if (!saved) return undefined
+  const metadata = (saved.metadata || {}) as TelegramBindingMetadata
+  const known = findTelegramTargetByChatTuple(saved.hostChatId, saved.hostThreadId, true)
+  return {
+    targetChatUuid: chatUuid,
+    chatTitle: chatDb.getChatByUuid(chatUuid)?.title || 'NewChat',
+    telegramChatId: saved.hostChatId,
+    telegramThreadId: saved.hostThreadId,
+    telegramUserId: saved.hostUserId,
+    chatType: normalizeTelegramChatType(metadata.chatType),
+    username: metadata.username,
+    displayName: metadata.displayName,
+    status: known?.status ?? 'active',
+    lastActiveAt: known?.lastActiveAt ?? 0,
+    matchReasons: []
   }
 }
 
-const resolveTelegramSendTarget = (args: TelegramSendMessageArgs): ResolvedTelegramTarget | undefined => {
+const uniqueTelegramTargets = (): ResolvedTelegramTarget[] => {
+  const targets = new Map<string, ResolvedTelegramTarget>()
+  for (const target of collectTelegramTargets()) {
+    const key = JSON.stringify([target.telegramChatId, target.telegramThreadId ?? null])
+    if (!targets.has(key)) targets.set(key, target)
+  }
+  return [...targets.values()]
+}
+
+const resolveTelegramSendTarget = (args: TelegramSendMessageArgs, botId: string): ResolvedTelegramTarget | undefined => {
   const explicitTargetChatUuid = normalizeText(args.target_chat_uuid)
   if (explicitTargetChatUuid) {
-    return findTelegramBindingTarget(explicitTargetChatUuid)
+    return findSavedTelegramTarget(explicitTargetChatUuid, botId)
+      ?? findTelegramBindingTarget(explicitTargetChatUuid, true)
+  }
+
+  const explicitChatId = normalizeText(args.chat_id)
+  if (explicitChatId) {
+    const explicitThreadId = normalizeText(args.thread_id)
+    return findTelegramTargetByChatTuple(explicitChatId, explicitThreadId, true) ?? {
+      targetChatUuid: '',
+      chatTitle: explicitThreadId ? `Telegram ${explicitChatId} / thread ${explicitThreadId}` : `Telegram ${explicitChatId}`,
+      telegramChatId: explicitChatId,
+      telegramThreadId: explicitThreadId,
+      chatType: 'private',
+      status: 'active',
+      lastActiveAt: Date.now(),
+      matchReasons: []
+    }
   }
 
   const currentChatUuid = normalizeText(args.chat_uuid)
   if (currentChatUuid) {
-    return findTelegramBindingTarget(currentChatUuid)
+    const target = findSavedTelegramTarget(currentChatUuid, botId)
+      ?? findTelegramBindingTarget(currentChatUuid, true)
+    if (target) return target
   }
-
-  const explicitChatId = normalizeText(args.chat_id)
-  if (!explicitChatId) {
-    return undefined
-  }
-
-  const explicitThreadId = normalizeText(args.thread_id)
-  return findTelegramTargetByChatTuple(explicitChatId, explicitThreadId) ?? {
-    targetChatUuid: '',
-    chatTitle: explicitThreadId ? `Telegram ${explicitChatId} / thread ${explicitThreadId}` : `Telegram ${explicitChatId}`,
-    telegramChatId: explicitChatId,
-    telegramThreadId: explicitThreadId,
-    chatType: 'private',
-    status: 'active',
-    lastActiveAt: Date.now(),
-    matchReasons: []
-  }
+  const candidates = uniqueTelegramTargets()
+  return candidates.length === 1 ? candidates[0] : undefined
 }
 
 const buildNextTelegramConfig = (
@@ -468,70 +492,65 @@ export async function processTelegramSendMessage(
     }
   }
 
-  const target = resolveTelegramSendTarget(args)
-  if (!target) {
-    return {
-      success: false,
-      message: 'No Telegram target could be resolved. Provide target_chat_uuid, use a Telegram-bound current chat, or pass an explicit chat_id.'
-    }
+  const sourceChatUuid = normalizeText(args.chat_uuid)
+  const source = sourceChatUuid ? chatDb.getChatByUuid(sourceChatUuid) : undefined
+  if (!source?.id) {
+    return { success: false, message: 'A persisted current chat is required to send a Telegram message.' }
   }
 
   const status = telegramGatewayService.getStatus()
-  if (!status.running) {
+  if (!status.running || !status.botId) {
     return {
       success: false,
       botUsername: status.botUsername,
       botId: status.botId,
-      message: 'Telegram gateway is not running.'
+      message: 'Telegram gateway is not running or its bot identity is unavailable.'
     }
   }
 
+  const target = resolveTelegramSendTarget(args, status.botId)
+  if (!target) {
+    const hasExplicitTarget = Boolean(normalizeText(args.target_chat_uuid) || normalizeText(args.chat_id))
+    const candidates = hasExplicitTarget ? [] : uniqueTelegramTargets()
+    return {
+      success: false,
+      candidates,
+      message: hasExplicitTarget
+        ? 'The selected Telegram target could not be resolved.'
+        : candidates.length > 1
+          ? 'Multiple Telegram recipients are available. Ask the user to select a recipient, then retry with target_chat_uuid or chat_id. Nothing was sent or associated.'
+          : 'No Telegram recipient is available. Provide an explicit chat_id or establish a Telegram session first.'
+    }
+  }
   if (target.status !== 'active') {
-    return {
-      success: false,
-      targetChatUuid: target.targetChatUuid || undefined,
-      chatId: target.telegramChatId,
-      threadId: target.telegramThreadId,
-      botUsername: status.botUsername,
-      botId: status.botId,
-      message: 'Telegram target is archived.'
-    }
+    return { success: false, message: 'Telegram target is archived.' }
   }
 
+  const association: ChatTelegramTargetEntity = {
+    chatId: source.id,
+    chatUuid: source.uuid,
+    botId: status.botId,
+    hostChatId: target.telegramChatId,
+    hostThreadId: target.telegramThreadId,
+    hostUserId: target.telegramUserId,
+    metadata: { chatType: target.chatType, username: target.username, displayName: target.displayName }
+  }
   const replyToMessageId = normalizeText(args.reply_to_message_id)
-
+  let sentMessageId: string | undefined
   try {
+    // Associate before sending, without changing the inbound binding.
+    chatDb.saveTelegramTarget(association)
     const result = await telegramGatewayService.sendText({
       chatId: target.telegramChatId,
       text,
       threadId: target.telegramThreadId,
       replyToMessageId
     })
-
-    if (target.targetChatUuid) {
-      persistTelegramOutboundMessage({
-        target,
-        text,
-        sentMessageId: result.messageId,
-        replyToMessageId
-      })
-    }
-
-    return {
-      success: true,
-      sentMessageId: result.messageId,
-      targetChatUuid: target.targetChatUuid || undefined,
-      chatId: target.telegramChatId,
-      threadId: target.telegramThreadId,
-      botUsername: status.botUsername,
-      botId: status.botId,
-      message: target.targetChatUuid
-        ? `Telegram message sent to "${target.chatTitle}".`
-        : 'Telegram message sent.'
-    }
+    sentMessageId = result.messageId
   } catch (error) {
     return {
       success: false,
+      sourceChatUuid: source.uuid,
       targetChatUuid: target.targetChatUuid || undefined,
       chatId: target.telegramChatId,
       threadId: target.telegramThreadId,
@@ -539,6 +558,29 @@ export async function processTelegramSendMessage(
       botId: status.botId,
       message: `Failed to send Telegram message: ${error instanceof Error ? error.message : String(error)}`
     }
+  }
+
+  let deliveryMessageId: number | undefined
+  let deliveryRecorded = true
+  try {
+    deliveryMessageId = persistTelegramOutboundMessage({ target, source, association, text, sentMessageId, replyToMessageId })
+  } catch {
+    deliveryRecorded = false
+  }
+  return {
+    success: true,
+    sentMessageId,
+    sourceChatUuid: source.uuid,
+    targetChatUuid: target.targetChatUuid || undefined,
+    chatId: target.telegramChatId,
+    threadId: target.telegramThreadId,
+    botUsername: status.botUsername,
+    botId: status.botId,
+    deliveryRecorded,
+    deliveryMessageId,
+    message: deliveryRecorded
+      ? `Telegram message sent from "${source.title}".`
+      : 'Telegram message was sent, but its local delivery record could not be completed. Do not resend; reply routing may be unavailable.'
   }
 }
 
