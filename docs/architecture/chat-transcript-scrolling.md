@@ -1,6 +1,6 @@
 # Chat transcript scrolling
 
-Last verified against source: 2026-09-30.
+Last verified against source: 2026-10-01.
 
 ## Ownership
 
@@ -55,8 +55,12 @@ images remain in the text. This is a renderer presentation split: original
 message content/order, model requests, persistence and shared copy operations
 retain their existing contracts. The preview uses Radix modal primitives for
 focus trapping and Escape, and returns focus to the current image's thumbnail
-(or the summary tile for hidden images). Local `useImagePreviewMotion` owns
-cancellable WAAPI animations. Pointer entry expands from contained image pixels
+(or the summary tile for hidden images). The shared [ImageViewer](../../src/renderer/src/shared/components/image-viewer/ImageViewer.tsx),
+also used by ChatInput attachments, owns the Radix viewer and delegates motion
+to its internal `useImagePreviewMotion` hook. Each caller supplies its thumbnail
+and visible bounds; transcript overlay margins and summary-tile mapping remain
+in `UserMessageImages`. Attachment replacement or clearing dismisses stale
+previews and cancels pending animations. The hook owns cancellable WAAPI animations. Pointer entry expands from contained image pixels
 in the thumbnail (220ms); exit remeasures the current thumbnail (180ms). Missing,
 offscreen or top-overlay-covered sources fade instead; the visible top boundary
 includes the transcript item's computed `scrollMarginBlockStart`. Closing during entry captures the current
@@ -80,9 +84,9 @@ visible, offscreen, and overlay-obscured item tops. Run the focused suites and
 renderer checks with:
 
 ```sh
-pnpm exec vitest run src/renderer/src/features/chat/message/user-message/__tests__/UserMessage.test.tsx src/renderer/src/features/chat/message/user-message/__tests__/UserMessageImages.test.tsx src/renderer/src/features/chat/message/user-message/__tests__/UserMessageImages.motion.test.tsx src/renderer/src/features/chat/message/__tests__/ChatMessageComponent.test.tsx src/renderer/src/features/chat/shell/__tests__/ChatTranscriptScroller.primitive.test.tsx
+pnpm exec vitest run src/renderer/src/features/chat/message/user-message/__tests__/UserMessage.test.tsx src/renderer/src/features/chat/message/user-message/__tests__/UserMessageImages.test.tsx src/renderer/src/features/chat/message/user-message/__tests__/UserMessageImages.motion.test.tsx src/renderer/src/features/chat/shell/__tests__/ChatImageGallery.test.tsx src/renderer/src/features/chat/message/__tests__/ChatMessageComponent.test.tsx src/renderer/src/features/chat/shell/__tests__/ChatTranscriptScroller.primitive.test.tsx
 pnpm exec vitest run src/renderer/src/features/chat/shell/__tests__/ChatTranscriptScroller.test.ts src/renderer/src/features/chat/shell/__tests__/ChatTranscriptScroller.mounting.test.tsx src/renderer/src/features/chat/shell/__tests__/ChatWindow.message-scroller.test.tsx
-pnpm exec eslint src/renderer/src/features/chat/message/user-message/index.tsx src/renderer/src/features/chat/message/user-message/user-message-images.tsx src/renderer/src/features/chat/message/user-message/use-image-preview-motion.ts src/renderer/src/features/chat/message/user-message/__tests__/UserMessage.test.tsx src/renderer/src/features/chat/message/user-message/__tests__/UserMessageImages.test.tsx src/renderer/src/features/chat/message/user-message/__tests__/UserMessageImages.motion.test.tsx
+pnpm exec eslint src/renderer/src/features/chat/message/user-message/index.tsx src/renderer/src/features/chat/message/user-message/user-message-images.tsx src/renderer/src/shared/components/image-viewer/use-image-preview-motion.ts src/renderer/src/shared/components/image-viewer/ImageViewer.tsx src/renderer/src/shared/components/image-viewer/PreviewImage.tsx src/renderer/src/features/chat/shell/ChatImageGallery.tsx src/renderer/src/features/chat/message/user-message/__tests__/UserMessage.test.tsx src/renderer/src/features/chat/message/user-message/__tests__/UserMessageImages.test.tsx src/renderer/src/features/chat/message/user-message/__tests__/UserMessageImages.motion.test.tsx
 pnpm run typecheck:web
 pnpm run check:renderer-boundaries
 pnpm run test:renderer-architecture

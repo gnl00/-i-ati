@@ -16,8 +16,10 @@ describe('User message image previews', () => {
   let root: Root;
   const button = (label: string): HTMLButtonElement =>
     document.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!;
-  const click = async (target: HTMLElement): Promise<void> => {
-    await act(async () => target.click());
+  const click = async (target: Element): Promise<void> => {
+    await act(async () =>
+      target.dispatchEvent(new MouseEvent('click', { bubbles: true })),
+    );
   };
   const render = async (images: string[]): Promise<void> => {
     await act(async () =>
@@ -123,6 +125,10 @@ describe('User message image previews', () => {
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
       'Image unavailable',
     );
+    await click(
+      document.querySelector('[role="dialog"] [role="img"] svg')!,
+    );
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull();
     await click(button('Next image'));
     expect(
       document.querySelector('[role="dialog"] img')?.getAttribute('src'),
@@ -130,5 +136,39 @@ describe('User message image previews', () => {
     expect(
       document.querySelector('[role="dialog"]')?.textContent,
     ).not.toContain('Image unavailable');
+  });
+
+  it.each(['image space', 'navigation space', 'header space', 'content space'])(
+    'dismisses a single image from empty %s and restores focus',
+    async (area) => {
+      await render(urls.slice(0, 1));
+      const trigger = button('Open image 1 of 1');
+      await click(trigger);
+      const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!;
+      const imageSpace = dialog.querySelector('img')!.parentElement!;
+      const targets: Record<string, HTMLElement> = {
+        'image space': imageSpace,
+        'navigation space': imageSpace.parentElement!,
+        'header space': dialog.querySelector('h2')!.parentElement!,
+        'content space': dialog,
+      };
+      await click(targets[area]);
+      expect(document.querySelector('[role="dialog"]')).toBeNull();
+      await vi.waitFor(() => expect(document.activeElement).toBe(trigger));
+    },
+  );
+
+  it('keeps the image open when clicking the photo or navigation icons', async () => {
+    await render(urls.slice(0, 2));
+    await click(button('Open image 1 of 2'));
+    await click(document.querySelector<HTMLElement>('[role="dialog"] img')!);
+    await click(button('Next image').querySelector('svg')!);
+    expect(
+      document.querySelector('[role="dialog"] img')?.getAttribute('src'),
+    ).toBe(urls[1]);
+    await click(button('Previous image').querySelector('svg')!);
+    expect(
+      document.querySelector('[role="dialog"] img')?.getAttribute('src'),
+    ).toBe(urls[0]);
   });
 });

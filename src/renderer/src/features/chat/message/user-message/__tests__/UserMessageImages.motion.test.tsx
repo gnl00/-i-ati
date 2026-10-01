@@ -162,6 +162,30 @@ describe('Image preview spatial transitions', () => {
     expect(document.querySelector('[role="dialog"]')).toBeNull();
   });
 
+  it('returns to the current thumbnail when clicking empty space inside the viewer', async () => {
+    await render();
+    await pointerClick(button('Open image 2 of 6'));
+    await finishAll();
+    await pointerClick(
+      document.querySelector('[role="dialog"] img')!.parentElement!,
+    );
+    expect(imageAnimations().at(-1)).toMatchObject({
+      duration: 180,
+      frames: [
+        { transform: 'none', opacity: '1' },
+        { transform: 'translate(104px, 422px) scale(0.11)', opacity: 1 },
+      ],
+    });
+    expect(
+      document.querySelector('[role="dialog"]')?.getAttribute('data-phase'),
+    ).toBe('closing');
+    await finishAll();
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    await vi.waitFor(() =>
+      expect(document.activeElement).toBe(button('Open image 2 of 6')),
+    );
+  });
+
   it('switches within the viewer and returns hidden images to the summary tile', async () => {
     await render();
     await pointerClick(button('View 3 more images'));
