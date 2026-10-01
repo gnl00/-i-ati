@@ -60,7 +60,7 @@ declare interface ModelRef {
 }
 
 declare interface LocalMcpServerConfig {
-  type?: 'sse' | 'streamableHttp'
+  type?: 'streamableHttp'
   url?: string
   description?: string
   version?: string

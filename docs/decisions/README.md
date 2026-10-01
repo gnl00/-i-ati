@@ -46,3 +46,5 @@ Use sequential names such as `0001-chat-runtime-host-boundary.md`.
 - [0032: Scheduled chat list ownership](0032-scheduled-chat-list-ownership.md) - Accepted
 
 - [0033: Stable tool-result model content](0033-stable-tool-result-model-content.md) - Accepted
+
+- [0034: Require the modern MCP protocol](0034-modern-mcp-protocol.md) - Accepted

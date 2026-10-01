@@ -14,4 +14,7 @@ fields; the old `/v0/servers` copied response examples are retired.
 
 Registry discovery and installation are separate from establishing an MCP session.
 The selected server still needs local configuration and a successful connection.
+Installation selects Streamable HTTP remotes or package commands; SSE-only
+entries are unsupported. Connections require MCP 2026-07-28; see
+[MCP runtime](../integrations/mcp.md).
 Avoid treating external catalog metadata as an app security or runtime guarantee.

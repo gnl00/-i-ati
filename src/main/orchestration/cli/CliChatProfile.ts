@@ -34,7 +34,9 @@ export const prepareCliChatProfile = async (
   for (const [name, server] of Object.entries(configDb.getMcpServerConfig().mcpServers ?? {})) {
     const connected = await mcpRuntimeService.connectServer({ name, ...server })
     if (!connected.result) throw new Error(`CLI MCP connection failed: ${name}`)
-    extraTools.push(...connected.tools)
+    extraTools.push(...connected.tools.map(tool => ({
+      ...tool.function, source: tool.source, serverName: tool.serverName, originalName: tool.originalName
+    })))
   }
   const userMessage: MessageEntity = {
     chatId: chat.id, chatUuid: chat.uuid,

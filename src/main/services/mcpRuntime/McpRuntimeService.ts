@@ -1,13 +1,11 @@
-import { Client } from '@modelcontextprotocol/sdk/client/index.js'
-import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
+import { Client, StreamableHTTPClientTransport, type CallToolResult, type Tool } from '@modelcontextprotocol/client'
+import { StdioClientTransport } from '@modelcontextprotocol/client/stdio'
 import { spawn } from 'child_process'
 import { createLogger } from '@main/logging/LogService'
 
 export type McpClientProps = {
   name: string
-  type?: string
+  type?: 'streamableHttp'
   url?: string
   command?: string
   args?: string[]
@@ -17,7 +15,7 @@ export type McpClientProps = {
 type McpToolProps = {
   name: string
   description?: string
-  inputSchema: any
+  inputSchema: Tool['inputSchema']
   source: 'mcp'
   serverName: string
   originalName: string
@@ -154,7 +152,7 @@ class McpRuntimeService {
   private readonly lastErrorByServer = new Map<string, string>()
   private readonly logger = createLogger('McpRuntimeService')
 
-  async connectServer(props: McpClientProps): Promise<any> {
+  async connectServer(props: McpClientProps): Promise<{ result: true; tools: MCPTool[]; msg: string } | { result: false; tools?: MCPTool[]; msg: string }> {
     this.logger.info('connect.start', {
       serverName: props.name,
       type: props.type,
@@ -166,6 +164,10 @@ class McpRuntimeService {
     const client = new Client({
       name: `ati-mcp-client-${props.name}`,
       version: '1.0.0'
+    }, {
+      versionNegotiation: { mode: { pin: '2026-07-28' } },
+      supportedProtocolVersions: ['2026-07-28'],
+      enforceStrictCapabilities: true
     })
 
     let transport
@@ -180,18 +182,16 @@ class McpRuntimeService {
           command: props.command,
           args: props.args
         })
-      } catch (error: any) {
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
         this.logger.error('connect.command_validation_failed', {
           serverName: props.name,
-          error: error.message
+          error: message
         })
-        return { result: false, msg: error.message }
+        return { result: false, msg: message }
       }
     } else if (props.url && props.type) {
-      if (props.type === 'sse') {
-        this.logger.debug('connect.create_sse_transport', { serverName: props.name })
-        transport = new SSEClientTransport(new URL(props.url))
-      } else if (props.type === 'streamableHttp') {
+      if (props.type === 'streamableHttp') {
         this.logger.debug('connect.create_streamable_http_transport', { serverName: props.name })
         transport = new StreamableHTTPClientTransport(new URL(props.url))
       }
@@ -199,7 +199,7 @@ class McpRuntimeService {
 
     if (!transport) {
       this.logger.warn('connect.transport_missing', { serverName: props.name })
-      return { result: false, tools: {}, msg: `Connnected to '${props.name}' Error` }
+      return { result: false, tools: [], msg: `Unsupported MCP transport for '${props.name}'. Use stdio or Streamable HTTP.` }
     }
 
     try {
@@ -224,17 +224,19 @@ class McpRuntimeService {
         tools: normalizedTools.map(toMcpTool),
         msg: `Connected to '${props.name}'`
       }
-    } catch (error: any) {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      await client.close().catch(() => undefined)
       this.logger.error('connect.failed', {
         serverName: props.name,
-        error: error.message
+        error: message
       })
-      this.lastErrorByServer.set(props.name, error.message)
-      return { result: false, msg: `Failed to connect to '${props.name}': ${error.message}` }
+      this.lastErrorByServer.set(props.name, message)
+      return { result: false, msg: `Failed to connect to '${props.name}': ${message}` }
     }
   }
 
-  async callTool(tcId: string, toolName: string, args: { [x: string]: unknown } | undefined): Promise<any[]> {
+  async callTool(tcId: string, toolName: string, args: { [x: string]: unknown } | undefined): Promise<(CallToolResult | { error: string; serverName: string })[]> {
     const route = this.registry.getToolRoute(toolName)
     this.logger.info('tool_call.start', {
       toolName,
@@ -272,7 +274,7 @@ class McpRuntimeService {
       args
     })
 
-    let results: any[]
+    let results: (CallToolResult | { error: string; serverName: string })[]
     try {
       const currentCount = this.toolCallCountMap.get(tcId) ?? 0
       if (currentCount >= 3) {
@@ -287,15 +289,16 @@ class McpRuntimeService {
         toolCallId: tcId
       })
       results = [JSON.parse(JSON.stringify(result))]
-    } catch (error: any) {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
       this.logger.error('tool_call.failed', {
         serverName: route.serverName,
         toolName: route.exposedName,
         originalToolName: route.originalName,
         toolCallId: tcId,
-        error: error.message
+        error: message
       })
-      results = [{ error: error.message, serverName: route.serverName }]
+      results = [{ error: message, serverName: route.serverName }]
     }
 
     this.logger.info('tool_call.end', {

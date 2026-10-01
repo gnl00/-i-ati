@@ -137,7 +137,9 @@ export async function runTuiApplication(argv = process.argv.slice(2)): Promise<n
         ...server
       })
       if (!connected.result) throw new Error(`MCP connection failed: ${name}`)
-      session.mcpTools.push(...connected.tools)
+      session.mcpTools.push(...connected.tools.map(tool => ({
+        ...tool.function, source: tool.source, serverName: tool.serverName, originalName: tool.originalName
+      })))
     }
     session.initialize(options.resume, options.model, options.account)
     const view = new TuiView(

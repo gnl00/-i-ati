@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
+import { fileURLToPath } from 'node:url'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { McpRuntimeService, toNamespacedToolName } from '../McpRuntimeService'
 
-vi.mock('@main/logging/LogService', () => ({
+vi.mock('@main/logging/LogService', (): object => ({
   createLogger: () => ({
     debug: vi.fn(),
     error: vi.fn(),
@@ -10,7 +11,7 @@ vi.mock('@main/logging/LogService', () => ({
   })
 }))
 
-const createClient = () => ({
+const createClient = (): { callTool: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn> } => ({
   callTool: vi.fn(async () => ({ content: [{ type: 'text', text: 'ok' }] })),
   close: vi.fn()
 })
@@ -20,8 +21,8 @@ const addServer = (
   serverName: string,
   client: ReturnType<typeof createClient>,
   originalToolName: string
-) => {
-  const registry = (service as any).registry
+) : void => {
+  const registry = (service as unknown as { registry: { addServer(name: string, client: unknown, tools: unknown[]): void } }).registry
   registry.addServer(serverName, client, [
     {
       name: toNamespacedToolName(serverName, originalToolName),
@@ -101,5 +102,103 @@ describe('McpRuntimeService tool namespace routing', () => {
         lastError: undefined
       }
     ])
+  })
+})
+
+
+describe('McpRuntimeService modern protocol', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  const serve = (versions = ['2026-07-28'], capabilities: Record<string, unknown> = { tools: {} }, paginate = false): { method: string; params: { _meta: Record<string, unknown> } }[] => {
+    const requests: { method: string; params: { _meta: Record<string, unknown> } }[] = []
+    vi.stubGlobal('fetch', vi.fn(async (_url, init) => {
+      const request = JSON.parse(init.body)
+      requests.push(request)
+      let result: Record<string, unknown>
+      if (request.method === 'server/discover') {
+        result = { supportedVersions: versions, capabilities }
+      } else if (request.method === 'tools/list') {
+        result = {
+          tools: [{ name: request.params?.cursor ? 'second' : 'search', inputSchema: { type: 'object' } }],
+          ...(paginate && !request.params?.cursor ? { nextCursor: 'page-2' } : {}),
+          ttlMs: 0, cacheScope: 'private'
+        }
+      } else {
+        result = { content: [{ type: 'text', text: 'ok' }], structuredContent: [1, 2] }
+      }
+      return Response.json({ jsonrpc: '2.0', id: request.id, result: { resultType: 'complete', ...result } })
+    }))
+    return requests
+  }
+
+  it('discovers and calls a modern HTTP server with per-request version metadata', async () => {
+    const requests = serve()
+    const service = new McpRuntimeService()
+    try {
+      const connected = await service.connectServer({ name: 'modern', type: 'streamableHttp', url: 'https://mcp.test/mcp' })
+      expect(connected.result).toBe(true)
+      expect(connected.tools?.[0].function.name).toBe('modern__search')
+      expect(await service.callTool('modern-call', 'modern__search', {})).toEqual([
+        expect.objectContaining({ content: [{ type: 'text', text: 'ok' }], structuredContent: [1, 2] })
+      ])
+      expect(requests.map(request => request.method)).toEqual(['server/discover', 'tools/list', 'tools/call'])
+      for (const request of requests) {
+        expect(request.params._meta['io.modelcontextprotocol/protocolVersion']).toBe('2026-07-28')
+      }
+    } finally {
+      service.disconnectAll()
+    }
+  })
+
+  it('collects every tools/list page through the SDK', async () => {
+    const requests = serve(['2026-07-28'], { tools: {} }, true)
+    const service = new McpRuntimeService()
+    try {
+      const connected = await service.connectServer({ name: 'pages', type: 'streamableHttp', url: 'https://mcp.test/mcp' })
+      expect(connected.result).toBe(true)
+      expect(connected.tools?.map(tool => tool.function.name)).toEqual(['pages__search', 'pages__second'])
+      expect(requests.filter(request => request.method === 'tools/list')).toHaveLength(2)
+    } finally {
+      service.disconnectAll()
+    }
+  })
+
+  it('rejects old protocol servers without sending initialize', async () => {
+    const requests = serve(['2025-11-25'])
+    const service = new McpRuntimeService()
+    const connected = await service.connectServer({ name: 'old', type: 'streamableHttp', url: 'https://mcp.test/mcp' })
+    expect(connected.result).toBe(false)
+    expect(requests.map(request => request.method)).toEqual(['server/discover'])
+    expect(service.getRuntimeSnapshot().servers[0].connected).toBe(false)
+  })
+
+  it('rejects servers without tool capability', async () => {
+    const requests = serve(['2026-07-28'], {})
+    const service = new McpRuntimeService()
+    expect((await service.connectServer({ name: 'empty', type: 'streamableHttp', url: 'https://mcp.test/mcp' })).result).toBe(false)
+    expect(requests.map(request => request.method)).toEqual(['server/discover'])
+  })
+
+  it('connects and calls a modern stdio child process', async () => {
+    const service = new McpRuntimeService()
+    try {
+      const connected = await service.connectServer({
+        name: 'stdio', command: process.execPath,
+        args: [fileURLToPath(new URL('./fixtures/modern-server.mjs', import.meta.url))]
+      })
+      expect(connected.result).toBe(true)
+      expect(await service.callTool('stdio-call', 'stdio__echo', { message: 'hello' })).toEqual([
+        expect.objectContaining({ content: [{ type: 'text', text: '{"message":"hello"}' }] })
+      ])
+    } finally {
+      service.disconnectAll()
+    }
+  })
+
+  it('rejects removed SSE configurations', async () => {
+    const service = new McpRuntimeService()
+    const connected = await service.connectServer({ name: 'sse', type: 'sse' as 'streamableHttp', url: 'https://mcp.test/sse' })
+    expect(connected.result).toBe(false)
+    expect(connected.msg).toContain('Unsupported MCP transport')
   })
 })

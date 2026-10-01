@@ -251,10 +251,10 @@ export const MCPServersManagerContent: React.FC<
     const serverName = item.server.name
     let config: LocalMcpServerConfig = {}
 
-    if (item.server.remotes?.[0]) {
-      const remote = item.server.remotes[0]
+    const remote = item.server.remotes?.find(remote => remote.type === 'streamable-http')
+    if (remote) {
       config = {
-        type: remote.type === 'sse' ? 'sse' : 'streamableHttp',
+        type: 'streamableHttp',
         url: remote.url,
         description: item.server.description,
         version: item.server.version
@@ -277,10 +277,10 @@ export const MCPServersManagerContent: React.FC<
         }
       }
     } else {
-      config = {}
       toast.warning(
-        `${serverName} has no auto-config. Please configure manually.`
+        `${serverName} has no supported transport. Use stdio or Streamable HTTP.`
       )
+      return
     }
 
     setMcpServerConfig({

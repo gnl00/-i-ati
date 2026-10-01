@@ -30,7 +30,7 @@ describe('CLI Chat profile parity', () => {
         payloadExtensions: { thinking: '{"thinking":{{value}}}' }, requestOverrides: { temperature: 0.2 } }]
     })
     mocks.getMcp.mockReturnValue({ mcpServers: { search: { command: 'search-server' } } })
-    mocks.connect.mockResolvedValue({ result: true, tools: [{ name: 'mcp_search' }] })
+    mocks.connect.mockResolvedValue({ result: true, tools: [{ type: 'function', source: 'mcp', serverName: 'search', originalName: 'search', function: { name: 'mcp_search' } }] })
     mocks.build.mockResolvedValue({
       requestSpec: { systemPrompt: 'Chat prompt', tools: [{ name: 'vision_analyze' }, { name: 'mcp_search' }] },
       initialTranscriptSeed: [{ kind: 'user', content: 'task' }]
@@ -44,7 +44,7 @@ describe('CLI Chat profile parity', () => {
         model: expect.objectContaining({ contextWindowTokens: 100000 }),
         providerDefinition: expect.objectContaining({ requestOverrides: { temperature: 0.2 }, payloadExtensions: expect.any(Object) })
       }) }), expect.any(Object),
-      expect.objectContaining({ textCtx: 'task', tools: [{ name: 'mcp_search' }], options: modelConfig.options })
+      expect.objectContaining({ textCtx: 'task', tools: [{ name: 'mcp_search', source: 'mcp', serverName: 'search', originalName: 'search' }], options: modelConfig.options })
     )
     expect(mocks.build.mock.calls[0][2].source).toBeUndefined()
     expect(profile.requestSpec.tools).toEqual([{ name: 'vision_analyze' }, { name: 'mcp_search' }])

@@ -8,3 +8,5 @@ Current app integration behavior. External product material lives in
 - [Skills](skills.md)
 - [SystemInfo API](system-info-api.md)
 - [Fetch budgets for each unique level](tool-search-tools.md)
+
+- [MCP runtime](mcp.md)
