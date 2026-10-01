@@ -553,7 +553,10 @@ const KnowledgebaseManager: React.FC<KnowledgebaseManagerProps> = ({
   }, [searchQuery, hasUnsavedConfig, savedKnowledgebase])
 
   return (
-    <SettingsPageShell scrollable contentClassName="space-y-2">
+    <SettingsPageShell
+      scrollable
+      contentClassName="space-y-2 [scrollbar-gutter:stable]"
+    >
       <div>
         <SettingsSectionHeader
           title={<Label htmlFor="toggle-knowledgebase">Knowledge Base</Label>}
