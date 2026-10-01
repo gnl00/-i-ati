@@ -17,7 +17,7 @@ describe('ScheduledExecutionChat', () => {
     mocks.uuid.mockReturnValue('execution-1')
   })
 
-  it('creates an empty explicitly scoped chat with current source settings', async () => {
+  it('creates an empty explicitly scoped chat with the source workspace and automatic approval', async () => {
     const modelRef = { accountId: 'account-1', modelId: 'model-1' }
     const sourceChat: ChatEntity = {
       id: 1,
@@ -28,7 +28,7 @@ describe('ScheduledExecutionChat', () => {
       modelRef,
       workspacePath: '/tmp/source-workspace',
       userInstruction: 'source instruction',
-      permissionApprovalMode: 'auto',
+      permissionApprovalMode: 'manual',
       hostBindings: [{ hostType: 'test', hostChatId: 'host-1', status: 'active' }],
       parentChatUuid: 'parent-1',
       forkedFromMessageId: 10,
@@ -37,9 +37,6 @@ describe('ScheduledExecutionChat', () => {
       updateTime: 2
     }
     const chat = await createScheduledExecutionChat({
-      task: { goal: '  Generate a report  ' },
-      scheduledFor: Date.parse('2026-09-03T02:00:00Z'),
-      attempt: 2,
       sourceChat,
       modelRef,
       canContinue: () => true
@@ -48,7 +45,7 @@ describe('ScheduledExecutionChat', () => {
     expect(mocks.mkdir).toHaveBeenCalledWith('/tmp/source-workspace', { recursive: true })
     expect(chat).toMatchObject({
       uuid: 'execution-1',
-      title: 'Generate a report · 2026-09-03T02:00:00.000Z · attempt 2',
+      title: 'NewChat',
       messages: [],
       msgCount: 0,
       modelRef,
@@ -66,21 +63,16 @@ describe('ScheduledExecutionChat', () => {
     mocks.uuid.mockReturnValue('execution-2')
     let canContinue = true
     const chat = await createScheduledExecutionChat({
-      task: { goal: 'run' },
-      scheduledFor: 1000,
-      attempt: 1,
-      sourceChat: { permissionApprovalMode: 'manual' },
+      sourceChat: {},
       modelRef: { accountId: 'account-1', modelId: 'model-1' },
       canContinue: () => canContinue
     })
     expect(mocks.mkdir).toHaveBeenCalledWith('/tmp/ati-user-data/workspaces/execution-2', { recursive: true })
     expect(chat.workspacePath).toBe('./workspaces/execution-2')
+    expect(chat.permissionApprovalMode).toBe('auto')
 
     canContinue = false
     await expect(createScheduledExecutionChat({
-      task: { goal: 'cancelled' },
-      scheduledFor: 1000,
-      attempt: 1,
       sourceChat: {},
       modelRef: { accountId: 'account-1', modelId: 'model-1' },
       canContinue: () => canContinue

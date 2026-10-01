@@ -6,7 +6,6 @@ import { RunService } from '@main/orchestration/chat/run'
 import { createSchedulerLogger } from '@main/logging/LogService'
 import { SCHEDULE_EVENTS } from '@shared/schedule/events'
 import { resolveLiteModelRef } from '@shared/services/ChatModelResolver'
-import { normalizePermissionApprovalMode } from '@tools/approval'
 import { notifyTerminalRunFailure } from '@main/notifications/AgentNotificationSink'
 import { ScheduleEventEmitter } from './event-emitter'
 import { cronScheduleCalculator } from './CronScheduleCalculator'
@@ -160,9 +159,6 @@ export class SchedulerService {
 
       const sourceChatForAttempt = sourceChat
       executionChat = await createScheduledExecutionChat({
-        task,
-        scheduledFor: run.scheduled_for,
-        attempt: started.attempt_count,
         sourceChat: sourceChatForAttempt,
         modelRef,
         canContinue: () => {
@@ -212,7 +208,7 @@ export class SchedulerService {
           mediaCtx: [],
           source: 'schedule',
           stream: true,
-          permissionApprovalMode: sourceChat.permissionApprovalMode,
+          permissionApprovalMode: executionChat.permissionApprovalMode,
           nativeNotification: {
             notifyOnFailure: started.attempt_count >= Math.max(1, task.max_attempts),
             occurrenceKey: run.id
@@ -336,8 +332,6 @@ export class SchedulerService {
       && current.uuid === sourceChat.uuid
       && current.id === sourceChat.id
       && (current.workspacePath || null) === (sourceChat.workspacePath || null)
-      && normalizePermissionApprovalMode(current.permissionApprovalMode)
-        === normalizePermissionApprovalMode(sourceChat.permissionApprovalMode)
     )
   }
 

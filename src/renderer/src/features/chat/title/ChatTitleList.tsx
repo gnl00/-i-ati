@@ -9,7 +9,7 @@ import { invokeDbChatSearch } from '@renderer/infrastructure/ipc'
 import { cn } from '@renderer/shared/lib/utils'
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
 import { parseChatSearchHighlights } from '@shared/search/chatSearchHighlights'
-import { ChatTitleSearch } from './ChatTitleSearch'
+import { ChatSearch } from './ChatSearch'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { toast as sonnerToast } from 'sonner'
 
@@ -355,7 +355,7 @@ const ChatTitleList: React.FC<ChatTitleListProps> = ({ onChatClick, onDeletedCur
     }
   }
 
-  const searchControl = <ChatTitleSearch layout={searchContainer ? 'actions' : 'overlay'} className={searchContainer ? 'contents' : 'h-9 bg-white dark:bg-(--app-canvas)'} open={searchOpen} value={searchQuery} onChange={setSearchQuery} onOpen={openSearch} onClose={closeSearch} />
+  const searchControl = <ChatSearch layout={searchContainer ? 'actions' : 'overlay'} className={searchContainer ? 'contents' : 'h-9 bg-white dark:bg-(--app-canvas)'} open={searchOpen} value={searchQuery} onChange={setSearchQuery} onOpen={openSearch} onClose={closeSearch} />
   const search = searchContainer ? createPortal(searchControl, searchContainer) : searchContainer === undefined ? searchControl : null
 
   if (sortedChatList.filter(item => item.id !== -1).length === 0) {

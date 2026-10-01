@@ -110,9 +110,9 @@ describe('SchedulerService', () => {
       permissionApprovalMode: 'auto',
       workspacePath: '/tmp/source-workspace'
     }))
-    mocks.createExecutionChat.mockReset().mockImplementation(async ({ attempt }: { attempt: number }) => ({
-      uuid: `execution-${attempt}-${Date.now()}`,
-      title: 'Scheduled execution',
+    mocks.createExecutionChat.mockReset().mockImplementation(async () => ({
+      uuid: `execution-${mocks.createExecutionChat.mock.calls.length}-${Date.now()}`,
+      title: 'NewChat',
       messages: [],
       msgCount: 0,
       modelRef: { accountId: 'a', modelId: 'm' },
@@ -144,8 +144,6 @@ describe('SchedulerService', () => {
     expect(task.status).toBe('completed')
     expect(runs[0]).toMatchObject({ status: 'completed', attempt_count: 1, result_message_id: 42 })
     expect(mocks.createExecutionChat).toHaveBeenCalledWith(expect.objectContaining({
-      scheduledFor: task.run_at,
-      attempt: 1,
       sourceChat: expect.objectContaining({ permissionApprovalMode: 'auto', workspacePath: '/tmp/source-workspace' }),
       modelRef: { accountId: 'a', modelId: 'm' }
     }))
@@ -155,6 +153,39 @@ describe('SchedulerService', () => {
       input: expect.objectContaining({ permissionApprovalMode: 'auto' })
     }))
     expect(mocks.emit).toHaveBeenCalledWith(SCHEDULE_EVENTS.RUN_FINISHED, expect.objectContaining({ run: expect.objectContaining({ id: runs[0].id }) }))
+  })
+
+  it('uses auto approval for a manual source chat and every retry', async () => {
+    mocks.getChat.mockImplementation((uuid: string) => ({
+      id: 1, uuid, title: 'Source', workspacePath: '/tmp/source-workspace',
+      modelRef: { accountId: 'a', modelId: 'm' }, permissionApprovalMode: 'manual'
+    }))
+    const task = addTask()
+    mocks.execute.mockRejectedValueOnce(new Error('retry'))
+    const scheduler = new SchedulerService() as unknown as { tick(): Promise<void> }
+    await scheduler.tick()
+    vi.setSystemTime(task.run_at)
+    await scheduler.tick()
+    expect(mocks.execute).toHaveBeenCalledTimes(2)
+    for (const [input] of mocks.execute.mock.calls) {
+      expect(input.input.permissionApprovalMode).toBe('auto')
+    }
+    expect(task.status).toBe('completed')
+  })
+
+  it('continues when only the source approval mode changes during preparation', async () => {
+    let lookupCount = 0
+    mocks.getChat.mockImplementation((uuid: string) => ({
+      id: 1, uuid, title: 'Source', workspacePath: '/tmp/source-workspace',
+      modelRef: { accountId: 'a', modelId: 'm' },
+      permissionApprovalMode: ++lookupCount === 1 ? 'manual' : 'auto'
+    }))
+    const task = addTask()
+    await (new SchedulerService() as unknown as { tick(): Promise<void> }).tick()
+    expect(task.status).toBe('completed')
+    expect(mocks.execute).toHaveBeenCalledWith(expect.objectContaining({
+      input: expect.objectContaining({ permissionApprovalMode: 'auto' })
+    }))
   })
 
   it('advances a recurring schedule to one future occurrence', async () => {

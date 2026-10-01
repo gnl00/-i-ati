@@ -384,13 +384,22 @@ Settings 模型选择弹层使用半透明白色 / graphite raised 背景与 bac
 Tasks places Chats below the schedule board, aligned to the same
 content width. The board keeps its All/Active/History controls. The chat section
 uses a 13px medium section title and row title, 11px muted count/time, the existing
-canvas background and subtle horizontal dividers, and an independent title search reusing ChatTitleSearch from the chat title list. Each chat row
+canvas background and subtle horizontal dividers, and an independent title search reusing ChatSearch from the chat title list. Each chat row
 contains a neutral message icon, single-line title, timestamp and opening chevron.
 Both lists sit directly on the canvas without rounded outer frames or raised
 background fills. Rows use shared hover/focus colors without extra status badges or nested run
 hierarchies. The task and chat regions each occupy half of the available content height,
 with a fixed gap and independent list scrolling. Task filter changes never move
 the Chats header. Light/Dark share the same geometry.
+The Chats search uses the flexible space to the right of its fixed title and count.
+It uses the same `ChatSearch` actions layout as the Chat Sheet: a 40px row,
+36px collapsed slot, 16px search icon, borderless inset surface in Light and
+raised surface in Dark, and the same input and close button. The grid expands
+over 220ms ease-out, immediately with reduced motion. Both grid endpoints use
+length tracks (`36px` to `min(315px, 100%)`) so Chromium interpolates the width
+continuously instead of switching between incompatible track types. Its expanded width is
+capped at 315px and the available space; the input and close button remain
+visible at narrow window widths. Tasks retains its title-only search placeholder.
 
 ## Chat Sheet workspace groups
 

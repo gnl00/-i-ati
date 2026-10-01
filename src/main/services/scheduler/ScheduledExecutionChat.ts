@@ -3,8 +3,6 @@ import { isAbsolute, join, resolve } from 'node:path'
 import { app } from 'electron'
 import { v4 as uuidv4 } from 'uuid'
 import { getDefaultWorkspacePath } from '@shared/workspace/workspacePaths'
-import { normalizePermissionApprovalMode } from '@tools/approval'
-import type { ScheduledTaskRow } from '@main/db/dao/ScheduledTaskDao'
 
 export class ScheduledExecutionChatCancelledError extends Error {
   constructor() {
@@ -14,10 +12,7 @@ export class ScheduledExecutionChatCancelledError extends Error {
 }
 
 export type ScheduledExecutionChatInput = {
-  task: Pick<ScheduledTaskRow, 'goal'>
-  scheduledFor: number
-  attempt: number
-  sourceChat: Pick<ChatEntity, 'workspacePath' | 'permissionApprovalMode'>
+  sourceChat: Pick<ChatEntity, 'workspacePath'>
   modelRef: ModelRef
   canContinue?: () => boolean
 }
@@ -27,19 +22,6 @@ function resolveWorkspaceDirectory(workspacePath: string): string {
   const normalized = workspacePath.replace(/\\/g, '/')
   const clean = normalized.startsWith('./') ? normalized.slice(2) : normalized
   return resolve(join(app.getPath('userData'), clean))
-}
-
-function shortGoal(goal: string): string {
-  const normalized = goal.trim().replace(/\s+/g, ' ')
-  const codePoints = Array.from(normalized || 'Scheduled task')
-  return codePoints.slice(0, 80).join('')
-}
-
-export function buildScheduledExecutionChatTitle(goal: string, scheduledFor: number, attempt: number): string {
-  const scheduledAt = Number.isFinite(scheduledFor)
-    ? new Date(scheduledFor).toISOString()
-    : 'unknown time'
-  return `${shortGoal(goal)} · ${scheduledAt} · attempt ${attempt}`
 }
 
 export async function createScheduledExecutionChat(input: ScheduledExecutionChatInput): Promise<ChatEntity> {
@@ -55,13 +37,13 @@ export async function createScheduledExecutionChat(input: ScheduledExecutionChat
   const chat: ChatEntity = {
     uuid,
     isScheduled: true,
-    title: buildScheduledExecutionChatTitle(input.task.goal, input.scheduledFor, input.attempt),
+    title: 'NewChat',
     messages: [],
     msgCount: 0,
     modelRef: { ...input.modelRef },
     workspacePath,
     userInstruction: '',
-    permissionApprovalMode: normalizePermissionApprovalMode(input.sourceChat.permissionApprovalMode),
+    permissionApprovalMode: 'auto',
     createTime: now,
     updateTime: now
   }

@@ -136,6 +136,20 @@ describe('TitleJobService', () => {
     loggerWarnMock.mockReset()
   })
 
+  it('plans title generation for a scheduled NewChat with a long instruction', () => {
+    const service = new TitleJobService()
+    const scheduledInput = {
+      ...args,
+      chatEntity: { ...args.chatEntity, isScheduled: true, title: 'NewChat' },
+      content: 'Generate a report with detailed requirements. '.repeat(100)
+    }
+    expect(service.shouldRun(scheduledInput, config)).toBe(true)
+    expect(service.shouldRun({
+      ...scheduledInput,
+      chatEntity: { ...scheduledInput.chatEntity, title: 'User title' }
+    }, config)).toBe(false)
+  })
+
   it('runs the title agent and emits the generated title', async () => {
     const service = new TitleJobService(undefined, undefined, undefined, titleAgentMock)
     args.modelContext.providerDefinition.requestOverrides = {

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronRight, MessageSquare } from 'lucide-react'
 import { toast } from 'sonner'
 import { getAllChat } from '@renderer/infrastructure/persistence/ChatRepository'
-import { ChatTitleSearch } from '../title/ChatTitleSearch'
+import { ChatSearch } from '../title/ChatSearch'
 import { switchWorkspace } from '@renderer/features/workspace'
 import { useChatStore } from '../state/chatStore'
 import { useSheetStore } from '../state/sheetStore'
@@ -92,15 +92,17 @@ export function SchedulerChats(): React.ReactElement {
 
   return (
     <section aria-label="Chats" className="flex min-h-0 flex-col">
-      <div className="mb-3 flex h-8.5 shrink-0 items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-[13px] font-medium text-slate-700 dark:text-(--app-text-primary)">
+      <div className="mb-3 flex h-10 shrink-0 items-center justify-between gap-3">
+        <h2 className="flex shrink-0 items-center gap-2 text-[13px] font-medium text-slate-700 dark:text-(--app-text-primary)">
           Chats
           <span className="text-[11px] font-normal tabular-nums text-slate-400 dark:text-(--app-text-muted)">
             {loading || error ? '—' : chats.length}
           </span>
         </h2>
-        <div className="relative h-8.5 w-8.5 shrink-0">
-          <ChatTitleSearch
+        <div className="grid h-10 min-w-0 flex-1 grid-cols-[minmax(0,1fr)_36px] has-[[data-search-open=true]]:grid-cols-[minmax(0,1fr)_min(315px,100%)] items-center transition-[grid-template-columns] duration-220 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none">
+          <div aria-hidden="true" />
+          <ChatSearch
+            layout="actions"
             open={searchOpen}
             value={query}
             onChange={setQuery}

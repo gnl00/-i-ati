@@ -84,9 +84,13 @@ failure closes its parent. A final recurring failure records the failed run and
 advances its parent.
 
 Every occurrence attempt creates a new chat after its attempt row is started.
-The source chat supplies the current workspace and normalized permission mode;
-the new chat stores the resolved model, an empty transcript and session
-instruction, and a short goal/time/attempt title. Source history, summaries,
+The source chat supplies the current workspace. Every new execution chat stores
+the resolved model, an empty transcript and session instruction, `NewChat` as
+its initial title, and `auto` as its permission approval mode. Run submission
+uses that same mode, including retries, independently of the source chat and
+the app default. Normal post-run title generation names the chat from its
+instruction and reply; title failures retain `NewChat` without failing the
+occurrence. Scheduled time and attempt number remain in execution history. Source history, summaries,
 attachments, skills, fork metadata, and host bindings remain outside the
 execution chat. Cancellation detected during workspace preparation prevents
 chat allocation. Chat insertion and attempt binding share one SQLite
@@ -96,7 +100,7 @@ cancellation arrives before model output.
 
 Prompt, model reference, and effective instruction validation precede chat
 allocation. After asynchronous workspace preparation, the scheduler verifies
-that the source chat still exists with the same workspace and permission mode;
+that the source chat still exists with the same workspace;
 changes settle through the normal failure and retry policy.
 
 ## Cancellation and recovery
@@ -189,7 +193,30 @@ its separate column header reserve matching stable scrollbar gutters.
 The Tasks page retains its schedule board and adds a separate **Chats**
 list below it. Both regions occupy equal height with independent list scrolling,
 so filter changes preserve the chat section position. All/Active/History filter only the schedule board; scheduled chats
-sort by chat update time and have an independent title search. Selecting a row
+sort by chat update time and have an independent title search. The search control
+expands within the flexible space beside the fixed Chats heading; its container
+allows the shared search field to grow instead of clipping it to icon width.
+Both Tasks and the Chat Sheet reuse the `ChatSearch` actions layout, sharing
+the borderless surface, controls, and focus lifecycle. Their parent grids own
+width transitions; Tasks filters titles locally while the Chat Sheet retains
+its ranked title/message search.
+The Tasks grid animates between length tracks (`36px` and
+`min(315px, 100%)`); changing the second track from a length to `minmax()`
+prevents continuous interpolation in Chromium. Reduced motion disables the
+transition.
+
+The opt-in Electron regression samples actual opening and closing widths in
+Light/Dark at 315px and 640px, including reduced motion. Run it against an
+isolated development profile with its remote debugging port enabled:
+
+```sh
+ATI_SEARCH_TEST_CDP_URL=http://127.0.0.1:9341 pnpm --config.verify-deps-before-run=false exec vitest run src/renderer/src/features/chat/schedule/__tests__/SchedulerChats.animation.test.ts
+```
+
+Without this environment variable, the runtime test is skipped; ordinary DOM
+tests do not validate Chromium animation interpolation.
+
+Selecting a row
 opens the existing transcript using the normal workspace and hydration path.
 Load errors, empty states and navigation failures remain visible. Selection
 request and epoch guards prevent an obsolete asynchronous open from taking over.

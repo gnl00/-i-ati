@@ -2,6 +2,7 @@
 
 **Status:** Accepted<br>
 **Date:** 2026-09-03<br>
+**Amended:** 2026-10-01, scheduled title and unattended approval policy<br>
 **Related architecture:** [Scheduled task architecture](../architecture/scheduled-tasks.md)<br>
 **Related implementation guide:** [Schedule fresh chat implementation](../guides/development/schedule-fresh-chat-implementation.md)
 
@@ -24,9 +25,12 @@ Starting a new attempt clears the current chat field while retaining the
 preceding attempts' associations.
 
 The new chat is constructed from an explicit field list. It receives a fresh
-UUID, empty messages and session instruction, the resolved model, a short
-goal/time/attempt title, the source workspace, and the normalized source
-permission mode. Source history, summaries, attachments, skills, fork data,
+UUID, empty messages and session instruction, the resolved model, `NewChat`
+as its initial title, the source workspace, and `auto` permission approval.
+Run submission uses the execution chat mode, including retries. Normal post-run
+title generation supplies the title; time and attempt identity stay in the
+execution history. This replaces the original goal/time/attempt title and
+source permission inheritance. Source history, summaries, attachments, skills, fork data,
 and host bindings remain absent. A cancellation check follows workspace
 creation, and conditional binding must still observe a running occurrence
 before model execution. One SQLite transaction inserts the chat, records the
@@ -45,6 +49,10 @@ maintenance events can finish the chat lifecycle.
 
 ## Consequences
 
+- Every new scheduled attempt runs unattended with application tool confirmations
+  automatically approved, independently of source-chat and app defaults.
+  Operating-system permissions, unavailable credentials, and user questions can
+  still require intervention. Existing chats retain their saved titles and modes.
 - Scheduled results are independently browsable and follow-up prompts do not
   add context from the source transcript.
 - Retry attempts have distinct chat and submission identities while occurrence

@@ -14,10 +14,10 @@ Related architecture: [Scheduled tasks](../../architecture/scheduled-tasks.md)
 ## 行为约定
 
 1. `task.chat_uuid` 始终指向来源 chat。来源 chat 的交互运行状态与 schedule 执行相互独立。
-2. 新 chat 显式构造：新 UUID、空 messages、零消息计数、空会话指令、任务目标短标题 + 本次预定时间 + 尝试序号。保留应用基础规则。历史消息、摘要、附件、分叉信息、技能绑定和宿主绑定从空开始。
+2. 新 chat 显式构造：新 UUID、空 messages、零消息计数、空会话指令、`NewChat` 初始标题与 `auto` 审批模式；运行后复用普通会话标题生成，时间与尝试序号保留在执行历史。保留应用基础规则。历史消息、摘要、附件、分叉信息、技能绑定和宿主绑定从空开始。
 3. 执行模型沿用现有顺序：payload.modelRef → 配置中的 lite 模型 → 来源 chat.modelRef。新 chat.modelRef 保存本次实际使用的模型。
-4. 工作目录和 permissionApprovalMode 读取来源 chat 的当前值。来源无工作目录时使用新 chat 的默认工作目录，并确保运行所需目录可用。权限模式沿用现有规范化与审批链路。
-5. 来源 chat 缺失时走现有失败、退避和最终通知路径。调度器在创建 chat 前校验最终执行指令和 payload modelRef 的形状，并在工作目录准备完成后重读来源 chat，确认来源仍存在且 workspace、permission 配置保持一致。模型解析、创建 chat、关联写入和来源配置变化都必须占用当前尝试预算并完成状态结算。
+4. 工作目录读取来源 chat 的当前值。来源无工作目录时使用新 chat 的默认工作目录，并确保运行所需目录可用。新 chat 和 RunService 提交参数统一使用 `auto`，每次触发与重试均独立于来源 chat 的模式和应用默认值；沿用现有 Auto 审批链路，不改普通新会话默认设置。
+5. 来源 chat 缺失时走现有失败、退避和最终通知路径。调度器在创建 chat 前校验最终执行指令和 payload modelRef 的形状，并在工作目录准备完成后重读来源 chat，确认来源仍存在且 workspace 配置保持一致。模型解析、创建 chat、关联写入和来源配置变化都必须占用当前尝试预算并完成状态结算。
 6. 每次尝试新建 chat；同一 occurrence 的 run.id 保持稳定，attempt_count 递增。已失败尝试的 chat 保留，可单独打开。
 7. 后台创建新 chat 时刷新列表，保持当前选择。运行和消息事件携带执行 chat 的身份，任务管理更新携带来源 chat 的身份。
 8. 保留 claim 唯一性、每任务一个 active occurrence、串行 tick、退避上限、取消、启动恢复以及 occurrence 级原生通知去重。来源 chat 忙碌不再延迟 schedule。
@@ -53,7 +53,7 @@ schedule 工具 → task（来源 chat）→ occurrence run
 - `src/renderer/src/features/chat/schedule/` 及既有 chat 列表事件入口：列表可见性、执行状态归属、当前选择稳定性。先读取 DESIGN.md；复用现有 store 和通知流程。
 - 对应 colocated tests、`docs/architecture/scheduled-tasks.md` 和新 ADR：同步最终事实。文档索引仅增加本任务链接，保留已有未提交内容。
 
-自动归档、列表重设计、自动重写历史任务、后台权限扩张和历史消息搬迁独立于本次范围。工作目录共享意味着文件内容与外部副作用可以跨尝试存在；会话隔离不提供外部操作幂等性。
+自动归档、列表重设计、自动重写历史任务、操作系统权限授权和历史消息搬迁独立于本次范围。工作目录共享意味着文件内容与外部副作用可以跨尝试存在；会话隔离不提供外部操作幂等性。
 
 ## 验证与交付
 

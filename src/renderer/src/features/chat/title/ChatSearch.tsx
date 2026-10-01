@@ -4,7 +4,7 @@ import { Search, X } from 'lucide-react'
 import { Input } from '@renderer/shared/components/ui/input'
 import { cn } from '@renderer/shared/lib/utils'
 
-interface ChatTitleSearchProps {
+interface ChatSearchProps {
   open: boolean
   value: string
   onChange: (value: string) => void
@@ -16,17 +16,17 @@ interface ChatTitleSearchProps {
   className?: string
 }
 
-export function ChatTitleSearch({
+export function ChatSearch({
   open,
   value,
   onChange,
   onOpen,
   onClose,
-  placeholder = 'Search titles and messages...',
+  placeholder,
   label = 'Search chats',
   className,
   layout = 'overlay',
-}: ChatTitleSearchProps): React.ReactElement {
+}: ChatSearchProps): React.ReactElement {
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   useEffect(() => {
     if (!open) return
@@ -55,7 +55,7 @@ export function ChatTitleSearch({
               value={value}
               aria-label={label}
               onChange={(event) => onChange(event.target.value)}
-              placeholder={layout === 'actions' ? 'Search chats...' : placeholder}
+              placeholder={placeholder ?? 'Search chats...'}
               className="h-8.5 min-w-0 flex-1 border-0 bg-transparent pl-0 pr-1 text-[13px] shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
             />
             <button type="button" onClick={onClose} aria-label="Close search" className="mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md hover:bg-(--app-surface-hover)">
@@ -107,7 +107,7 @@ export function ChatTitleSearch({
                   ref={searchInputRef}
                   value={value}
                   onChange={(event) => onChange(event.target.value)}
-                  placeholder={placeholder}
+                  placeholder={placeholder ?? 'Search titles and messages...'}
                   className="h-8.5 min-w-0 border-0 bg-transparent pl-1.5 pr-2.5 text-[13px] shadow-none placeholder:text-gray-400 focus-visible:ring-0 focus-visible:ring-offset-0 dark:placeholder:text-gray-500"
                 />
                 <button
