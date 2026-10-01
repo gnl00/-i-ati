@@ -7,7 +7,7 @@ import type { RunResult } from '@main/agent/contracts'
 import { AppConfigStore } from '@main/hosts/chat/config/AppConfigStore'
 import { ChatModelContextResolver } from '@main/hosts/chat/config/ChatModelContextResolver'
 import { TelegramAgentAdapter, type TelegramInboundEnvelope } from '@main/hosts/telegram'
-import { TelegramRenderResponder } from '@main/hosts/telegram/runtime'
+import { TelegramRenderResponder, TelegramToolMessages } from '@main/hosts/telegram/runtime'
 import { chatDb } from '@main/db/chat'
 import { createLogger } from '@main/logging/LogService'
 import type { ToolConfirmation, TelegramConfirmationTarget } from '@shared/tools/confirmation'
@@ -45,10 +45,10 @@ export class TelegramGatewayService {
   private static readonly START_TIMEOUT_MS = 30_000
   private static readonly POLLING_START_TIMEOUT_MS = 30_000
 
+  private readonly toolMessages = new TelegramToolMessages()
   private readonly confirmationMessages = new Map<string, {
     descriptor: ToolConfirmation
     envelope: Pick<TelegramInboundEnvelope, 'chatId' | 'threadId' | 'messageId'>
-    messageId?: number
     appliedVersion: number
   }>()
   private confirmationQueue: Promise<void> = Promise.resolve()
@@ -76,7 +76,7 @@ export class TelegramGatewayService {
     const existing = this.confirmationMessages.get(key)
     if (existing && descriptor.version <= existing.descriptor.version) return Promise.resolve()
     this.confirmationMessages.set(key, {
-      descriptor, envelope, messageId: existing?.messageId, appliedVersion: existing?.appliedVersion ?? 0
+      descriptor, envelope, appliedVersion: existing?.appliedVersion ?? 0
     })
     return this.queueConfirmationSync()
   }
@@ -93,35 +93,15 @@ export class TelegramGatewayService {
     for (const [id, entry] of this.confirmationMessages) {
       if (entry.appliedVersion >= entry.descriptor.version || !this.canDeliverApproval({ peerId: entry.envelope.chatId, threadId: entry.envelope.threadId })) continue
       try {
-        if (!entry.messageId) {
-          const descriptor = entry.descriptor
-          const sent = await bot.api.sendMessage(
-            Number(entry.envelope.chatId),
-            this.confirmationText(descriptor),
-            {
-              parse_mode: 'HTML',
-              ...(entry.envelope.threadId ? { message_thread_id: Number(entry.envelope.threadId) } : {}),
-              ...(entry.envelope.messageId ? { reply_parameters: { message_id: Number(entry.envelope.messageId) } } : {}),
-              reply_markup: { inline_keyboard: this.confirmationKeyboard(descriptor) }
-            }
-          )
-          // A decision may arrive while sendMessage is in flight.
-          const current = this.confirmationMessages.get(id)!
-          current.messageId = sent.message_id
-          current.appliedVersion = descriptor.version
-        }
-        const current = this.confirmationMessages.get(id)!
-        if (current.appliedVersion < current.descriptor.version) {
-          const descriptor = current.descriptor
-          try {
-            await bot.api.editMessageText(Number(current.envelope.chatId), current.messageId!, this.confirmationText(descriptor), {
-              parse_mode: 'HTML', reply_markup: { inline_keyboard: this.confirmationKeyboard(descriptor) }
-            })
-          } catch (error) {
-            if (!(error instanceof Error) || !error.message.toLowerCase().includes('message is not modified')) throw error
-          }
-          current.appliedVersion = descriptor.version
-        }
+        const descriptor = entry.descriptor
+        await this.toolMessages.update({
+          bot, envelope: entry.envelope,
+          submissionId: descriptor.submissionId, toolCallId: descriptor.toolCallId,
+          text: this.confirmationText(descriptor),
+          rank: descriptor.status === 'pending' ? 1 : descriptor.status === 'approved' ? 2 : 5,
+          keyboard: this.confirmationKeyboard(descriptor)
+        })
+        entry.appliedVersion = descriptor.version
       } catch (error) {
         retry = true
         this.logger.warn('tool_confirmation.sync_failed', {
@@ -499,6 +479,8 @@ export class TelegramGatewayService {
     const responder = this.bot
       ? new TelegramRenderResponder({
         bot: this.bot,
+        toolMessages: this.toolMessages,
+        submissionId: input.submissionId,
         envelope,
         logger: this.logger
       })

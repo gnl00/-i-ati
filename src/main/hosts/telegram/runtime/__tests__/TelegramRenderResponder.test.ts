@@ -260,18 +260,19 @@ describe('TelegramRenderResponder', () => {
       status: 'success'
     }))
 
-    expect(sendMessage).toHaveBeenNthCalledWith(1, 123, '<blockquote>tool memory retrieval start</blockquote>', {
+    expect(sendMessage).toHaveBeenNthCalledWith(1, 123, '<blockquote>tool memory retrieval running</blockquote>\n<pre>{&quot;query&quot;:&quot;latest api&quot;}</pre>', {
       reply_parameters: { message_id: 55 },
-      parse_mode: 'HTML'
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: [] }
     })
-    expect(sendMessage).toHaveBeenNthCalledWith(2, 123, [
+    expect(sendMessage).toHaveBeenCalledTimes(1)
+    expect(editMessageText).toHaveBeenCalledWith(123, 120, [
       '<blockquote>tool memory retrieval done</blockquote>',
       '<pre>{&quot;query&quot;:&quot;latest api&quot;}</pre>'
     ].join('\n'), {
-      reply_parameters: { message_id: 55 },
-      parse_mode: 'HTML'
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: [] }
     })
-    expect(editMessageText).not.toHaveBeenCalled()
   })
 
   it('keeps detected tool args when execution started follows readiness', async () => {
@@ -289,9 +290,10 @@ describe('TelegramRenderResponder', () => {
     }))
 
     expect(sendMessage).toHaveBeenCalledTimes(1)
-    expect(sendMessage).toHaveBeenCalledWith(123, '<blockquote>tool memory retrieval start</blockquote>', {
+    expect(sendMessage).toHaveBeenCalledWith(123, '<blockquote>tool memory retrieval running</blockquote>\n<pre>{&quot;query&quot;:&quot;latest api&quot;}</pre>', {
       reply_parameters: { message_id: 55 },
-      parse_mode: 'HTML'
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: [] }
     })
     expect(editMessageText).not.toHaveBeenCalled()
   })
@@ -320,11 +322,12 @@ describe('TelegramRenderResponder', () => {
     })
     expect(sendMessage).toHaveBeenNthCalledWith(2, 123, '<blockquote>tool memory retrieval done</blockquote>', {
       reply_parameters: { message_id: 55 },
-      parse_mode: 'HTML'
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: [] }
     })
   })
 
-  it('sends tool done as a second message when committed tool status changes', async () => {
+  it('edits the running tool message when committed tool status changes', async () => {
     const sendMessage = vi
       .fn()
       .mockResolvedValueOnce({ message_id: 140 })
@@ -358,15 +361,16 @@ describe('TelegramRenderResponder', () => {
     expect(sendMessage).toHaveBeenNthCalledWith(1, 123, 'Looking it up', {
       reply_parameters: { message_id: 55 }
     })
-    expect(sendMessage).toHaveBeenNthCalledWith(2, 123, '<blockquote>tool memory retrieval start</blockquote>', {
+    expect(sendMessage).toHaveBeenNthCalledWith(2, 123, '<blockquote>tool memory retrieval running</blockquote>', {
       reply_parameters: { message_id: 55 },
-      parse_mode: 'HTML'
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: [] }
     })
-    expect(sendMessage).toHaveBeenNthCalledWith(3, 123, '<blockquote>tool memory retrieval done</blockquote>', {
-      reply_parameters: { message_id: 55 },
-      parse_mode: 'HTML'
+    expect(sendMessage).toHaveBeenCalledTimes(2)
+    expect(editMessageText).toHaveBeenCalledWith(123, 141, '<blockquote>tool memory retrieval done</blockquote>', {
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: [] }
     })
-    expect(editMessageText).not.toHaveBeenCalled()
   })
 
   it('reports a result without inventing an execution start', async () => {
@@ -385,7 +389,8 @@ describe('TelegramRenderResponder', () => {
     expect(sendMessage).toHaveBeenCalledTimes(1)
     expect(sendMessage).toHaveBeenNthCalledWith(1, 123, '<blockquote>tool web search failed</blockquote>', {
       reply_parameters: { message_id: 55 },
-      parse_mode: 'HTML'
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: [] }
     })
   })
 
@@ -426,7 +431,8 @@ describe('TelegramRenderResponder', () => {
       '<pre>{&quot;query&quot;:&quot;latest api&quot;}</pre>'
     ].join('\n'), {
       reply_parameters: { message_id: 55 },
-      parse_mode: 'HTML'
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: [] }
     })
     expect(sendMessage).toHaveBeenNthCalledWith(2, 123, 'Looking it up', {
       reply_parameters: { message_id: 55 }
@@ -503,7 +509,8 @@ describe('TelegramRenderResponder', () => {
       '<pre>{&quot;query&quot;:&quot;&lt;tag&gt;&amp;\\&quot;quote\\&quot;&quot;}</pre>'
     ].join('\n'), {
       reply_parameters: { message_id: 55 },
-      parse_mode: 'HTML'
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: [] }
     })
   })
 

@@ -1,4 +1,5 @@
 import type { Bot } from 'grammy'
+import { TelegramToolMessages } from './TelegramToolMessages'
 import type { TelegramInboundEnvelope } from '@main/hosts/telegram'
 import {
   AgentRenderSegmentMapper,
@@ -32,6 +33,8 @@ type TelegramToolState = {
 
 type TelegramRenderResponderArgs = {
   bot: Bot
+  toolMessages?: TelegramToolMessages
+  submissionId?: string
   envelope: TelegramInboundEnvelope
   logger?: {
     info?: (event: string, payload?: Record<string, unknown>) => void
@@ -41,6 +44,8 @@ type TelegramRenderResponderArgs = {
 }
 
 export class TelegramRenderResponder implements HostRenderEventSink {
+  private readonly toolMessages: TelegramToolMessages
+  private readonly submissionId: string
   private readonly bot: Bot
   private readonly envelope: TelegramInboundEnvelope
   private readonly logger?: TelegramRenderResponderArgs['logger']
@@ -54,6 +59,8 @@ export class TelegramRenderResponder implements HostRenderEventSink {
   private queue: Promise<void> = Promise.resolve()
 
   constructor(args: TelegramRenderResponderArgs) {
+    this.toolMessages = args.toolMessages ?? new TelegramToolMessages()
+    this.submissionId = args.submissionId ?? args.envelope.updateId.toString()
     this.bot = args.bot
     this.envelope = args.envelope
     this.logger = args.logger
@@ -372,9 +379,10 @@ export class TelegramRenderResponder implements HostRenderEventSink {
       return
     }
 
-    const sent = await this.sendMessage({
-      text: this.formatToolStartMessage(args.toolName),
-      parseMode: 'HTML'
+    await this.toolMessages.update({
+      bot: this.bot, envelope: this.envelope, submissionId: this.submissionId,
+      toolCallId: args.toolCallId, rank: 3,
+      text: this.formatToolDoneMessage({ toolName: state.toolName, args: state.args, status: 'running' })
     })
     this.toolStates.set(args.toolCallId, {
       ...state,
@@ -383,7 +391,6 @@ export class TelegramRenderResponder implements HostRenderEventSink {
     this.logger?.info?.('telegram.render_responder.tool_start_sent', {
       updateId: this.envelope.updateId,
       chatId: this.envelope.chatId,
-      messageId: sent.message_id,
       toolCallId: args.toolCallId
     })
   }
@@ -404,13 +411,12 @@ export class TelegramRenderResponder implements HostRenderEventSink {
     }
 
     const current = this.toolStates.get(args.toolCallId) || state
-    const doneSent = await this.sendMessage({
+    await this.toolMessages.update({
+      bot: this.bot, envelope: this.envelope, submissionId: this.submissionId,
+      toolCallId: args.toolCallId, rank: 4,
       text: this.formatToolDoneMessage({
-        toolName: current.toolName,
-        status: args.status,
-        args: current.args
-      }),
-      parseMode: 'HTML'
+        toolName: current.toolName, status: args.status, args: current.args
+      })
     })
     this.toolStates.set(args.toolCallId, {
       ...current,
@@ -420,7 +426,6 @@ export class TelegramRenderResponder implements HostRenderEventSink {
     this.logger?.info?.('telegram.render_responder.tool_done_sent', {
       updateId: this.envelope.updateId,
       chatId: this.envelope.chatId,
-      messageId: doneSent.message_id,
       toolCallId: args.toolCallId
     })
   }
@@ -445,10 +450,6 @@ export class TelegramRenderResponder implements HostRenderEventSink {
     }
     this.toolStates.set(args.toolCallId, next)
     return next
-  }
-
-  private formatToolStartMessage(toolName: string): string {
-    return `<blockquote>${this.escapeHtml(`tool ${this.formatToolLabel(toolName)} start`)}</blockquote>`
   }
 
   private formatToolDoneMessage(args: {

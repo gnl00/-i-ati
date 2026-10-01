@@ -144,7 +144,8 @@ vi.mock('@main/hosts/telegram', () => {
   }
 })
 
-vi.mock('@main/hosts/telegram/runtime', () => ({
+vi.mock('@main/hosts/telegram/runtime', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@main/hosts/telegram/runtime')>(),
   TelegramRenderResponder: vi.fn(function () {
     return {
     handle: vi.fn()
@@ -566,7 +567,7 @@ describe('Telegram authoritative approval projection', () => {
     await sink.handleEvent(approvalEvent(approval({ confirmationId: 'offline-approval', status: 'expired', version: 3 })))
     ;(service as unknown as GatewayProbe).bot = bot
     await (service as unknown as GatewayProbe).queueConfirmationSync()
-    expect(bot.api.sendMessage).toHaveBeenLastCalledWith(123, '<blockquote>tool exec approval expired</blockquote>', expect.objectContaining({ reply_markup: { inline_keyboard: [] } }))
+    expect(bot.api.editMessageText).toHaveBeenLastCalledWith(123, 77, '<blockquote>tool exec approval expired</blockquote>', expect.objectContaining({ reply_markup: { inline_keyboard: [] } }))
   })
 
   it('reports the Main winner for a competing callback and invalidates stale buttons after restart', async () => {

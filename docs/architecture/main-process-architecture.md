@@ -332,3 +332,24 @@ Transport failures emit `TelegramFetch/request.failed` diagnostics with the
 underlying error name and message. Bot credentials and recognized sensitive text
 are redacted before logging; request payloads and raw error stacks are excluded.
 The original exception is rethrown so grammY retains its existing error behavior.
+
+### Telegram tool notification lifecycle
+
+`hosts/telegram/runtime/TelegramToolMessages.ts` owns the Telegram message ID
+shared by approval projection in `TelegramGatewayService` and execution rendering
+in `TelegramRenderResponder`. Each submission/tool call/chat/topic combination
+sends one message; subsequent states edit that message with HTML formatting and
+remove approval buttons once resolved. Ordinary assistant text keeps its existing
+streaming behavior.
+
+Approval remains authoritative in the versioned run interaction stream. The
+transport serializes updates per tool endpoint, suppresses identical updates,
+and prevents late approval or running updates from replacing an execution result.
+Denied, expired and cancelled approvals retain their specific explanation when an
+aborted tool result follows. Tool arguments remain bounded to 200 characters in
+execution notifications. Only successfully delivered content is deduplicated, so
+failed delivery can be retried; the gateway retains its existing approval retry.
+A failed execution edit is reported through the responder's existing error path.
+No duplicate completion message is sent as a fallback. Terminal message records
+retain the latest 500 entries; pending and running entries are kept until settled.
+No database schema or agent event contract changes are involved.
