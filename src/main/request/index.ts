@@ -39,11 +39,13 @@ type RequestErrorWithMetadata = Error & {
   [REQUEST_ERROR_METADATA]?: RequestErrorMetadata
 }
 
-const toObjectLike = (value: unknown): Record<string, unknown> | undefined => (
-  value && typeof value === 'object' ? value as Record<string, unknown> : undefined
-)
+const toObjectLike = (value: unknown): Record<string, unknown> | undefined =>
+  value && typeof value === 'object' ? (value as Record<string, unknown>) : undefined
 
-const getStringField = (value: Record<string, unknown> | undefined, key: string): string | undefined => {
+const getStringField = (
+  value: Record<string, unknown> | undefined,
+  key: string
+): string | undefined => {
   const field = value?.[key]
   return typeof field === 'string' ? field : undefined
 }
@@ -71,17 +73,17 @@ const looksLikeNetworkError = (
   const causeMessageLower = causeMessage?.toLowerCase()
 
   return (
-    message.includes('fetch failed')
-    || message.includes('failed to fetch')
-    || message.includes('terminated')
-    || message.includes('networkerror')
-    || name.includes('network')
-    || causeNameLower?.includes('network') === true
-    || causeNameLower?.includes('socket') === true
-    || causeMessageLower?.includes('socket') === true
-    || causeMessageLower?.includes('network') === true
-    || (causeCode ? NETWORK_ERROR_CODES.has(causeCode) : false)
-    || (errorCode ? NETWORK_ERROR_CODES.has(errorCode) : false)
+    message.includes('fetch failed') ||
+    message.includes('failed to fetch') ||
+    message.includes('terminated') ||
+    message.includes('networkerror') ||
+    name.includes('network') ||
+    causeNameLower?.includes('network') === true ||
+    causeNameLower?.includes('socket') === true ||
+    causeMessageLower?.includes('socket') === true ||
+    causeMessageLower?.includes('network') === true ||
+    (causeCode ? NETWORK_ERROR_CODES.has(causeCode) : false) ||
+    (errorCode ? NETWORK_ERROR_CODES.has(errorCode) : false)
   )
 }
 
@@ -99,7 +101,8 @@ const normalizeRequestError = (
   if (httpContext) {
     return {
       kind: 'http',
-      retriable: httpContext.status === 408 || httpContext.status === 429 || httpContext.status >= 500,
+      retriable:
+        httpContext.status === 408 || httpContext.status === 429 || httpContext.status >= 500,
       name: 'HTTPError',
       message: httpContext.message || `HTTP ${httpContext.status} ${httpContext.statusText}`.trim(),
       status: httpContext.status,
@@ -124,7 +127,10 @@ const normalizeRequestError = (
   const causeName = getStringField(cause, 'name')
   const errorCode = error instanceof Error ? getStringField(toObjectLike(error), 'code') : undefined
 
-  if (error instanceof Error && looksLikeNetworkError(error, causeName, causeMessage, causeCode, errorCode)) {
+  if (
+    error instanceof Error &&
+    looksLikeNetworkError(error, causeName, causeMessage, causeCode, errorCode)
+  ) {
     return {
       kind: 'network',
       retriable: true,
@@ -247,7 +253,7 @@ const enrichAndLogRequestError = (
   return enrichedError
 }
 
-async function *withStreamRequestLifecycle(
+async function* withStreamRequestLifecycle(
   stream: AsyncIterable<IUnifiedResponse>,
   context: {
     req: IUnifiedRequest
@@ -282,11 +288,16 @@ export const getRequestErrorMetadata = (error: unknown): RequestErrorMetadata | 
   return (error as RequestErrorWithMetadata)[REQUEST_ERROR_METADATA]
 }
 
-export const unifiedChatRequest = async (req: IUnifiedRequest, signal: AbortSignal | null, beforeFetch: Function, afterFetch: Function): Promise<any> => {
+/** Deterministic adapter/extensions/overrides preparation shared by budgeting and dispatch. */
+export const prepareUnifiedRequestBody = async (
+  req: IUnifiedRequest
+): Promise<{
+  adapter: Awaited<ReturnType<typeof resolveAdapterForRequest>>
+  body: Record<string, unknown>
+}> => {
   const pluginConfigs = pluginDb.getPluginConfigs()
   const plugins = pluginDb.getPlugins()
 
-  let adapter
   const adapterPluginId = req.adapterPluginId
 
   if (!isRequestAdapterPluginEnabled(pluginConfigs, adapterPluginId, plugins)) {
@@ -298,15 +309,18 @@ export const unifiedChatRequest = async (req: IUnifiedRequest, signal: AbortSign
   if (!adapterPluginId) {
     throw new Error('Missing adapter plugin id')
   }
-  adapter = await resolveAdapterForRequest(adapterPluginId, plugins)
-  const headers = adapter.buildHeaders(req)
+  const adapter = await resolveAdapterForRequest(adapterPluginId, plugins)
 
   const requestBody = adapter.buildRequest(req)
   requestPayloadExtensionPipeline.apply({
     request: req,
     body: requestBody
   })
-  if (req.requestOverrides && typeof req.requestOverrides === 'object' && !Array.isArray(req.requestOverrides)) {
+  if (
+    req.requestOverrides &&
+    typeof req.requestOverrides === 'object' &&
+    !Array.isArray(req.requestOverrides)
+  ) {
     applyRequestOverrides(requestBody, req.requestOverrides)
   }
   if (requestBody.stream !== false && adapter.supportsStreamOptionsUsage()) {
@@ -316,6 +330,18 @@ export const unifiedChatRequest = async (req: IUnifiedRequest, signal: AbortSign
       requestBody.stream_options.include_usage = true
     }
   }
+  return { adapter, body: requestBody }
+}
+
+export const unifiedChatRequest = async (
+  req: IUnifiedRequest,
+  signal: AbortSignal | null,
+  beforeFetch: Function,
+  afterFetch: Function
+): Promise<any> => {
+  const { adapter, body: requestBody } = await prepareUnifiedRequestBody(req)
+  const adapterPluginId = req.adapterPluginId
+  const headers = adapter.buildHeaders(req)
   beforeFetch()
   let endpoint: string | undefined
   let shouldRunAfterFetch = true
@@ -369,7 +395,9 @@ export const unifiedChatRequest = async (req: IUnifiedRequest, signal: AbortSign
         requestId ? `request_id=${requestId}` : '',
         errorMessage ? `message=${errorMessage}` : '',
         detail ? `body=${detail}` : ''
-      ].filter(Boolean).join(' | ')
+      ]
+        .filter(Boolean)
+        .join(' | ')
 
       const metadata = normalizeRequestError(undefined, signal, {
         status,
@@ -402,7 +430,6 @@ export const unifiedChatRequest = async (req: IUnifiedRequest, signal: AbortSign
       const response = adapter.parseResponse(await fetchResponse.json())
       return response
     }
-
   } catch (error: any) {
     throw enrichAndLogRequestError(error, req, adapterPluginId, endpoint, signal)
   } finally {

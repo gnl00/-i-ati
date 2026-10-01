@@ -60,8 +60,8 @@ Documentation: [Agent runtime](../README.md)
 - `AgentStep`
   - 是单次模型请求完成后得到的稳定结果
   - 它是 runtime-native 的 step payload
-- `AgentTranscriptRecord`
-  - 是 `AgentTranscript` 里的记录单元
+- `ContextRecord`
+  - 是 `ContextManager` 里的记录单元
   - 当记录类型是 `assistant_step` 时，payload 应该承载一个 `AgentStep`
 - `AgentStepMaterializer`
   - 负责 `AgentStepDraft -> AgentStep`
@@ -73,7 +73,7 @@ Documentation: [Agent runtime](../README.md)
 
 - `AgentStep` 是“发生了什么”
 - host-facing output 是“外部看到了什么”
-- `AgentTranscriptRecord` 是“把这次 step 作为一条 transcript record 放进去”
+- `ContextRecord` 是“把这次 step 作为一条 transcript record 放进去”
 - `AgentStepMaterializer` 是“什么时候从 draft 收成稳定 step”
 
 补充约束：

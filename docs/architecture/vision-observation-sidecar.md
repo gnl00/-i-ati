@@ -20,7 +20,7 @@ The MainAgent keeps using the chat-selected model. Vision-specific work uses the
 
 - MainAgent uses `vision_analyze` for current or historical image inspection.
 - Raw image content remains on persisted user messages as `image_url` VLMContent.
-- MainAgent provider payload strips raw image parts through `RequestMaterializer`.
+- MainAgent provider payload strips raw image parts through `ContextManager.prepare()`.
 - MainAgent receives only a volatile `<available_images>` context with refs computed from the compressed effective message window.
 - Compression-covered image messages disappear from `<available_images>` automatically.
 - The tool receives runtime-owned `chat_uuid` from `ToolExecutor.applyRuntimeContext()` and validates refs against the current chat.
@@ -44,11 +44,11 @@ Host adapter
        run VisionObservationService when mediaCtx has images
        save hidden VISION_OBSERVATION message
   -> RunRequestFactory
-       RequestMessageBuilder shapes canonical seed history
+       buildContextMessages projects native Chat history
        AvailableImagesContextProvider injects <available_images> refs from the compressed message window
-  -> InitialTranscriptSeedBuilder
+  -> buildContextMessages
   -> Runtime transcript
-  -> RequestMaterializer
+  -> ContextManager.prepare()
        strips raw input_image parts for MainAgent provider requests
        keeps hidden vision_observation text and available_images refs
   -> MainAgent model request
@@ -66,7 +66,7 @@ Host adapter
 - `ChatAgentAdapter.prepareRun()` emits created messages that were produced after early preparation events. `earlyEmittedMessageIds` prevents the visible user message from being sent twice while still allowing hidden `VISION_OBSERVATION` messages to be emitted after observation completes.
 - `VisionObservationService` resolves `tools.visionModel` through `resolveVisionModelRef()`, resolves provider/account/model context through `ChatModelContextResolver`, and sends a non-streaming `createUnifiedRequest()` + `unifiedChatRequest()` multimodal request.
 - MainAgent still receives the chat-selected model through `modelRef` and `chatModelRef`. Telegram and desktop hosts pass media through `MainAgentRunInput.input.mediaCtx`.
-- `RequestMaterializer` removes `input_image` parts from provider-facing MainAgent user messages. Hidden vision observation text stays in the materialized request.
+- `ContextManager.prepare()` removes `input_image` parts from provider-facing MainAgent user messages. Hidden vision observation text stays in the materialized request.
 
 ## Message Shape
 
@@ -147,22 +147,22 @@ Ref rules:
 - `VisionObservationService` success maps images and user text into a non-streaming multimodal request and persists an observation.
 - `VisionObservationService` failure persists a failed hidden observation.
 - `StepBootstrapService` adds visible user message plus hidden observation when `mediaCtx` has images.
-- `RequestMaterializer` strips `input_image` parts and preserves observation text in MainAgent requests.
+- `ContextManager.prepare()` strips `input_image` parts and preserves observation text in MainAgent requests.
 - `AvailableImagesContextProvider` rebuilds `<available_images>` from the compressed surviving message window, emits 1-based refs for multi-image messages, and excludes hidden messages.
 - `ImageRefResolver` expands whole-message refs, resolves one-based image refs, checks `chat_uuid`, and reports missing or out-of-range refs.
 - `VisionToolsProcessor` accepts `images` plus a direct prompt, converts workspace-relative image files to base64 data URLs, then calls the shared vision request service.
 - `VisionToolsProcessor` sends a 60 second default timeout and clamps `timeout_seconds` from 5 to 120 seconds.
 - `ToolExecutor` forces `vision_analyze` to use the runtime chat UUID even when model-supplied arguments include `chat_uuid`.
-- `RequestMaterializer` redacts direct vision image arguments before provider-facing assistant tool-call replay.
+- `ContextManager.prepare()` redacts direct vision image arguments before provider-facing assistant tool-call replay.
 - Desktop chat and Telegram media tests assert `modelRef` and `chatModelRef` stay on the chat-selected model; vision model usage is scoped to `VisionObservationService`.
-- `RequestMessageBuilder` and `InitialTranscriptSeedBuilder` keep hidden observation messages available to runtime history.
+- `buildContextMessages` and `mapChatContext` keep hidden observation messages available to runtime history.
 
 Implemented Phase 1 coverage:
 
 - `src/main/hosts/chat/vision/__tests__/VisionObservationService.test.ts`
 - `src/main/hosts/chat/preparation/__tests__/ChatPreparationPipeline.test.ts`
-- `src/main/hosts/chat/preparation/request/__tests__/InitialTranscriptSeedBuilder.test.ts`
-- `src/main/agent/runtime/transcript/__tests__/RequestMaterializer.test.ts`
+- `src/main/hosts/chat/preparation/request/__tests__/buildContextMessages.test.ts`
+- `src/main/agent/runtime/context/__tests__/ContextRequest.test.ts`
 - `src/main/hosts/chat/persistence/__tests__/ChatStepStore.test.ts`
 - `src/main/services/telegram/__tests__/TelegramGatewayService.test.ts`
 
@@ -172,8 +172,8 @@ Implemented Phase 1 coverage:
 pnpm exec vitest run \
   src/main/hosts/chat/vision/__tests__/VisionObservationService.test.ts \
   src/main/hosts/chat/preparation/__tests__/ChatPreparationPipeline.test.ts \
-  src/main/hosts/chat/preparation/request/__tests__/InitialTranscriptSeedBuilder.test.ts \
-  src/main/agent/runtime/transcript/__tests__/RequestMaterializer.test.ts \
+  src/main/hosts/chat/preparation/request/__tests__/buildContextMessages.test.ts \
+  src/main/agent/runtime/context/__tests__/ContextRequest.test.ts \
   src/main/services/telegram/__tests__/TelegramGatewayService.test.ts
 
 pnpm run typecheck

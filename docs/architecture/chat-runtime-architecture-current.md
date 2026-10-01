@@ -252,3 +252,14 @@ not block them. See the output diagram above and
 ### Renderer run ingress and message revisions
 
 Home owns one app-lifetime run ingress. Desktop submit registers its control context; scoped external runs are observed automatically. Schedule notifications no longer own ordinary run message consumption. Transcript snapshots merge with buffers by the Main-assigned `messages.revision`; older messages cannot replace newer committed state. See [ADR 0028](../decisions/0028-renderer-run-ingress-and-message-revisions.md).
+
+## Per-send context budget
+
+Every initial request and tool continuation goes through [ContextManager](agent-runtime/context/README.md).
+Host loads ChatMessage[] and maps it once; the manager owns the single live record history.
+Mandatory system/tools, current goals/steering, effective contexts and unconsumed tool results are counted first.
+Older complete history is summarized or omitted if it exceeds remaining tokens. Compression failure falls back
+when mandatory content fits; cancellation stops preparation. The 128,000-character ceiling is removed.
+Background MessageCompressionService only prewarms persisted summaries and shares compactContext;
+its decision uses tokenized stable modelContent instead of summing historical response usage.
+See [ADR-0036](../decisions/0036-runtime-context-manager.md).

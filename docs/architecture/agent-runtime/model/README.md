@@ -34,7 +34,7 @@ Documentation: [Agent runtime](../README.md)
 
 一句话：
 
-- `transcript/RequestMaterializer` 负责“协议请求长什么样”
+- `context/ContextManager.prepare()` 负责“协议请求长什么样”
 - `runtime/model` 负责“怎么接到当前可执行设施上、怎么真正执行请求、怎么把 provider 响应规范化，以及怎么把响应流变成 step facts”
 - typed content parts 到当前统一请求消息格式的保真映射，也属于这一层
 - think tag 状态和 tool call 拼接状态，也都属于这一层的显式 parser state

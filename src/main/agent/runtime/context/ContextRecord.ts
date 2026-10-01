@@ -1,5 +1,5 @@
 /**
- * AgentTranscriptRecord
+ * ContextRecord
  *
  * 放置内容：
  * - AgentTranscript 中的单条 runtime record
@@ -16,9 +16,9 @@
  */
 import type { AgentStep } from '../step/AgentStep'
 import type { ToolResultFact } from '../tools/ToolResultFact'
-import type { AgentContentPart } from './AgentContentPart'
+import type { AgentContentPart } from './ContextContentPart'
 
-export interface AgentTranscriptUserRecord {
+export interface ContextUserRecord {
   recordId: string
   kind: 'user'
   timestamp: number
@@ -26,18 +26,17 @@ export interface AgentTranscriptUserRecord {
   content: AgentContentPart[]
 }
 
-export type AgentTranscriptToolResultRecord = ToolResultFact & {
+export type ContextToolResultRecord = ToolResultFact & {
   recordId: string
   kind: 'tool_result'
   timestamp: number
 }
 
-export interface AgentTranscriptAssistantStepRecord {
+export interface ContextAssistantRecord {
   recordId: string
   kind: 'assistant_step'
   timestamp: number
   step: AgentStep
 }
 
-export type AgentTranscriptRecord =
-  AgentTranscriptUserRecord | AgentTranscriptAssistantStepRecord | AgentTranscriptToolResultRecord
+export type ContextRecord = ContextUserRecord | ContextAssistantRecord | ContextToolResultRecord

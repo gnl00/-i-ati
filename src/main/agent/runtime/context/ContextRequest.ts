@@ -1,21 +1,7 @@
-/**
- * RequestMaterializer
- *
- * 放置内容：
- * - 把 AgentTranscript 物化成协议层请求结果
- * - 负责把 `AgentTranscript` 和 `AgentRequestSpec` 转成模型请求所需的协议 contract
- *
- * 业务逻辑边界：
- * - 只做协议组装
- * - 它是 transcript 的只读消费者，不修改 transcript
- * - 它回答的是“下一次该发给模型的协议请求长什么样”
- * - 不做 host output
- * - 不做 UI 过滤
- */
+/** Read-only protocol projection; ContextManager owns selection, compression and budgeting. */
 import type { AgentRequestOptions, AgentRequestSpec } from '../request/AgentRequestSpec'
-import type { AgentContentPart } from './AgentContentPart'
-import type { AgentTranscript } from './AgentTranscript'
-import type { AgentTranscriptRecord } from './AgentTranscriptRecord'
+import type { AgentContentPart } from './ContextContentPart'
+import type { ContextRecord } from './ContextRecord'
 import { formatToolResultForModel } from '../tools/ToolResultContentProjector'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 
@@ -58,13 +44,9 @@ export interface MaterializedProtocolRequest {
   options?: AgentRequestOptions
 }
 
-export interface RequestMaterializerInput {
-  transcript: AgentTranscript
+export interface ContextRequestInput {
+  records: readonly ContextRecord[]
   requestSpec: AgentRequestSpec
-}
-
-export interface RequestMaterializer {
-  materialize(input: RequestMaterializerInput): MaterializedProtocolRequest
 }
 
 const REQUEST_CONTEXT_SOURCES = new Set<string>([
@@ -80,7 +62,7 @@ const REQUEST_CONTEXT_SOURCES = new Set<string>([
 const REDACTED_ARGUMENT_VALUE = '[REDACTED]'
 const VISION_ANALYZE_TOOL_NAME = 'vision_analyze'
 
-const isRequestContextRecord = (record: AgentTranscriptRecord): boolean =>
+const isRequestContextRecord = (record: ContextRecord): boolean =>
   record.kind === 'user' && Boolean(record.source && REQUEST_CONTEXT_SOURCES.has(record.source))
 
 const partsToText = (parts: AgentContentPart[]): string =>
@@ -230,136 +212,87 @@ const sanitizeAssistantToolCallsForRequest = (toolCalls: IToolCall[]): IToolCall
     }
   })
 
-/** Conservative character budget, not an exact tokenizer count. Keep user/context
- * messages and the latest assistant/tool group; never split call/result pairs. */
-export const boundRequestMessages = (
-  messages: MaterializedProtocolMessage[],
-  requestSpec: AgentRequestSpec
-): MaterializedProtocolMessage[] => {
-  const contextTokens = requestSpec.contextWindowTokens
-  const capacity =
-    contextTokens && Number.isFinite(contextTokens) && contextTokens > 0
-      ? Math.min(128_000, Math.floor(contextTokens * 0.75))
-      : 128_000
-  const fixedCharacters =
-    (requestSpec.systemPrompt?.length ?? 0) + JSON.stringify(requestSpec.tools ?? []).length
-  const size = (items: MaterializedProtocolMessage[]): number =>
-    JSON.stringify(items).length + fixedCharacters
-  if (size(messages) <= capacity) return messages
-  const groups: number[][] = []
-  let current: number[] | undefined
-  messages.forEach((message, index) => {
-    if (message.role === 'assistant') {
-      current = [index]
-      groups.push(current)
-    } else if (message.role === 'tool') {
-      current?.push(index)
+export const projectContextRequest = (input: ContextRequestInput): MaterializedProtocolRequest => {
+  const messages: MaterializedProtocolMessage[] = []
+  let pendingRequestContextParts: AgentContentPart[] = []
+
+  const flushPendingRequestContext = (): void => {
+    if (pendingRequestContextParts.length === 0) {
+      return
     }
-  })
-  const removed = new Set<number>()
-  const notice: MaterializedUserProtocolMessage = {
-    role: 'user',
-    content: [
-      {
-        type: 'input_text',
-        text: '[Earlier assistant/tool groups omitted to fit the request budget. Use saved output paths or repeat read-only inspection when earlier evidence is needed.]'
-      }
-    ]
+
+    const contextPart = buildRequestContextPart(pendingRequestContextParts)
+    if (contextPart) {
+      messages.push({
+        role: 'user',
+        content: [contextPart]
+      })
+    }
+    pendingRequestContextParts = []
   }
-  let retained = messages
-  for (const group of groups.slice(0, -1)) {
-    group.forEach((index) => removed.add(index))
-    retained = [notice, ...messages.filter((_message, index) => !removed.has(index))]
-    if (size(retained) <= capacity) return retained
-  }
-  throw new Error(
-    'Request context budget exceeded: user instructions, system/tools, and the latest assistant/tool group cannot fit. Reduce input or select a model with a larger context window.'
-  )
-}
 
-export class DefaultRequestMaterializer implements RequestMaterializer {
-  materialize(input: RequestMaterializerInput): MaterializedProtocolRequest {
-    const messages: MaterializedProtocolMessage[] = []
-    let pendingRequestContextParts: AgentContentPart[] = []
+  for (let recordIndex = 0; recordIndex < input.records.length; recordIndex += 1) {
+    const record = input.records[recordIndex]
 
-    const flushPendingRequestContext = (): void => {
-      if (pendingRequestContextParts.length === 0) {
-        return
-      }
+    if (record.kind === 'user' && isRequestContextRecord(record)) {
+      pendingRequestContextParts = [...pendingRequestContextParts, ...record.content]
+      continue
+    }
 
-      const contextPart = buildRequestContextPart(pendingRequestContextParts)
-      if (contextPart) {
+    switch (record.kind) {
+      case 'user':
         messages.push({
           role: 'user',
-          content: [contextPart]
+          content: stripRawImageParts(
+            appendRequestContext(record.content, pendingRequestContextParts)
+          )
         })
-      }
-      pendingRequestContextParts = []
+        pendingRequestContextParts = []
+        break
+      case 'assistant_step':
+        flushPendingRequestContext()
+        messages.push({
+          role: 'assistant',
+          content: record.step.content,
+          reasoning: record.step.reasoning,
+          toolCalls:
+            record.step.toolCalls.length > 0
+              ? sanitizeAssistantToolCallsForRequest(record.step.toolCalls)
+              : undefined
+        })
+        break
+      case 'tool_result':
+        flushPendingRequestContext()
+        messages.push({
+          role: 'tool',
+          content: formatToolResultForModel({
+            content: record.content,
+            error: record.error,
+            failure: record.failure,
+            status: record.status,
+            modelContent: record.modelContent
+          }),
+          toolCallId: record.toolCallId,
+          toolName: record.toolName
+        })
+        break
     }
+  }
 
-    for (let recordIndex = 0; recordIndex < input.transcript.records.length; recordIndex += 1) {
-      const record = input.transcript.records[recordIndex]
+  flushPendingRequestContext()
 
-      if (record.kind === 'user' && isRequestContextRecord(record)) {
-        pendingRequestContextParts = [...pendingRequestContextParts, ...record.content]
-        continue
-      }
-
-      switch (record.kind) {
-        case 'user':
-          messages.push({
-            role: 'user',
-            content: stripRawImageParts(
-              appendRequestContext(record.content, pendingRequestContextParts)
-            )
-          })
-          pendingRequestContextParts = []
-          break
-        case 'assistant_step':
-          flushPendingRequestContext()
-          messages.push({
-            role: 'assistant',
-            content: record.step.content,
-            reasoning: record.step.reasoning,
-            toolCalls:
-              record.step.toolCalls.length > 0
-                ? sanitizeAssistantToolCallsForRequest(record.step.toolCalls)
-                : undefined
-          })
-          break
-        case 'tool_result':
-          flushPendingRequestContext()
-          messages.push({
-            role: 'tool',
-            content: formatToolResultForModel({
-              content: record.content,
-              error: record.error,
-              failure: record.failure,
-              status: record.status,
-              modelContent: record.modelContent
-            }),
-            toolCallId: record.toolCallId,
-            toolName: record.toolName
-          })
-          break
-      }
-    }
-
-    flushPendingRequestContext()
-
-    return {
-      adapterPluginId: input.requestSpec.adapterPluginId,
-      baseUrl: input.requestSpec.baseUrl,
-      apiKey: input.requestSpec.apiKey,
-      model: input.requestSpec.model,
-      modelType: input.requestSpec.modelType,
-      systemPrompt: input.requestSpec.systemPrompt,
-      messages: boundRequestMessages(messages, input.requestSpec),
-      tools: input.requestSpec.tools,
-      stream: input.requestSpec.stream,
-      payloadExtensions: input.requestSpec.payloadExtensions,
-      requestOverrides: input.requestSpec.requestOverrides,
-      options: input.requestSpec.options
-    }
+  return {
+    adapterPluginId: input.requestSpec.adapterPluginId,
+    baseUrl: input.requestSpec.baseUrl,
+    apiKey: input.requestSpec.apiKey,
+    model: input.requestSpec.model,
+    modelType: input.requestSpec.modelType,
+    systemPrompt: input.requestSpec.systemPrompt,
+    messages: messages,
+    tools: input.requestSpec.tools,
+    stream: input.requestSpec.stream,
+    payloadExtensions: input.requestSpec.payloadExtensions,
+    requestOverrides: input.requestSpec.requestOverrides,
+    options: input.requestSpec.options
   }
 }

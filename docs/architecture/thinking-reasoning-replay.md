@@ -96,35 +96,11 @@ Rules:
 
 ### Request message stages
 
-`RequestMessageBuilder` now feeds the runtime transcript path:
-
-1. `RequestMessageBuilder.build()` returns `RequestMessageBuildResult` with
-   `systemPrompt` and `chatMessages: ChatMessage[]`. It applies compression,
-   historical image trimming, ephemeral context insertion, user instruction
-   insertion, and tool pair repair.
-2. `InitialTranscriptMaterializer` seeds `AgentTranscript` from the builder's
-   chat messages.
-3. `RequestMaterializer` converts `AgentTranscript` into provider-neutral
-   request messages and derives tool replay fields for model dispatch.
-
-`UnifiedRequestMessageMaterializer` was the legacy preparation-side projection
-and has been deleted. `RunRequestFactory` now returns request spec plus initial
-messages, and runtime creates `IUnifiedRequest.messages`.
-
-## Implementation Plan
-
-1. Keep main-side thinking-level normalization in `RunRequestFactory`.
-2. Add `reasoning?: string` to `MaterializedAssistantProtocolMessage`.
-3. Copy `record.step.reasoning` in `DefaultRequestMaterializer`.
-4. Add `UnifiedRequestMessage` as the request adapter message contract.
-5. Change `IUnifiedRequest.messages` from `ChatMessage[]` to
-   `UnifiedRequestMessage[]`.
-6. Split `RequestMessageBuilder` output into chat-domain build and
-   `UnifiedRequestMessage` materialization stages.
-7. Copy assistant reasoning in `DefaultExecutableRequestAdapter`.
-8. Map assistant reasoning to `reasoning_content` in `OpenAIAdapter` when
-   `options.thinkingLevel` is enabled and differs from `none`.
-9. Cover the full tool round-trip with runtime and adapter tests.
+Host `buildContextMessages` returns ChatMessage[] with assistant reasoning intact.
+`mapChatContext` creates ContextRecord[] once. ContextManager selects a budgeted view;
+`projectContextRequest` preserves `record.step.reasoning` beside content and calls.
+ExecutableRequestAdapter then emits provider-neutral UnifiedRequestMessage[].
+Reasoning is included in token budgeting and complete groups are omitted together.
 
 ## Test Matrix
 
@@ -134,7 +110,7 @@ Required coverage:
   - reasoning model with omitted options receives default thinking level
   - explicit `thinkingLevel: "none"` is preserved
   - non-reasoning model strips thinking options
-- `DefaultRequestMaterializer`
+- `projectContextRequest`
   - assistant step reasoning is preserved in protocol messages
 - `DefaultExecutableRequestAdapter`
   - assistant protocol reasoning enters unified request messages

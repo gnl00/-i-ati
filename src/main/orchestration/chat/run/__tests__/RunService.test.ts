@@ -184,6 +184,7 @@ vi.mock('@main/db/DatabaseService', () => ({
 
 vi.mock('@main/orchestration/chat/maintenance/MessageCompressionService', () => ({
   compressionService: {
+    analyzeCompressionStrategy: vi.fn(() => ({ shouldCompress: true })),
     compress: compressionMock
   }
 }))

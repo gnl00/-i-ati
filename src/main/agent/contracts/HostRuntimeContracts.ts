@@ -16,18 +16,15 @@
 export type { AgentEvent } from '@main/agent/runtime/events/AgentEvent'
 export type { AgentEventSink } from '@main/agent/runtime/events/AgentEventSink'
 
-export type {
-  AgentStep,
-  AgentStepFailureInfo
-} from '@main/agent/runtime/step/AgentStep'
+export type { AgentStep, AgentStepFailureInfo } from '@main/agent/runtime/step/AgentStep'
 
 export type {
-  AgentTranscriptAssistantStepRecord,
-  AgentTranscriptRecord,
-  AgentTranscriptToolResultRecord,
-  AgentTranscriptUserRecord
-} from '@main/agent/runtime/transcript/AgentTranscriptRecord'
-export type { AgentContentPart } from '@main/agent/runtime/transcript/AgentContentPart'
+  ContextAssistantRecord,
+  ContextRecord,
+  ContextToolResultRecord,
+  ContextUserRecord
+} from '@main/agent/runtime/context/ContextRecord'
+export type { AgentContentPart } from '@main/agent/runtime/context/ContextContentPart'
 
 export type {
   ToolResultFact,
@@ -61,3 +58,5 @@ export type {
 } from '@main/agent/runtime/skills/LoadedSkillsTranscriptContextProvider'
 
 export type { ToolOutputBatch } from '@shared/run/tool-events'
+
+export { createUserContextRecord } from '@main/agent/runtime/context/ContextRecords'

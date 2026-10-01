@@ -1,4 +1,4 @@
-import type { AgentTranscriptUserRecord } from '../transcript/AgentTranscriptRecord'
+import type { ContextUserRecord } from '../context/ContextRecord'
 
 export interface LoadedSkillsTranscriptContextProviderInput {
   recordId: string
@@ -6,6 +6,5 @@ export interface LoadedSkillsTranscriptContextProviderInput {
 }
 
 export interface LoadedSkillsTranscriptContextProvider {
-  build(input: LoadedSkillsTranscriptContextProviderInput): Promise<AgentTranscriptUserRecord | null>
+  build(input: LoadedSkillsTranscriptContextProviderInput): Promise<ContextUserRecord | null>
 }
-

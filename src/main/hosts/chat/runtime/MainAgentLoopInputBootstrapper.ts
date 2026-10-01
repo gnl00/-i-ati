@@ -1,48 +1,37 @@
-import { type AgentLoopInput, type LoopInputBootstrapper, type LoopInputBootstrapperInput } from '@main/agent/contracts/HostRuntimeContracts'
 import {
-  DefaultChatInitialTranscriptRecordFactory,
-  type ChatInitialTranscriptRecordFactory
-} from './ChatInitialTranscriptRecordFactory'
-import type { ChatInitialTranscriptSeed } from '@main/agent/contracts'
+  createUserContextRecord,
+  type AgentLoopInput,
+  type LoopInputBootstrapper,
+  type LoopInputBootstrapperInput
+} from '@main/agent/contracts/HostRuntimeContracts'
+import { mapChatContext } from './ChatContextMapper'
 
 type HostRequestMetadata = {
-  initialTranscriptSeed?: ChatInitialTranscriptSeed[]
+  contextMessages?: ChatMessage[]
 }
 
 export class MainAgentLoopInputBootstrapper implements LoopInputBootstrapper {
-  constructor(
-    private readonly initialTranscriptRecordFactory: ChatInitialTranscriptRecordFactory = new DefaultChatInitialTranscriptRecordFactory()
-  ) {}
-
   bootstrap(input: LoopInputBootstrapperInput): AgentLoopInput {
     const now = input.runtimeInfrastructure.runtimeClock.now()
     const metadata = (input.hostRequest.metadata || {}) as HostRequestMetadata
-    const initialTranscriptSeed = metadata.initialTranscriptSeed || []
-    const transcriptId = input.runtimeInfrastructure.loopIdentityProvider.nextTranscriptId()
-    const records = this.initialTranscriptRecordFactory.create({
-      initialTranscriptSeed,
+    const contextMessages = metadata.contextMessages || []
+    const records = mapChatContext({
+      messages: contextMessages,
       now,
       loopIdentityProvider: input.runtimeInfrastructure.loopIdentityProvider
     })
 
-    const transcript = input.initialTranscriptMaterializer.materialize({
-      transcriptId,
-      createdAt: records[0]?.timestamp ?? now,
-      updatedAt: records[records.length - 1]?.timestamp ?? now,
-      records: records.length > 0
+    return {
+      run: input.run,
+      records: records.length
         ? records
         : [
-            input.userRecordMaterializer.materialize({
+            createUserContextRecord({
               recordId: input.runtimeInfrastructure.loopIdentityProvider.nextTranscriptRecordId(),
               timestamp: now,
               content: input.hostRequest.userContent
             })
-          ]
-    })
-
-    return {
-      run: input.run,
-      transcript,
+          ],
       requestSpec: input.requestSpec,
       execution: input.execution
     }

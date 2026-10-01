@@ -36,8 +36,6 @@ export class DefaultAgentRuntime implements AgentRuntime {
       hostRequest: input.hostRequest,
       run,
       runtimeInfrastructure: this.context.runtimeInfrastructure,
-      userRecordMaterializer: this.context.userRecordMaterializer,
-      initialTranscriptMaterializer: this.context.initialTranscriptMaterializer,
       requestSpec,
       execution: input.execution
     })
@@ -48,19 +46,16 @@ export class DefaultAgentRuntime implements AgentRuntime {
     return this.context.agentLoop.run(
       {
         ...loopInput,
-        transcript: {
-          ...loopInput.transcript,
-          records: loopInput.transcript.records.map((record) =>
-            record.kind === 'tool_result'
-              ? {
-                  ...(dependencies.toolResultNormalizer?.normalize(record) ?? record),
-                  recordId: record.recordId,
-                  kind: 'tool_result' as const,
-                  timestamp: record.timestamp
-                }
-              : record
-          )
-        },
+        records: loopInput.records.map((record) =>
+          record.kind === 'tool_result'
+            ? {
+                ...(dependencies.toolResultNormalizer?.normalize(record) ?? record),
+                recordId: record.recordId,
+                kind: 'tool_result' as const,
+                timestamp: record.timestamp
+              }
+            : record
+        ),
         signal: input.signal
       },
       dependencies

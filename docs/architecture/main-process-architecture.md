@@ -398,3 +398,10 @@ returns `success: true`, `deliveryComplete: false` and delivered IDs, displays a
 local incomplete-delivery notice, and instructs the caller not to resend the full
 message. Local recording success remains separate in `deliveryRecorded`.
 See [ADR 0035](../decisions/0035-telegram-rich-output-and-drafts.md).
+
+## Runtime context ownership
+
+[ContextManager](agent-runtime/context/README.md) owns one run-local record history and prepares every model request.
+Host maps persistence once and owns database/UI effects. Runtime compression shares compactContext with
+persistent-summary prewarming; run-local summaries never write the database. Provider body preparation is
+shared between counting and dispatch. See [ADR-0036](../decisions/0036-runtime-context-manager.md).

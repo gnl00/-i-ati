@@ -1,11 +1,10 @@
+import { createAssistantContextRecord, createToolContextRecord } from '../ContextRecords'
 import { describe, expect, it } from 'vitest'
 import type { AgentStep } from '../../step/AgentStep'
 import type { ToolResultFact } from '../../tools/ToolResultFact'
-import { DefaultTranscriptRecordFactory } from '../TranscriptRecordFactory'
 
-describe('DefaultTranscriptRecordFactory', () => {
+describe('ContextRecords', () => {
   it('creates assistant_step transcript records from agent steps', () => {
-    const factory = new DefaultTranscriptRecordFactory()
     const step: AgentStep = {
       stepId: 'step-1',
       stepIndex: 0,
@@ -18,7 +17,7 @@ describe('DefaultTranscriptRecordFactory', () => {
       finishReason: 'stop'
     }
 
-    const record = factory.createAssistantStep({
+    const record = createAssistantContextRecord({
       recordId: 'record-1',
       timestamp: 20,
       step
@@ -33,7 +32,6 @@ describe('DefaultTranscriptRecordFactory', () => {
   })
 
   it('creates tool_result transcript records from tool result facts', () => {
-    const factory = new DefaultTranscriptRecordFactory()
     const result: ToolResultFact = {
       stepId: 'step-1',
       toolCallId: 'tool-1',
@@ -46,7 +44,7 @@ describe('DefaultTranscriptRecordFactory', () => {
       cost: 7
     }
 
-    const record = factory.createToolResult({
+    const record = createToolContextRecord({
       recordId: 'record-2',
       timestamp: 30,
       result

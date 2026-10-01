@@ -1,4 +1,4 @@
-import type { AgentContentPart } from '../transcript/AgentContentPart'
+import type { AgentContentPart } from '../context/ContextContentPart'
 
 export interface AgentSteeringMessage {
   queueItemId: string

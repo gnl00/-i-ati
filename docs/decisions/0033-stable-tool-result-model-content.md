@@ -33,17 +33,9 @@ migration and allows rollback to the previous code with raw messages intact.
 
 ## Request budget
 
-Existing semantic conversation compression remains post-run. During a run,
-request materialization applies a deterministic window over complete assistant/tool
-groups. The budget is 128,000 serialized characters by default; with known model
-context metadata it is the smaller of that limit and 75% of context-window tokens
-used conservatively as a character allowance. System prompt and tool definitions
-participate. This is a conservative heuristic, not an exact tokenizer guarantee.
-Keep all user/context messages and the latest assistant/tool group. Remove oldest
-complete groups until the request fits and inject a visible model-context omission
-notice. Never truncate an individual prepared result or split call/result pairs.
-If mandatory input cannot fit, fail before model dispatch with a clear size error.
-The transcript and persisted history remain complete.
+The request-budget portion of this ADR is superseded by [ADR-0036](0036-runtime-context-manager.md).
+ContextManager uses token counting, output reserves, run-local compression and optional history omission.
+Current goals, effective contexts and unconsumed tool batches stay complete; stored raw/model content remains unchanged.
 
 ## Tool-specific preparation
 

@@ -19,13 +19,13 @@
  * - 启动事实应通过 transcript 提供，不再保留 transcript 外的第二入口
  */
 import type { AgentRequestSpec } from '../request/AgentRequestSpec'
-import type { AgentTranscript } from '../transcript/AgentTranscript'
+import type { ContextRecord } from '../context/ContextRecord'
 import type { LoopExecutionConfig } from './LoopExecutionConfig'
 import type { LoopRunDescriptor } from './LoopRunDescriptor'
 
 export interface AgentLoopInput {
   run: LoopRunDescriptor
-  transcript: AgentTranscript
+  records: ContextRecord[]
   requestSpec: AgentRequestSpec
   execution?: LoopExecutionConfig
   signal?: AbortSignal

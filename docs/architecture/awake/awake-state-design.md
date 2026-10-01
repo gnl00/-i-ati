@@ -50,7 +50,7 @@ server-side awake snapshot -> start work
 
 ### 3. awake_state 作为 ephemeral user message 注入
 
-`awake_state` 应通过 `RequestMessageBuilder.setEphemeralContextMessages()` 插入请求消息。
+`awake_state` 应通过 `buildContextMessages({ contexts, ... })` 插入请求消息。
 
 推荐消息结构：
 
@@ -72,7 +72,7 @@ user: current real user input
 - `awake_state` 不进入 DB 持久化消息历史。
 - `awake_state` 不进入 conversation compression summary。
 
-说明：当前 `RequestMessageBuilder` 的 pipeline 已接近目标结构，`insertEphemeralContextMessages()` 在 `applyCompression()` 后执行，并会把 ephemeral user message 插到最后一条 user message 前。
+说明：`buildContextMessages` 在持久化摘要与历史投影完成后，把 ephemeral context 插到当前用户消息前；ContextManager 保护各 source 的最新有效 context。
 
 ### 4. awake_state 是隐藏运行时上下文
 
@@ -356,7 +356,7 @@ transition。
 接入：
 
 - `RunRequestFactory.build()`
-- `RequestMessageBuilder.setEphemeralContextMessages()`
+- `buildContextMessages({ contexts, ... })`
 
 输出：
 

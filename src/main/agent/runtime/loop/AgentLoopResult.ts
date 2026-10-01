@@ -3,7 +3,7 @@
  *
  * 放置内容：
  * - 整个 loop 的最终输出
- * - 包含最终 step、完整 `AgentTranscriptSnapshot`、usage 汇总、终态
+ * - 包含最终 step、完整 `ContextSnapshot`、usage 汇总、终态
  *
  * 业务逻辑边界：
  * - 它服务于 run-level orchestration
@@ -12,7 +12,7 @@
  * - 它不负责描述 host-visible output
  */
 import type { AgentStep } from '../step/AgentStep'
-import type { AgentTranscriptSnapshot } from '../transcript/AgentTranscript'
+import type { ContextSnapshot } from '../context/ContextSnapshot'
 
 export interface AgentLoopFailureInfo {
   name?: string
@@ -24,7 +24,7 @@ export interface AgentLoopFailureInfo {
 export interface AgentLoopResultBase {
   startedAt: number
   completedAt: number
-  transcript: AgentTranscriptSnapshot
+  transcript: ContextSnapshot
   usage?: ITokenUsage
 }
 
@@ -50,6 +50,4 @@ export interface AbortedAgentLoopResult extends AgentLoopResultBase {
 }
 
 export type AgentLoopResult =
-  | CompletedAgentLoopResult
-  | FailedAgentLoopResult
-  | AbortedAgentLoopResult
+  CompletedAgentLoopResult | FailedAgentLoopResult | AbortedAgentLoopResult

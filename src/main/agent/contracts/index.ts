@@ -1,6 +1,4 @@
 export type {
-  ChatInitialTranscriptSeed,
-  ChatInitialTranscriptSeedContent,
   RunModelContext,
   RunResult,
   RunSpec,

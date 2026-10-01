@@ -9,7 +9,9 @@ import { DefaultMainAgentRuntimeRunner } from '../DefaultMainAgentRuntimeRunner'
 import type { AgentEvent } from '@main/agent/runtime/events/AgentEvent'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 
-vi.mock('electron', () => ({ app: { getPath: (): string => '/tmp/ati-test-user-data' } }))
+vi.mock('electron', () => ({
+  app: { getPath: (): string => '/tmp/ati-test-user-data' }
+}))
 
 vi.mock('@main/logging/LogService', () => ({
   createLogger: vi.fn(() => ({
@@ -149,7 +151,7 @@ const prepared = {
       stream: true,
       systemPrompt: 'system prompt'
     },
-    initialTranscriptSeed: [],
+    contextMessages: [],
     runtimeContext: {
       chatId: 1,
       chatUuid: 'chat-1',
@@ -931,18 +933,18 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
           tools: [{ type: 'function', function: { name: 'read' } }],
           options: { maxTokens: 42 }
         },
-        initialTranscriptSeed: [
+        contextMessages: [
           {
-            kind: 'user',
+            role: 'user',
             content: '<user_instruction>\nBe precise.\n</user_instruction>'
           },
           {
-            kind: 'user',
+            role: 'user',
             content:
               '<system-environment>{"workspacePath":"./workspaces/chat-1"}</system-environment>'
           },
           {
-            kind: 'user',
+            role: 'user',
             content: 'hello'
           }
         ]

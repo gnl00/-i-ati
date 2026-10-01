@@ -1,9 +1,11 @@
-import { type AgentContentPart, type HostRunRequest } from '@main/agent/contracts/HostRuntimeContracts'
+import {
+  type AgentContentPart,
+  type HostRunRequest
+} from '@main/agent/contracts/HostRuntimeContracts'
 import type { MainAgentRunInput, RunPreparationResult } from '../preparation'
-import type { ChatInitialTranscriptSeed } from '@main/agent/contracts'
 
 type HostRunRequestMetadata = {
-  initialTranscriptSeed: ChatInitialTranscriptSeed[]
+  contextMessages: ChatMessage[]
 }
 
 export const toAgentContentParts = (
@@ -32,10 +34,12 @@ export const toAgentContentParts = (
     return parts
   }
 
-  return [{
-    type: 'input_text',
-    text
-  }]
+  return [
+    {
+      type: 'input_text',
+      text
+    }
+  ]
 }
 
 export interface MainAgentHostRequestBuilder {
@@ -64,7 +68,7 @@ export class DefaultMainAgentHostRequestBuilder implements MainAgentHostRequestB
         runInput.input.mediaCtx
       ),
       metadata: {
-        initialTranscriptSeed: prepared.runSpec.initialTranscriptSeed
+        contextMessages: prepared.runSpec.contextMessages
       } satisfies HostRunRequestMetadata
     }
   }

@@ -10,16 +10,14 @@
  * - 它负责把 typed user content parts 映射成当前 `IUnifiedRequest` 所需的消息形态
  * - 这种映射必须保留多模态信息，不能把图片/文件压扁成普通文本
  */
-import type { MaterializedProtocolRequest } from '../transcript/RequestMaterializer'
-import type { AgentContentPart } from '../transcript/AgentContentPart'
+import type { MaterializedProtocolRequest } from '../context/ContextRequest'
+import type { AgentContentPart } from '../context/ContextContentPart'
 
 export const partsToUnifiedContent = (parts: AgentContentPart[]): string | VLMContent[] => {
-  const hasStructuredParts = parts.some(part => part.type !== 'input_text')
+  const hasStructuredParts = parts.some((part) => part.type !== 'input_text')
 
   if (!hasStructuredParts) {
-    return parts
-      .map(part => ('text' in part ? part.text : ''))
-      .join('')
+    return parts.map((part) => ('text' in part ? part.text : '')).join('')
   }
 
   const content: VLMContent[] = []
@@ -46,9 +44,10 @@ export const partsToUnifiedContent = (parts: AgentContentPart[]): string | VLMCo
       }
     }
 
-    const label = part.type === 'input_file'
-      ? `[file:${part.filename || part.fileId || 'unknown'}]`
-      : `[image:${part.filename || part.fileId || 'unknown'}]`
+    const label =
+      part.type === 'input_file'
+        ? `[file:${part.filename || part.fileId || 'unknown'}]`
+        : `[image:${part.filename || part.fileId || 'unknown'}]`
 
     content.push({
       type: 'text',

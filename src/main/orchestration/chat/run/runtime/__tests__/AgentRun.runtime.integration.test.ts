@@ -5,7 +5,9 @@ import { DefaultMainAgentRuntimeRunner } from '../DefaultMainAgentRuntimeRunner'
 
 import { AgentRun } from '../AgentRun'
 
-vi.mock('electron', () => ({ app: { getPath: (): string => '/tmp/ati-test-user-data' } }))
+vi.mock('electron', () => ({
+  app: { getPath: (): string => '/tmp/ati-test-user-data' }
+}))
 
 vi.mock('@main/logging/LogService', () => ({
   createLogger: vi.fn(() => ({
@@ -87,7 +89,7 @@ const prepared = {
       model: 'model-1',
       stream: true
     },
-    initialTranscriptSeed: [],
+    contextMessages: [],
     runtimeContext: {
       chatId: 1,
       chatUuid: 'chat-1',

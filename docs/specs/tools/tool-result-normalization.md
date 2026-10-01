@@ -19,16 +19,15 @@ preview with an explicit non-recoverable notice. Already-small web artifact
 descriptors remain intact and do not produce duplicate artifacts.
 
 Chat stores original display content and `toolResultModelContent` in the same
-message body. History seeds restore model content. Legacy messages without that
+message body. Host history projection restores model content. Persisted messages without that
 field are prepared once before their runtime begins. CLI and subagents use the
 same normalizer with their own workspace root. Request materialization reuses
 model content without age-based truncation. Terminal snapshots perform no writes.
 
-Whole-request budgeting removes complete oldest assistant/tool groups while
-preserving all user/context messages and the newest group, with an omission
-notice. Budgeting includes system/tool definitions and uses the conservative
-character allowance described in ADR-0033. It never rewrites stored results.
-Mandatory input overflow fails before provider dispatch.
+ContextManager owns whole-request token budgeting; see [ADR-0036](../../decisions/0036-runtime-context-manager.md).
+It preserves current goals, effective contexts and unconsumed assistant/tool batches, then summarizes or omits
+complete optional history groups. Actual adapter body and output reserves participate. It never rewrites stored results.
+Mandatory input overflow fails before dispatch. Snapshot records remain complete.
 
 Tool-level semantic compaction is retired. Old database rows remain as historical
 data and are ignored by request preparation. Conversation-level compression

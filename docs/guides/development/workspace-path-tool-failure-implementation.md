@@ -93,9 +93,9 @@ grep 无匹配按文件工具既有成功空结果处理。任意 shell 的非�
   写入内容返回 `input / FILE_CONTENT_INVALID`，在创建目录和备份前结束。
   空字符串内容作为合法写入保留。
 - 运行时传递：`ToolResultContentProjector`、结果规范化测试、
-  `RequestMaterializer`、聊天渲染结果与事件状态；补充真实
+  `ContextManager.prepare()`、聊天渲染结果与事件状态；补充真实
   `FileOperationsProcessor -> ToolExecutor -> Dispatcher -> transcript ->
-  RequestMaterializer` 集成测试。
+  ContextManager.prepare()` 集成测试。
 - 文档：`docs/architecture/sandbox-design.md`、
   `docs/decisions/0008-workspace-path-confinement.md`、
   `docs/decisions/0019-workspace-tool-failure-contract.md` 及决策索引。
@@ -136,7 +136,7 @@ pnpm exec vitest run \
   src/main/agent/runtime/tools/__tests__/ToolExecutorDispatcher.test.ts \
   src/main/agent/runtime/tools/__tests__/ToolResultContentProjector.test.ts \
   src/main/agent/runtime/tools/result-normalization/__tests__/ToolResultNormalizer.test.ts \
-  src/main/agent/runtime/transcript/__tests__/RequestMaterializer.test.ts \
+  src/main/agent/runtime/context/__tests__/ContextRequest.test.ts \
   src/main/agent/runtime/tools/__tests__/ToolFailureIntegration.test.ts
 pnpm exec tsc --noEmit -p tsconfig.node.json --composite false
 pnpm run check:main-boundaries

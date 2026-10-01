@@ -7,8 +7,6 @@ import { DefaultAgentRuntime } from '@main/agent/runtime/AgentRuntime'
 import { createDefaultRuntimeInfrastructure } from '@main/agent/runtime/RuntimeInfrastructure'
 import { MainAgentLoopInputBootstrapper } from '@main/hosts/chat/runtime/MainAgentLoopInputBootstrapper'
 import type { CliChatProfile } from './CliChatProfile'
-import { DefaultInitialTranscriptMaterializer } from '@main/agent/runtime/transcript/InitialTranscriptMaterializer'
-import { DefaultUserRecordMaterializer } from '@main/agent/runtime/transcript/UserRecordMaterializer'
 import { DefaultToolBatchAssembler } from '@main/agent/runtime/tools/ToolBatchAssembler'
 import type { ToolExecutionProgressContext } from '@main/agent/runtime/tools/ToolExecutorDispatcher'
 import type { AgentLoopResult } from '@main/agent/runtime/loop/AgentLoopResult'
@@ -71,8 +69,6 @@ export const runCliRuntime = async (input: CliRuntimeRunInput): Promise<AgentLoo
       create: (): { runId: string } => ({ runId: input.runId })
     },
     loopInputBootstrapper: new MainAgentLoopInputBootstrapper(),
-    userRecordMaterializer: new DefaultUserRecordMaterializer(),
-    initialTranscriptMaterializer: new DefaultInitialTranscriptMaterializer(),
     runtimeInfrastructure,
     agentLoop: new DefaultAgentLoop(),
     agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
@@ -97,7 +93,7 @@ export const runCliRuntime = async (input: CliRuntimeRunInput): Promise<AgentLoo
       hostRequestId: input.runId,
       submittedAt: Date.now(),
       userContent: [{ type: 'input_text', text: input.instruction }],
-      metadata: { initialTranscriptSeed: input.profile.initialTranscriptSeed }
+      metadata: { contextMessages: input.profile.contextMessages }
     },
     execution: {
       maxSteps: input.maxSteps

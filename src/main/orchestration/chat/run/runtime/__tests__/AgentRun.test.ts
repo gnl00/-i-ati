@@ -27,7 +27,10 @@ const prepared = {
         apiKey: 'key',
         models: []
       },
-      providerDefinition: { id: 'provider-1', adapterPluginId: 'openai-chat-compatible-adapter' }
+      providerDefinition: {
+        id: 'provider-1',
+        adapterPluginId: 'openai-chat-compatible-adapter'
+      }
     },
     requestSpec: {
       adapterPluginId: 'openai-chat-compatible-adapter',
@@ -36,7 +39,7 @@ const prepared = {
       model: 'model-1',
       stream: true
     },
-    initialTranscriptSeed: [],
+    contextMessages: [],
     runtimeContext: {
       chatId: 1,
       chatUuid: 'chat-1',
@@ -88,7 +91,7 @@ const stepCommitter = {
   getLastUsage: vi.fn(() => undefined)
 }
 
-const createDeferred = <T,>() => {
+const createDeferred = <T>() => {
   let resolve!: (value: T) => void
   const promise = new Promise<T>((res) => {
     resolve = res
@@ -105,35 +108,45 @@ describe('AgentRun', () => {
   })
 
   it('bounds pending steering items while keeping duplicate delivery idempotent', () => {
-    const run = new AgentRun(input as any, {
-      mainAgentRuntimeRunner: { run: vi.fn() },
-      chatAgentAdapter: { prepareRun: vi.fn() },
-      postRunJobService: { run: vi.fn() }
-    } as any, {
-      emitter: { emit: vi.fn(), setChatMeta: vi.fn() },
-      toolConfirmationRequester: {
-        request: vi.fn(async () => ({ approved: true }))
-      }
-    } as any)
+    const run = new AgentRun(
+      input as any,
+      {
+        mainAgentRuntimeRunner: { run: vi.fn() },
+        chatAgentAdapter: { prepareRun: vi.fn() },
+        postRunJobService: { run: vi.fn() }
+      } as any,
+      {
+        emitter: { emit: vi.fn(), setChatMeta: vi.fn() },
+        toolConfirmationRequester: {
+          request: vi.fn(async () => ({ approved: true }))
+        }
+      } as any
+    )
 
     for (let index = 1; index <= 5; index += 1) {
-      expect(run.steer({
-        queueItemId: `queue-${index}`,
-        text: `guide ${index}`,
-        images: []
-      })).toEqual({ accepted: true })
+      expect(
+        run.steer({
+          queueItemId: `queue-${index}`,
+          text: `guide ${index}`,
+          images: []
+        })
+      ).toEqual({ accepted: true })
     }
 
-    expect(run.steer({
-      queueItemId: 'queue-1',
-      text: 'duplicate delivery',
-      images: []
-    })).toEqual({ accepted: true })
-    expect(run.steer({
-      queueItemId: 'queue-6',
-      text: 'over capacity',
-      images: []
-    })).toEqual({ accepted: false, reason: 'queue_full' })
+    expect(
+      run.steer({
+        queueItemId: 'queue-1',
+        text: 'duplicate delivery',
+        images: []
+      })
+    ).toEqual({ accepted: true })
+    expect(
+      run.steer({
+        queueItemId: 'queue-6',
+        text: 'over capacity',
+        images: []
+      })
+    ).toEqual({ accepted: false, reason: 'queue_full' })
   })
 
   it('completes the run and does not wait for post-run jobs', async () => {
@@ -190,11 +203,13 @@ describe('AgentRun', () => {
     }
 
     const run = new AgentRun(input as any, services, runtime as any)
-    expect(run.steer({
-      queueItemId: 'queue-before-complete',
-      text: 'guide after this run',
-      images: []
-    })).toEqual({ accepted: true })
+    expect(
+      run.steer({
+        queueItemId: 'queue-before-complete',
+        text: 'guide after this run',
+        images: []
+      })
+    ).toEqual({ accepted: true })
     const result = await run.run()
 
     expect(result).toEqual({
@@ -226,12 +241,14 @@ describe('AgentRun', () => {
     expect(emitter.emit).toHaveBeenCalledWith(RUN_EVENTS.STEERING_RETURNED, {
       queueItemIds: ['queue-before-complete']
     })
-    const returnedOrder = emitter.emit.mock.invocationCallOrder[
-      emitter.emit.mock.calls.findIndex(([type]) => type === RUN_EVENTS.STEERING_RETURNED)
-    ]
-    const completedOrder = emitter.emit.mock.invocationCallOrder[
-      emitter.emit.mock.calls.findIndex(([type]) => type === RUN_EVENTS.RUN_COMPLETED)
-    ]
+    const returnedOrder =
+      emitter.emit.mock.invocationCallOrder[
+        emitter.emit.mock.calls.findIndex(([type]) => type === RUN_EVENTS.STEERING_RETURNED)
+      ]
+    const completedOrder =
+      emitter.emit.mock.invocationCallOrder[
+        emitter.emit.mock.calls.findIndex(([type]) => type === RUN_EVENTS.RUN_COMPLETED)
+      ]
     expect(returnedOrder).toBeLessThan(completedOrder)
 
     postRunDeferred.resolve()
@@ -254,7 +271,11 @@ describe('AgentRun', () => {
         },
         stepCommitter: {
           getFinalAssistantMessage: vi.fn(() => assistantMessage),
-          getLastUsage: vi.fn(() => ({ promptTokens: 1, completionTokens: 2, totalTokens: 3 }))
+          getLastUsage: vi.fn(() => ({
+            promptTokens: 1,
+            completionTokens: 2,
+            totalTokens: 3
+          }))
         }
       }))
     }
@@ -298,9 +319,11 @@ describe('AgentRun', () => {
     const run = new AgentRun(input as any, services, runtime as any)
     const result = await run.run()
 
-    expect(mainAgentRuntimeRunner.run).toHaveBeenCalledWith(expect.objectContaining({
-      hostRenderSinks: runtime.hostRenderSinks
-    }))
+    expect(mainAgentRuntimeRunner.run).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hostRenderSinks: runtime.hostRenderSinks
+      })
+    )
 
     expect(result).toEqual({
       assistantMessageId: 102,
@@ -308,10 +331,12 @@ describe('AgentRun', () => {
       state: 'completed'
     })
     expect(mainAgentRuntimeRunner.run).toHaveBeenCalledTimes(1)
-    expect(mainAgentRuntimeRunner.run).toHaveBeenCalledWith(expect.objectContaining({
-      runInput: input,
-      prepared
-    }))
+    expect(mainAgentRuntimeRunner.run).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runInput: input,
+        prepared
+      })
+    )
 
     postRunDeferred.resolve()
     await postRunDeferred.promise
@@ -361,15 +386,19 @@ describe('AgentRun', () => {
         run: vi.fn(() => postRunDeferred.promise)
       }
     } as any
-    const run = new AgentRun({
-      ...input,
-      chatUuid: undefined
-    } as any, services, {
-      emitter,
-      toolConfirmationRequester: {
-        request: vi.fn(async () => ({ approved: true }))
-      }
-    } as any)
+    const run = new AgentRun(
+      {
+        ...input,
+        chatUuid: undefined
+      } as any,
+      services,
+      {
+        emitter,
+        toolConfirmationRequester: {
+          request: vi.fn(async () => ({ approved: true }))
+        }
+      } as any
+    )
 
     expect(run.chatUuid).toBeUndefined()
 
@@ -380,10 +409,9 @@ describe('AgentRun', () => {
 
     run.setPermissionApprovalMode('auto')
 
-    expect(emitter.emit).toHaveBeenCalledWith(
-      RUN_EVENTS.RUN_PERMISSION_APPROVAL_MODE_CHANGED,
-      { permissionApprovalMode: 'auto' }
-    )
+    expect(emitter.emit).toHaveBeenCalledWith(RUN_EVENTS.RUN_PERMISSION_APPROVAL_MODE_CHANGED, {
+      permissionApprovalMode: 'auto'
+    })
 
     postRunDeferred.resolve()
     await postRunDeferred.promise
@@ -457,17 +485,18 @@ describe('AgentRun', () => {
       }
     } as any)
 
-    expect(run.steer({
-      queueItemId: 'queue-1',
-      text: 'guide',
-      images: []
-    })).toEqual({ accepted: true })
+    expect(
+      run.steer({
+        queueItemId: 'queue-1',
+        text: 'guide',
+        images: []
+      })
+    ).toEqual({ accepted: true })
     await run.run()
 
-    expect(emitter.emit).toHaveBeenCalledWith(
-      RUN_EVENTS.STEERING_RETURNED,
-      { queueItemIds: ['queue-1'] }
-    )
+    expect(emitter.emit).toHaveBeenCalledWith(RUN_EVENTS.STEERING_RETURNED, {
+      queueItemIds: ['queue-1']
+    })
   })
 
   it('returns an in-flight steering item when consumption fails before acknowledgement', async () => {
@@ -501,17 +530,18 @@ describe('AgentRun', () => {
       }
     } as any)
 
-    expect(run.steer({
-      queueItemId: 'queue-in-flight',
-      text: 'guide',
-      images: []
-    })).toEqual({ accepted: true })
+    expect(
+      run.steer({
+        queueItemId: 'queue-in-flight',
+        text: 'guide',
+        images: []
+      })
+    ).toEqual({ accepted: true })
     await run.run()
 
-    expect(emitter.emit).toHaveBeenCalledWith(
-      RUN_EVENTS.STEERING_RETURNED,
-      { queueItemIds: ['queue-in-flight'] }
-    )
+    expect(emitter.emit).toHaveBeenCalledWith(RUN_EVENTS.STEERING_RETURNED, {
+      queueItemIds: ['queue-in-flight']
+    })
   })
 
   it('emits aborted events when runner returns aborted', async () => {

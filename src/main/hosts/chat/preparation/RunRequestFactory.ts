@@ -1,4 +1,4 @@
-import { RequestMessageBuilder } from '@shared/services/RequestMessageBuilder'
+import { buildContextMessages } from './request/buildContextMessages'
 import {
   getEffectiveThinkingLevel,
   getRequestAdapterThinkingCapability,
@@ -15,13 +15,11 @@ import {
   SystemEnvironmentContextProvider,
   SystemPromptComposer,
   UserInfoPromptProvider,
-  InitialTranscriptSeedBuilder,
   ToolListBuilder
 } from './request'
 import { LoadedSkillsContextProvider } from './request/LoadedSkillsContextProvider'
 import type { HostRunInputState, RunEnvironment, StepBootstrap } from './types'
 import type { AgentRequestSpec } from '@main/agent/contracts/HostRuntimeContracts'
-import type { ChatInitialTranscriptSeed } from '@main/agent/contracts'
 
 const SCHEDULE_EXECUTION_INSTRUCTION = [
   '## Schedule Execution Context',
@@ -32,7 +30,7 @@ const SCHEDULE_EXECUTION_INSTRUCTION = [
 
 export type RunRequestBuildResult = {
   requestSpec: AgentRequestSpec
-  initialTranscriptSeed: ChatInitialTranscriptSeed[]
+  contextMessages: ChatMessage[]
 }
 
 export class RunRequestFactory {
@@ -41,7 +39,6 @@ export class RunRequestFactory {
     private readonly compressionSummaryResolver = new CompressionSummaryResolver(),
     private readonly systemPromptComposer = new SystemPromptComposer(),
     private readonly toolListBuilder = new ToolListBuilder(),
-    private readonly initialTranscriptSeedBuilder = new InitialTranscriptSeedBuilder(),
     private readonly loadedSkillsContextProvider = new LoadedSkillsContextProvider(),
     private readonly userInfoPromptProvider = new UserInfoPromptProvider(),
     private readonly systemEnvironmentContextProvider = new SystemEnvironmentContextProvider(),
@@ -79,31 +76,34 @@ export class RunRequestFactory {
       compressionSummary
     )
 
-    const requestMessageBuild = new RequestMessageBuilder()
-      .setSystemPrompts(systemPrompts)
-      .setEphemeralContextMessages(
-        [
-          loadedSkillsContext,
-          userInfoContext,
-          knowledgebaseContext,
-          systemEnvironmentContext,
-          awakeContext,
-          availableImagesContext
-        ].filter((message): message is ChatMessage => Boolean(message))
-      )
-      .setUserInstruction(mergedUserInstruction)
-      .setMessages(step.messageBuffer)
-      .setCompressionSummary(compressionSummary)
-      .build()
+    const contextMessages = buildContextMessages({
+      messages: step.messageBuffer,
+      contexts: [
+        loadedSkillsContext,
+        userInfoContext,
+        knowledgebaseContext,
+        systemEnvironmentContext,
+        awakeContext,
+        availableImagesContext
+      ].filter((message): message is ChatMessage => Boolean(message)),
+      userInstruction: mergedUserInstruction,
+      summary: compressionSummary
+    })
 
     return {
       requestSpec: {
         adapterPluginId: environment.modelContext.providerDefinition.adapterPluginId,
         baseUrl: environment.modelContext.account.apiUrl,
-        systemPrompt: requestMessageBuild.systemPrompt,
+        systemPrompt: systemPrompts
+          .map((prompt) => prompt.trim())
+          .filter(Boolean)
+          .join('\n'),
         apiKey: environment.modelContext.account.apiKey,
         model: environment.modelContext.model.id,
         contextWindowTokens: environment.modelContext.model.contextWindowTokens,
+        contextCompression: Boolean(
+          config.compression?.enabled && config.compression?.autoCompress
+        ),
         modelType: environment.modelContext.model.type,
         tools: this.toolListBuilder.build(input.tools, {
           excludedToolNames: isInteractiveMessageSource(input.source) ? [] : ['ask_user_question']
@@ -113,9 +113,7 @@ export class RunRequestFactory {
         payloadExtensions: environment.modelContext.providerDefinition.payloadExtensions,
         requestOverrides: environment.modelContext.providerDefinition.requestOverrides
       },
-      initialTranscriptSeed: this.initialTranscriptSeedBuilder.build(
-        requestMessageBuild.chatMessages
-      )
+      contextMessages
     }
   }
 

@@ -58,7 +58,7 @@ export class CompressionTranscriptBuilder {
       this.formatContent(message.body.content)
     ]
 
-    toolEntries.forEach(entry => {
+    toolEntries.forEach((entry) => {
       parts.push(this.buildToolBlock(entry))
     })
 
@@ -66,7 +66,7 @@ export class CompressionTranscriptBuilder {
 
     return {
       block: parts.join('\n'),
-      consumedCount: toolEntries.filter(entry => entry.result).length
+      consumedCount: toolEntries.filter((entry) => entry.result).length
     }
   }
 
@@ -91,7 +91,7 @@ export class CompressionTranscriptBuilder {
       }
     }
 
-    return toolCalls.map(call => ({
+    return toolCalls.map((call) => ({
       call,
       result: resultsByCallId.get(call.id)
     }))
@@ -108,7 +108,7 @@ export class CompressionTranscriptBuilder {
     if (entry.result) {
       parts.push(
         `<result message_id="${this.messageId(entry.result)}">`,
-        this.formatContent(entry.result.body.content),
+        this.formatContent(entry.result.body.toolResultModelContent ?? entry.result.body.content),
         '</result>'
       )
     }
@@ -120,7 +120,7 @@ export class CompressionTranscriptBuilder {
   private buildOrphanToolResultBlock(message: MessageEntity): string {
     return [
       `<tool_result id="${this.messageId(message)}" tool_call_id="${message.body.toolCallId ?? ''}" orphan="true">`,
-      this.formatContent(message.body.content),
+      this.formatContent(message.body.toolResultModelContent ?? message.body.content),
       '</tool_result>'
     ].join('\n')
   }

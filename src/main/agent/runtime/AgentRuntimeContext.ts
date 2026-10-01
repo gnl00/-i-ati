@@ -23,8 +23,6 @@ import type { AgentRequestSpec } from './request/AgentRequestSpec'
 import type { AgentLoopDependenciesFactory } from './AgentLoopDependenciesFactory'
 import type { AgentRuntimeRunInput } from './AgentRuntimeRunInput'
 import type { RuntimeInfrastructure } from './RuntimeInfrastructure'
-import type { InitialTranscriptMaterializer } from './transcript/InitialTranscriptMaterializer'
-import type { UserRecordMaterializer } from './transcript/UserRecordMaterializer'
 
 export interface AgentRequestSpecSource {
   resolve(input: AgentRuntimeRunInput): AgentRequestSpec | Promise<AgentRequestSpec>
@@ -41,8 +39,6 @@ export interface AgentRuntimeContext {
 
   // bootstrap
   loopInputBootstrapper: LoopInputBootstrapper
-  userRecordMaterializer: UserRecordMaterializer
-  initialTranscriptMaterializer: InitialTranscriptMaterializer
 
   // runtime infrastructure
   runtimeInfrastructure: RuntimeInfrastructure

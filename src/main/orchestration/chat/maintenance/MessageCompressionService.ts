@@ -8,19 +8,16 @@
  * 4. 避免并发压缩
  */
 
-import { agent } from '@main/agent'
-import { resolveRequestOverrides } from '@main/request/overrides'
-import { buildCompressionPrompt } from '@shared/prompts'
+import { compactContext } from '@main/agent/runtime/context/ContextCompactor'
+import { RequestTokenizer } from '@main/agent/runtime/context/RequestTokenizer'
 import { HIDDEN_MESSAGE_SOURCES, isTransportDeliveryMessage } from '@shared/messages/messageSources'
 import { chatDb } from '@main/db/chat'
 import { createLogger } from '@main/logging/LogService'
 import { CompressionTranscriptBuilder } from './CompressionTranscriptBuilder'
 
 const DEFAULT_TRIGGER_TOKEN_RATIO = 0.7
-const RECENT_MESSAGE_PAIRS_TO_KEEP = 3
+const RECENT_MESSAGE_PAIRS_TO_KEEP = 1
 const logger = createLogger('MessageCompressionService')
-const MESSAGE_COMPACTOR_SYSTEM_PROMPT =
-  'You are a message compactor. Produce only the final continuing-session summary requested by the user message.'
 
 export type CompressionJob = {
   chatId: number
@@ -65,26 +62,24 @@ export class MessageCompressionService {
     model: AccountModel,
     config?: CompressionConfig
   ): CompressionStrategy {
-    messages = messages.filter(message => !isTransportDeliveryMessage(message.body))
+    messages = messages.filter((message) => !isTransportDeliveryMessage(message.body))
     // 1. 创建已被压缩的消息 ID 集合
     const compressedIds = this.buildCompressedIdSet(existingSummaries)
 
     // 2. 过滤掉已被压缩的消息
-    const uncompressedMessages = messages.filter(m =>
-      m.id && !compressedIds.has(m.id)
-    )
+    const uncompressedMessages = messages.filter((m) => m.id && !compressedIds.has(m.id))
 
     // 3. 检查是否需要压缩
     if (!config) {
       return {
         shouldCompress: false,
         messagesToCompress: [],
-        messagesToKeep: uncompressedMessages.map(m => m.id!),
+        messagesToKeep: uncompressedMessages.map((m) => m.id!),
         existingSummaries
       }
     }
 
-    const usedTokenCount = this.sumResponseTokenCount(uncompressedMessages)
+    const usedTokenCount = this.countContextTokens(uncompressedMessages, model.id)
     const shouldCompress = this.shouldCompress(
       usedTokenCount,
       this.resolveContextWindowTokens(model),
@@ -95,17 +90,14 @@ export class MessageCompressionService {
       return {
         shouldCompress: false,
         messagesToCompress: [],
-        messagesToKeep: uncompressedMessages.map(m => m.id!),
+        messagesToKeep: uncompressedMessages.map((m) => m.id!),
         existingSummaries
       }
     }
 
-    const sortedMessages = [...uncompressedMessages].sort(
-      (a, b) => (a.id || 0) - (b.id || 0)
-    )
-    const { messagesToCompress, messagesToKeep } = this.selectRecentMessagePairWindow(
-      sortedMessages
-    )
+    const sortedMessages = [...uncompressedMessages].sort((a, b) => (a.id || 0) - (b.id || 0))
+    const { messagesToCompress, messagesToKeep } =
+      this.selectRecentMessagePairWindow(sortedMessages)
 
     if (messagesToCompress.length === 0) {
       return {
@@ -127,21 +119,12 @@ export class MessageCompressionService {
   /**
    * 估算 token 数量
    */
-  estimateTokenCount(text: string): number {
-    // 简单估算：英文约 4 字符/token，中文约 1.5 字符/token
-    const chineseChars = (text.match(/[\u4e00-\u9fa5]/g) || []).length
-    const otherChars = text.length - chineseChars
-    return Math.ceil(chineseChars / 1.5 + otherChars / 4)
+  estimateTokenCount(text: string, model = 'unknown'): number {
+    return new RequestTokenizer(model).count(text)
   }
 
-  sumResponseTokenCount(messages: MessageEntity[]): number {
-    return messages.reduce((sum, message) => {
-      const tokens = message.tokens
-      if (typeof tokens !== 'number' || !Number.isFinite(tokens) || tokens <= 0) {
-        return sum
-      }
-      return sum + tokens
-    }, 0)
+  countContextTokens(messages: MessageEntity[], model = 'unknown'): number {
+    return this.estimateTokenCount(this.transcriptBuilder.build(messages), model)
   }
 
   resolveContextWindowTokens(model: AccountModel): number | undefined {
@@ -162,8 +145,8 @@ export class MessageCompressionService {
 
   private buildCompressedIdSet(existingSummaries: CompressedSummaryEntity[]): Set<number> {
     const compressedIds = new Set<number>()
-    existingSummaries.forEach(summary => {
-      summary.messageIds.forEach(id => compressedIds.add(id))
+    existingSummaries.forEach((summary) => {
+      summary.messageIds.forEach((id) => compressedIds.add(id))
     })
     return compressedIds
   }
@@ -178,8 +161,8 @@ export class MessageCompressionService {
     const keepPairs = pairs.slice(keepStartIndex)
 
     return {
-      messagesToCompress: compressPairs.flatMap(pair => this.collectMessageIds(pair)),
-      messagesToKeep: keepPairs.flatMap(pair => this.collectMessageIds(pair))
+      messagesToCompress: compressPairs.flatMap((pair) => this.collectMessageIds(pair)),
+      messagesToKeep: keepPairs.flatMap((pair) => this.collectMessageIds(pair))
     }
   }
 
@@ -189,9 +172,10 @@ export class MessageCompressionService {
     let currentPairHasVisibleUser = false
     let currentPairHasNonUserMessage = false
 
-    messages.forEach(message => {
-      const isVisibleUserMessage = message.body.role === 'user'
-        && (!message.body.source || !HIDDEN_MESSAGE_SOURCES.has(message.body.source))
+    messages.forEach((message) => {
+      const isVisibleUserMessage =
+        message.body.role === 'user' &&
+        (!message.body.source || !HIDDEN_MESSAGE_SOURCES.has(message.body.source))
 
       if (isVisibleUserMessage) {
         if (currentPair.length > 0 && (currentPairHasVisibleUser || currentPairHasNonUserMessage)) {
@@ -220,7 +204,7 @@ export class MessageCompressionService {
 
   private collectMessageIds(messages: MessageEntity[]): number[] {
     return messages
-      .map(message => message.id)
+      .map((message) => message.id)
       .filter((id): id is number => typeof id === 'number')
   }
 
@@ -229,7 +213,7 @@ export class MessageCompressionService {
     nextMessageIds: number[]
   ): number[] {
     const ids = this.buildCompressedIdSet(existingSummaries)
-    nextMessageIds.forEach(id => ids.add(id))
+    nextMessageIds.forEach((id) => ids.add(id))
     return Array.from(ids).sort((a, b) => a - b)
   }
 
@@ -247,34 +231,18 @@ export class MessageCompressionService {
     providerDefinition: ProviderDefinition,
     previousSummary?: string
   ): Promise<string> {
-    // 1. 构建对话文本
-    const conversationText = this.transcriptBuilder.build(messages)
-
-    // 2. 构建压缩 prompt（根据是否有旧摘要使用不同的 prompt）
-    const userContent = buildCompressionPrompt({
-      conversationText,
-      previousSummary
-    })
-
-    const response = await agent(
-      'message-compactor',
-      MESSAGE_COMPACTOR_SYSTEM_PROMPT,
-      [],
-      [{ role: 'user', content: userContent }],
-      false,
-      {
-        model,
-        account,
-        providerDefinition,
-        sanitizeOverrides: providerOverrides => resolveRequestOverrides(providerOverrides, 'compression')
+    return compactContext({
+      text: this.transcriptBuilder.build(messages),
+      previousSummary,
+      requestSpec: {
+        adapterPluginId: providerDefinition.adapterPluginId,
+        baseUrl: account.apiUrl,
+        apiKey: account.apiKey,
+        model: model.id,
+        contextWindowTokens: model.contextWindowTokens,
+        requestOverrides: providerDefinition.requestOverrides
       }
-    )
-
-    if (response.type !== 'text') {
-      throw new Error('message-compactor did not return text output')
-    }
-
-    return response.content?.trim() || ''
+    })
   }
 
   /**
@@ -301,10 +269,8 @@ export class MessageCompressionService {
       // 4. 分析压缩策略
       const strategy = this.analyzeCompressionStrategy(messages, existingSummaries, model, config)
       const compressedIds = this.buildCompressedIdSet(existingSummaries)
-      const uncompressedMessages = messages.filter(m =>
-        m.id && !compressedIds.has(m.id)
-      )
-      const usedTokenCount = this.sumResponseTokenCount(uncompressedMessages)
+      const uncompressedMessages = messages.filter((m) => m.id && !compressedIds.has(m.id))
+      const usedTokenCount = this.countContextTokens(uncompressedMessages, model.id)
       const contextWindowTokens = this.resolveContextWindowTokens(model)
       const triggerTokenRatio = this.resolveTriggerTokenRatio(config)
       const tokenUsageRatio = contextWindowTokens
@@ -339,7 +305,7 @@ export class MessageCompressionService {
         runPromptCacheMissTokens: usage?.promptCacheMissTokens,
         runPromptCacheWriteTokens: usage?.promptCacheWriteTokens,
         runReasoningTokens: usage?.reasoningTokens,
-        decisionBasis: 'historical_uncompressed_message_tokens',
+        decisionBasis: 'tokenized_summary_input',
         shouldCompress: strategy.shouldCompress,
         decisionReason
       })
@@ -356,8 +322,9 @@ export class MessageCompressionService {
       }
 
       // 5. 获取需要压缩的消息
-      const messagesToCompress = messages.filter(m =>
-        m.id && strategy.messagesToCompress.includes(m.id) && !isTransportDeliveryMessage(m.body)
+      const messagesToCompress = messages.filter(
+        (m) =>
+          m.id && strategy.messagesToCompress.includes(m.id) && !isTransportDeliveryMessage(m.body)
       )
       const cumulativeMessageIds = this.buildCumulativeMessageIds(
         existingSummaries,
@@ -365,9 +332,8 @@ export class MessageCompressionService {
       )
 
       // 6. 获取最新的活跃摘要（如果存在）
-      const latestSummary = existingSummaries.length > 0
-        ? existingSummaries[existingSummaries.length - 1]
-        : null
+      const latestSummary =
+        existingSummaries.length > 0 ? existingSummaries[existingSummaries.length - 1] : null
 
       // 7. 生成摘要（基于旧摘要 + 新消息）
       // console.log(`[Compression] Generating summary for ${messagesToCompress.length} messages`)
@@ -385,12 +351,10 @@ export class MessageCompressionService {
 
       // 8. 估算 token 数量
       const originalTokenCount = this.estimateTokenCount(
-        messagesToCompress.map(m => JSON.stringify(m.body)).join('')
+        this.transcriptBuilder.build(messagesToCompress)
       )
       const summaryTokenCount = this.estimateTokenCount(summary)
-      const compressionRatio = originalTokenCount > 0
-        ? summaryTokenCount / originalTokenCount
-        : 0
+      const compressionRatio = originalTokenCount > 0 ? summaryTokenCount / originalTokenCount : 0
 
       // 9. 将旧摘要标记为 superseded
       if (latestSummary && latestSummary.id) {
@@ -443,7 +407,6 @@ export class MessageCompressionService {
       this.compressionInProgress.delete(chatId)
     }
   }
-
 }
 
 // 导出单例

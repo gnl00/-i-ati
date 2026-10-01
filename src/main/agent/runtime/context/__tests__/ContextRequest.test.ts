@@ -1,12 +1,11 @@
+import { projectContextRequest } from '../ContextRequest'
 import { describe, expect, it } from 'vitest'
-import { DefaultRequestMaterializer } from '../RequestMaterializer'
-import type { AgentTranscript } from '../AgentTranscript'
+import type { ContextSnapshot } from '../ContextSnapshot'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 
-describe('DefaultRequestMaterializer', () => {
+describe('projectContextRequest', () => {
   it('merges hidden request context into the following user protocol message', () => {
-    const materializer = new DefaultRequestMaterializer()
-    const transcript: AgentTranscript = {
+    const transcript: ContextSnapshot = {
       transcriptId: 'transcript-1',
       createdAt: 1,
       updatedAt: 2,
@@ -88,8 +87,8 @@ describe('DefaultRequestMaterializer', () => {
       ]
     }
 
-    const request = materializer.materialize({
-      transcript,
+    const request = projectContextRequest({
+      records: transcript.records,
       requestSpec: {
         adapterPluginId: 'openai-chat-compatible-adapter',
         baseUrl: 'https://example.invalid/v1',
@@ -127,8 +126,7 @@ describe('DefaultRequestMaterializer', () => {
   })
 
   it('preserves assistant reasoning for protocol replay', () => {
-    const materializer = new DefaultRequestMaterializer()
-    const transcript: AgentTranscript = {
+    const transcript: ContextSnapshot = {
       transcriptId: 'transcript-1',
       createdAt: 1,
       updatedAt: 2,
@@ -151,8 +149,8 @@ describe('DefaultRequestMaterializer', () => {
       ]
     }
 
-    const request = materializer.materialize({
-      transcript,
+    const request = projectContextRequest({
+      records: transcript.records,
       requestSpec: {
         adapterPluginId: 'openai-chat-compatible-adapter',
         baseUrl: 'https://example.invalid/v1',
@@ -172,7 +170,6 @@ describe('DefaultRequestMaterializer', () => {
   })
 
   it('redacts vision image payloads from assistant tool call replay', () => {
-    const materializer = new DefaultRequestMaterializer()
     const visionArguments = JSON.stringify({
       chat_uuid: 'chat-runtime',
       images: [
@@ -195,7 +192,7 @@ describe('DefaultRequestMaterializer', () => {
       url: 'https://example.invalid/plain.png',
       raw_data: 'keep-this-non-vision-argument'
     })
-    const transcript: AgentTranscript = {
+    const transcript: ContextSnapshot = {
       transcriptId: 'transcript-1',
       createdAt: 1,
       updatedAt: 2,
@@ -234,8 +231,8 @@ describe('DefaultRequestMaterializer', () => {
       ]
     }
 
-    const request = materializer.materialize({
-      transcript,
+    const request = projectContextRequest({
+      records: transcript.records,
       requestSpec: {
         adapterPluginId: 'openai-chat-compatible-adapter',
         baseUrl: 'https://example.invalid/v1',
@@ -280,7 +277,6 @@ describe('DefaultRequestMaterializer', () => {
   })
 
   it('redacts vision array arguments from assistant tool call replay', () => {
-    const materializer = new DefaultRequestMaterializer()
     const visionArguments = JSON.stringify([
       {
         ref: 'message:101#image:1',
@@ -292,7 +288,7 @@ describe('DefaultRequestMaterializer', () => {
         raw_data: ['data:image/jpeg;base64,array-legacy-secret']
       }
     ])
-    const transcript: AgentTranscript = {
+    const transcript: ContextSnapshot = {
       transcriptId: 'transcript-1',
       createdAt: 1,
       updatedAt: 2,
@@ -323,8 +319,8 @@ describe('DefaultRequestMaterializer', () => {
       ]
     }
 
-    const request = materializer.materialize({
-      transcript,
+    const request = projectContextRequest({
+      records: transcript.records,
       requestSpec: {
         adapterPluginId: 'openai-chat-compatible-adapter',
         baseUrl: 'https://example.invalid/v1',
@@ -359,8 +355,7 @@ describe('DefaultRequestMaterializer', () => {
   })
 
   it('redacts vision primitive string arguments from assistant tool call replay', () => {
-    const materializer = new DefaultRequestMaterializer()
-    const transcript: AgentTranscript = {
+    const transcript: ContextSnapshot = {
       transcriptId: 'transcript-1',
       createdAt: 1,
       updatedAt: 2,
@@ -391,8 +386,8 @@ describe('DefaultRequestMaterializer', () => {
       ]
     }
 
-    const request = materializer.materialize({
-      transcript,
+    const request = projectContextRequest({
+      records: transcript.records,
       requestSpec: {
         adapterPluginId: 'openai-chat-compatible-adapter',
         baseUrl: 'https://example.invalid/v1',
@@ -415,8 +410,7 @@ describe('DefaultRequestMaterializer', () => {
   })
 
   it('strips raw image parts and preserves hidden vision observation text', () => {
-    const materializer = new DefaultRequestMaterializer()
-    const transcript: AgentTranscript = {
+    const transcript: ContextSnapshot = {
       transcriptId: 'transcript-1',
       createdAt: 1,
       updatedAt: 2,
@@ -449,8 +443,8 @@ describe('DefaultRequestMaterializer', () => {
       ]
     }
 
-    const request = materializer.materialize({
-      transcript,
+    const request = projectContextRequest({
+      records: transcript.records,
       requestSpec: {
         adapterPluginId: 'openai-chat-compatible-adapter',
         baseUrl: 'https://example.invalid/v1',
@@ -477,8 +471,7 @@ describe('DefaultRequestMaterializer', () => {
   })
 
   it('strips prior image parts while preserving observation and text follow-up context', () => {
-    const materializer = new DefaultRequestMaterializer()
-    const transcript: AgentTranscript = {
+    const transcript: ContextSnapshot = {
       transcriptId: 'transcript-1',
       createdAt: 1,
       updatedAt: 4,
@@ -531,8 +524,8 @@ describe('DefaultRequestMaterializer', () => {
       ]
     }
 
-    const request = materializer.materialize({
-      transcript,
+    const request = projectContextRequest({
+      records: transcript.records,
       requestSpec: {
         adapterPluginId: 'openai-chat-compatible-adapter',
         baseUrl: 'https://example.invalid/v1',
@@ -575,8 +568,7 @@ describe('DefaultRequestMaterializer', () => {
   })
 
   it('replays prepared media content without further truncation', () => {
-    const materializer = new DefaultRequestMaterializer()
-    const transcript: AgentTranscript = {
+    const transcript: ContextSnapshot = {
       transcriptId: 'transcript-1',
       createdAt: 1,
       updatedAt: 2,
@@ -596,8 +588,8 @@ describe('DefaultRequestMaterializer', () => {
       ]
     }
 
-    const request = materializer.materialize({
-      transcript,
+    const request = projectContextRequest({
+      records: transcript.records,
       requestSpec: {
         adapterPluginId: 'openai-chat-compatible-adapter',
         baseUrl: 'https://example.invalid/v1',
@@ -618,12 +610,11 @@ describe('DefaultRequestMaterializer', () => {
   })
 
   it('preserves prepared tool results during active run replay', () => {
-    const materializer = new DefaultRequestMaterializer()
     const largeContent = JSON.stringify({
       nodes: 'x'.repeat(40_000),
       image: `data:image/png;base64,${'a'.repeat(200)}`
     })
-    const transcript: AgentTranscript = {
+    const transcript: ContextSnapshot = {
       transcriptId: 'transcript-1',
       createdAt: 1,
       updatedAt: 2,
@@ -642,8 +633,8 @@ describe('DefaultRequestMaterializer', () => {
       ]
     }
 
-    const request = materializer.materialize({
-      transcript,
+    const request = projectContextRequest({
+      records: transcript.records,
       requestSpec: {
         adapterPluginId: 'openai-chat-compatible-adapter',
         baseUrl: 'https://example.invalid/v1',
@@ -661,13 +652,12 @@ describe('DefaultRequestMaterializer', () => {
   })
 
   it('preserves stable model content after a following assistant step', () => {
-    const materializer = new DefaultRequestMaterializer()
     const representation = JSON.stringify({
       compacted: true,
       lossy: true,
       result: { summary: 'x'.repeat(5_000) }
     })
-    const transcript: AgentTranscript = {
+    const transcript: ContextSnapshot = {
       transcriptId: 'transcript-1',
       createdAt: 1,
       updatedAt: 3,
@@ -701,8 +691,8 @@ describe('DefaultRequestMaterializer', () => {
       ]
     }
 
-    const request = materializer.materialize({
-      transcript,
+    const request = projectContextRequest({
+      records: transcript.records,
       requestSpec: {
         adapterPluginId: 'openai-chat-compatible-adapter',
         baseUrl: 'https://example.invalid/v1',
@@ -723,13 +713,12 @@ describe('DefaultRequestMaterializer', () => {
   })
 
   it('uses the prepared model content', () => {
-    const materializer = new DefaultRequestMaterializer()
     const representation = JSON.stringify({
       compacted: true,
       lossy: true,
       result: { summary: 'x'.repeat(5_000) }
     })
-    const transcript: AgentTranscript = {
+    const transcript: ContextSnapshot = {
       transcriptId: 'transcript-1',
       createdAt: 1,
       updatedAt: 2,
@@ -749,8 +738,8 @@ describe('DefaultRequestMaterializer', () => {
       ]
     }
 
-    const request = materializer.materialize({
-      transcript,
+    const request = projectContextRequest({
+      records: transcript.records,
       requestSpec: {
         adapterPluginId: 'openai-chat-compatible-adapter',
         baseUrl: 'https://example.invalid/v1',
@@ -779,7 +768,7 @@ describe('DefaultRequestMaterializer', () => {
       content,
       modelContent: content
     }
-    const transcript: AgentTranscript = {
+    const transcript: ContextSnapshot = {
       transcriptId: 't1',
       createdAt: 1,
       updatedAt: 2,
@@ -801,8 +790,8 @@ describe('DefaultRequestMaterializer', () => {
         }
       ]
     }
-    const request = new DefaultRequestMaterializer().materialize({
-      transcript,
+    const request = projectContextRequest({
+      records: transcript.records,
       requestSpec: {
         adapterPluginId: 'test',
         baseUrl: '',

@@ -1,3 +1,4 @@
+import { createAssistantContextRecord, createToolContextRecord } from '../context/ContextRecords'
 /**
  * AgentLoop
  *
@@ -30,11 +31,11 @@ import type {
 import type { AgentStep, AgentStepFailureInfo } from '../step/AgentStep'
 import type { AgentStepDraft, AgentStepDraftDelta } from '../step/AgentStepDraft'
 import { createInitialModelResponseParserState } from '../model/ModelResponseParser'
-import type { AgentTranscript } from '../transcript/AgentTranscript'
+import { ContextManager } from '../context/ContextManager'
 import type { ToolCallReadyFact } from '../tools/ToolCallReadyFact'
 import type { ToolResultFact } from '../tools/ToolResultFact'
 import { mergeUsage } from './AgentLoopUsage'
-import type { AgentTranscriptUserRecord } from '../transcript/AgentTranscriptRecord'
+import type { ContextUserRecord } from '../context/ContextRecord'
 
 const logger = createLogger('AgentRuntimeLoop')
 
@@ -45,10 +46,8 @@ export interface AgentLoop {
   run(input: AgentLoopInput, dependencies: AgentLoopDependencies): Promise<AgentLoopResult>
 }
 
-const isAbortError = (error: unknown, signal?: AbortSignal): boolean => (
-  Boolean(signal?.aborted)
-  || (error instanceof Error && error.name === 'AbortError')
-)
+const isAbortError = (error: unknown, signal?: AbortSignal): boolean =>
+  Boolean(signal?.aborted) || (error instanceof Error && error.name === 'AbortError')
 
 const getErrorCode = (error: unknown): string | undefined => {
   if (!error || typeof error !== 'object') {
@@ -95,11 +94,7 @@ const cloneToolCall = (toolCall: IToolCall): IToolCall => ({
   }
 })
 
-const createDraft = (
-  stepId: string,
-  stepIndex: number,
-  startedAt: number
-): AgentStepDraft => ({
+const createDraft = (stepId: string, stepIndex: number, startedAt: number): AgentStepDraft => ({
   stepId,
   stepIndex,
   status: 'streaming',
@@ -114,9 +109,10 @@ const createDraft = (
 
 const upsertToolCall = (toolCalls: IToolCall[], toolCall: IToolCall): IToolCall[] => {
   const next = toolCalls.map(cloneToolCall)
-  const index = next.findIndex(candidate =>
-    candidate.id === toolCall.id
-    || (toolCall.index !== undefined && candidate.index === toolCall.index)
+  const index = next.findIndex(
+    (candidate) =>
+      candidate.id === toolCall.id ||
+      (toolCall.index !== undefined && candidate.index === toolCall.index)
   )
   if (index >= 0) {
     next[index] = cloneToolCall(toolCall)
@@ -174,20 +170,14 @@ const matchesToolCallReference = (
     toolCallId?: string
     toolCallIndex?: number
   }
-): boolean => (
-  (reference.toolCallId !== undefined && toolCall.id === reference.toolCallId)
-  || (
-    reference.toolCallIndex !== undefined
-    && toolCall.index !== undefined
-    && toolCall.index === reference.toolCallIndex
-  )
-)
+): boolean =>
+  (reference.toolCallId !== undefined && toolCall.id === reference.toolCallId) ||
+  (reference.toolCallIndex !== undefined &&
+    toolCall.index !== undefined &&
+    toolCall.index === reference.toolCallIndex)
 
-const getEarliestMatchingTimestamp = (
-  timestamps: number[]
-): number | undefined => (
+const getEarliestMatchingTimestamp = (timestamps: number[]): number | undefined =>
   timestamps.length > 0 ? Math.min(...timestamps) : undefined
-)
 
 const getToolCallStartedAt = (
   toolCall: IToolCall,
@@ -195,12 +185,14 @@ const getToolCallStartedAt = (
   fallbackTimestamp: number
 ): number => {
   const startedTimestamps = deltas
-    .filter(delta => delta.type === 'tool_call_started')
-    .filter(delta => matchesToolCallReference(toolCall, {
-      toolCallId: delta.toolCallId,
-      toolCallIndex: delta.toolCallIndex
-    }))
-    .map(delta => delta.timestamp)
+    .filter((delta) => delta.type === 'tool_call_started')
+    .filter((delta) =>
+      matchesToolCallReference(toolCall, {
+        toolCallId: delta.toolCallId,
+        toolCallIndex: delta.toolCallIndex
+      })
+    )
+    .map((delta) => delta.timestamp)
 
   const startedAt = getEarliestMatchingTimestamp(startedTimestamps)
   if (startedAt !== undefined) {
@@ -208,12 +200,14 @@ const getToolCallStartedAt = (
   }
 
   const readyTimestamps = deltas
-    .filter(delta => delta.type === 'tool_call_ready')
-    .filter(delta => matchesToolCallReference(toolCall, {
-      toolCallId: delta.toolCall.id,
-      toolCallIndex: delta.toolCall.index
-    }))
-    .map(delta => delta.timestamp)
+    .filter((delta) => delta.type === 'tool_call_ready')
+    .filter((delta) =>
+      matchesToolCallReference(toolCall, {
+        toolCallId: delta.toolCall.id,
+        toolCallIndex: delta.toolCall.index
+      })
+    )
+    .map((delta) => delta.timestamp)
 
   return getEarliestMatchingTimestamp(readyTimestamps) ?? fallbackTimestamp
 }
@@ -221,24 +215,23 @@ const getToolCallStartedAt = (
 const collectReadyToolCallFacts = (
   step: AgentStep,
   draftDeltas: AgentStepDraftDelta[]
-): ToolCallReadyFact[] => (
-  step.toolCalls.map(toolCall => {
+): ToolCallReadyFact[] =>
+  step.toolCalls.map((toolCall) => {
     return {
       toolCall: cloneToolCall(toolCall),
       startedAt: getToolCallStartedAt(toolCall, draftDeltas, step.completedAt)
     }
   })
-)
 
 const formatBudgetExhaustedMessage = (input: {
   maxSteps: number
   lastStep?: AgentStep
 }): string => {
-  const lastToolNames = Array.from(new Set(
-    input.lastStep?.toolCalls
-      .map(toolCall => toolCall.function.name)
-      .filter(Boolean) ?? []
-  ))
+  const lastToolNames = Array.from(
+    new Set(
+      input.lastStep?.toolCalls.map((toolCall) => toolCall.function.name).filter(Boolean) ?? []
+    )
+  )
 
   return [
     `AgentLoop exceeded maxSteps=${input.maxSteps}`,
@@ -247,32 +240,39 @@ const formatBudgetExhaustedMessage = (input: {
   ].join('\n')
 }
 
-const hasVisibleAssistantContent = (draft: AgentStepDraft): boolean => (
+const hasVisibleAssistantContent = (draft: AgentStepDraft): boolean =>
   draft.snapshot.content.trim().length > 0
-)
 
 const formatIncompleteModelResponseMessage = (input: {
   recoveryAttempts: number
   draft: AgentStepDraft
-}): string => (
-  'Model stream ended without user-visible content '
-  + `(finishReason=${input.draft.snapshot.finishReason ?? 'missing'}, `
-  + `reasoningCharacters=${input.draft.snapshot.reasoning?.length ?? 0}) `
-  + `after ${input.recoveryAttempts} recovery attempt(s).`
-)
+}): string =>
+  'Model stream ended without user-visible content ' +
+  `(finishReason=${input.draft.snapshot.finishReason ?? 'missing'}, ` +
+  `reasoningCharacters=${input.draft.snapshot.reasoning?.length ?? 0}) ` +
+  `after ${input.recoveryAttempts} recovery attempt(s).`
 
 export class DefaultAgentLoop implements AgentLoop {
-  async run(
-    input: AgentLoopInput,
-    dependencies: AgentLoopDependencies
-  ): Promise<AgentLoopResult> {
+  async run(input: AgentLoopInput, dependencies: AgentLoopDependencies): Promise<AgentLoopResult> {
     const startedAt = dependencies.runtimeClock.now()
     const configuredMaxSteps = input.execution?.maxSteps
-    const maxSteps = typeof configuredMaxSteps === 'number'
-      && Number.isFinite(configuredMaxSteps) && configuredMaxSteps >= 1
-      ? Math.floor(configuredMaxSteps)
-      : 80
-    let transcript = input.transcript
+    const maxSteps =
+      typeof configuredMaxSteps === 'number' &&
+      Number.isFinite(configuredMaxSteps) &&
+      configuredMaxSteps >= 1
+        ? Math.floor(configuredMaxSteps)
+        : 80
+    const context = new ContextManager(
+      input.records,
+      input.requestSpec,
+      { id: input.run.runId, timestamp: startedAt },
+      {
+        compress: dependencies.compressContext,
+        measureRequest: dependencies.modelStreamExecutor.measureRequest?.bind(
+          dependencies.modelStreamExecutor
+        )
+      }
+    )
     let usage: ITokenUsage | undefined
     let lastStableStep: AgentStep | undefined
     let stepIndex = 0
@@ -283,7 +283,7 @@ export class DefaultAgentLoop implements AgentLoop {
         return this.finalizeAborted({
           startedAt,
           completedAt: dependencies.runtimeClock.now(),
-          transcript,
+          context,
           usage,
           abortReason: 'Loop aborted before next step started',
           dependencies,
@@ -302,10 +302,7 @@ export class DefaultAgentLoop implements AgentLoop {
       })
 
       try {
-        const request = dependencies.requestMaterializer.materialize({
-          transcript,
-          requestSpec: input.requestSpec
-        })
+        const request = await context.prepare(input.signal)
         const executableRequest = dependencies.executableRequestAdapter.adapt(request)
         const responseStream = await dependencies.modelStreamExecutor.execute({
           request: executableRequest,
@@ -318,7 +315,7 @@ export class DefaultAgentLoop implements AgentLoop {
             return this.finalizeAborted({
               startedAt,
               completedAt: dependencies.runtimeClock.now(),
-              transcript,
+              context,
               usage,
               abortReason: 'Loop aborted during streaming',
               dependencies,
@@ -352,7 +349,7 @@ export class DefaultAgentLoop implements AgentLoop {
           return this.finalizeAborted({
             startedAt,
             completedAt: dependencies.runtimeClock.now(),
-            transcript,
+            context,
             usage,
             abortReason: error instanceof Error ? error.message : 'Loop aborted',
             dependencies,
@@ -381,7 +378,7 @@ export class DefaultAgentLoop implements AgentLoop {
         return this.finalizeFailed({
           startedAt,
           completedAt,
-          transcript,
+          context,
           usage,
           failure: toFailureInfo(error),
           dependencies,
@@ -389,10 +386,7 @@ export class DefaultAgentLoop implements AgentLoop {
         })
       }
 
-      if (
-        draft.snapshot.toolCalls.length === 0
-        && !hasVisibleAssistantContent(draft)
-      ) {
+      if (draft.snapshot.toolCalls.length === 0 && !hasVisibleAssistantContent(draft)) {
         const nextRecoveryAttempt = incompleteResponseRecoveryAttempts + 1
 
         if (nextRecoveryAttempt <= MAX_INCOMPLETE_RESPONSE_RECOVERY_ATTEMPTS) {
@@ -413,7 +407,7 @@ export class DefaultAgentLoop implements AgentLoop {
         return this.finalizeFailed({
           startedAt,
           completedAt,
-          transcript,
+          context,
           usage,
           failure: {
             name: 'IncompleteModelResponseError',
@@ -447,42 +441,38 @@ export class DefaultAgentLoop implements AgentLoop {
         step
       })
 
-      const assistantRecord = dependencies.transcriptRecordFactory.createAssistantStep({
+      const assistantRecord = createAssistantContextRecord({
         recordId: dependencies.loopIdentityProvider.nextTranscriptRecordId(),
         timestamp: completedAt,
         step
       })
-      transcript = dependencies.transcriptAppender.append({
-        transcript,
-        records: [assistantRecord],
-        updatedAt: completedAt
-      })
+      context.append([assistantRecord], completedAt)
 
       if (step.toolCalls.length === 0) {
-        const steered = stepIndex + 1 < maxSteps
-          ? await this.consumeSteeringMessage(transcript, dependencies)
-          : undefined
+        const steered =
+          stepIndex + 1 < maxSteps
+            ? await this.consumeSteeringMessage(context, dependencies)
+            : undefined
         if (steered) {
-          transcript = steered
           stepIndex += 1
           continue
         }
         return this.finalizeCompleted({
           startedAt,
           completedAt,
-          transcript,
+          context,
           usage,
           finalStep: step,
           dependencies
         })
       }
 
-      const readyToolCalls = collectReadyToolCallFacts(step, completedDraft.deltas).map(fact => (
+      const readyToolCalls = collectReadyToolCallFacts(step, completedDraft.deltas).map((fact) =>
         dependencies.readyToolCallMaterializer.materialize({
           stepId: step.stepId,
           fact
         })
-      ))
+      )
       const batchCreatedAt = dependencies.runtimeClock.now()
       const batch = dependencies.toolBatchAssembler.assemble({
         stepId: step.stepId,
@@ -498,17 +488,13 @@ export class DefaultAgentLoop implements AgentLoop {
             dependencies,
             dependencies.runtimeClock.now()
           ),
-          ...await this.materializeLoadedSkillsContextRecords(outcome.results, dependencies)
+          ...(await this.materializeLoadedSkillsContextRecords(outcome.results, dependencies))
         ]
         if (records.length > 0) {
-          transcript = dependencies.transcriptAppender.append({
-            transcript,
-            records,
-            updatedAt: dependencies.runtimeClock.now()
-          })
+          context.append(records, dependencies.runtimeClock.now())
         }
         if (stepIndex + 1 < maxSteps) {
-          transcript = await this.consumeSteeringMessage(transcript, dependencies) ?? transcript
+          await this.consumeSteeringMessage(context, dependencies)
         }
         stepIndex += 1
         continue
@@ -521,11 +507,7 @@ export class DefaultAgentLoop implements AgentLoop {
           dependencies.runtimeClock.now()
         )
         if (records.length > 0) {
-          transcript = dependencies.transcriptAppender.append({
-            transcript,
-            records,
-            updatedAt: dependencies.runtimeClock.now()
-          })
+          context.append(records, dependencies.runtimeClock.now())
         }
       }
 
@@ -533,7 +515,7 @@ export class DefaultAgentLoop implements AgentLoop {
         return this.finalizeAborted({
           startedAt,
           completedAt: dependencies.runtimeClock.now(),
-          transcript,
+          context,
           usage,
           abortReason: outcome.abortReason,
           dependencies,
@@ -546,7 +528,7 @@ export class DefaultAgentLoop implements AgentLoop {
       return this.finalizeFailed({
         startedAt,
         completedAt: dependencies.runtimeClock.now(),
-        transcript,
+        context,
         usage,
         failure: outcome.failure,
         dependencies,
@@ -565,7 +547,7 @@ export class DefaultAgentLoop implements AgentLoop {
     return this.finalizeFailed({
       startedAt,
       completedAt: dependencies.runtimeClock.now(),
-      transcript,
+      context,
       usage,
       failure: {
         message: formatBudgetExhaustedMessage({
@@ -583,61 +565,57 @@ export class DefaultAgentLoop implements AgentLoop {
     dependencies: AgentLoopDependencies,
     timestamp: number
   ) {
-    return results.map(result => (
-      dependencies.transcriptRecordFactory.createToolResult({
+    return results.map((result) =>
+      createToolContextRecord({
         recordId: dependencies.loopIdentityProvider.nextTranscriptRecordId(),
         timestamp,
         result
       })
-    ))
+    )
   }
 
   private async consumeSteeringMessage(
-    transcript: AgentTranscript,
+    context: ContextManager,
     dependencies: AgentLoopDependencies
-  ): Promise<AgentTranscript | undefined> {
+  ): Promise<boolean> {
     const message = dependencies.steeringMessageSource?.take()
     if (!message) {
-      return undefined
+      return false
     }
 
     const timestamp = dependencies.runtimeClock.now()
-    const record: AgentTranscriptUserRecord = {
+    const record: ContextUserRecord = {
       recordId: dependencies.loopIdentityProvider.nextTranscriptRecordId(),
       kind: 'user',
       timestamp,
       content: [...message.content]
     }
-    const nextTranscript = dependencies.transcriptAppender.append({
-      transcript,
-      records: [record],
-      updatedAt: timestamp
-    })
+    context.append([record], timestamp)
 
     await dependencies.agentEventEmitter.emitSteeringConsumed({
       timestamp,
       message
     })
 
-    const context = await dependencies.steeringMessageSource?.resolveContext?.(message)
-    let transcriptWithContext = nextTranscript
-    if (context) {
+    const steeringContext = await dependencies.steeringMessageSource?.resolveContext?.(message)
+    if (steeringContext) {
       const contextTimestamp = dependencies.runtimeClock.now()
-      transcriptWithContext = dependencies.transcriptAppender.append({
-        transcript: nextTranscript,
-        records: [{
-          recordId: dependencies.loopIdentityProvider.nextTranscriptRecordId(),
-          kind: 'user',
-          timestamp: contextTimestamp,
-          source: context.source,
-          content: [...context.content]
-        }],
-        updatedAt: contextTimestamp
-      })
+      context.append(
+        [
+          {
+            recordId: dependencies.loopIdentityProvider.nextTranscriptRecordId(),
+            kind: 'user',
+            timestamp: contextTimestamp,
+            source: steeringContext.source,
+            content: [...steeringContext.content]
+          }
+        ],
+        contextTimestamp
+      )
     }
 
     dependencies.steeringMessageSource?.acknowledge(message.queueItemId)
-    return transcriptWithContext
+    return true
   }
 
   private async materializeLoadedSkillsContextRecords(
@@ -648,10 +626,11 @@ export class DefaultAgentLoop implements AgentLoop {
       return []
     }
 
-    const shouldRefreshSkillsContext = results.some(result => (
-      (result.toolName === 'load_skill' || result.toolName === 'unload_skill')
-      && result.status === 'success'
-    ))
+    const shouldRefreshSkillsContext = results.some(
+      (result) =>
+        (result.toolName === 'load_skill' || result.toolName === 'unload_skill') &&
+        result.status === 'success'
+    )
 
     if (!shouldRefreshSkillsContext) {
       return []
@@ -668,7 +647,7 @@ export class DefaultAgentLoop implements AgentLoop {
   private async finalizeCompleted(input: {
     startedAt: number
     completedAt: number
-    transcript: AgentTranscript
+    context: ContextManager
     usage?: ITokenUsage
     finalStep: AgentStep
     dependencies: AgentLoopDependencies
@@ -677,7 +656,7 @@ export class DefaultAgentLoop implements AgentLoop {
       status: 'completed',
       startedAt: input.startedAt,
       completedAt: input.completedAt,
-      transcript: input.dependencies.transcriptSnapshotMaterializer.materialize(input.transcript),
+      transcript: input.context.snapshot(),
       usage: input.usage,
       finalStep: input.finalStep
     }
@@ -693,7 +672,7 @@ export class DefaultAgentLoop implements AgentLoop {
   private async finalizeFailed(input: {
     startedAt: number
     completedAt: number
-    transcript: AgentTranscript
+    context: ContextManager
     usage?: ITokenUsage
     failure: AgentLoopFailureInfo
     dependencies: AgentLoopDependencies
@@ -703,7 +682,7 @@ export class DefaultAgentLoop implements AgentLoop {
       status: 'failed',
       startedAt: input.startedAt,
       completedAt: input.completedAt,
-      transcript: input.dependencies.transcriptSnapshotMaterializer.materialize(input.transcript),
+      transcript: input.context.snapshot(),
       usage: input.usage,
       failure: input.failure,
       finalStep: input.finalStep
@@ -720,7 +699,7 @@ export class DefaultAgentLoop implements AgentLoop {
   private async finalizeAborted(input: {
     startedAt: number
     completedAt: number
-    transcript: AgentTranscript
+    context: ContextManager
     usage?: ITokenUsage
     abortReason: string
     dependencies: AgentLoopDependencies
@@ -732,7 +711,7 @@ export class DefaultAgentLoop implements AgentLoop {
       status: 'aborted',
       startedAt: input.startedAt,
       completedAt: input.completedAt,
-      transcript: input.dependencies.transcriptSnapshotMaterializer.materialize(input.transcript),
+      transcript: input.context.snapshot(),
       usage: input.usage,
       abortReason: input.abortReason,
       finalStep: input.finalStep

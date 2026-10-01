@@ -14,8 +14,8 @@ import {
 import { constants as fsConstants } from 'node:fs'
 import { relative, resolve } from 'node:path'
 import type { AgentLoopResult } from '@main/agent/runtime/loop/AgentLoopResult'
-import type { AgentTranscriptSnapshot } from '@main/agent/runtime/transcript/AgentTranscript'
-import type { AgentTranscriptRecord } from '@main/agent/runtime/transcript/AgentTranscriptRecord'
+import type { ContextSnapshot } from '@main/agent/runtime/context/ContextSnapshot'
+import type { ContextRecord } from '@main/agent/runtime/context/ContextRecord'
 import {
   parseCliModelConfig,
   type CliInput,
@@ -59,16 +59,15 @@ const ARTIFACT_NAMES = {
 
 const OUTPUT_LOCK_NAME = '.run.lock'
 
-const EMPTY_TRANSCRIPT = (runId: string, timestamp: number): AgentTranscriptSnapshot => ({
+const EMPTY_TRANSCRIPT = (runId: string, timestamp: number): ContextSnapshot => ({
   transcriptId: `cli:${runId}`,
   createdAt: timestamp,
   updatedAt: timestamp,
   records: []
 })
 
-const toErrorMessage = (error: unknown): string => (
+const toErrorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : String(error)
-)
 
 const toErrorInfo = (error: unknown): Record<string, unknown> => {
   if (error instanceof Error) {
@@ -88,7 +87,10 @@ const readDirectoryOrThrow = async (path: string): Promise<string[]> => {
     const entries = await readdir(path)
     return entries
   } catch (error) {
-    throw new CliInputError('PATH_READ_FAILED', `Unable to read directory "${path}": ${toErrorMessage(error)}`)
+    throw new CliInputError(
+      'PATH_READ_FAILED',
+      `Unable to read directory "${path}": ${toErrorMessage(error)}`
+    )
   }
 }
 
@@ -102,7 +104,10 @@ const resolveExistingDirectory = async (rawPath: string, field: string): Promise
   try {
     stats = await lstat(requested)
   } catch (error) {
-    throw new CliInputError('PATH_MISSING', `Option "${field}" must point to an existing directory: ${toErrorMessage(error)}`)
+    throw new CliInputError(
+      'PATH_MISSING',
+      `Option "${field}" must point to an existing directory: ${toErrorMessage(error)}`
+    )
   }
   if (!stats.isDirectory() || stats.isSymbolicLink()) {
     throw new CliInputError('PATH_INVALID', `Option "${field}" must point to a directory`)
@@ -111,7 +116,10 @@ const resolveExistingDirectory = async (rawPath: string, field: string): Promise
   try {
     return await realpath(requested)
   } catch (error) {
-    throw new CliInputError('PATH_READ_FAILED', `Unable to normalize option "${field}": ${toErrorMessage(error)}`)
+    throw new CliInputError(
+      'PATH_READ_FAILED',
+      `Unable to normalize option "${field}": ${toErrorMessage(error)}`
+    )
   }
 }
 
@@ -125,7 +133,10 @@ const resolveInputFile = async (rawPath: string, field: string): Promise<string>
   try {
     stats = await lstat(requested)
   } catch (error) {
-    throw new CliInputError('PATH_MISSING', `Option "${field}" must point to an existing file: ${toErrorMessage(error)}`)
+    throw new CliInputError(
+      'PATH_MISSING',
+      `Option "${field}" must point to an existing file: ${toErrorMessage(error)}`
+    )
   }
   if (!stats.isFile() || stats.isSymbolicLink()) {
     throw new CliInputError('PATH_INVALID', `Option "${field}" must point to a regular file`)
@@ -152,12 +163,18 @@ const ensureOutputDirectory = async (rawPath: string): Promise<string> => {
     if (error instanceof CliInputError) throw error
     const code = (error as NodeJS.ErrnoException).code
     if (code !== 'ENOENT') {
-      throw new CliInputError('OUTPUT_READ_FAILED', `Unable to inspect option "--output-dir": ${toErrorMessage(error)}`)
+      throw new CliInputError(
+        'OUTPUT_READ_FAILED',
+        `Unable to inspect option "--output-dir": ${toErrorMessage(error)}`
+      )
     }
     try {
       await mkdir(requested, { recursive: true })
     } catch (mkdirError) {
-      throw new CliInputError('OUTPUT_CREATE_FAILED', `Unable to create option "--output-dir": ${toErrorMessage(mkdirError)}`)
+      throw new CliInputError(
+        'OUTPUT_CREATE_FAILED',
+        `Unable to create option "--output-dir": ${toErrorMessage(mkdirError)}`
+      )
     }
     const createdStats = await lstat(requested)
     if (createdStats.isSymbolicLink() || !createdStats.isDirectory()) {
@@ -177,9 +194,15 @@ const claimOutputDirectory = async (outputDir: string): Promise<void> => {
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code
     if (code === 'EEXIST') {
-      throw new CliInputError('OUTPUT_EXISTS', 'Option "--output-dir" is already claimed by another run')
+      throw new CliInputError(
+        'OUTPUT_EXISTS',
+        'Option "--output-dir" is already claimed by another run'
+      )
     }
-    throw new CliInputError('OUTPUT_CREATE_FAILED', `Unable to claim option "--output-dir": ${toErrorMessage(error)}`)
+    throw new CliInputError(
+      'OUTPUT_CREATE_FAILED',
+      `Unable to claim option "--output-dir": ${toErrorMessage(error)}`
+    )
   }
 }
 
@@ -187,7 +210,10 @@ const assertInputIsReadable = async (path: string, field: string): Promise<void>
   try {
     await access(path, fsConstants.R_OK)
   } catch (error) {
-    throw new CliInputError('PATH_UNREADABLE', `Option "${field}" is not readable: ${toErrorMessage(error)}`)
+    throw new CliInputError(
+      'PATH_UNREADABLE',
+      `Option "${field}" is not readable: ${toErrorMessage(error)}`
+    )
   }
 }
 
@@ -208,10 +234,16 @@ export const prepareCliRun = async (
       readFile(configPath, 'utf8')
     ])
   } catch (error) {
-    throw new CliInputError('INPUT_READ_FAILED', `Unable to read CLI input: ${toErrorMessage(error)}`)
+    throw new CliInputError(
+      'INPUT_READ_FAILED',
+      `Unable to read CLI input: ${toErrorMessage(error)}`
+    )
   }
   if (instruction.trim().length === 0) {
-    throw new CliInputError('INSTRUCTION_EMPTY', 'Instruction file must contain a non-empty UTF-8 task')
+    throw new CliInputError(
+      'INSTRUCTION_EMPTY',
+      'Instruction file must contain a non-empty UTF-8 task'
+    )
   }
 
   // Configuration is validated before the output directory is claimed so a
@@ -221,7 +253,10 @@ export const prepareCliRun = async (
   const outputDir = await ensureOutputDirectory(options.outputDir)
   const workspaceRelation = relative(workspace, outputDir)
   if (workspaceRelation === '') {
-    throw new CliInputError('OUTPUT_INVALID', 'Option "--output-dir" must be separate from the workspace')
+    throw new CliInputError(
+      'OUTPUT_INVALID',
+      'Option "--output-dir" must be separate from the workspace'
+    )
   }
   await claimOutputDirectory(outputDir)
 
@@ -239,9 +274,8 @@ export const prepareCliRun = async (
   }
 }
 
-const fingerprint = (value: unknown): string => createHash('sha256')
-  .update(JSON.stringify(value))
-  .digest('hex')
+const fingerprint = (value: unknown): string =>
+  createHash('sha256').update(JSON.stringify(value)).digest('hex')
 
 const getFinalText = (runtimeResult: AgentLoopResult | undefined): string => {
   if (runtimeResult?.status === 'completed') {
@@ -251,7 +285,10 @@ const getFinalText = (runtimeResult: AgentLoopResult | undefined): string => {
   const records = runtimeResult?.transcript.records ?? []
   const assistantRecord = [...records]
     .reverse()
-    .find((record): record is Extract<AgentTranscriptRecord, { kind: 'assistant_step' }> => record.kind === 'assistant_step')
+    .find(
+      (record): record is Extract<ContextRecord, { kind: 'assistant_step' }> =>
+        record.kind === 'assistant_step'
+    )
   return assistantRecord?.step.content ?? ''
 }
 
@@ -279,7 +316,7 @@ export const runCliTask = async (input: CliRunTaskInput): Promise<number> => {
   const startedAt = input.startedAt ?? Date.now()
   const { prepared } = input
   const secrets = input.profile.secrets
-  const toolNames = (input.profile.requestSpec.tools as { name: string }[]).map(tool => tool.name)
+  const toolNames = (input.profile.requestSpec.tools as { name: string }[]).map((tool) => tool.name)
   const eventSink = new CliEventSink({
     runId: input.runId,
     eventsPath: prepared.paths.events,
@@ -320,26 +357,30 @@ export const runCliTask = async (input: CliRunTaskInput): Promise<number> => {
   let runtimeResult: AgentLoopResult | undefined
   let thrownError: unknown
   try {
-    await eventSink.emit('run.started', {
-      hostType: 'cli',
-      profileId: profile.id,
-      model: {
-        adapterPluginId: prepared.modelConfig.adapterPluginId,
-        baseUrl: prepared.modelConfig.baseUrl,
-        model: prepared.modelConfig.model,
-        apiKeyEnv: prepared.modelConfig.apiKeyEnv,
-        ...(thinking ? { thinking } : {})
+    await eventSink.emit(
+      'run.started',
+      {
+        hostType: 'cli',
+        profileId: profile.id,
+        model: {
+          adapterPluginId: prepared.modelConfig.adapterPluginId,
+          baseUrl: prepared.modelConfig.baseUrl,
+          model: prepared.modelConfig.model,
+          apiKeyEnv: prepared.modelConfig.apiKeyEnv,
+          ...(thinking ? { thinking } : {})
+        },
+        workspace: prepared.workspace,
+        toolNames,
+        budget,
+        approval: prepared.options.approval,
+        profile: {
+          systemPromptSha256: profile.systemPromptSha256,
+          toolsetSha256: profile.toolsetSha256,
+          modelConfigSha256: profile.modelConfigSha256
+        }
       },
-      workspace: prepared.workspace,
-      toolNames,
-      budget,
-      approval: prepared.options.approval,
-      profile: {
-        systemPromptSha256: profile.systemPromptSha256,
-        toolsetSha256: profile.toolsetSha256,
-        modelConfigSha256: profile.modelConfigSha256
-      }
-    }, startedAt)
+      startedAt
+    )
     const { runCliRuntime } = await import('./CliRuntimeRunner')
     runtimeResult = await runCliRuntime({
       runId: input.runId,
@@ -359,56 +400,69 @@ export const runCliTask = async (input: CliRunTaskInput): Promise<number> => {
   const abortKind = input.getAbortKind?.()
   const finishedAt = Date.now()
   const transcript = runtimeResult?.transcript ?? EMPTY_TRANSCRIPT(input.runId, startedAt)
-  const status = abortKind ? 'aborted' : runtimeResult?.status ?? 'failed'
-  const failure = status === 'failed'
-    ? (runtimeResult?.status === 'failed' ? runtimeResult.failure : toErrorInfo(thrownError))
-    : undefined
-  const abortReason = status === 'aborted'
-    ? (abortKind
-      ? toAbortReason(abortKind)
-      : runtimeResult?.status === 'aborted'
-        ? runtimeResult.abortReason
-        : toErrorMessage(thrownError ?? 'CLI run aborted'))
-    : undefined
+  const status = abortKind ? 'aborted' : (runtimeResult?.status ?? 'failed')
+  const failure =
+    status === 'failed'
+      ? runtimeResult?.status === 'failed'
+        ? runtimeResult.failure
+        : toErrorInfo(thrownError)
+      : undefined
+  const abortReason =
+    status === 'aborted'
+      ? abortKind
+        ? toAbortReason(abortKind)
+        : runtimeResult?.status === 'aborted'
+          ? runtimeResult.abortReason
+          : toErrorMessage(thrownError ?? 'CLI run aborted')
+      : undefined
   const finalText = getFinalText(runtimeResult)
   const usage = runtimeResult?.usage
-  const resultDocument = redactCliValue({
-    schemaVersion: 1,
-    runId: input.runId,
-    status,
-    startedAt,
-    completedAt: finishedAt,
-    durationMs: Math.max(0, finishedAt - startedAt),
-    agentStartedAt: runtimeResult?.startedAt,
-    agentCompletedAt: runtimeResult?.completedAt,
-    model: {
-      adapterPluginId: prepared.modelConfig.adapterPluginId,
-      baseUrl: prepared.modelConfig.baseUrl,
-      model: prepared.modelConfig.model,
-      apiKeyEnv: prepared.modelConfig.apiKeyEnv
+  const resultDocument = redactCliValue(
+    {
+      schemaVersion: 1,
+      runId: input.runId,
+      status,
+      startedAt,
+      completedAt: finishedAt,
+      durationMs: Math.max(0, finishedAt - startedAt),
+      agentStartedAt: runtimeResult?.startedAt,
+      agentCompletedAt: runtimeResult?.completedAt,
+      model: {
+        adapterPluginId: prepared.modelConfig.adapterPluginId,
+        baseUrl: prepared.modelConfig.baseUrl,
+        model: prepared.modelConfig.model,
+        apiKeyEnv: prepared.modelConfig.apiKeyEnv
+      },
+      workspace: prepared.workspace,
+      tools: toolNames,
+      timeoutSeconds: prepared.options.timeoutSeconds,
+      budget,
+      approval: prepared.options.approval,
+      ...(thinking ? { thinking } : {}),
+      requestOverrides: prepared.modelConfig.requestOverrides,
+      profile,
+      finalText,
+      usage,
+      ...(failure ? { failure } : {}),
+      ...(abortReason ? { abortReason } : {}),
+      artifacts
     },
-    workspace: prepared.workspace,
-    tools: toolNames,
-    timeoutSeconds: prepared.options.timeoutSeconds,
-    budget,
-    approval: prepared.options.approval,
-    ...(thinking ? { thinking } : {}),
-    requestOverrides: prepared.modelConfig.requestOverrides,
-    profile,
-    finalText,
-    usage,
-    ...(failure ? { failure } : {}),
-    ...(abortReason ? { abortReason } : {}),
-    artifacts
-  }, secrets) as Record<string, unknown>
+    secrets
+  ) as Record<string, unknown>
 
   let outputError: unknown
   try {
-    await atomicWriteJson(prepared.paths.transcript, redactCliValue({
-      schemaVersion: 1,
-      runId: input.runId,
-      ...transcript
-    }, secrets))
+    await atomicWriteJson(
+      prepared.paths.transcript,
+      redactCliValue(
+        {
+          schemaVersion: 1,
+          runId: input.runId,
+          ...transcript
+        },
+        secrets
+      )
+    )
     await atomicWriteJson(prepared.paths.result, resultDocument)
   } catch (error) {
     outputError = error
@@ -419,7 +473,9 @@ export const runCliTask = async (input: CliRunTaskInput): Promise<number> => {
     ? 1
     : abortKind
       ? toAbortExitCode(abortKind)
-      : status === 'completed' ? 0 : 1
+      : status === 'completed'
+        ? 0
+        : 1
   const finishedPayload = {
     status: finalStatus,
     exitCode,

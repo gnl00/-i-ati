@@ -9,8 +9,6 @@ import type { AgentEventSink } from '@main/agent/runtime/events/AgentEventSink'
 import { DefaultAgentRuntime } from '@main/agent/runtime/AgentRuntime'
 import { DefaultAgentLoopDependenciesFactory } from '@main/agent/runtime/AgentLoopDependenciesFactory'
 import { createDefaultRuntimeInfrastructure } from '@main/agent/runtime/RuntimeInfrastructure'
-import { DefaultInitialTranscriptMaterializer } from '@main/agent/runtime/transcript/InitialTranscriptMaterializer'
-import { DefaultUserRecordMaterializer } from '@main/agent/runtime/transcript/UserRecordMaterializer'
 import { DefaultToolBatchAssembler } from '@main/agent/runtime/tools/ToolBatchAssembler'
 import { DefaultAgentLoop } from '@main/agent/runtime/loop/AgentLoop'
 import type { ModelStreamExecutor } from '@main/agent/runtime/model/ModelStreamExecutor'
@@ -121,8 +119,6 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
         })
       },
       loopInputBootstrapper: new MainAgentLoopInputBootstrapper(),
-      userRecordMaterializer: new DefaultUserRecordMaterializer(),
-      initialTranscriptMaterializer: new DefaultInitialTranscriptMaterializer(),
       runtimeInfrastructure,
       agentLoop: new DefaultAgentLoop(),
       agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({

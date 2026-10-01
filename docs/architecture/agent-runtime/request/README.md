@@ -17,7 +17,7 @@ Documentation: [Agent runtime](../README.md)
 
 - 定义与单次模型请求绑定的稳定请求维度
 - 给 `AgentLoopInput` 提供一等的 request contract
-- 给 `RequestMaterializer` 提供明确的请求规格输入
+- 给 `ContextManager.prepare()` 提供明确的请求规格输入
 
 关键定位：
 
@@ -25,7 +25,7 @@ Documentation: [Agent runtime](../README.md)
 - runtime 应在 run 启动时 resolve 好它，再交给 loop 使用
 - 如果未来需要不同 step 使用不同规格，应显式产生新的 spec，而不是在原对象上原地修改
 - 认证维度也应在这里显式提供，不允许下游再偷偷补一份 request auth context
-- `RequestMaterializer` 会消费这份 spec，但产出的是协议层请求结果，不直接承诺等同于现有 `IUnifiedRequest`
+- `ContextManager.prepare()` 会消费这份 spec，但产出的是协议层请求结果，不直接承诺等同于现有 `IUnifiedRequest`
 - 协议层请求中的 user message 需要保留 typed content parts，不允许在 request 侧丢失多模态输入
 
 ## 这一层不负责什么
@@ -39,16 +39,16 @@ Documentation: [Agent runtime](../README.md)
 - [AgentRequestSpec.ts](../../../../src/main/agent/runtime/request/AgentRequestSpec.ts)
   - 单次模型请求所需的稳定请求规格
 
-## 和 loop / transcript 的关系
+## 和 loop / context 的关系
 
 - `loop/`
   - 持有这次 run 要使用的 `AgentRequestSpec`
-- `transcript/`
+- `context/`
   - 提供历史事实
-- `RequestMaterializer`
-  - 基于 `AgentTranscript + AgentRequestSpec` 生成下一次模型请求
+- `ContextManager.prepare()`
+  - 基于 `ContextManager + AgentRequestSpec` 生成下一次模型请求
 
 一句话：
 
 - `AgentRequestSpec` 负责“这次请求按什么规格发”
-- `AgentTranscript` 负责“这次请求基于哪些历史发”
+- `ContextManager` 负责“这次请求基于哪些历史发”

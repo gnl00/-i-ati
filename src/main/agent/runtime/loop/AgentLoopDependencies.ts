@@ -1,3 +1,4 @@
+import type { ContextCompressionInput } from '../context/ContextCompactor'
 /**
  * AgentLoopDependencies
  *
@@ -15,10 +16,6 @@ import type { AgentStepMaterializer } from '../step/AgentStepMaterializer'
 import type { ReadyToolCallMaterializer } from '../tools/ReadyToolCallMaterializer'
 import type { ToolBatchAssembler } from '../tools/ToolBatchAssembler'
 import type { ToolExecutorDispatcher } from '../tools/ToolExecutorDispatcher'
-import type { AgentTranscriptAppender } from '../transcript/AgentTranscriptAppender'
-import type { AgentTranscriptSnapshotMaterializer } from '../transcript/AgentTranscriptSnapshotMaterializer'
-import type { RequestMaterializer } from '../transcript/RequestMaterializer'
-import type { TranscriptRecordFactory } from '../transcript/TranscriptRecordFactory'
 import type { ExecutableRequestAdapter } from '../model/ExecutableRequestAdapter'
 import type { ModelResponseParser } from '../model/ModelResponseParser'
 import type { ModelStreamExecutor } from '../model/ModelStreamExecutor'
@@ -30,12 +27,9 @@ import type { SteeringMessageSource } from '../steering/SteeringMessageSource'
 export interface AgentLoopDependencies {
   loopIdentityProvider: LoopIdentityProvider
   toolResultNormalizer?: ToolResultNormalizer
+  compressContext?: (input: ContextCompressionInput) => Promise<string>
   runtimeClock: RuntimeClock
   agentStepMaterializer: AgentStepMaterializer
-  transcriptAppender: AgentTranscriptAppender
-  transcriptSnapshotMaterializer: AgentTranscriptSnapshotMaterializer
-  transcriptRecordFactory: TranscriptRecordFactory
-  requestMaterializer: RequestMaterializer
   executableRequestAdapter: ExecutableRequestAdapter
   modelStreamExecutor: ModelStreamExecutor
   modelResponseParser: ModelResponseParser

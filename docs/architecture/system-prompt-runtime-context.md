@@ -48,7 +48,7 @@ operating system, and workspace path:
 Request injection:
 
 - `src/main/hosts/chat/preparation/RunRequestFactory.ts`
-- `RequestMessageBuilder.setEphemeralContextMessages(...)` adds hidden context
+- `buildContextMessages({ contexts, ... })` adds hidden context
   records in this order:
   - loaded skills
   - user information
@@ -56,7 +56,7 @@ Request injection:
   - system environment
   - `<awake_state>`
   - available images
-- `DefaultRequestMaterializer` collects these records into one
+- `projectContextRequest` collects these records into one
   `<request_context>` part and appends it to the following user protocol
   message.
 - Canonical transcript records retain their original hidden sources.
@@ -105,7 +105,7 @@ Relevant tests:
     and `MESSAGE_SOURCE.SYSTEM_ENVIRONMENT_CONTEXT`.
 - `src/main/hosts/chat/preparation/__tests__/ChatPreparationPipeline.test.ts`
   - Asserts context providers preserve request preparation order.
-- `src/main/agent/runtime/transcript/__tests__/RequestMaterializer.test.ts`
+- `src/main/agent/runtime/context/__tests__/ContextRequest.test.ts`
   - Asserts hidden context is appended to the current user protocol message.
 - `src/main/services/skills/__tests__/SkillService.test.ts`
   - Asserts built-in specialized workflows are discoverable and readable.

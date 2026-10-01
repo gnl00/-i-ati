@@ -1,9 +1,6 @@
 export { ChatRenderResponder } from './ChatRenderResponder'
 export { ChatToolSideEffectSink } from './ChatToolSideEffectSink'
 export { ChatRenderMapper } from './ChatRenderMapper'
-export {
-  DefaultChatInitialTranscriptRecordFactory,
-  type ChatInitialTranscriptRecordFactory
-} from './ChatInitialTranscriptRecordFactory'
+export { mapChatContext, type ChatContextMapperInput } from './ChatContextMapper'
 export { MainAgentLoopInputBootstrapper } from './MainAgentLoopInputBootstrapper'
 export { DefaultMainAgentHostRequestBuilder } from './MainAgentHostRequestBuilder'

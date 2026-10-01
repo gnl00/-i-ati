@@ -21,7 +21,7 @@ Documentation: [Agent runtime](README.md)
 - [Events](events/README.md)
 - [Request](request/README.md)
 - [Model](model/README.md)
-- [Transcript](transcript/README.md)
+- [Context](context/README.md)
 - [Tools](tools/README.md)
 - [Host 输入边界](host/README.md)
 - [Bootstrap](host/bootstrap/README.md)
@@ -57,7 +57,7 @@ Documentation: [Agent runtime](README.md)
 ## 组装原则
 
 - runtime 只负责把 `sources`、`bootstrap`、`loop` 和 `loop dependencies` 接起来
-- runtime 也负责显式 wiring bootstrap 所需的 materializers
+- runtime 负责 bootstrap 和 loop 的 wiring；ContextManager 在 loop 内按 run 创建
 - runtime 不重新定义 step 结果，也不重新定义事件语义
 - host-specific 逻辑应该留在 `hosts/`，而不是侵入 loop 内部状态
 
@@ -87,7 +87,7 @@ Documentation: [Agent runtime](README.md)
 2. `requestSpecSource.resolve(input)`
 3. `runDescriptorSource.create(input)`
 4. `loopInputBootstrapper.bootstrap(...)`
-5. bootstrap 消费共享的 `RuntimeInfrastructure` 以及显式注入的 bootstrap materializers，装配起始 transcript / loop 输入
+5. bootstrap 消费 `RuntimeInfrastructure`，通过普通 record 函数装配 `records` / loop 输入
 6. `agentLoopDependenciesFactory.create(runtimeInfrastructure)`
 7. `AgentLoop.run(...)`
 8. 返回稳定的 `AgentLoopResult`
@@ -120,8 +120,6 @@ Documentation: [Agent runtime](README.md)
     - `runDescriptorSource`
   - `bootstrap`
     - `loopInputBootstrapper`
-    - `userRecordMaterializer`
-    - `initialTranscriptMaterializer`
   - `runtime infrastructure`
     - `RuntimeInfrastructure`
   - `loop`

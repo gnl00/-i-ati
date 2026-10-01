@@ -31,7 +31,7 @@ Documentation: [Agent runtime](../README.md)
   - dispatcher 应显式暴露外部确认注入点，而不是把 required tool 默认短路成 denied
 - tool execution result
   - 属于协议续上下文事实
-  - 应该在 loop 中被整理后写入 `transcript/`
+  - 应该在 loop 中被整理后写入 `context/`
 
 ### Tool timing 字段语义
 
@@ -82,7 +82,7 @@ Documentation: [Agent runtime](../README.md)
   - 定义 batch 和执行分发
 - `events/`
   - 承载 tool 执行中的进度事实
-- `transcript/`
+- `context/`
   - 承载 tool 执行完成后、需要回传模型的结果事实
 
 关键约束：

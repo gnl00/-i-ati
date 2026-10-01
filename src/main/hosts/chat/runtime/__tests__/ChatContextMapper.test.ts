@@ -1,34 +1,32 @@
 import { describe, expect, it } from 'vitest'
 import type { LoopIdentityProvider } from '@main/agent/contracts/HostRuntimeContracts'
-import { DefaultChatInitialTranscriptRecordFactory } from '../ChatInitialTranscriptRecordFactory'
+import { mapChatContext } from '../ChatContextMapper'
 
 const createLoopIdentityProvider = (): LoopIdentityProvider => {
-  let transcriptIndex = 0
   let stepIndex = 0
   let recordIndex = 0
   let batchIndex = 0
 
   return {
-    nextTranscriptId: () => `transcript-${++transcriptIndex}`,
     nextStepId: () => `step-${++stepIndex}`,
     nextTranscriptRecordId: () => `record-${++recordIndex}`,
     nextToolBatchId: () => `batch-${++batchIndex}`
   }
 }
 
-describe('DefaultChatInitialTranscriptRecordFactory', () => {
+describe('mapChatContext', () => {
   it('converts user string and VLM content to transcript parts', () => {
-    const factory = new DefaultChatInitialTranscriptRecordFactory()
-
-    const records = factory.create({
-      initialTranscriptSeed: [
+    const records = mapChatContext({
+      messages: [
         {
-          kind: 'user',
+          role: 'user',
+          segments: [],
           content: 'hello',
-          timestamp: 11
+          createdAt: 11
         },
         {
-          kind: 'user',
+          role: 'user',
+          segments: [],
           content: [
             { type: 'text', text: 'look' },
             {
@@ -37,7 +35,7 @@ describe('DefaultChatInitialTranscriptRecordFactory', () => {
             },
             {
               type: 'image_url',
-              image_url: { url: 'file://auto.png', detail: undefined as any }
+              image_url: { url: 'file://auto.png', detail: undefined! }
             }
           ]
         }
@@ -67,7 +65,6 @@ describe('DefaultChatInitialTranscriptRecordFactory', () => {
   })
 
   it('converts assistant reasoning and tool calls to assistant_step records', () => {
-    const factory = new DefaultChatInitialTranscriptRecordFactory()
     const toolCall: IToolCall = {
       id: 'call-1',
       index: 2,
@@ -78,10 +75,10 @@ describe('DefaultChatInitialTranscriptRecordFactory', () => {
       }
     }
 
-    const records = factory.create({
-      initialTranscriptSeed: [
+    const records = mapChatContext({
+      messages: [
         {
-          kind: 'assistant',
+          role: 'assistant',
           content: [
             { type: 'text', text: 'answer ' },
             {
@@ -92,13 +89,21 @@ describe('DefaultChatInitialTranscriptRecordFactory', () => {
           ],
           model: 'model-1',
           toolCalls: [toolCall],
-          reasoning: 'think again',
-          timestamp: 30
+          segments: [
+            {
+              type: 'reasoning',
+              segmentId: 'r',
+              timestamp: 0,
+              content: 'think again'
+            }
+          ],
+          createdAt: 30
         },
         {
-          kind: 'assistant',
+          role: 'assistant',
+          segments: [],
           content: 'second',
-          timestamp: 40
+          createdAt: 40
         }
       ],
       now: 50,
@@ -146,7 +151,6 @@ describe('DefaultChatInitialTranscriptRecordFactory', () => {
   })
 
   it('matches tool results to the latest assistant step and projects content for history import', () => {
-    const factory = new DefaultChatInitialTranscriptRecordFactory()
     const toolCall: IToolCall = {
       id: 'call-1',
       index: 3,
@@ -157,18 +161,20 @@ describe('DefaultChatInitialTranscriptRecordFactory', () => {
       }
     }
 
-    const records = factory.create({
-      initialTranscriptSeed: [
+    const records = mapChatContext({
+      messages: [
         {
-          kind: 'assistant',
+          role: 'assistant',
+          segments: [],
           content: 'use tool',
           toolCalls: [toolCall],
-          timestamp: 10
+          createdAt: 10
         },
         {
-          kind: 'tool',
+          role: 'tool',
+          segments: [],
           toolCallId: 'call-1',
-          modelContent: 'stable projection',
+          toolResultModelContent: 'stable projection',
           content: [
             { type: 'text', text: 'result' },
             {
@@ -176,7 +182,7 @@ describe('DefaultChatInitialTranscriptRecordFactory', () => {
               image_url: { url: 'file://image.png', detail: 'auto' }
             }
           ],
-          timestamp: 12
+          createdAt: 12
         }
       ],
       now: 20,
@@ -199,10 +205,8 @@ describe('DefaultChatInitialTranscriptRecordFactory', () => {
   })
 
   it('returns empty records for empty transcript seed', () => {
-    const factory = new DefaultChatInitialTranscriptRecordFactory()
-
-    const records = factory.create({
-      initialTranscriptSeed: [],
+    const records = mapChatContext({
+      messages: [],
       now: 20,
       loopIdentityProvider: createLoopIdentityProvider()
     })

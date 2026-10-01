@@ -11,7 +11,11 @@
  * - 它不直接改写 loop、transcript 或 host output
  */
 import { createLogger } from '@main/logging/LogService'
-import { getRequestErrorMetadata, unifiedChatRequest } from '@main/request/index'
+import {
+  getRequestErrorMetadata,
+  unifiedChatRequest,
+  prepareUnifiedRequestBody
+} from '@main/request/index'
 import type { ModelResponseStream } from './ModelResponseStream'
 import type { ModelResponseChunk, ModelToolCallChunk } from './ModelResponseChunk'
 import type { RequestErrorMetadata } from '@main/request/index'
@@ -24,6 +28,7 @@ export interface ModelStreamExecutorInput {
 }
 
 export interface ModelStreamExecutor {
+  measureRequest?(request: IUnifiedRequest): Promise<Record<string, unknown>>
   execute(input: ModelStreamExecutorInput): Promise<ModelResponseStream>
 }
 
@@ -39,15 +44,13 @@ const createAbortError = (): Error => {
   return error
 }
 
-const isAsyncIterable = <T>(value: unknown): value is AsyncIterable<T> => (
-  Boolean(value)
-  && typeof value === 'object'
-  && Symbol.asyncIterator in (value as Record<PropertyKey, unknown>)
-)
+const isAsyncIterable = <T>(value: unknown): value is AsyncIterable<T> =>
+  Boolean(value) &&
+  typeof value === 'object' &&
+  Symbol.asyncIterator in (value as Record<PropertyKey, unknown>)
 
-const isObject = (value: unknown): value is Record<string, any> => (
+const isObject = (value: unknown): value is Record<string, any> =>
   Boolean(value) && typeof value === 'object'
-)
 
 const inferToolCallArgumentsMode = (raw: unknown): ModelToolCallChunk['argumentsMode'] => {
   if (!isObject(raw)) {
@@ -62,7 +65,7 @@ const inferToolCallArgumentsMode = (raw: unknown): ModelToolCallChunk['arguments
     return 'snapshot'
   }
 
-  if (Array.isArray(raw.output) && raw.output.some(item => item?.type === 'function_call')) {
+  if (Array.isArray(raw.output) && raw.output.some((item) => item?.type === 'function_call')) {
     return 'snapshot'
   }
 
@@ -75,7 +78,7 @@ const normalizeToolCalls = (response: IUnifiedResponse): ModelToolCallChunk[] | 
   }
 
   const argumentsMode = inferToolCallArgumentsMode(response.raw)
-  return response.toolCalls.map(toolCall => ({
+  return response.toolCalls.map((toolCall) => ({
     toolCall,
     argumentsMode
   }))
@@ -99,16 +102,20 @@ const toFinalChunk = (response?: Pick<IUnifiedResponse, 'id' | 'model'>): ModelR
 })
 
 export class DefaultModelStreamExecutor implements ModelStreamExecutor {
-  constructor(
-    private readonly options: DefaultModelStreamExecutorOptions = {}
-  ) {}
+  constructor(private readonly options: DefaultModelStreamExecutorOptions = {}) {}
+
+  async measureRequest(request: IUnifiedRequest): Promise<Record<string, unknown>> {
+    return (await prepareUnifiedRequestBody(request)).body
+  }
 
   async execute(input: ModelStreamExecutorInput): Promise<ModelResponseStream> {
     const maxAttempts = Math.max(1, this.options.maxAttempts ?? 2)
     const retryDelayMs = this.options.retryDelayMs ?? 300
-    const sleep = this.options.sleep ?? (async (ms: number) => {
-      await new Promise(resolve => setTimeout(resolve, ms))
-    })
+    const sleep =
+      this.options.sleep ??
+      (async (ms: number) => {
+        await new Promise((resolve) => setTimeout(resolve, ms))
+      })
 
     let lastError: unknown
 
@@ -226,10 +233,7 @@ export class DefaultModelStreamExecutor implements ModelStreamExecutor {
       }
     })
 
-    await Promise.race([
-      sleep(delayMs).finally(() => cleanup?.()),
-      abortPromise
-    ])
+    await Promise.race([sleep(delayMs).finally(() => cleanup?.()), abortPromise])
 
     if (signal.aborted) {
       throw createAbortError()

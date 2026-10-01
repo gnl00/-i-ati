@@ -1,3 +1,4 @@
+import type { ContextCompressionInput } from './context/ContextCompactor'
 /**
  * AgentLoopDependenciesFactory
  *
@@ -18,10 +19,6 @@ import type { ReadyToolCallMaterializer } from './tools/ReadyToolCallMaterialize
 import type { ToolBatchAssembler } from './tools/ToolBatchAssembler'
 import type { ToolExecutorDispatcher } from './tools/ToolExecutorDispatcher'
 import type { DefaultToolExecutorDispatcherOptions } from './tools/ToolExecutorDispatcher'
-import type { AgentTranscriptAppender } from './transcript/AgentTranscriptAppender'
-import type { AgentTranscriptSnapshotMaterializer } from './transcript/AgentTranscriptSnapshotMaterializer'
-import type { RequestMaterializer } from './transcript/RequestMaterializer'
-import type { TranscriptRecordFactory } from './transcript/TranscriptRecordFactory'
 import type { ExecutableRequestAdapter } from './model/ExecutableRequestAdapter'
 import type { ModelResponseParser } from './model/ModelResponseParser'
 import type { ModelStreamExecutor } from './model/ModelStreamExecutor'
@@ -33,10 +30,6 @@ import { DefaultAgentStepMaterializer } from './step/AgentStepMaterializer'
 import { DefaultReadyToolCallMaterializer } from './tools/ReadyToolCallMaterializer'
 import { DefaultToolBatchAssembler } from './tools/ToolBatchAssembler'
 import { DefaultToolExecutorDispatcher } from './tools/ToolExecutorDispatcher'
-import { DefaultAgentTranscriptAppender } from './transcript/AgentTranscriptAppender'
-import { DefaultAgentTranscriptSnapshotMaterializer } from './transcript/AgentTranscriptSnapshotMaterializer'
-import { DefaultRequestMaterializer } from './transcript/RequestMaterializer'
-import { DefaultTranscriptRecordFactory } from './transcript/TranscriptRecordFactory'
 import { DefaultExecutableRequestAdapter } from './model/ExecutableRequestAdapter'
 import { DefaultModelResponseParser } from './model/ModelResponseParser'
 import { DefaultModelStreamExecutor } from './model/ModelStreamExecutor'
@@ -53,10 +46,6 @@ export interface DefaultAgentLoopDependenciesFactoryOptions {
   agentEventBus?: AgentEventBus
   agentEventEmitter?: AgentEventEmitter
   agentStepMaterializer?: AgentStepMaterializer
-  transcriptAppender?: AgentTranscriptAppender
-  transcriptSnapshotMaterializer?: AgentTranscriptSnapshotMaterializer
-  transcriptRecordFactory?: TranscriptRecordFactory
-  requestMaterializer?: RequestMaterializer
   executableRequestAdapter?: ExecutableRequestAdapter
   modelStreamExecutor?: ModelStreamExecutor
   modelResponseParser?: ModelResponseParser
@@ -64,6 +53,7 @@ export interface DefaultAgentLoopDependenciesFactoryOptions {
   toolBatchAssembler?: ToolBatchAssembler
   toolExecutorDispatcher?: ToolExecutorDispatcher
   toolResultNormalizer?: ToolResultNormalizer
+  compressContext?: (input: ContextCompressionInput) => Promise<string>
   toolResultWorkspaceRoot?: string
   loadedSkillsTranscriptContextProvider?: LoadedSkillsTranscriptContextProvider
   steeringMessageSource?: SteeringMessageSource
@@ -87,18 +77,11 @@ export class DefaultAgentLoopDependenciesFactory implements AgentLoopDependencie
 
     return {
       toolResultNormalizer,
+      compressContext: this.options.compressContext,
       loopIdentityProvider: runtimeInfrastructure.loopIdentityProvider,
       runtimeClock: runtimeInfrastructure.runtimeClock,
       agentStepMaterializer:
         this.options.agentStepMaterializer ?? new DefaultAgentStepMaterializer(),
-      transcriptAppender: this.options.transcriptAppender ?? new DefaultAgentTranscriptAppender(),
-      transcriptSnapshotMaterializer:
-        this.options.transcriptSnapshotMaterializer ??
-        new DefaultAgentTranscriptSnapshotMaterializer(),
-      transcriptRecordFactory:
-        this.options.transcriptRecordFactory ??
-        new DefaultTranscriptRecordFactory(toolResultNormalizer),
-      requestMaterializer: this.options.requestMaterializer ?? new DefaultRequestMaterializer(),
       executableRequestAdapter:
         this.options.executableRequestAdapter ?? new DefaultExecutableRequestAdapter(),
       modelStreamExecutor: this.options.modelStreamExecutor ?? new DefaultModelStreamExecutor(),

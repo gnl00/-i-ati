@@ -8,7 +8,7 @@
  * - 它仍然属于 host 语义，不是 core runtime state
  * - 它是 bootstrap 的输入，不是 AgentLoop 的直接入参
  */
-import type { AgentContentPart } from '../../transcript/AgentContentPart'
+import type { AgentContentPart } from '../../context/ContextContentPart'
 
 export interface HostRunRequest {
   hostType: string

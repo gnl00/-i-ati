@@ -27,6 +27,7 @@ export interface AgentRequestSpec {
   baseUrl: string
   apiKey: string
   model: string
+  contextCompression?: boolean
   contextWindowTokens?: number
   modelType?: string
   systemPrompt?: string

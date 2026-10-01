@@ -12,17 +12,12 @@
 import { randomUUID } from 'node:crypto'
 
 export interface LoopIdentityProvider {
-  nextTranscriptId(): string
   nextStepId(): string
   nextTranscriptRecordId(): string
   nextToolBatchId(): string
 }
 
 export class DefaultLoopIdentityProvider implements LoopIdentityProvider {
-  nextTranscriptId(): string {
-    return `runtime_transcript_${randomUUID()}`
-  }
-
   nextStepId(): string {
     return `runtime_step_${randomUUID()}`
   }

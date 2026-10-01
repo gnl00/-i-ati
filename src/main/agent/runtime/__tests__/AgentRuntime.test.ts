@@ -4,8 +4,6 @@ import { DefaultAgentLoop } from '../loop/AgentLoop'
 import { DefaultAgentLoopDependenciesFactory } from '../AgentLoopDependenciesFactory'
 import { DefaultAgentRuntime } from '../AgentRuntime'
 import { createDefaultRuntimeInfrastructure } from '../RuntimeInfrastructure'
-import { DefaultInitialTranscriptMaterializer } from '../transcript/InitialTranscriptMaterializer'
-import { DefaultUserRecordMaterializer } from '../transcript/UserRecordMaterializer'
 import type { AgentRequestSpecSource, LoopRunDescriptorSource } from '../AgentRuntimeContext'
 import type { ModelResponseChunk } from '../model/ModelResponseChunk'
 import type { ModelStreamExecutor } from '../model/ModelStreamExecutor'
@@ -46,7 +44,7 @@ vi.mock('@main/logging/LogService', () => ({
   }))
 }))
 
-const createAsyncStream = async function *(
+const createAsyncStream = async function* (
   chunks: ModelResponseChunk[]
 ): AsyncGenerator<ModelResponseChunk, void, unknown> {
   for (const chunk of chunks) {
@@ -92,33 +90,33 @@ const createTestAgentEventEmitter = (): AgentEventEmitter => ({
 describe('DefaultAgentRuntime', () => {
   it('completes a single-step text response', async () => {
     const modelStreamExecutor: ModelStreamExecutor = {
-      execute: vi.fn(async () => createAsyncStream([
-        {
-          kind: 'delta',
-          responseId: 'resp-1',
-          model: 'test-model',
-          content: 'Hello from runtime',
-          finishReason: 'stop',
-          usage: {
-            promptTokens: 1,
-            completionTokens: 2,
-            totalTokens: 3
+      execute: vi.fn(async () =>
+        createAsyncStream([
+          {
+            kind: 'delta',
+            responseId: 'resp-1',
+            model: 'test-model',
+            content: 'Hello from runtime',
+            finishReason: 'stop',
+            usage: {
+              promptTokens: 1,
+              completionTokens: 2,
+              totalTokens: 3
+            }
+          },
+          {
+            kind: 'final',
+            responseId: 'resp-1',
+            model: 'test-model'
           }
-        },
-        {
-          kind: 'final',
-          responseId: 'resp-1',
-          model: 'test-model'
-        }
-      ]))
+        ])
+      )
     }
 
     const runtime = new DefaultAgentRuntime({
       requestSpecSource,
       runDescriptorSource,
       loopInputBootstrapper: new DefaultLoopInputBootstrapper(),
-      userRecordMaterializer: new DefaultUserRecordMaterializer(),
-      initialTranscriptMaterializer: new DefaultInitialTranscriptMaterializer(),
       runtimeInfrastructure: createDefaultRuntimeInfrastructure(),
       agentLoop: new DefaultAgentLoop(),
       agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
@@ -145,7 +143,7 @@ describe('DefaultAgentRuntime', () => {
       throw new Error('Expected completed result')
     }
     expect(result.finalStep.content).toBe('Hello from runtime')
-    expect(result.transcript.records.map(record => record.kind)).toEqual([
+    expect(result.transcript.records.map((record) => record.kind)).toEqual([
       'user',
       'assistant_step'
     ])
@@ -153,7 +151,8 @@ describe('DefaultAgentRuntime', () => {
   })
 
   it('consumes one steering message after a completed text step and continues the loop', async () => {
-    const take = vi.fn()
+    const take = vi
+      .fn()
       .mockReturnValueOnce({
         queueItemId: 'queue-1',
         text: 'focus on the second point',
@@ -188,8 +187,6 @@ describe('DefaultAgentRuntime', () => {
       requestSpecSource,
       runDescriptorSource,
       loopInputBootstrapper: new DefaultLoopInputBootstrapper(),
-      userRecordMaterializer: new DefaultUserRecordMaterializer(),
-      initialTranscriptMaterializer: new DefaultInitialTranscriptMaterializer(),
       runtimeInfrastructure: createDefaultRuntimeInfrastructure(),
       agentLoop: new DefaultAgentLoop(),
       agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
@@ -227,15 +224,17 @@ describe('DefaultAgentRuntime', () => {
 
     expect(result.status).toBe('completed')
     expect(modelStreamExecutor.execute).toHaveBeenCalledTimes(2)
-    expect(result.transcript.records.map(record => record.kind)).toEqual([
+    expect(result.transcript.records.map((record) => record.kind)).toEqual([
       'user',
       'assistant_step',
       'user',
       'assistant_step'
     ])
-    expect(emitSteeringConsumed).toHaveBeenCalledWith(expect.objectContaining({
-      message: expect.objectContaining({ queueItemId: 'queue-1' })
-    }))
+    expect(emitSteeringConsumed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.objectContaining({ queueItemId: 'queue-1' })
+      })
+    )
     expect(acknowledge).toHaveBeenCalledWith('queue-1')
   })
 
@@ -249,28 +248,28 @@ describe('DefaultAgentRuntime', () => {
     const acknowledge = vi.fn()
     const emitSteeringConsumed = vi.fn(async () => undefined)
     const modelStreamExecutor: ModelStreamExecutor = {
-      execute: vi.fn(async () => createAsyncStream([
-        {
-          kind: 'delta',
-          responseId: 'resp-budget-text',
-          model: 'test-model',
-          content: 'Current answer',
-          finishReason: 'stop'
-        },
-        {
-          kind: 'final',
-          responseId: 'resp-budget-text',
-          model: 'test-model'
-        }
-      ]))
+      execute: vi.fn(async () =>
+        createAsyncStream([
+          {
+            kind: 'delta',
+            responseId: 'resp-budget-text',
+            model: 'test-model',
+            content: 'Current answer',
+            finishReason: 'stop'
+          },
+          {
+            kind: 'final',
+            responseId: 'resp-budget-text',
+            model: 'test-model'
+          }
+        ])
+      )
     }
 
     const runtime = new DefaultAgentRuntime({
       requestSpecSource,
       runDescriptorSource,
       loopInputBootstrapper: new DefaultLoopInputBootstrapper(),
-      userRecordMaterializer: new DefaultUserRecordMaterializer(),
-      initialTranscriptMaterializer: new DefaultInitialTranscriptMaterializer(),
       runtimeInfrastructure: createDefaultRuntimeInfrastructure(),
       agentLoop: new DefaultAgentLoop(),
       agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
@@ -319,7 +318,7 @@ describe('DefaultAgentRuntime', () => {
   it('consumes steering after the complete tool result batch', async () => {
     const modelStreamExecutor: ModelStreamExecutor = {
       execute: vi.fn(async ({ request }) => {
-        if (request.messages.some(message => message.role === 'tool')) {
+        if (request.messages.some((message) => message.role === 'tool')) {
           return createAsyncStream([
             {
               kind: 'delta',
@@ -391,15 +390,14 @@ describe('DefaultAgentRuntime', () => {
       requestSpecSource,
       runDescriptorSource,
       loopInputBootstrapper: new DefaultLoopInputBootstrapper(),
-      userRecordMaterializer: new DefaultUserRecordMaterializer(),
-      initialTranscriptMaterializer: new DefaultInitialTranscriptMaterializer(),
       runtimeInfrastructure: createDefaultRuntimeInfrastructure(),
       agentLoop: new DefaultAgentLoop(),
       agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
         modelStreamExecutor,
         toolExecutorDispatcher,
         steeringMessageSource: {
-          take: vi.fn()
+          take: vi
+            .fn()
             .mockReturnValueOnce({
               queueItemId: 'queue-after-tool',
               text: 'use the result as guidance',
@@ -431,7 +429,7 @@ describe('DefaultAgentRuntime', () => {
       throw new Error('Expected completed result')
     }
     expect(result.finalStep.content).toBe('Final answer after tool')
-    expect(result.transcript.records.map(record => record.kind)).toEqual([
+    expect(result.transcript.records.map((record) => record.kind)).toEqual([
       'user',
       'assistant_step',
       'tool_result',
@@ -440,17 +438,19 @@ describe('DefaultAgentRuntime', () => {
     ])
     expect(modelStreamExecutor.execute).toHaveBeenCalledTimes(2)
     const secondRequest = vi.mocked(modelStreamExecutor.execute).mock.calls[1]?.[0].request
-    expect(secondRequest.messages).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        role: 'assistant',
-        reasoning: 'Need a tool first. ',
-        toolCalls: expect.arrayContaining([
-          expect.objectContaining({
-            id: 'tool-1'
-          })
-        ])
-      })
-    ]))
+    expect(secondRequest.messages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          role: 'assistant',
+          reasoning: 'Need a tool first. ',
+          toolCalls: expect.arrayContaining([
+            expect.objectContaining({
+              id: 'tool-1'
+            })
+          ])
+        })
+      ])
+    )
     expect(toolExecutorDispatcher.dispatch).toHaveBeenCalledTimes(1)
   })
 
@@ -458,24 +458,26 @@ describe('DefaultAgentRuntime', () => {
     let postToolAttempt = 0
     const modelStreamExecutor: ModelStreamExecutor = {
       execute: vi.fn(async ({ request }) => {
-        if (!request.messages.some(message => message.role === 'tool')) {
+        if (!request.messages.some((message) => message.role === 'tool')) {
           return createAsyncStream([
             {
               kind: 'delta',
               responseId: 'resp-tool',
               model: 'test-model',
-              toolCalls: [{
-                argumentsMode: 'snapshot',
-                toolCall: {
-                  id: 'tool-1',
-                  index: 0,
-                  type: 'function',
-                  function: {
-                    name: 'sum',
-                    arguments: '{"a":1,"b":1}'
+              toolCalls: [
+                {
+                  argumentsMode: 'snapshot',
+                  toolCall: {
+                    id: 'tool-1',
+                    index: 0,
+                    type: 'function',
+                    function: {
+                      name: 'sum',
+                      arguments: '{"a":1,"b":1}'
+                    }
                   }
                 }
-              }],
+              ],
               finishReason: 'tool_calls'
             },
             {
@@ -524,14 +526,16 @@ describe('DefaultAgentRuntime', () => {
         status: 'completed' as const,
         batchId: batch.batchId,
         stepId: batch.stepId,
-        results: [{
-          stepId: batch.stepId,
-          toolCallId: 'tool-1',
-          toolCallIndex: 0,
-          toolName: 'sum',
-          status: 'success' as const,
-          content: { result: 2 }
-        }]
+        results: [
+          {
+            stepId: batch.stepId,
+            toolCallId: 'tool-1',
+            toolCallIndex: 0,
+            toolName: 'sum',
+            status: 'success' as const,
+            content: { result: 2 }
+          }
+        ]
       }))
     }
     const agentEventEmitter = createTestAgentEventEmitter()
@@ -539,8 +543,6 @@ describe('DefaultAgentRuntime', () => {
       requestSpecSource,
       runDescriptorSource,
       loopInputBootstrapper: new DefaultLoopInputBootstrapper(),
-      userRecordMaterializer: new DefaultUserRecordMaterializer(),
-      initialTranscriptMaterializer: new DefaultInitialTranscriptMaterializer(),
       runtimeInfrastructure: createDefaultRuntimeInfrastructure(),
       agentLoop: new DefaultAgentLoop(),
       agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
@@ -564,7 +566,7 @@ describe('DefaultAgentRuntime', () => {
       throw new Error('Expected completed result')
     }
     expect(result.finalStep.content).toBe('The result is 2.')
-    expect(result.transcript.records.map(record => record.kind)).toEqual([
+    expect(result.transcript.records.map((record) => record.kind)).toEqual([
       'user',
       'assistant_step',
       'tool_result',
@@ -582,27 +584,27 @@ describe('DefaultAgentRuntime', () => {
 
   it('fails with a searchable error after the bounded empty-response recovery', async () => {
     const modelStreamExecutor: ModelStreamExecutor = {
-      execute: vi.fn(async () => createAsyncStream([
-        {
-          kind: 'delta',
-          responseId: 'resp-incomplete',
-          model: 'test-model',
-          reasoning: 'I will answer shortly.'
-        },
-        {
-          kind: 'final',
-          responseId: 'resp-incomplete',
-          model: 'test-model'
-        }
-      ]))
+      execute: vi.fn(async () =>
+        createAsyncStream([
+          {
+            kind: 'delta',
+            responseId: 'resp-incomplete',
+            model: 'test-model',
+            reasoning: 'I will answer shortly.'
+          },
+          {
+            kind: 'final',
+            responseId: 'resp-incomplete',
+            model: 'test-model'
+          }
+        ])
+      )
     }
     const agentEventEmitter = createTestAgentEventEmitter()
     const runtime = new DefaultAgentRuntime({
       requestSpecSource,
       runDescriptorSource,
       loopInputBootstrapper: new DefaultLoopInputBootstrapper(),
-      userRecordMaterializer: new DefaultUserRecordMaterializer(),
-      initialTranscriptMaterializer: new DefaultInitialTranscriptMaterializer(),
       runtimeInfrastructure: createDefaultRuntimeInfrastructure(),
       agentLoop: new DefaultAgentLoop(),
       agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
@@ -624,12 +626,15 @@ describe('DefaultAgentRuntime', () => {
     if (result.status !== 'failed') {
       throw new Error('Expected failed result')
     }
-    expect(result.failure).toEqual(expect.objectContaining({
-      name: 'IncompleteModelResponseError',
-      code: 'INCOMPLETE_MODEL_RESPONSE',
-      message: 'Model stream ended without user-visible content (finishReason=missing, reasoningCharacters=22) after 1 recovery attempt(s).'
-    }))
-    expect(result.transcript.records.map(record => record.kind)).toEqual(['user'])
+    expect(result.failure).toEqual(
+      expect.objectContaining({
+        name: 'IncompleteModelResponseError',
+        code: 'INCOMPLETE_MODEL_RESPONSE',
+        message:
+          'Model stream ended without user-visible content (finishReason=missing, reasoningCharacters=22) after 1 recovery attempt(s).'
+      })
+    )
+    expect(result.transcript.records.map((record) => record.kind)).toEqual(['user'])
     expect(modelStreamExecutor.execute).toHaveBeenCalledTimes(2)
     expect(agentEventEmitter.emitStepCompleted).not.toHaveBeenCalled()
     expect(agentEventEmitter.emitLoopCompleted).not.toHaveBeenCalled()
@@ -645,53 +650,57 @@ describe('DefaultAgentRuntime', () => {
     }))
     const acknowledge = vi.fn()
     const modelStreamExecutor: ModelStreamExecutor = {
-      execute: vi.fn(async () => createAsyncStream([
-        {
-          kind: 'delta',
-          responseId: 'resp-budget-tool',
-          model: 'test-model',
-          toolCalls: [{
-            argumentsMode: 'snapshot',
-            toolCall: {
-              id: 'tool-budget',
-              index: 0,
-              type: 'function',
-              function: {
-                name: 'sum',
-                arguments: '{"a":1,"b":1}'
+      execute: vi.fn(async () =>
+        createAsyncStream([
+          {
+            kind: 'delta',
+            responseId: 'resp-budget-tool',
+            model: 'test-model',
+            toolCalls: [
+              {
+                argumentsMode: 'snapshot',
+                toolCall: {
+                  id: 'tool-budget',
+                  index: 0,
+                  type: 'function',
+                  function: {
+                    name: 'sum',
+                    arguments: '{"a":1,"b":1}'
+                  }
+                }
               }
-            }
-          }],
-          finishReason: 'tool_calls'
-        },
-        {
-          kind: 'final',
-          responseId: 'resp-budget-tool',
-          model: 'test-model'
-        }
-      ]))
+            ],
+            finishReason: 'tool_calls'
+          },
+          {
+            kind: 'final',
+            responseId: 'resp-budget-tool',
+            model: 'test-model'
+          }
+        ])
+      )
     }
     const toolExecutorDispatcher: ToolExecutorDispatcher = {
       dispatch: vi.fn(async (batch) => ({
         status: 'completed' as const,
         batchId: batch.batchId,
         stepId: batch.stepId,
-        results: [{
-          stepId: batch.stepId,
-          toolCallId: 'tool-budget',
-          toolCallIndex: 0,
-          toolName: 'sum',
-          status: 'success' as const,
-          content: { result: 2 }
-        }]
+        results: [
+          {
+            stepId: batch.stepId,
+            toolCallId: 'tool-budget',
+            toolCallIndex: 0,
+            toolName: 'sum',
+            status: 'success' as const,
+            content: { result: 2 }
+          }
+        ]
       }))
     }
     const runtime = new DefaultAgentRuntime({
       requestSpecSource,
       runDescriptorSource,
       loopInputBootstrapper: new DefaultLoopInputBootstrapper(),
-      userRecordMaterializer: new DefaultUserRecordMaterializer(),
-      initialTranscriptMaterializer: new DefaultInitialTranscriptMaterializer(),
       runtimeInfrastructure: createDefaultRuntimeInfrastructure(),
       agentLoop: new DefaultAgentLoop(),
       agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
@@ -765,7 +774,7 @@ describe('DefaultAgentRuntime', () => {
 
     const modelStreamExecutor: ModelStreamExecutor = {
       execute: vi.fn(async ({ request }) => {
-        if (request.messages.some(message => message.role === 'tool')) {
+        if (request.messages.some((message) => message.role === 'tool')) {
           return createAsyncStream([
             {
               kind: 'delta',
@@ -846,8 +855,6 @@ describe('DefaultAgentRuntime', () => {
       requestSpecSource,
       runDescriptorSource,
       loopInputBootstrapper: new DefaultLoopInputBootstrapper(),
-      userRecordMaterializer: new DefaultUserRecordMaterializer(),
-      initialTranscriptMaterializer: new DefaultInitialTranscriptMaterializer(),
       runtimeInfrastructure,
       agentLoop: new DefaultAgentLoop(),
       agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
@@ -877,7 +884,9 @@ describe('DefaultAgentRuntime', () => {
   it('completes on the final allowed model step after tool calls', async () => {
     const modelStreamExecutor: ModelStreamExecutor = {
       execute: vi.fn(async ({ request }) => {
-        const toolMessageCount = request.messages.filter(message => message.role === 'tool').length
+        const toolMessageCount = request.messages.filter(
+          (message) => message.role === 'tool'
+        ).length
 
         if (toolMessageCount === 0) {
           return createAsyncStream([
@@ -961,7 +970,7 @@ describe('DefaultAgentRuntime', () => {
         status: 'completed' as const,
         batchId: batch.batchId,
         stepId: batch.stepId,
-        results: batch.calls.map(call => ({
+        results: batch.calls.map((call) => ({
           stepId: batch.stepId,
           toolCallId: call.toolCallId,
           toolCallIndex: call.index,
@@ -978,8 +987,6 @@ describe('DefaultAgentRuntime', () => {
       requestSpecSource,
       runDescriptorSource,
       loopInputBootstrapper: new DefaultLoopInputBootstrapper(),
-      userRecordMaterializer: new DefaultUserRecordMaterializer(),
-      initialTranscriptMaterializer: new DefaultInitialTranscriptMaterializer(),
       runtimeInfrastructure: createDefaultRuntimeInfrastructure(),
       agentLoop: new DefaultAgentLoop(),
       agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
@@ -1014,35 +1021,40 @@ describe('DefaultAgentRuntime', () => {
     expect(toolExecutorDispatcher.dispatch).toHaveBeenCalledTimes(2)
   })
 
-  it.each<[number | undefined, number]>([[3, 3], [undefined, 80]])('stops tool loops at maxSteps=%s (effective %s)', async (maxSteps, expectedSteps) => {
+  it.each<[number | undefined, number]>([
+    [3, 3],
+    [undefined, 80]
+  ])('stops tool loops at maxSteps=%s (effective %s)', async (maxSteps, expectedSteps) => {
     const modelStreamExecutor: ModelStreamExecutor = {
-      execute: vi.fn(async () => createAsyncStream([
-        {
-          kind: 'delta',
-          responseId: 'resp-loop',
-          model: 'test-model',
-          toolCalls: [
-            {
-              argumentsMode: 'snapshot',
-              toolCall: {
-                id: `tool-${vi.mocked(modelStreamExecutor.execute).mock.calls.length}`,
-                index: 0,
-                type: 'function',
-                function: {
-                  name: 'repeat_tool',
-                  arguments: '{"again":true}'
+      execute: vi.fn(async () =>
+        createAsyncStream([
+          {
+            kind: 'delta',
+            responseId: 'resp-loop',
+            model: 'test-model',
+            toolCalls: [
+              {
+                argumentsMode: 'snapshot',
+                toolCall: {
+                  id: `tool-${vi.mocked(modelStreamExecutor.execute).mock.calls.length}`,
+                  index: 0,
+                  type: 'function',
+                  function: {
+                    name: 'repeat_tool',
+                    arguments: '{"again":true}'
+                  }
                 }
               }
-            }
-          ],
-          finishReason: 'tool_calls'
-        },
-        {
-          kind: 'final',
-          responseId: 'resp-loop',
-          model: 'test-model'
-        }
-      ]))
+            ],
+            finishReason: 'tool_calls'
+          },
+          {
+            kind: 'final',
+            responseId: 'resp-loop',
+            model: 'test-model'
+          }
+        ])
+      )
     }
 
     const toolExecutorDispatcher: ToolExecutorDispatcher = {
@@ -1050,7 +1062,7 @@ describe('DefaultAgentRuntime', () => {
         status: 'completed' as const,
         batchId: batch.batchId,
         stepId: batch.stepId,
-        results: batch.calls.map(call => ({
+        results: batch.calls.map((call) => ({
           stepId: batch.stepId,
           toolCallId: call.toolCallId,
           toolCallIndex: call.index,
@@ -1067,8 +1079,6 @@ describe('DefaultAgentRuntime', () => {
       requestSpecSource,
       runDescriptorSource,
       loopInputBootstrapper: new DefaultLoopInputBootstrapper(),
-      userRecordMaterializer: new DefaultUserRecordMaterializer(),
-      initialTranscriptMaterializer: new DefaultInitialTranscriptMaterializer(),
       runtimeInfrastructure: createDefaultRuntimeInfrastructure(),
       agentLoop: new DefaultAgentLoop(),
       agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
@@ -1134,8 +1144,6 @@ describe('DefaultAgentRuntime', () => {
       requestSpecSource,
       runDescriptorSource,
       loopInputBootstrapper: new DefaultLoopInputBootstrapper(),
-      userRecordMaterializer: new DefaultUserRecordMaterializer(),
-      initialTranscriptMaterializer: new DefaultInitialTranscriptMaterializer(),
       runtimeInfrastructure: createDefaultRuntimeInfrastructure(),
       agentLoop: new DefaultAgentLoop(),
       agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({

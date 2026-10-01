@@ -27,37 +27,11 @@ export type RunModelContext = {
   providerDefinition: ProviderDefinition
 }
 
-export type ChatInitialTranscriptSeedContent = string | VLMContent[]
-
-export type ChatInitialTranscriptSeed =
-  | {
-      kind: 'user'
-      timestamp?: number
-      source?: string
-      content: ChatInitialTranscriptSeedContent
-    }
-  | {
-      kind: 'assistant'
-      timestamp?: number
-      model?: string
-      content: ChatInitialTranscriptSeedContent
-      reasoning?: string
-      toolCalls?: IToolCall[]
-    }
-  | {
-      kind: 'tool'
-      timestamp?: number
-      toolCallId?: string
-      toolName?: string
-      content: ChatInitialTranscriptSeedContent
-      modelContent?: string
-    }
-
 export type RunSpec = {
   submissionId: string
   modelContext: RunModelContext
   requestSpec: AgentRequestSpec
-  initialTranscriptSeed: ChatInitialTranscriptSeed[]
+  contextMessages: ChatMessage[]
   runtimeContext: {
     chatId?: number
     chatUuid?: string

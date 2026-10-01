@@ -68,7 +68,7 @@ Documentation: [Agent runtime](../README.md)
   - 不承载启动事实，也不承载取消信号
 - `AgentLoopResult`
   - 定义一次 loop 完成后的稳定终态
-  - 应包含最终 step、完整 `AgentTranscriptSnapshot`、usage 汇总、终态
+  - 应包含最终 step、完整 `ContextSnapshot`、usage 汇总、终态
   - 不直接退化成 host output 或 renderer payload
 
 关键约束：
@@ -77,7 +77,7 @@ Documentation: [Agent runtime](../README.md)
 - `AgentLoop` 的依赖面应收敛为显式的 `AgentLoopDependencies`
 - `AgentStepDraft -> AgentStep` 的 stable 收口应通过显式 `AgentStepMaterializer` 完成
 - 请求维度应通过 `AgentRequestSpec` 显式传入，而不是散落成额外 request bag
-- 启动事实应先进入 `AgentTranscript`，不再保留 transcript 外的 bootstrap user input
+- 启动事实应先进入 `ContextManager`，不再保留 transcript 外的 bootstrap user input
 - `runId` 等本次 run 的标识信息应通过 `LoopRunDescriptor` 表达，而不是混在启动事实里
 - 稳定执行配置应通过 `LoopExecutionConfig` 显式表达，而不是和启动事实平铺混在一起
 - 外部取消应继续通过 `AbortSignal` 表达，不并入稳定执行配置
@@ -94,7 +94,7 @@ Documentation: [Agent runtime](../README.md)
 - `failed` / `aborted` outcome 应由 loop 显式决定是否进入 terminal
 - `AgentLoopResult` 回答的是“整轮 run 最后怎样了”，不是“外部该显示什么”
 - host-visible 内容应该继续通过 runtime `events/` 与宿主侧 `hosts/shared/render/` 获得
-- `AgentTranscript -> AgentTranscriptSnapshot` 的终态收口应通过显式 materializer 完成
+- 终态通过 `ContextManager.snapshot()` 导出完整 `ContextSnapshot`
 
 ## 和 events 的关系
 
@@ -111,17 +111,17 @@ Documentation: [Agent runtime](../README.md)
 ## 和 transcript 的关系
 
 - `AgentLoop`
-  - 读取 `AgentTranscript`
+  - 读取 `ContextManager`
   - 驱动 step、tools 和模型续推理
 - `AgentLoopResult`
-  - 应包含 loop 结束时稳定下来的完整 `AgentTranscriptSnapshot`
+  - 应包含 loop 结束时稳定下来的完整 `ContextSnapshot`
 
 关键约束：
 
 - loop 可以推进 transcript，但不把 transcript 和 host output 混成一个结果对象
 - 启动时第一条 user record 也应由 transcript 持有
-- `AgentLoopResult` 可以暴露完整 `AgentTranscriptSnapshot`，但不负责把它转成模型请求或用户消息
-- `AgentTranscriptSnapshot` 的生成不应由 loop 临时手写拷贝逻辑完成
+- `AgentLoopResult` 可以暴露完整 `ContextSnapshot`，但不负责把它转成模型请求或用户消息
+- `ContextSnapshot` 的生成不应由 loop 临时手写拷贝逻辑完成
 
 ## 和 runtime 的关系
 
@@ -147,3 +147,8 @@ Documentation: [Agent runtime](../README.md)
 工具结果写回后，后续模型响应继续计步；steering 也使用当前 run 的剩余步数。
 最后一步给出最终回答时正常完成；最后一步仍调用工具时，工具执行并写回后返回预算耗尽失败。
 预算耗尽日志保留上限、最后一步索引和工具名。
+
+## Context ownership
+
+Loop 为每次 run 创建一个 ContextManager，追加稳定事实并在每次模型发送前 await prepare(signal)。
+历史选择、token 预算和压缩均在 manager；Loop 不维护独立 live transcript。

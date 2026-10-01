@@ -12,10 +12,7 @@ export class ChatPreparationPipeline {
     private readonly runRequestFactory = new RunRequestFactory()
   ) {}
 
-  async prepare(
-    input: MainAgentRunInput,
-    emitter: RunEventEmitter
-  ): Promise<RunPreparationResult> {
+  async prepare(input: MainAgentRunInput, emitter: RunEventEmitter): Promise<RunPreparationResult> {
     const environment = await this.runEnvironmentService.prepare(input, emitter)
     const chatEventMapper = new ChatEventMapper(emitter)
     chatEventMapper.emitChatReady(environment.chat, environment.workspacePath)
@@ -31,7 +28,7 @@ export class ChatPreparationPipeline {
         submissionId: input.submissionId,
         modelContext: environment.modelContext,
         requestSpec: requestBuild.requestSpec,
-        initialTranscriptSeed: requestBuild.initialTranscriptSeed,
+        contextMessages: requestBuild.contextMessages,
         runtimeContext: {
           chatId: environment.chat.id,
           chatUuid: environment.chat.uuid,

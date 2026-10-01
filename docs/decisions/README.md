@@ -50,3 +50,5 @@ Use sequential names such as `0001-chat-runtime-host-boundary.md`.
 - [0034: Require the modern MCP protocol](0034-modern-mcp-protocol.md) - Accepted
 
 - [0035: Telegram rich output and native drafts](0035-telegram-rich-output-and-drafts.md) - Accepted
+
+- [0036: Runtime ContextManager](0036-runtime-context-manager.md) - Accepted

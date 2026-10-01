@@ -32,7 +32,4 @@ export interface AgentInputFilePart {
   mimeType?: string
 }
 
-export type AgentContentPart =
-  | AgentInputTextPart
-  | AgentInputImagePart
-  | AgentInputFilePart
+export type AgentContentPart = AgentInputTextPart | AgentInputImagePart | AgentInputFilePart

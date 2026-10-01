@@ -9,8 +9,6 @@ import { DefaultAgentRuntime, type AgentRuntime } from '@main/agent/runtime/Agen
 import { createDefaultRuntimeInfrastructure } from '@main/agent/runtime/RuntimeInfrastructure'
 import type { LoopExecutionConfig } from '@main/agent/runtime/loop/LoopExecutionConfig'
 import type { ModelStreamExecutor } from '@main/agent/runtime/model/ModelStreamExecutor'
-import { DefaultInitialTranscriptMaterializer } from '@main/agent/runtime/transcript/InitialTranscriptMaterializer'
-import { DefaultUserRecordMaterializer } from '@main/agent/runtime/transcript/UserRecordMaterializer'
 import { DefaultToolBatchAssembler } from '@main/agent/runtime/tools/ToolBatchAssembler'
 import { ToolExecutor } from '@main/agent/tools'
 import type { ToolCallProps } from '@main/agent/contracts'
@@ -136,8 +134,6 @@ export class DefaultSubagentRuntimeRunner implements SubagentRuntimeRunner {
         }),
         runDescriptorSource,
         loopInputBootstrapper: new DefaultLoopInputBootstrapper(),
-        userRecordMaterializer: new DefaultUserRecordMaterializer(),
-        initialTranscriptMaterializer: new DefaultInitialTranscriptMaterializer(),
         runtimeInfrastructure,
         agentLoop: new DefaultAgentLoop(),
         agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
