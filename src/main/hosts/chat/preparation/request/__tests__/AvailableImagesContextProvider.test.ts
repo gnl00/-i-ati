@@ -52,6 +52,7 @@ describe('AvailableImagesContextProvider', () => {
     })
 
     expect(context?.source).toBe(MESSAGE_SOURCE.AVAILABLE_IMAGES_CONTEXT)
+    expect(context?.content).toContain('Use these refs with image_analyze')
     expect(context?.content).toContain('ref="message:3#image:1"')
     expect(context?.content).toContain('user_text="new image"')
     expect(context?.content).not.toContain('message:1#image:1')

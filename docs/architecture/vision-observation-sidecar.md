@@ -18,7 +18,7 @@ The MainAgent keeps using the chat-selected model. Vision-specific work uses the
 
 ## Phase 2A Vision Tool Scope
 
-- MainAgent uses `vision_analyze` for current or historical image inspection.
+- MainAgent uses `image_analyze` for current or historical image inspection.
 - Raw image content remains on persisted user messages as `image_url` VLMContent.
 - MainAgent provider payload strips raw image parts through `ContextManager.prepare()`.
 - MainAgent receives only a volatile `<available_images>` context with refs computed from the compressed effective message window.
@@ -52,7 +52,7 @@ Host adapter
        strips raw input_image parts for MainAgent provider requests
        keeps hidden vision_observation text and available_images refs
   -> MainAgent model request
-       may call vision_analyze({ images: [{ ref }], prompt })
+       may call image_analyze({ images: [{ ref }], prompt })
   -> VisionToolsProcessor
        resolves refs inside current chat scope and calls the configured vision model
 ```
@@ -128,7 +128,7 @@ MainAgent requests consume text and hidden observations. Raw `input_image` parts
 
 ```xml
 <available_images>
-Use these refs with vision_analyze when the user asks to inspect a current or historical image. The raw image data stays outside the MainAgent request.
+Use these refs with image_analyze when the user asks to inspect a current or historical image. The raw image data stays outside the MainAgent request.
   <image ref="message:101#image:1" message_ref="message:101" image_index="1" user_text="invoice screenshot" />
 </available_images>
 ```
@@ -138,9 +138,9 @@ Ref rules:
 - `message:101#image:1` selects the first `image_url` part in message `101`.
 - `message:101` expands to every `image_url` part in message `101`.
 - Image ordinals are 1-based and count only `image_url` parts.
-- `vision_analyze` accepts `images: [{ ref | url | raw_data | file }]` and `prompt`. `file` is a workspace-relative image path that Main converts to a base64 data URL before the VLM request.
+- `image_analyze` accepts `images: [{ ref | url | raw_data | file }]` and `prompt`. `file` is a workspace-relative image path that Main converts to a base64 data URL before the VLM request.
 
-`vision_analyze` returns one plain text result for the requested image set, plus a sanitized image source summary. Explicit tool calls wait up to 60 seconds by default and accept `timeout_seconds`, clamped from 5 to 120 seconds. Sidecar observations keep the shared vision request default of 20 seconds. Errors redact data URLs, long base64 payloads, authorization headers, API keys, bearer tokens, and signed URL credential fields before returning to MainAgent. Provider-facing replay of `vision_analyze` assistant tool-call arguments also redacts direct `url`, `raw_data`, and `file` values.
+`image_analyze` returns one plain text result for the requested image set, plus a sanitized image source summary. Explicit tool calls wait up to 60 seconds by default and accept `timeout_seconds`, clamped from 5 to 120 seconds. Sidecar observations keep the shared vision request default of 20 seconds. Errors redact data URLs, long base64 payloads, authorization headers, API keys, bearer tokens, and signed URL credential fields before returning to MainAgent. Provider-facing replay of `image_analyze` assistant tool-call arguments also redacts direct `url`, `raw_data`, and `file` values.
 
 ## Tests
 
@@ -152,7 +152,7 @@ Ref rules:
 - `ImageRefResolver` expands whole-message refs, resolves one-based image refs, checks `chat_uuid`, and reports missing or out-of-range refs.
 - `VisionToolsProcessor` accepts `images` plus a direct prompt, converts workspace-relative image files to base64 data URLs, then calls the shared vision request service.
 - `VisionToolsProcessor` sends a 60 second default timeout and clamps `timeout_seconds` from 5 to 120 seconds.
-- `ToolExecutor` forces `vision_analyze` to use the runtime chat UUID even when model-supplied arguments include `chat_uuid`.
+- `ToolExecutor` forces `image_analyze` to use the runtime chat UUID even when model-supplied arguments include `chat_uuid`.
 - `ContextManager.prepare()` redacts direct vision image arguments before provider-facing assistant tool-call replay.
 - Desktop chat and Telegram media tests assert `modelRef` and `chatModelRef` stay on the chat-selected model; vision model usage is scoped to `VisionObservationService`.
 - `buildContextMessages` and `mapChatContext` keep hidden observation messages available to runtime history.

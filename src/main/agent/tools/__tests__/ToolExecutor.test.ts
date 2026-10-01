@@ -35,7 +35,7 @@ vi.mock('@tools/registry', async () => {
         || name === 'write'
         || name === 'knowledgebase_search'
         || name === 'run_skill_script'
-        || name === 'vision_analyze'
+        || name === 'image_analyze'
       )),
       getHandler: vi.fn(() => handlerMock),
       getToolMetadata: vi.fn((name: string) => embeddedToolMetadata[name])
@@ -215,7 +215,7 @@ describe('ToolExecutor runtime context', () => {
 
     await executor.execute([{
       id: 'call-2b',
-      function: 'vision_analyze',
+      function: 'image_analyze',
       args: JSON.stringify({
         chat_uuid: 'chat-from-llm',
         images: [{ ref: 'message:101#image:1' }],

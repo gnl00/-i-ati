@@ -5,13 +5,14 @@ import { RUN_TOOL_EVENTS } from '@shared/run/tool-events'
 import { RUN_STEERING_EVENTS } from '@shared/run/steering-events'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 
-const { emitChatUpdatedMock, loggerWarnMock } = vi.hoisted(() => ({
+const { emitChatUpdatedMock, loggerWarnMock, saveImageReceiptMock } = vi.hoisted(() => ({
   emitChatUpdatedMock: vi.fn(),
+  saveImageReceiptMock: vi.fn(),
   loggerWarnMock: vi.fn()
 }))
 
 vi.mock('@main/db/chat', () => ({
-  chatDb: {}
+  chatDb: { saveTelegramReceipt: saveImageReceiptMock }
 }))
 
 vi.mock('@main/logging/LogService', () => ({
@@ -2162,5 +2163,34 @@ describe('ChatRenderResponder', () => {
       .body.segments.filter((segment): segment is ToolCallSegment => segment.type === 'toolCall')
 
     expect(toolCallSegments.map((segment) => segment.toolCallId)).toEqual(['tool-b', 'tool-a'])
+  })
+})
+
+describe('image delivery persistence', () => {
+  const content = {
+    kind: 'image_show', success: true,
+    image: { assetId: `${'a'.repeat(64)}.png`, url: `image-asset://snapshot/${'a'.repeat(64)}.png`, size: 100, width: 400, height: 300, mimeType: 'image/png' }
+  }
+  it('saves one result, publishes receipt revisions and prevents a second durable claim', async () => {
+    const draft: MessageEntity = { id: 1, chatId: 1, chatUuid: 'chat-1', body: { role: 'assistant', content: '', segments: [] } }
+    const entities = [draft]
+    const responder = new ChatRenderResponder({ emit: vi.fn(), submissionId: 'run-image', setChatMeta: vi.fn() }, entities, draft)
+    const event = { type: 'host.tool.result.available' as const, timestamp: 1, result: {
+      status: 'success' as const, stepId: 'step', toolCallId: 'image-call', toolCallIndex: 0, toolName: 'image_show', content, modelContent: 'Image prepared.'
+    } }
+    await responder.handle(event)
+    await responder.handle(event)
+    expect(entities).toHaveLength(2)
+    expect(responder.messageEvents.emitMessageCreated).toHaveBeenCalledWith(entities[1])
+    const sending = { ...content, telegram: { state: 'sending', chatId: '123' } }
+    expect(responder.updateToolResult('image-call', sending)).toBe(true)
+    expect(responder.updateToolResult('image-call', sending)).toBe(false)
+    expect(responder.updateToolResult('image-call', { ...content, telegram: { state: 'sent', botId: 'bot-1', chatId: '123', threadId: 'topic-1', messageId: 10, method: 'photo' } })).toBe(true)
+    expect(responder.messageEvents.emitMessageUpdated).toHaveBeenCalledWith(entities[1])
+    expect(saveImageReceiptMock).toHaveBeenCalledWith(expect.objectContaining({ chatUuid: 'chat-1', botId: 'bot-1', hostChatId: '123', hostThreadId: 'topic-1' }), '10', 900)
+    expect(entities[1].body.toolResultModelContent).toBe('Image prepared.')
+    expect(JSON.parse(entities[1].body.content as string).telegram).toMatchObject({ state: 'sent', messageId: 10 })
+    expect(responder.updateToolResult('image-call', sending)).toBe(false)
+    expect(() => responder.updateToolResult('other-call', sending)).toThrow('matching')
   })
 })

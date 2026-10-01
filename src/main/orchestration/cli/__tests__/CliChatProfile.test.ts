@@ -76,7 +76,7 @@ describe('CLI Chat profile parity', () => {
     mocks.build.mockResolvedValue({
       requestSpec: {
         systemPrompt: 'Chat prompt',
-        tools: [{ name: 'vision_analyze' }, { name: 'mcp_search' }]
+        tools: [{ name: 'image_analyze' }, { name: 'mcp_search' }]
       },
       contextMessages: [{ role: 'user', content: 'task' }]
     })
@@ -109,7 +109,7 @@ describe('CLI Chat profile parity', () => {
       })
     )
     expect(mocks.build.mock.calls[0][2].source).toBeUndefined()
-    expect(profile.requestSpec.tools).toEqual([{ name: 'vision_analyze' }, { name: 'mcp_search' }])
+    expect(profile.requestSpec.tools).toEqual([{ name: 'image_analyze' }, { name: 'mcp_search' }])
     expect(profile.modelRef).toEqual({
       accountId: 'primary',
       modelId: 'model'

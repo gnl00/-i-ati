@@ -1,4 +1,5 @@
-import type { Bot } from 'grammy'
+import { InputFile, type Bot } from 'grammy'
+import { parseImageShowResult, type ImageShowResult } from '@shared/tools/image/types'
 import { randomInt } from 'node:crypto'
 import { AbortController as TelegramAbortController } from 'abort-controller'
 import { deliverTelegramText, isTelegramFormattingError, withTelegramRetry, type TelegramTextMessage } from '@main/services/telegram/TelegramTextDelivery'
@@ -55,6 +56,8 @@ export class TelegramRenderResponder implements HostRenderEventSink {
   private readonly segments = new AgentRenderSegmentMapper({ policy: this.policy })
   private readonly textMessages = new Map<string, SentTelegramMessage>()
   private readonly toolStates = new Map<string, TelegramToolState>()
+  private readonly imageCalls = new Set<string>()
+  private updateToolResult?: (toolCallId: string, content: unknown) => boolean
   private readonly pendingTextEdits = new Map<string, { text: string }>()
   private finalized = false
   private stopped = false
@@ -72,6 +75,10 @@ export class TelegramRenderResponder implements HostRenderEventSink {
     this.envelope = args.envelope
     this.logger = args.logger
     this.draftAbort.signal.addEventListener('abort', (): void => this.draftApiAbort.abort(), { once: true })
+  }
+
+  connectToolResultUpdates(update: (toolCallId: string, content: unknown) => boolean): void {
+    this.updateToolResult = update
   }
 
   handle(event: HostRenderEvent): Promise<void> {
@@ -149,6 +156,10 @@ export class TelegramRenderResponder implements HostRenderEventSink {
         return
 
       case 'host.tool.result.available':
+        if (event.result.toolName === 'image_show' && event.result.status === 'success') {
+          const image = parseImageShowResult(event.result.content)
+          if (image) await this.sendImage(event.result.toolCallId, image)
+        }
         await this.sendToolDone({
           toolCallId: event.result.toolCallId,
           toolName: event.result.toolName,
@@ -163,6 +174,58 @@ export class TelegramRenderResponder implements HostRenderEventSink {
       default:
         return
     }
+  }
+
+  private async sendImage(toolCallId: string, result: ImageShowResult): Promise<void> {
+    if (this.imageCalls.has(toolCallId)) return
+    this.imageCalls.add(toolCallId)
+    // Persist the attempt before upload. History hydration never calls this method.
+    const delivery = { state: 'sending' as const, chatId: this.envelope.chatId,
+      ...(this.bot.botInfo?.id ? { botId: String(this.bot.botInfo.id) } : {}),
+      ...(this.envelope.threadId ? { threadId: this.envelope.threadId } : {}) }
+    if (!this.updateToolResult) throw new Error('Image delivery persistence is not connected.')
+    if (!this.updateToolResult(toolCallId, { ...result, telegram: delivery })) return
+    let method: 'photo' | 'document' = result.image.mimeType !== 'image/gif'
+      && result.image.size <= 10 * 1024 * 1024
+      && result.image.width + result.image.height <= 10000
+      && Math.max(result.image.width, result.image.height) / Math.min(result.image.width, result.image.height) <= 20
+      ? 'photo' : 'document'
+    const options = {
+      ...(result.caption ? { caption: result.caption } : {}),
+      ...(this.envelope.threadId ? { message_thread_id: Number(this.envelope.threadId) } : {}),
+      ...(this.envelope.messageId ? { reply_parameters: { message_id: Number(this.envelope.messageId) } } : {})
+    }
+    let data: Buffer
+    try {
+      const { imageAssetService } = await import('@main/services/images/ImageAssetService')
+      data = await imageAssetService.read(result.image.assetId)
+    } catch {
+      this.updateToolResult(toolCallId, { ...result, telegram: { ...delivery, state: 'failed' } })
+      await deliverTelegramText(this.bot, { chatId: this.envelope.chatId, threadId: this.envelope.threadId }, 'Image delivery failed: the saved image is unavailable.')
+      return
+    }
+    let sent: { message_id: number }
+    try {
+      const upload = (): InputFile => new InputFile(data, `image.${result.image.assetId.split('.').at(-1)}`)
+      if (method === 'photo') {
+        try { sent = await withTelegramRetry(() => this.bot.api.sendPhoto(Number(this.envelope.chatId), upload(), options)) } catch (error) {
+          const response = error as { error_code?: number; description?: string }
+          // Only a definite image-format rejection permits a different send method.
+          if (response.error_code !== 400 || !/PHOTO_INVALID_DIMENSIONS|IMAGE_PROCESS_FAILED|PHOTO_EXT_INVALID|PHOTO_CONTENT_TYPE_INVALID|PHOTO_INVALID/i.test(response.description || '')) throw error
+          method = 'document'
+          sent = await withTelegramRetry(() => this.bot.api.sendDocument(Number(this.envelope.chatId), upload(), options))
+        }
+      } else { sent = await withTelegramRetry(() => this.bot.api.sendDocument(Number(this.envelope.chatId), upload(), options)) }
+    } catch (error) {
+      const code = (error as { error_code?: number }).error_code
+      const state = code && code >= 400 && code < 500 ? 'failed' : 'unknown'
+      this.updateToolResult(toolCallId, { ...result, telegram: { ...delivery, state, method } })
+      await deliverTelegramText(this.bot, { chatId: this.envelope.chatId, threadId: this.envelope.threadId },
+        state === 'failed' ? 'Image delivery failed.' : 'Image delivery could not be confirmed. The upload will not be repeated automatically.')
+      return
+    }
+    // Keep persistence outside the upload catch: a receipt failure must never re-upload.
+    this.updateToolResult(toolCallId, { ...result, telegram: { ...delivery, state: 'sent', method, messageId: sent.message_id } })
   }
 
   private scheduleFlush(): void {

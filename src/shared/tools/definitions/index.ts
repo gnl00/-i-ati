@@ -25,6 +25,7 @@ import { titleTools } from '../title/definitions'
 import { todoTools } from '../todo/definitions'
 import { userInfoTools } from '../userInfo/definitions'
 import { userQuestionTools } from '../userQuestion/definitions'
+import { imageTools } from '../image/definitions'
 import { visionTools } from '../vision/definitions'
 import { webTools } from '../webTools/definitions'
 import { wikiTools } from '../wiki/definitions'
@@ -54,6 +55,7 @@ export const tools = mergeToolDefinitions(
   userInfoTools,
   userQuestionTools,
   visionTools,
+  imageTools,
   wikiTools,
   activityJournalTools,
   knowledgebaseTools,

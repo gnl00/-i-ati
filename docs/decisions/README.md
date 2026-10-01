@@ -52,3 +52,5 @@ Use sequential names such as `0001-chat-runtime-host-boundary.md`.
 - [0035: Telegram rich output and native drafts](0035-telegram-rich-output-and-drafts.md) - Accepted
 
 - [0036: Runtime ContextManager](0036-runtime-context-manager.md) - Accepted
+
+- [0037: Image display and host delivery](0037-image-display-and-host-delivery.md) - Accepted

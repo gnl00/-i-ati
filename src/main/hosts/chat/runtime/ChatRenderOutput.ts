@@ -1,3 +1,5 @@
+import { chatDb } from '@main/db/chat'
+import { parseImageShowResult } from '@shared/tools/image/types'
 import { assertMessageEntitySegmentsHaveIds } from '@shared/chat/segmentId'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 import {
@@ -150,6 +152,11 @@ export class ChatRenderOutput {
   }
 
   async appendToolResult(result: ToolResultFact): Promise<string> {
+    if (result.toolName === 'image_show') {
+      const existing = this.messageEntities.find(message => message.body.role === 'tool'
+        && message.body.name === result.toolName && message.body.toolCallId === result.toolCallId)
+      if (existing) return projectToolResultContentForDisplay({ content: existing.body.content })
+    }
     const rawContent = projectToolResultContentForDisplay({
       content: result.content,
       error: result.error,
@@ -172,8 +179,39 @@ export class ChatRenderOutput {
     this.messageEntities.push(entity)
 
     this.messageEvents.emitToolResultAttached(result.toolCallId, entity)
+    if (result.toolName === 'image_show' && parseImageShowResult(result.content)) {
+      this.messageEvents.emitMessageCreated(entity)
+    }
 
     return rawContent
+  }
+
+  updateToolResult(toolCallId: string, content: unknown): boolean {
+    const entity = this.messageEntities.find(message => message.body.role === 'tool'
+      && message.body.name === 'image_show' && message.body.toolCallId === toolCallId)
+    const previous = parseImageShowResult(entity?.body.content)
+    const next = parseImageShowResult(content)
+    if (!entity || entity.id == null || !previous || !next || previous.image.assetId !== next.image.assetId) {
+      throw new Error('Image delivery receipt has no matching persisted tool result.')
+    }
+    if (next.telegram?.state === 'sending' && previous.telegram) return false
+    if (previous.telegram && previous.telegram.state !== 'sending') return false
+    entity.body = { ...entity.body, content: JSON.stringify(next) }
+    this.stepStore.persistAssistantMessage(entity)
+    this.messageEvents.emitMessageUpdated(entity)
+    const delivery = next.telegram
+    if (delivery?.state === 'sent' && delivery.botId && delivery.messageId !== undefined
+      && entity.chatId !== undefined && entity.chatUuid) {
+      try {
+        chatDb.saveTelegramReceipt({ chatId: entity.chatId, chatUuid: entity.chatUuid,
+          botId: delivery.botId, hostChatId: delivery.chatId, hostThreadId: delivery.threadId },
+        String(delivery.messageId), entity.id)
+      } catch {
+        // The upload succeeded. A reply-routing write failure must not repeat it.
+        console.warn('[ImageDisplay] Failed to save Telegram reply routing receipt.')
+      }
+    }
+    return true
   }
 
   consumeSteeringMessage(input: { text: string; imageUrls: string[] }): MessageEntity {

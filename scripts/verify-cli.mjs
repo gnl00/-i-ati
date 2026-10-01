@@ -159,7 +159,7 @@ const server = createServer(async (request, response) => {
     && body.messages.some(message => message?.role === 'tool')
 
   if (mode === 'vision' && !hasToolResult) {
-    sendToolCall(response, 'vision_analyze', {
+    sendToolCall(response, 'image_analyze', {
       files: ['pixel.png'], prompt: 'Describe the image.', tool_call_reason: 'Verify configured vision capability.'
     })
     return
@@ -315,7 +315,7 @@ try {
   assertJsonlRun(completed.stdout)
   const completedResult = await readJson(join(completed.output, 'result.json'))
   assert.equal(completedResult.status, 'completed')
-  for (const name of ['vision_analyze', 'plan', 'ask_user_question']) {
+  for (const name of ['image_analyze', 'plan', 'ask_user_question']) {
     assert.ok(receivedToolNames.includes(name), `Chat tool missing from CLI request: ${name}`)
     assert.ok(completedResult.tools.includes(name), `Tool missing from CLI audit: ${name}`)
   }

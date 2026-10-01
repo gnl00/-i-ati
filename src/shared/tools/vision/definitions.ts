@@ -4,7 +4,7 @@ export const visionTools = [
   {
     type: 'function',
     function: {
-      name: 'vision_analyze',
+      name: 'image_analyze',
       description: 'Analyze current or historical images with the configured vision model. Call this when the user asks to read, inspect, OCR, compare, or extract information from an image. Use refs from <available_images>, such as message:101#image:1 or message:101. Write prompt as the direct visual task for the vision model.',
       parameters: {
         type: 'object',

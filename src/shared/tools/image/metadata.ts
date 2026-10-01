@@ -1,10 +1,11 @@
 import type { EmbeddedToolMetadataMap } from '../metadata-types'
 
-export const visionToolMetadata = {
-  image_analyze: {
-    capability: 'vision',
+export const imageToolMetadata = {
+  image_show: {
+    needChatUUID: false,
+    capability: 'filesystem_read',
     riskLevel: 'none',
     mutatesWorkspace: false,
-    subagent: 'deny'
-  }
+    subagent: 'deny',
+  },
 } satisfies EmbeddedToolMetadataMap

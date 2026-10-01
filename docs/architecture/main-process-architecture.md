@@ -405,3 +405,11 @@ See [ADR 0035](../decisions/0035-telegram-rich-output-and-drafts.md).
 Host maps persistence once and owns database/UI effects. Runtime compression shares compactContext with
 persistent-summary prewarming; run-local summaries never write the database. Provider body preparation is
 shared between counting and dispatch. See [ADR-0036](../decisions/0036-runtime-context-manager.md).
+
+## Image display
+
+`image_show` uses Main-owned immutable profile snapshots and the existing tool-result
+message for Chat rendering and Telegram delivery receipts. Transport responders
+connect to the Chat host result updater; receipt revisions flow through existing
+message events. See [Image display](image-display.md) and
+[ADR 0037](../decisions/0037-image-display-and-host-delivery.md).

@@ -75,6 +75,9 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
           this.options.visionObservationService ?? new VisionObservationService()
       }
     )
+    for (const sink of input.hostRenderSinks || []) {
+      sink.connectToolResultUpdates?.((toolCallId, content) => chatResponder.updateToolResult(toolCallId, content))
+    }
     const renderEventMapper = new HostRenderEventMapper()
     chatResponder.connectRenderStateSource(renderEventMapper)
     eventBus.register(

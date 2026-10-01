@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+vi.mock('@main/services/images/ImageAssetService', () => ({ imageAssetService: { read: vi.fn() } }))
 import { RUN_STATES } from '@shared/run/lifecycle-events'
 import type {
   AgentRenderMessageState,

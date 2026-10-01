@@ -60,7 +60,7 @@ const REQUEST_CONTEXT_SOURCES = new Set<string>([
 ])
 
 const REDACTED_ARGUMENT_VALUE = '[REDACTED]'
-const VISION_ANALYZE_TOOL_NAME = 'vision_analyze'
+const IMAGE_TOOL_NAMES = new Set(['image_analyze', 'image_show'])
 
 const isRequestContextRecord = (record: ContextRecord): boolean =>
   record.kind === 'user' && Boolean(record.source && REQUEST_CONTEXT_SOURCES.has(record.source))
@@ -199,7 +199,7 @@ const sanitizeVisionAnalyzeArguments = (rawArguments: string): string => {
 
 const sanitizeAssistantToolCallsForRequest = (toolCalls: IToolCall[]): IToolCall[] =>
   toolCalls.map((toolCall) => {
-    if (toolCall.function?.name !== VISION_ANALYZE_TOOL_NAME) {
+    if (!IMAGE_TOOL_NAMES.has(toolCall.function?.name || '')) {
       return toolCall
     }
 

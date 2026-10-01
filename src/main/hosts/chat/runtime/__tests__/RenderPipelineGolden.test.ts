@@ -20,6 +20,10 @@ import { RUN_TOOL_EVENTS } from '@shared/run/tool-events'
 
 const emittedEvents: Array<{ channel: string; payload: any }> = []
 
+vi.mock('@main/db/chat', () => ({
+  chatDb: { saveTelegramReceipt: vi.fn() }
+}))
+
 vi.mock('../../mapping/ChatEventMapper', () => ({
   ChatEventMapper: class {
     emitStreamPreviewUpdated = vi.fn((message: MessageEntity) => {

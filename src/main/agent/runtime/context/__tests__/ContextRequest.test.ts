@@ -169,7 +169,7 @@ describe('projectContextRequest', () => {
     ])
   })
 
-  it('redacts vision image payloads from assistant tool call replay', () => {
+  it.each(['image_analyze', 'image_show'])('redacts %s image payloads from assistant tool call replay', (toolName) => {
     const visionArguments = JSON.stringify({
       chat_uuid: 'chat-runtime',
       images: [
@@ -213,7 +213,7 @@ describe('projectContextRequest', () => {
                 id: 'call-vision',
                 type: 'function',
                 function: {
-                  name: 'vision_analyze',
+                  name: toolName,
                   arguments: visionArguments
                 }
               },
@@ -309,7 +309,7 @@ describe('projectContextRequest', () => {
                 id: 'call-vision',
                 type: 'function',
                 function: {
-                  name: 'vision_analyze',
+                  name: 'image_analyze',
                   arguments: visionArguments
                 }
               }
@@ -376,7 +376,7 @@ describe('projectContextRequest', () => {
                 id: 'call-vision',
                 type: 'function',
                 function: {
-                  name: 'vision_analyze',
+                  name: 'image_analyze',
                   arguments: JSON.stringify('data:image/png;base64,primitive-secret')
                 }
               }

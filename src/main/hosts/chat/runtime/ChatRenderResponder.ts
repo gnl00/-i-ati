@@ -76,6 +76,10 @@ export class ChatRenderResponder implements HostRenderEventSink {
     await this.handleHostRenderEvent(event)
   }
 
+  updateToolResult(toolCallId: string, content: unknown): boolean {
+    return this.output.updateToolResult(toolCallId, content)
+  }
+
   getFinalAssistantMessage(): MessageEntity {
     return this.output.getFinalAssistantMessage()
   }

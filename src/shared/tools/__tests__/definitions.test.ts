@@ -18,6 +18,16 @@ describe('tool definitions', () => {
     expect(tool?.function.parameters.properties).not.toHaveProperty('chat_uuid')
   })
 
+  it('exposes image_show with exclusive file/URL input and an optional caption', () => {
+    const tool = (tools as ToolDefinition[]).find(tool => tool.function.name === 'image_show')
+    expect(tool?.function.parameters.oneOf).toEqual([
+      { required: ['file'], not: { required: ['url'] } },
+      { required: ['url'], not: { required: ['file'] } }
+    ])
+    expect(tool?.function.parameters.properties.caption.maxLength).toBe(1024)
+    expect(tool?.function.parameters.additionalProperties).toBe(false)
+  })
+
   it('keeps tool names unique', () => {
     const toolNames = (tools as ToolDefinition[]).map(tool => tool.function.name)
 
@@ -182,7 +192,7 @@ describe('tool definitions', () => {
 
   it('supports top-level vision image arrays without requiring nested images', () => {
     const tool = (tools as ToolDefinition[])
-      .find(candidate => candidate.function.name === 'vision_analyze')
+      .find(candidate => candidate.function.name === 'image_analyze')
 
     expect(tool).toBeDefined()
     expect(tool?.function.parameters.properties.image_refs).toEqual(expect.objectContaining({
@@ -210,10 +220,11 @@ describe('tool definitions', () => {
     expect(tool?.function.parameters.additionalProperties).toBe(false)
   })
 
-  it('keeps media inspection on the vision tool contract', () => {
+  it('exposes image_analyze as the only image analysis tool name', () => {
     const names = (tools as ToolDefinition[]).map(tool => tool.function.name)
 
     expect(names).not.toContain('read_media')
-    expect(names).toContain('vision_analyze')
+    expect(names).not.toContain('vision_analyze')
+    expect(names).toContain('image_analyze')
   })
 })

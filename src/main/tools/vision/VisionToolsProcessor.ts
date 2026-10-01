@@ -189,6 +189,6 @@ export class VisionToolsProcessor {
 
 const defaultProcessor = new VisionToolsProcessor()
 
-export const processVisionAnalyze = (
+export const processImageAnalyze = (
   args: VisionAnalyzeArgs
 ): Promise<VisionAnalyzeResponse> => defaultProcessor.analyze(args)

@@ -53,7 +53,8 @@ import {
 import { processChatSetTitle } from '@main/tools/title/TitleToolsProcessor'
 import { processTodo } from '@main/tools/todo/TodoToolsProcessor'
 import { processUserInfo } from '@main/tools/userInfo/UserInfoToolsProcessor'
-import { processVisionAnalyze } from '@main/tools/vision/VisionToolsProcessor'
+import { processImageShow } from '@main/tools/image/ImageToolsProcessor'
+import { processImageAnalyze } from '@main/tools/vision/VisionToolsProcessor'
 import {
   processActivityJournalAppend,
   processActivityJournalList,
@@ -112,7 +113,8 @@ export const toolHandlers: Record<
   chat_set_title: processChatSetTitle,
   todo: processTodo,
   user_info: processUserInfo,
-  vision_analyze: processVisionAnalyze,
+  image_analyze: processImageAnalyze,
+  image_show: processImageShow,
   activity_journal_append: processActivityJournalAppend,
   activity_journal_list: processActivityJournalList,
   activity_journal_search: processActivityJournalSearch,

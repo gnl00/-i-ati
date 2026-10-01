@@ -18,6 +18,7 @@ import { schedulerService } from '@main/services/scheduler/SchedulerService'
 import { smartMessageSchedulerService } from '@main/services/smartMessages'
 import { telegramGatewayService } from '@main/services/telegram'
 import { modelsDevCacheService } from '@main/services/models/ModelsDevCacheService'
+import { imageAssetService } from '@main/services/images/ImageAssetService'
 import { emotionAssetService } from '@main/services/emotion/EmotionAssetService'
 import { knowledgebaseService } from '@main/services/knowledgebase/KnowledgebaseService'
 import { installMainConsoleCapture } from '@main/logging/console-capture'
@@ -100,6 +101,7 @@ export class MainApplication {
     initializeMainEmbeddedTools()
     mainIPCSetup()
     await emotionAssetService.registerProtocol()
+    imageAssetService.registerProtocol()
     this.startupTracer.mark('ipc.init.end')
 
     schedulerService.start()

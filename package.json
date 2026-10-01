@@ -86,6 +86,7 @@
     "framer-motion": "^12.29.0",
     "gpt-tokenizer": "^4.0.0",
     "grammy": "^1.46.0",
+    "image-size": "^2.0.4",
     "install": "^0.13.0",
     "katex": "^0.16.27",
     "lucide-react": "^0.424.0",

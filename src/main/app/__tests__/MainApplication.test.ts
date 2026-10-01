@@ -86,6 +86,7 @@ vi.mock('@main/services/knowledgebase/KnowledgebaseService', () => ({ knowledgeb
 vi.mock('@main/services/skills/SkillService', () => ({ SkillService: { initializeFromConfig: mocks.skillsInitialize } }))
 vi.mock('@main/tools', () => ({ initializeMainEmbeddedTools: mocks.initializeTools }))
 vi.mock('@main/main-ipc', () => ({ mainIPCSetup: mocks.setupIpc }))
+vi.mock('@main/services/images/ImageAssetService', () => ({ imageAssetService: { registerProtocol: vi.fn() } }))
 vi.mock('@main/services/emotion/EmotionAssetService', () => ({ emotionAssetService: { registerProtocol: mocks.registerProtocol } }))
 vi.mock('@main/services/scheduler/SchedulerService', () => ({ schedulerService: { start: mocks.schedulerStart, stop: mocks.schedulerStop } }))
 vi.mock('@main/services/smartMessages', () => ({ smartMessageSchedulerService: { start: mocks.smartSchedulerStart, stop: mocks.smartSchedulerStop } }))

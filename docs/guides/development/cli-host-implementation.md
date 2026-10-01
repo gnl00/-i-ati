@@ -88,7 +88,7 @@ pnpm cli run --instruction-file ./task.md --workspace ./workspace \
 
 CLI 默认使用桌面应用的 userData，读取同一份 provider、视觉/辅助模型、用户偏好、skills 和 MCP 配置。`--profile-dir <dir>` 可指定独立应用配置目录，验收与容器必须显式选择测试 profile。sessionData、JSONL 与终态产物保持在 output-dir；数据库和应用日志归属于选定 profile。CLI 会话保留在该 profile，供工具创建的关联数据继续使用。
 
-工具通过 Chat 的 ToolListBuilder 从中央注册表及配置的 MCP 服务生成，CLI 不再维护独立名单，ToolExecutor 沿用 Chat 的工具执行策略。包括 vision_analyze、plan、ask_user_question 等已注册能力。MCP 连接失败会明确终止初始化；模型所见名单和结果审计来自同一份有效请求。
+工具通过 Chat 的 ToolListBuilder 从中央注册表及配置的 MCP 服务生成，CLI 不再维护独立名单，ToolExecutor 沿用 Chat 的工具执行策略。包括 image_analyze、plan、ask_user_question 等已注册能力。MCP 连接失败会明确终止初始化；模型所见名单和结果审计来自同一份有效请求。
 
 `deny` 对需要确认的操作返回明确拒绝；`auto` 使用现有 permissionApprovalMode，审批决策可审计。缺少交互能力的工具调用立即返回确定结果。工具、模型请求都共享 AbortSignal。CLI 路径本身不构成操作系统 sandbox；自动审批应由外部容器/VM 提供隔离。环境内的跨目录操作沿用现有审批契约。
 
