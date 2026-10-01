@@ -5,6 +5,7 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuPortal,
   DropdownMenuRadioGroup,
   DropdownMenuSeparator,
   DropdownMenuSub,
@@ -400,59 +401,61 @@ const ThinkingLevelSubMenu: React.FC<ThinkingLevelSubMenuProps> = ({
           capability={capability}
         />
       </DropdownMenuSubTrigger>
-      <DropdownMenuSubContent
-        onEscapeKeyDown={(event) => {
-          event.preventDefault()
-          setIsOpen(false)
-          triggerRef.current?.focus()
-        }}
-        sideOffset={2}
-        alignOffset={-5}
-        {...getSubMenuCollisionProps()}
-        className={cn(
-          'w-[184px] overflow-y-auto rounded-[10px] border border-(--app-border-standard) bg-(--app-surface-raised) p-1 text-popover-foreground',
-          'shadow-xl shadow-black/10 backdrop-blur-xl',
-          'dark:border-(--chat-border-standard) dark:bg-(--chat-surface-raised) dark:text-(--chat-text-primary) dark:shadow-black/30 dark:backdrop-blur-none'
-        )}
-        style={{
-          maxWidth: 'var(--radix-dropdown-menu-content-available-width)',
-          maxHeight: 'var(--radix-dropdown-menu-content-available-height)'
-        }}
-      >
-        <DropdownMenuRadioGroup
-          aria-label="Thinking level"
-          value={selected ? levelValue : ''}
-          onValueChange={(value) => onSelect(option, value as ThinkingLevel)}
+      <DropdownMenuPortal>
+        <DropdownMenuSubContent
+          onEscapeKeyDown={(event) => {
+            event.preventDefault()
+            setIsOpen(false)
+            triggerRef.current?.focus()
+          }}
+          sideOffset={2}
+          alignOffset={-5}
+          {...getSubMenuCollisionProps()}
+          className={cn(
+            'w-[184px] overflow-y-auto rounded-[10px] border border-(--app-border-standard) bg-white/84 p-1 text-popover-foreground',
+            'shadow-[0_8px_28px_rgb(15_23_42/0.12)] backdrop-blur-[24px]',
+            'dark:border-(--chat-border-standard) dark:bg-(--chat-surface-raised) dark:text-(--chat-text-primary) dark:shadow-[0_8px_28px_rgb(0_0_0/0.36)] dark:backdrop-blur-none'
+          )}
+          style={{
+            maxWidth: 'var(--radix-dropdown-menu-content-available-width)',
+            maxHeight: 'var(--radix-dropdown-menu-content-available-height)'
+          }}
         >
-          {capability.levels.map(level => (
-            <DropdownMenuPrimitive.RadioItem
-              key={level}
-              value={level}
-              data-default={!selected && level === levelValue ? true : undefined}
-              className={cn(
-                'relative flex h-8 cursor-pointer select-none items-center gap-2 rounded-md px-2.5 text-xs font-medium text-foreground outline-hidden',
-                'transition-colors duration-150 motion-reduce:transition-none focus:bg-(--app-surface-hover) data-[state=checked]:bg-(--app-surface-hover) data-[default=true]:bg-(--app-surface-hover)',
-                'dark:text-(--chat-text-body) dark:focus:text-(--chat-text-primary) dark:data-[state=checked]:text-(--chat-text-primary)'
-              )}
-            >
-              <span className="min-w-0 flex-1 truncate">
-                {level === 'xhigh' ? 'Extra high' : level.charAt(0).toUpperCase() + level.slice(1)}
-              </span>
-              {selected ? (
-                <span className="grid size-4 shrink-0 place-items-center text-foreground dark:text-(--chat-text-primary)">
-                  <DropdownMenuPrimitive.ItemIndicator>
-                    <Check className="size-3.5" strokeWidth={2.25} />
-                  </DropdownMenuPrimitive.ItemIndicator>
+          <DropdownMenuRadioGroup
+            aria-label="Thinking level"
+            value={selected ? levelValue : ''}
+            onValueChange={(value) => onSelect(option, value as ThinkingLevel)}
+          >
+            {capability.levels.map(level => (
+              <DropdownMenuPrimitive.RadioItem
+                key={level}
+                value={level}
+                data-default={!selected && level === levelValue ? true : undefined}
+                className={cn(
+                  'relative flex h-8 cursor-pointer select-none items-center gap-2 rounded-md px-2.5 text-xs font-medium text-foreground outline-hidden',
+                  'transition-colors duration-150 motion-reduce:transition-none focus:bg-(--app-surface-hover) data-[state=checked]:bg-(--app-surface-hover) data-[default=true]:bg-(--app-surface-hover)',
+                  'dark:text-(--chat-text-body) dark:focus:text-(--chat-text-primary) dark:data-[state=checked]:text-(--chat-text-primary) dark:data-[state=checked]:bg-(--chat-surface-hover) dark:data-[default=true]:bg-(--chat-surface-hover)'
+                )}
+              >
+                <span className="min-w-0 flex-1 truncate">
+                  {level === 'xhigh' ? 'Extra high' : level.charAt(0).toUpperCase() + level.slice(1)}
                 </span>
-              ) : level === levelValue && (
-                <span className="shrink-0 text-[10px] font-normal text-muted-foreground dark:text-(--chat-text-secondary)">
-                  Default
-                </span>
-              )}
-            </DropdownMenuPrimitive.RadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuSubContent>
+                {selected ? (
+                  <span className="grid size-4 shrink-0 place-items-center text-foreground dark:text-(--chat-text-primary)">
+                    <DropdownMenuPrimitive.ItemIndicator>
+                      <Check className="size-3.5" strokeWidth={2.25} />
+                    </DropdownMenuPrimitive.ItemIndicator>
+                  </span>
+                ) : level === levelValue && (
+                  <span className="shrink-0 text-[10px] font-normal text-muted-foreground dark:text-(--chat-text-secondary)">
+                    Default
+                  </span>
+                )}
+              </DropdownMenuPrimitive.RadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuSubContent>
+      </DropdownMenuPortal>
     </DropdownMenuSub>
   )
 }
