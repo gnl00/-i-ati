@@ -12,10 +12,6 @@ import {
 import { serializeError } from '@main/utils/serializeError'
 import { ChatRenderMapper } from './ChatRenderMapper'
 import { ChatRenderOutput } from './ChatRenderOutput'
-import {
-  noopToolResultCompactionTrigger,
-  type ToolResultCompactionTrigger
-} from './ToolResultCompactionTrigger'
 import { RUN_STEERING_EVENTS } from '@shared/run/steering-events'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 import type {
@@ -38,8 +34,8 @@ const messageContentToText = (content: ChatMessage['content']): string => {
   }
 
   return content
-    .filter(part => part.type === 'text')
-    .map(part => part.text || '')
+    .filter((part) => part.type === 'text')
+    .map((part) => part.text || '')
     .join('')
 }
 
@@ -55,7 +51,6 @@ export class ChatRenderResponder implements HostRenderEventSink {
     private readonly messageEntities: MessageEntity[],
     assistantDraft: MessageEntity,
     stepStore = new ChatStepStore(),
-    toolResultCompactionTrigger: ToolResultCompactionTrigger = noopToolResultCompactionTrigger,
     private readonly signal?: AbortSignal,
     private readonly steeringObservation?: ChatRenderSteeringObservationOptions
   ) {
@@ -64,9 +59,7 @@ export class ChatRenderResponder implements HostRenderEventSink {
       messageEntities,
       assistantDraft,
       stepStore,
-      this.mapper,
-      toolResultCompactionTrigger,
-      signal
+      this.mapper
     )
     this.visionObservationService = steeringObservation?.visionObservationService
   }
@@ -109,12 +102,12 @@ export class ChatRenderResponder implements HostRenderEventSink {
     return this.output.emitPreviewReasoningPatch(state)
   }
 
-  private async handleHostRenderEvent(
-    event: HostRenderEvent
-  ): Promise<void> {
+  private async handleHostRenderEvent(event: HostRenderEvent): Promise<void> {
     switch (event.type) {
       case 'host.lifecycle.updated':
-        this.emitter.emit(RUN_LIFECYCLE_EVENTS.RUN_STATE_CHANGED, { state: event.state })
+        this.emitter.emit(RUN_LIFECYCLE_EVENTS.RUN_STATE_CHANGED, {
+          state: event.state
+        })
         return
 
       case 'host.preview.updated':
@@ -138,11 +131,13 @@ export class ChatRenderResponder implements HostRenderEventSink {
         return
 
       case 'host.committed.updated':
-        this.output.commitAssistantMessage(this.buildBody(
-          event.committed,
-          event.timestamp,
-          event.previewWasActive || this.output.getCommittedTypewriterCompleted()
-        ))
+        this.output.commitAssistantMessage(
+          this.buildBody(
+            event.committed,
+            event.timestamp,
+            event.previewWasActive || this.output.getCommittedTypewriterCompleted()
+          )
+        )
         return
 
       case 'host.tool.detected':
@@ -177,20 +172,29 @@ export class ChatRenderResponder implements HostRenderEventSink {
             toolCallId: event.result.toolCallId,
             result: resolvedContent,
             cost: event.result.cost ?? 0,
-            ...(event.result.executionStartedAt !== undefined ? {
-              executionStartedAt: event.result.executionStartedAt
-            } : {}),
-            ...(event.result.latencyCost !== undefined ? {
-              latencyCost: event.result.latencyCost
-            } : {}),
+            ...(event.result.executionStartedAt !== undefined
+              ? {
+                  executionStartedAt: event.result.executionStartedAt
+                }
+              : {}),
+            ...(event.result.latencyCost !== undefined
+              ? {
+                  latencyCost: event.result.latencyCost
+                }
+              : {}),
             ...(event.result.failure ? { failure: event.result.failure } : {})
           })
         } else if (event.result.status !== 'denied') {
           this.emitter.emit(RUN_TOOL_EVENTS.TOOL_EXECUTION_FAILED, {
             toolCallId: event.result.toolCallId,
-            error: serializeError(new Error(event.result.error?.message || (
-              event.result.status === 'aborted' ? 'Tool execution aborted' : 'Tool execution failed'
-            ))),
+            error: serializeError(
+              new Error(
+                event.result.error?.message ||
+                  (event.result.status === 'aborted'
+                    ? 'Tool execution aborted'
+                    : 'Tool execution failed')
+              )
+            ),
             ...(event.result.failure ? { failure: event.result.failure } : {})
           })
         }
@@ -219,9 +223,9 @@ export class ChatRenderResponder implements HostRenderEventSink {
     userMessage: MessageEntity
   ): Promise<void> {
     if (
-      message.imageUrls.length === 0
-      || !this.steeringObservation
-      || !this.visionObservationService
+      message.imageUrls.length === 0 ||
+      !this.steeringObservation ||
+      !this.visionObservationService
     ) {
       return
     }
@@ -237,10 +241,12 @@ export class ChatRenderResponder implements HostRenderEventSink {
       this.messageEntities.push(observation)
       this.steeringContextByQueueItemId.set(message.queueItemId, {
         source: observation.body.source ?? MESSAGE_SOURCE.VISION_OBSERVATION,
-        content: [{
-          type: 'input_text',
-          text: messageContentToText(observation.body.content)
-        }]
+        content: [
+          {
+            type: 'input_text',
+            text: messageContentToText(observation.body.content)
+          }
+        ]
       })
     } catch (error) {
       logger.warn('steering.vision_observation.failed', {

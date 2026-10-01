@@ -228,11 +228,6 @@ function createWebFetchContext(
   inlineMaxCharacters: number
 ): WebFetchContext {
   const artifactService = new WorkspaceWebFetchArtifactService(chatUuid)
-  void artifactService.cleanupStalePartFiles().catch((error) => {
-    logger.warn('web_fetch.partial.cleanup_failed', {
-      message: error instanceof Error ? error.message : String(error)
-    })
-  })
   return {
     artifactService,
     materializer: new WebFetchContentMaterializer(artifactService),

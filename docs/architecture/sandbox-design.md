@@ -126,7 +126,7 @@ group-only `ESRCH` 路径、spawn 失败、命令响应元数据和 compactor �
 pnpm exec vitest run \
   src/main/services/command/__tests__/CommandProcessRunner.test.ts \
   src/main/tools/command/__tests__/CommandProcessor.test.ts \
-  src/main/orchestration/chat/toolResultCompaction/__tests__/ExecuteCommandResultCompactor.test.ts
+  src/main/agent/runtime/tools/result-normalization/__tests__/ToolResultNormalizer.test.ts
 pnpm run typecheck:node
 pnpm run check:main-boundaries
 pnpm run check:main-doc-paths

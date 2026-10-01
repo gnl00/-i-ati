@@ -11,12 +11,6 @@ export const webToolMetadata = {
     capability: 'web',
     riskLevel: 'none',
     mutatesWorkspace: false,
-    subagent: 'allow',
-    resultCompaction: {
-      enabled: true,
-      level: 'balanced',
-      compactorId: 'web-document',
-      modelInputPolicy: 'redact-secrets'
-    }
+    subagent: 'allow'
   }
 } satisfies EmbeddedToolMetadataMap

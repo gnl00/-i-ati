@@ -5,7 +5,7 @@ export const webTools = [
     type: 'function',
     function: {
       name: 'web_search',
-      description: 'Perform a web search and return relevant results or summaries. Large text and fetched files are saved as workspace artifacts with sourcePath, MIME, and a bounded readPath note. Inspect source files with a suitable workspace file-reading tool.',
+      description: 'Perform a web search and return relevant results or summaries. Large text and fetched files are saved directly to .tmp/web-fetch/*.tmp with a file path, MIME, and a bounded summary. Inspect source files with a suitable workspace file-reading tool.',
       parameters: {
         type: 'object',
         properties: {
@@ -32,7 +32,7 @@ export const webTools = [
     type: 'function',
     function: {
       name: 'web_fetch',
-      description: 'Fetch content from a specified URL. Small text is returned inline. Large text and fetched files are saved as workspace artifacts with sourcePath, MIME, and a bounded readPath note. Inspect source files with a suitable workspace file-reading tool.',
+      description: 'Fetch content from a specified URL. Small text is returned inline. Large text and fetched files are saved directly to .tmp/web-fetch/*.tmp with a file path, MIME, and a bounded summary. Inspect source files with a suitable workspace file-reading tool.',
       parameters: {
         type: 'object',
         properties: {

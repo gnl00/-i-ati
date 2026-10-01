@@ -9,9 +9,7 @@ import { DefaultMainAgentRuntimeRunner } from '../DefaultMainAgentRuntimeRunner'
 import type { AgentEvent } from '@main/agent/runtime/events/AgentEvent'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 
-const noopToolResultCompactionTrigger = {
-  schedule: vi.fn()
-}
+vi.mock('electron', () => ({ app: { getPath: (): string => '/tmp/ati-test-user-data' } }))
 
 vi.mock('@main/logging/LogService', () => ({
   createLogger: vi.fn(() => ({
@@ -48,9 +46,9 @@ vi.mock('@main/db/DatabaseService', () => ({
     updateMessage: vi.fn(),
     updateChat: vi.fn(),
     saveRunEvent: vi.fn(),
-    transitionEmotionState: vi.fn((
-      transition: (previous: EmotionStateSnapshot | undefined) => unknown
-    ) => transition(undefined))
+    transitionEmotionState: vi.fn(
+      (transition: (previous: EmotionStateSnapshot | undefined) => unknown) => transition(undefined)
+    )
   }
 }))
 
@@ -73,7 +71,14 @@ vi.mock('@main/agent/tools', () => ({
       toolExecutorOptionsMock(options)
     }
 
-    async execute(calls: Array<{ id: string; index?: number; function: string; args: string }>) {
+    async execute(
+      calls: Array<{
+        id: string
+        index?: number
+        function: string
+        args: string
+      }>
+    ) {
       const overrideResult = await executeMock(calls, this.options)
       if (Array.isArray(overrideResult)) {
         return overrideResult
@@ -84,19 +89,21 @@ vi.mock('@main/agent/tools', () => ({
         name: call.function,
         phase: 'started'
       })
-      return [{
-        id: call.id || 'tool-1',
-        index: call.index ?? 0,
-        name: call.function,
-        content: { ok: true },
-        cost: 1,
-        status: 'success' as const
-      }]
+      return [
+        {
+          id: call.id || 'tool-1',
+          index: call.index ?? 0,
+          name: call.function,
+          content: { ok: true },
+          cost: 1,
+          status: 'success' as const
+        }
+      ]
     }
   }
 }))
 
-const createAsyncStream = async function *(
+const createAsyncStream = async function* (
   chunks: ModelResponseChunk[]
 ): AsyncGenerator<ModelResponseChunk, void, unknown> {
   for (const chunk of chunks) {
@@ -197,26 +204,29 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     notificationHandle: ReturnType<typeof vi.fn>
   }> {
     const notificationHandle = vi.fn<(event: AgentEvent) => void>()
-    const notificationSinkFactory = vi.fn(() => ({ handle: notificationHandle }))
+    const notificationSinkFactory = vi.fn(() => ({
+      handle: notificationHandle
+    }))
     const modelStreamExecutor: ModelStreamExecutor = {
-      execute: vi.fn(async () => createAsyncStream([
-        {
-          kind: 'delta',
-          responseId: 'notification-response',
-          model: 'model-1',
-          content: 'Scheduled work completed',
-          finishReason: 'stop'
-        },
-        {
-          kind: 'final',
-          responseId: 'notification-response',
-          model: 'model-1'
-        }
-      ]))
+      execute: vi.fn(async () =>
+        createAsyncStream([
+          {
+            kind: 'delta',
+            responseId: 'notification-response',
+            model: 'model-1',
+            content: 'Scheduled work completed',
+            finishReason: 'stop'
+          },
+          {
+            kind: 'final',
+            responseId: 'notification-response',
+            model: 'model-1'
+          }
+        ])
+      )
     }
     const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
       modelStreamExecutor,
-      toolResultCompactionTrigger: noopToolResultCompactionTrigger,
       notificationSinkFactory
     })
 
@@ -304,7 +314,8 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
       body: {
         role: 'user',
         source: MESSAGE_SOURCE.VISION_OBSERVATION,
-        content: '<vision_observation image_ref="message:301" status="ok">Summary: queue UI</vision_observation>',
+        content:
+          '<vision_observation image_ref="message:301" status="ok">Summary: queue UI</vision_observation>',
         segments: []
       }
     }
@@ -313,10 +324,10 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     }
     const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
       modelStreamExecutor,
-      toolResultCompactionTrigger: noopToolResultCompactionTrigger,
       visionObservationService
     })
-    const takeSteeringMessage = vi.fn()
+    const takeSteeringMessage = vi
+      .fn()
       .mockReturnValueOnce({
         queueItemId: 'queue-image',
         text: 'Follow this screenshot',
@@ -380,13 +391,15 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     expect(serializedRequest).toContain('Summary: queue UI')
     expect(serializedRequest).not.toContain(rawImage)
     expect(serializedRequest).not.toContain('input_image')
-    expect(visionObservationService.observe).toHaveBeenCalledWith(expect.objectContaining({
-      textCtx: 'Follow this screenshot',
-      mediaCtx: [rawImage],
-      userMessage: expect.objectContaining({
-        body: expect.objectContaining({ role: 'user' })
+    expect(visionObservationService.observe).toHaveBeenCalledWith(
+      expect.objectContaining({
+        textCtx: 'Follow this screenshot',
+        mediaCtx: [rawImage],
+        userMessage: expect.objectContaining({
+          body: expect.objectContaining({ role: 'user' })
+        })
       })
-    }))
+    )
     expect(acknowledgeSteeringMessage).toHaveBeenCalledWith('queue-image')
     expect(
       saveMessageMock.mock.calls.filter(([message]) => message.body.role === 'user')
@@ -398,7 +411,7 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     let continuationToolContent: unknown
     const modelStreamExecutor: ModelStreamExecutor = {
       execute: vi.fn(async ({ request }) => {
-        const toolMessage = request.messages.find(message => message.role === 'tool')
+        const toolMessage = request.messages.find((message) => message.role === 'tool')
         if (toolMessage) {
           continuationToolContent = toolMessage.content
           return createAsyncStream([
@@ -422,18 +435,20 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
             kind: 'delta',
             responseId: 'resp-1',
             model: 'model-1',
-            toolCalls: [{
-              argumentsMode: 'snapshot',
-              toolCall: {
-                id: 'tool-raw',
-                index: 0,
-                type: 'function',
-                function: {
-                  name: 'web_fetch',
-                  arguments: '{"url":"https://example.com"}'
+            toolCalls: [
+              {
+                argumentsMode: 'snapshot',
+                toolCall: {
+                  id: 'tool-raw',
+                  index: 0,
+                  type: 'function',
+                  function: {
+                    name: 'web_fetch',
+                    arguments: '{"url":"https://example.com"}'
+                  }
                 }
               }
-            }],
+            ],
             finishReason: 'tool_calls'
           },
           {
@@ -444,20 +459,18 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
         ])
       })
     }
-    executeMock.mockResolvedValueOnce([{
-      id: 'tool-raw',
-      index: 0,
-      name: 'web_fetch',
-      content: rawContent,
-      cost: 1,
-      status: 'success'
-    }])
-    const compactionTrigger = {
-      schedule: vi.fn(() => new Promise(() => {}))
-    }
+    executeMock.mockResolvedValueOnce([
+      {
+        id: 'tool-raw',
+        index: 0,
+        name: 'web_fetch',
+        content: rawContent,
+        cost: 1,
+        status: 'success'
+      }
+    ])
     const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
-      modelStreamExecutor,
-      toolResultCompactionTrigger: compactionTrigger
+      modelStreamExecutor
     })
 
     await runner.run({
@@ -474,98 +487,105 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     })
 
     expect(continuationToolContent).toBe(rawContent)
-    expect(compactionTrigger.schedule).toHaveBeenCalledWith(expect.objectContaining({
-      rawContent
-    }))
   })
 
-  it.each([undefined, 'tui', 'telegram'])('passes approval policy and host question capability (%s)', async (source) => {
-    const modelStreamExecutor: ModelStreamExecutor = {
-      execute: vi.fn(async ({ request }) => {
-        if (request.messages.some(message => message.role === 'tool')) {
+  it.each([undefined, 'tui', 'telegram'])(
+    'passes approval policy and host question capability (%s)',
+    async (source) => {
+      const modelStreamExecutor: ModelStreamExecutor = {
+        execute: vi.fn(async ({ request }) => {
+          if (request.messages.some((message) => message.role === 'tool')) {
+            return createAsyncStream([
+              {
+                kind: 'delta',
+                responseId: 'resp-2',
+                model: 'model-1',
+                content: 'Done',
+                finishReason: 'stop'
+              },
+              {
+                kind: 'final',
+                responseId: 'resp-2',
+                model: 'model-1'
+              }
+            ])
+          }
+
           return createAsyncStream([
             {
               kind: 'delta',
-              responseId: 'resp-2',
+              responseId: 'resp-1',
               model: 'model-1',
-              content: 'Done',
-              finishReason: 'stop'
+              toolCalls: [
+                {
+                  argumentsMode: 'snapshot',
+                  toolCall: {
+                    id: 'tool-1',
+                    index: 0,
+                    type: 'function',
+                    function: {
+                      name: 'read',
+                      arguments: '{"path":"README.md"}'
+                    }
+                  }
+                }
+              ],
+              finishReason: 'tool_calls'
             },
             {
               kind: 'final',
-              responseId: 'resp-2',
+              responseId: 'resp-1',
               model: 'model-1'
             }
           ])
-        }
-
-        return createAsyncStream([
-          {
-            kind: 'delta',
-            responseId: 'resp-1',
-            model: 'model-1',
-            toolCalls: [{
-              argumentsMode: 'snapshot',
-              toolCall: {
-                id: 'tool-1',
-                index: 0,
-                type: 'function',
-                function: {
-                  name: 'read',
-                  arguments: '{"path":"README.md"}'
-                }
-              }
-            }],
-            finishReason: 'tool_calls'
-          },
-          {
-            kind: 'final',
-            responseId: 'resp-1',
-            model: 'model-1'
-          }
-        ])
+        })
+      }
+      const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
+        modelStreamExecutor
       })
-    }
-    const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
-      modelStreamExecutor,
-      toolResultCompactionTrigger: noopToolResultCompactionTrigger
-    })
 
-    await runner.run({
-      runInput: {
-        ...input,
-        input: {
-          ...input.input,
-          permissionApprovalMode: 'auto',
-          source
+      await runner.run({
+        runInput: {
+          ...input,
+          input: {
+            ...input.input,
+            permissionApprovalMode: 'auto',
+            source
+          }
+        },
+        prepared,
+        emitter: {
+          emit: vi.fn(),
+          setChatMeta: vi.fn()
+        } as any,
+        signal: new AbortController().signal,
+        toolQuestionRequester: {
+          request: vi.fn(async () => ({ status: 'cancelled' as const }))
+        },
+        toolConfirmationRequester: {
+          request: vi.fn(async () => ({ approved: true }))
         }
-      },
-      prepared,
-      emitter: {
-        emit: vi.fn(),
-        setChatMeta: vi.fn()
-      } as any,
-      signal: new AbortController().signal,
-      toolQuestionRequester: { request: vi.fn(async () => ({ status: 'cancelled' as const })) },
-      toolConfirmationRequester: {
-        request: vi.fn(async () => ({ approved: true }))
-      }
-    })
+      })
 
-    const options = toolExecutorOptionsMock.mock.calls[0][0]
-    expect(typeof options.requestUserQuestion).toBe(source === 'telegram' ? 'undefined' : 'function')
-    expect(toolExecutorOptionsMock).toHaveBeenCalledWith(expect.objectContaining({
-      approvalPolicy: {
-        mode: 'strict',
-        permissionApprovalMode: 'auto'
-      }
-    }))
-  })
+      const options = toolExecutorOptionsMock.mock.calls[0][0]
+      expect(typeof options.requestUserQuestion).toBe(
+        source === 'telegram' ? 'undefined' : 'function'
+      )
+      expect(toolExecutorOptionsMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          approvalPolicy: {
+            mode: 'strict',
+            permissionApprovalMode: 'auto'
+          }
+        })
+      )
+    }
+  )
 
   it('falls back to prepared chat permission approval mode when submit input omits it', async () => {
     const modelStreamExecutor: ModelStreamExecutor = {
       execute: vi.fn(async ({ request }) => {
-        if (request.messages.some(message => message.role === 'tool')) {
+        if (request.messages.some((message) => message.role === 'tool')) {
           return createAsyncStream([
             {
               kind: 'delta',
@@ -587,18 +607,20 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
             kind: 'delta',
             responseId: 'resp-1',
             model: 'model-1',
-            toolCalls: [{
-              argumentsMode: 'snapshot',
-              toolCall: {
-                id: 'tool-1',
-                index: 0,
-                type: 'function',
-                function: {
-                  name: 'read',
-                  arguments: '{"path":"README.md"}'
+            toolCalls: [
+              {
+                argumentsMode: 'snapshot',
+                toolCall: {
+                  id: 'tool-1',
+                  index: 0,
+                  type: 'function',
+                  function: {
+                    name: 'read',
+                    arguments: '{"path":"README.md"}'
+                  }
                 }
               }
-            }],
+            ],
             finishReason: 'tool_calls'
           },
           {
@@ -610,8 +632,7 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
       })
     }
     const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
-      modelStreamExecutor,
-      toolResultCompactionTrigger: noopToolResultCompactionTrigger
+      modelStreamExecutor
     })
     const localPrepared = {
       ...prepared,
@@ -637,12 +658,14 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
       }
     })
 
-    expect(toolExecutorOptionsMock).toHaveBeenCalledWith(expect.objectContaining({
-      approvalPolicy: {
-        mode: 'strict',
-        permissionApprovalMode: 'auto'
-      }
-    }))
+    expect(toolExecutorOptionsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        approvalPolicy: {
+          mode: 'strict',
+          permissionApprovalMode: 'auto'
+        }
+      })
+    )
   })
 
   it('reads updated runtime permission approval mode for each tool batch', async () => {
@@ -656,18 +679,20 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
               kind: 'delta',
               responseId: 'resp-1',
               model: 'model-1',
-              toolCalls: [{
-                argumentsMode: 'snapshot',
-                toolCall: {
-                  id: 'tool-1',
-                  index: 0,
-                  type: 'function',
-                  function: {
-                    name: 'read',
-                    arguments: '{"path":"README.md"}'
+              toolCalls: [
+                {
+                  argumentsMode: 'snapshot',
+                  toolCall: {
+                    id: 'tool-1',
+                    index: 0,
+                    type: 'function',
+                    function: {
+                      name: 'read',
+                      arguments: '{"path":"README.md"}'
+                    }
                   }
                 }
-              }],
+              ],
               finishReason: 'tool_calls'
             },
             {
@@ -684,18 +709,20 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
               kind: 'delta',
               responseId: 'resp-2',
               model: 'model-1',
-              toolCalls: [{
-                argumentsMode: 'snapshot',
-                toolCall: {
-                  id: 'tool-2',
-                  index: 0,
-                  type: 'function',
-                  function: {
-                    name: 'read',
-                    arguments: '{"path":"package.json"}'
+              toolCalls: [
+                {
+                  argumentsMode: 'snapshot',
+                  toolCall: {
+                    id: 'tool-2',
+                    index: 0,
+                    type: 'function',
+                    function: {
+                      name: 'read',
+                      arguments: '{"path":"package.json"}'
+                    }
                   }
                 }
-              }],
+              ],
               finishReason: 'tool_calls'
             },
             {
@@ -733,8 +760,7 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
       runtimeContext.setPermissionApprovalMode('auto')
     })
     const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
-      modelStreamExecutor,
-      toolResultCompactionTrigger: noopToolResultCompactionTrigger
+      modelStreamExecutor
     })
 
     await runner.run({
@@ -751,25 +777,31 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
       }
     })
 
-    expect(toolExecutorOptionsMock).toHaveBeenNthCalledWith(1, expect.objectContaining({
-      approvalPolicy: {
-        mode: 'strict',
-        permissionApprovalMode: 'manual'
-      }
-    }))
-    expect(toolExecutorOptionsMock).toHaveBeenNthCalledWith(2, expect.objectContaining({
-      approvalPolicy: {
-        mode: 'strict',
-        permissionApprovalMode: 'auto'
-      }
-    }))
+    expect(toolExecutorOptionsMock).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        approvalPolicy: {
+          mode: 'strict',
+          permissionApprovalMode: 'manual'
+        }
+      })
+    )
+    expect(toolExecutorOptionsMock).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        approvalPolicy: {
+          mode: 'strict',
+          permissionApprovalMode: 'auto'
+        }
+      })
+    )
   })
 
   it('forwards ToolExecutor started progress after tool confirmation resolves', async () => {
     const events: string[] = []
     const modelStreamExecutor: ModelStreamExecutor = {
       execute: vi.fn(async ({ request }) => {
-        if (request.messages.some(message => message.role === 'tool')) {
+        if (request.messages.some((message) => message.role === 'tool')) {
           return createAsyncStream([
             {
               kind: 'delta',
@@ -791,18 +823,20 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
             kind: 'delta',
             responseId: 'resp-1',
             model: 'model-1',
-            toolCalls: [{
-              argumentsMode: 'snapshot',
-              toolCall: {
-                id: 'tool-1',
-                index: 0,
-                type: 'function',
-                function: {
-                  name: 'exec',
-                  arguments: '{"command":"echo approved"}'
+            toolCalls: [
+              {
+                argumentsMode: 'snapshot',
+                toolCall: {
+                  id: 'tool-1',
+                  index: 0,
+                  type: 'function',
+                  function: {
+                    name: 'exec',
+                    arguments: '{"command":"echo approved"}'
+                  }
                 }
               }
-            }],
+            ],
             finishReason: 'tool_calls'
           },
           {
@@ -813,31 +847,40 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
         ])
       })
     }
-    executeMock.mockImplementationOnce(async (
-      calls: Array<{ id: string; index?: number; function: string; args: string }>,
-      options: any
-    ) => {
-      const call = calls[0]
-      events.push('execute_tool_calls')
-      await options.requestConfirmation?.({
-        toolCallId: call.id,
-        name: call.function,
-        args: JSON.parse(call.args)
-      })
-      options.onProgress?.({
-        id: call.id,
-        name: call.function,
-        phase: 'started'
-      })
-      return [{
-        id: call.id,
-        index: call.index ?? 0,
-        name: call.function,
-        content: { ok: true },
-        cost: 1,
-        status: 'success' as const
-      }]
-    })
+    executeMock.mockImplementationOnce(
+      async (
+        calls: Array<{
+          id: string
+          index?: number
+          function: string
+          args: string
+        }>,
+        options: any
+      ) => {
+        const call = calls[0]
+        events.push('execute_tool_calls')
+        await options.requestConfirmation?.({
+          toolCallId: call.id,
+          name: call.function,
+          args: JSON.parse(call.args)
+        })
+        options.onProgress?.({
+          id: call.id,
+          name: call.function,
+          phase: 'started'
+        })
+        return [
+          {
+            id: call.id,
+            index: call.index ?? 0,
+            name: call.function,
+            content: { ok: true },
+            cost: 1,
+            status: 'success' as const
+          }
+        ]
+      }
+    )
     const hostSink = {
       handle: vi.fn(async (event: any) => {
         if (event.type === 'host.tool.execution.started') {
@@ -852,8 +895,7 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
       })
     }
     const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
-      modelStreamExecutor,
-      toolResultCompactionTrigger: noopToolResultCompactionTrigger
+      modelStreamExecutor
     })
 
     await runner.run({
@@ -869,16 +911,14 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     })
 
     expect(toolConfirmationRequester.request).toHaveBeenCalledTimes(1)
-    expect(hostSink.handle).toHaveBeenCalledWith(expect.objectContaining({
-      type: 'host.tool.execution.started',
-      toolCallId: 'tool-1',
-      toolName: 'exec'
-    }))
-    expect(events).toEqual([
-      'execute_tool_calls',
-      'confirmation_required',
-      'started'
-    ])
+    expect(hostSink.handle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'host.tool.execution.started',
+        toolCallId: 'tool-1',
+        toolName: 'exec'
+      })
+    )
+    expect(events).toEqual(['execute_tool_calls', 'confirmation_required', 'started'])
   })
 
   it('builds executable unified request messages from prepared transcript seed', async () => {
@@ -898,7 +938,8 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
           },
           {
             kind: 'user',
-            content: '<system-environment>{"workspacePath":"./workspaces/chat-1"}</system-environment>'
+            content:
+              '<system-environment>{"workspacePath":"./workspaces/chat-1"}</system-environment>'
           },
           {
             kind: 'user',
@@ -908,28 +949,29 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
       }
     } as any
     const modelStreamExecutor: ModelStreamExecutor = {
-      execute: vi.fn(async () => createAsyncStream([
-        {
-          kind: 'delta',
-          responseId: 'resp-1',
-          model: 'model-1',
-          content: 'Done',
-          finishReason: 'stop'
-        },
-        {
-          kind: 'final',
-          responseId: 'resp-1',
-          model: 'model-1'
-        }
-      ]))
+      execute: vi.fn(async () =>
+        createAsyncStream([
+          {
+            kind: 'delta',
+            responseId: 'resp-1',
+            model: 'model-1',
+            content: 'Done',
+            finishReason: 'stop'
+          },
+          {
+            kind: 'final',
+            responseId: 'resp-1',
+            model: 'model-1'
+          }
+        ])
+      )
     }
     const emitter = {
       emit: vi.fn(),
       setChatMeta: vi.fn()
     } as any
     const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
-      modelStreamExecutor,
-      toolResultCompactionTrigger: noopToolResultCompactionTrigger
+      modelStreamExecutor
     })
 
     await runner.run({
@@ -944,34 +986,37 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
 
     expect(modelStreamExecutor.execute).toHaveBeenCalledTimes(1)
     const request = vi.mocked(modelStreamExecutor.execute).mock.calls[0][0].request
-    expect(request).toEqual(expect.objectContaining({
-      adapterPluginId: 'openai-chat-compatible-adapter',
-      baseUrl: 'https://example.com',
-      apiKey: 'key',
-      model: 'model-1',
-      modelType: 'llm',
-      systemPrompt: 'system prompt',
-      stream: true,
-      options: { maxTokens: 42 }
-    }))
+    expect(request).toEqual(
+      expect.objectContaining({
+        adapterPluginId: 'openai-chat-compatible-adapter',
+        baseUrl: 'https://example.com',
+        apiKey: 'key',
+        model: 'model-1',
+        modelType: 'llm',
+        systemPrompt: 'system prompt',
+        stream: true,
+        options: { maxTokens: 42 }
+      })
+    )
     expect(request).not.toHaveProperty('userInstruction')
     expect(request.tools).toEqual([{ type: 'function', function: { name: 'read' } }])
 
-    const contextIndex = request.messages.findIndex(message => (
-      message.role === 'user'
-      && typeof message.content === 'string'
-      && message.content.startsWith('<system-environment>')
-    ))
-    const userInstructionIndex = request.messages.findIndex(message => (
-      message.role === 'user'
-      && typeof message.content === 'string'
-      && message.content.includes('<user_instruction>')
-      && message.content.includes('Be precise.')
-    ))
-    const currentUserIndex = request.messages.findIndex(message => (
-      message.role === 'user'
-      && message.content === 'hello'
-    ))
+    const contextIndex = request.messages.findIndex(
+      (message) =>
+        message.role === 'user' &&
+        typeof message.content === 'string' &&
+        message.content.startsWith('<system-environment>')
+    )
+    const userInstructionIndex = request.messages.findIndex(
+      (message) =>
+        message.role === 'user' &&
+        typeof message.content === 'string' &&
+        message.content.includes('<user_instruction>') &&
+        message.content.includes('Be precise.')
+    )
+    const currentUserIndex = request.messages.findIndex(
+      (message) => message.role === 'user' && message.content === 'hello'
+    )
 
     expect(contextIndex).toBeGreaterThan(-1)
     expect(userInstructionIndex).toBeGreaterThan(-1)
@@ -986,7 +1031,7 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
   it('keeps assistant text visible for a completed step that also contains tool calls', async () => {
     const modelStreamExecutor: ModelStreamExecutor = {
       execute: vi.fn(async ({ request }) => {
-        if (request.messages.some(message => message.role === 'tool')) {
+        if (request.messages.some((message) => message.role === 'tool')) {
           return createAsyncStream([
             {
               kind: 'delta',
@@ -1009,18 +1054,20 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
             responseId: 'resp-1',
             model: 'model-1',
             content: 'Let me inspect that first.',
-            toolCalls: [{
-              argumentsMode: 'snapshot',
-              toolCall: {
-                id: 'tool-1',
-                index: 0,
-                type: 'function',
-                function: {
-                  name: 'read',
-                  arguments: '{"path":"README.md"}'
+            toolCalls: [
+              {
+                argumentsMode: 'snapshot',
+                toolCall: {
+                  id: 'tool-1',
+                  index: 0,
+                  type: 'function',
+                  function: {
+                    name: 'read',
+                    arguments: '{"path":"README.md"}'
+                  }
                 }
               }
-            }],
+            ],
             finishReason: 'tool_calls'
           },
           {
@@ -1038,8 +1085,7 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     } as any
 
     const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
-      modelStreamExecutor,
-      toolResultCompactionTrigger: noopToolResultCompactionTrigger
+      modelStreamExecutor
     })
 
     const result = await runner.run({
@@ -1058,51 +1104,56 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     )
     const textSegments = result.stepCommitter
       .getFinalAssistantMessage()
-      .body.segments
-      .filter((segment): segment is TextSegment => segment.type === 'text')
-    expect(textSegments.map(segment => segment.content)).toEqual([
+      .body.segments.filter((segment): segment is TextSegment => segment.type === 'text')
+    expect(textSegments.map((segment) => segment.content)).toEqual([
       'Let me inspect that first.',
       'Done after tool'
     ])
     expect(
-      emitter.emit.mock.calls.some(([type, payload]) => (
-        type === CHAT_RENDER_EVENTS.PREVIEW_UPDATED
-        && payload?.message?.body?.source === 'stream_preview'
-        && payload?.message?.body?.segments?.some?.((segment: MessageSegment) => (
-          segment.type === 'text' && segment.content === 'Let me inspect that first.'
-        ))
-      ))
+      emitter.emit.mock.calls.some(
+        ([type, payload]) =>
+          type === CHAT_RENDER_EVENTS.PREVIEW_UPDATED &&
+          payload?.message?.body?.source === 'stream_preview' &&
+          payload?.message?.body?.segments?.some?.(
+            (segment: MessageSegment) =>
+              segment.type === 'text' && segment.content === 'Let me inspect that first.'
+          )
+      )
     ).toBe(true)
   })
 
   it('forwards unified host render events to injected host sinks', async () => {
     const modelStreamExecutor: ModelStreamExecutor = {
-      execute: vi.fn(async () => createAsyncStream([
-        {
-          kind: 'delta',
-          responseId: 'resp-1',
-          model: 'model-1',
-          content: 'Thinking',
-          toolCalls: [{
-            argumentsMode: 'snapshot',
-            toolCall: {
-              id: 'tool-1',
-              index: 0,
-              type: 'function',
-              function: {
-                name: 'read',
-                arguments: '{"path":"README.md"}'
+      execute: vi.fn(async () =>
+        createAsyncStream([
+          {
+            kind: 'delta',
+            responseId: 'resp-1',
+            model: 'model-1',
+            content: 'Thinking',
+            toolCalls: [
+              {
+                argumentsMode: 'snapshot',
+                toolCall: {
+                  id: 'tool-1',
+                  index: 0,
+                  type: 'function',
+                  function: {
+                    name: 'read',
+                    arguments: '{"path":"README.md"}'
+                  }
+                }
               }
-            }
-          }],
-          finishReason: 'tool_calls'
-        },
-        {
-          kind: 'final',
-          responseId: 'resp-1',
-          model: 'model-1'
-        }
-      ]))
+            ],
+            finishReason: 'tool_calls'
+          },
+          {
+            kind: 'final',
+            responseId: 'resp-1',
+            model: 'model-1'
+          }
+        ])
+      )
     }
     const emitter = {
       emit: vi.fn(),
@@ -1112,8 +1163,7 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
       handle: vi.fn(async () => undefined)
     }
     const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
-      modelStreamExecutor,
-      toolResultCompactionTrigger: noopToolResultCompactionTrigger
+      modelStreamExecutor
     })
 
     await runner.run({
@@ -1127,30 +1177,39 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
       }
     })
 
-    expect(hostSink.handle).toHaveBeenCalledWith(expect.objectContaining({
-      type: 'host.tool.detected',
-      toolCallId: 'tool-1'
-    }))
-    expect(hostSink.handle).toHaveBeenCalledWith(expect.objectContaining({
-      type: 'host.preview.updated'
-    }))
+    expect(hostSink.handle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'host.tool.detected',
+        toolCallId: 'tool-1'
+      })
+    )
+    expect(hostSink.handle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'host.preview.updated'
+      })
+    )
   })
 
   it('injects hidden loaded skills context before continuing after load_skill', async () => {
     vi.mocked(DatabaseService.getSkills).mockReturnValue(['frontend-design'])
-    vi.mocked(SkillService.listSkills).mockResolvedValue([{
-      name: 'frontend-design',
-      path: '/skills/frontend-design/SKILL.md'
-    } as any])
+    vi.mocked(SkillService.listSkills).mockResolvedValue([
+      {
+        name: 'frontend-design',
+        path: '/skills/frontend-design/SKILL.md'
+      } as any
+    ])
     vi.mocked(SkillService.getSkillContent).mockResolvedValue('Use frontend workflow.')
 
     const modelStreamExecutor: ModelStreamExecutor = {
       execute: vi.fn(async ({ request }) => {
-        if (request.messages.some(message => (
-          message.role === 'user'
-          && typeof message.content === 'string'
-          && message.content.includes('<loaded_skills_context>')
-        ))) {
+        if (
+          request.messages.some(
+            (message) =>
+              message.role === 'user' &&
+              typeof message.content === 'string' &&
+              message.content.includes('<loaded_skills_context>')
+          )
+        ) {
           return createAsyncStream([
             {
               kind: 'delta',
@@ -1172,18 +1231,20 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
             kind: 'delta',
             responseId: 'resp-1',
             model: 'model-1',
-            toolCalls: [{
-              argumentsMode: 'snapshot',
-              toolCall: {
-                id: 'skill-tool-1',
-                index: 0,
-                type: 'function',
-                function: {
-                  name: 'load_skill',
-                  arguments: '{"name":"frontend-design"}'
+            toolCalls: [
+              {
+                argumentsMode: 'snapshot',
+                toolCall: {
+                  id: 'skill-tool-1',
+                  index: 0,
+                  type: 'function',
+                  function: {
+                    name: 'load_skill',
+                    arguments: '{"name":"frontend-design"}'
+                  }
                 }
               }
-            }],
+            ],
             finishReason: 'tool_calls'
           },
           {
@@ -1199,8 +1260,7 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
       setChatMeta: vi.fn()
     } as any
     const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
-      modelStreamExecutor,
-      toolResultCompactionTrigger: noopToolResultCompactionTrigger
+      modelStreamExecutor
     })
 
     const result = await runner.run({
@@ -1216,11 +1276,12 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     expect(result.runtimeResult.state).toBe('completed')
     expect(modelStreamExecutor.execute).toHaveBeenCalledTimes(2)
     const secondRequest = vi.mocked(modelStreamExecutor.execute).mock.calls[1][0].request
-    const contextMessage = secondRequest.messages.find(message => (
-      message.role === 'user'
-      && typeof message.content === 'string'
-      && message.content.includes('<loaded_skills_context>')
-    ))
+    const contextMessage = secondRequest.messages.find(
+      (message) =>
+        message.role === 'user' &&
+        typeof message.content === 'string' &&
+        message.content.includes('<loaded_skills_context>')
+    )
     expect(contextMessage?.content).toContain(
       '<skill name="frontend-design" path="/skills/frontend-design/SKILL.md" />'
     )
@@ -1228,7 +1289,7 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
       'Read the full skill file before applying a loaded skill.'
     )
     expect(contextMessage?.content).not.toContain('Use frontend workflow.')
-    const toolMessage = secondRequest.messages.find(message => message.role === 'tool')
+    const toolMessage = secondRequest.messages.find((message) => message.role === 'tool')
     expect(toolMessage?.content).not.toContain('Use frontend workflow.')
   })
 })

@@ -27,29 +27,15 @@ For executable embedded tools:
   `true` preserves injection from the runtime chat UUID. The executor removes
   model-supplied `chat_uuid` when injection is disabled or no runtime chat exists.
   `context.chatUuid` remains available separately; MCP arguments are unchanged.
-- Declare `resultCompaction` in metadata when the tool result requires persisted
-  cold-replay compaction. Set `enabled`, `level`, `compactorId`, and the
-  `modelInputPolicy`; register the matching compactor in the main-process
-  tool-result compactor registry.
-- Keep model selection inside `CompactAgent` and domain extraction instructions
-  inside the compactor implementation. Semantic profiles can use the reusable
-  agent; deterministic compaction remains available as a bounded fallback.
-- Keep dynamic tool data inside the structured untrusted-source envelope.
-  Define an input budget before model dispatch and propagate the parent run
-  abort signal. Use `redact-secrets` for content that can contain credentials.
-- Inject the production scheduler from the run composition root through the
-  host-owned `ToolResultCompactionTrigger` contract. The host persists and
-  forwards complete raw content, then schedules compact content for future
-  submitted runs. Render modules and Node test modules should stay free of
-  eager embedded-tool and Electron imports.
+- Return execution facts and original values. The runtime prepares bounded model
+  content once; tools with their own artifact or pagination support should return
+  concise readable paths and continuation metadata.
 - Add the processor in `src/main/tools/<tool-group>/...Processor.ts`.
 - Register the handler in `src/main/tools/index.ts`.
 - Add tests for the definition, metadata, processor behavior, and handler registration path.
-  Compaction metadata also requires scheduler routing, compactor behavior,
-  model success and fallback coverage, positive-size-gain handling, full raw
-  active continuation, raw renderer delivery, immutable raw facts, execution
-  metrics, queue bounds, input budgets, secret redaction, cancellation, atomic
-  claim behavior, and future-run replay selection coverage.
+  Cover long output recovery, storage failure, cancellation, raw UI delivery,
+  and stable model replay when the tool introduces new output behavior.
+
 - Tools that can return large active-run content should apply a bounded
   model-visible contract before returning. Workspace-readable artifacts use
   confined relative paths and a bounded reader; direct HTTP tools follow
@@ -81,3 +67,19 @@ existing service. None of these actions changes saved configuration.
 
 The tool does not receive an injected `chat_uuid` and is unavailable to
 subagents. `status` has no risk; `start` and `stop` retain warning risk metadata.
+
+## Telegram proactive delivery
+
+`telegram_send_message` requires the Main-injected source `chat_uuid`. Its
+`target_chat_uuid` argument selects a recipient from `telegram_search_targets`;
+it does not select where the local delivery copy is saved. An explicit recipient
+is remembered for future sends from the source chat. With no saved target or
+inbound binding, a single reachable peer/topic can be selected automatically;
+multiple recipients require user selection before retrying the tool.
+
+A successful result includes `sourceChatUuid`, `deliveryRecorded`, and, when the
+local record completes, `deliveryMessageId`. `success: true` means the Telegram
+send succeeded even if `deliveryRecorded: false`; do not retry the send to repair
+local storage. Ordinary inbound bindings are unchanged. Replies to recorded
+pushes select their source chat for that run. See
+[ADR 0032](../../decisions/0032-telegram-delivery-source-routing.md).

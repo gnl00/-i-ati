@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, readdir, rm, utimes, writeFile } from 'fs/promises'
+import { mkdtemp, readFile, readdir, rm } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -68,7 +68,6 @@ import {
   _assessSearchResultQuality
 } from '../WebToolsProcessor'
 import { WorkspaceWebFetchArtifactService } from '../artifacts/WorkspaceWebFetchArtifactService'
-import { createHash } from 'crypto'
 
 function createSimplePdf(text: string): Uint8Array {
   const objects = [
@@ -260,12 +259,10 @@ describe('WebToolsProcessor', () => {
     expect(result.content).toContain('Inspect the source file with a suitable workspace file-reading tool.')
     const workspace = join(userDataDir, 'workspaces', 'pdf-small')
     expect(await readFile(join(workspace, result.artifact!.sourcePath))).toEqual(Buffer.from(pdf))
-    expect(await readFile(join(workspace, result.artifact!.readPath), 'utf-8')).toContain(
-      'MIME: application/pdf'
-    )
+    expect(result.artifact!.readPath).toBe(result.artifact!.sourcePath)
   })
 
-  it('promotes an EZ3i-sized PDF to a bounded raw workspace artifact', async () => {
+  it('keeps an EZ3i-sized PDF in one tmp file with a bounded descriptor', async () => {
     const pdf = createSimplePdf('EZ3i manual text')
     const fixture = new Uint8Array(7_076_983).fill(0x20)
     fixture.set(pdf)
@@ -298,12 +295,11 @@ describe('WebToolsProcessor', () => {
     const readable = await readFile(join(workspace, result.artifact!.readPath), 'utf-8')
     expect(source.byteLength).toBe(7_076_983)
     expect(source.subarray(0, pdf.length)).toEqual(Buffer.from(pdf))
-    expect(readable).toContain('# Downloaded web file')
-    expect(readable).toContain('MIME: application/pdf')
-    expect(await readdir(join(workspace, '.tmp', 'web-fetch'))).toEqual([])
+    expect(Buffer.byteLength(readable)).toBeGreaterThan(0)
+    expect(await readdir(join(workspace, '.tmp', 'web-fetch'))).toHaveLength(1)
   }, 15_000)
 
-  it('promotes small extracted text when it exceeds the inline character budget', async () => {
+  it('saves extracted text when it exceeds the inline character budget', async () => {
     mocks.netFetch.mockResolvedValue(new Response(`heading\n${'content '.repeat(9_000)}`, {
       status: 200,
       headers: { 'content-type': 'text/plain' }
@@ -328,66 +324,37 @@ describe('WebToolsProcessor', () => {
     })
     expect(result.success).toBe(true)
     expect(result.artifact?.mimeType).toBe('application/octet-stream')
-    const readable = await readFile(
-      join(userDataDir, 'workspaces', 'small-binary', result.artifact!.readPath),
-      'utf-8'
+    const saved = await readFile(
+      join(userDataDir, 'workspaces', 'small-binary', result.artifact!.readPath)
     )
-    expect(readable).toContain('Downloaded web file')
+    expect(saved).toEqual(Buffer.from([0, 1, 2, 3]))
   })
 
-  it('cleans stale spool files and keeps current partial downloads', async () => {
-    const workspace = join(userDataDir, 'workspaces', 'stale-chat')
-    const spoolDirectory = join(workspace, '.tmp', 'web-fetch')
-    await mkdir(spoolDirectory, { recursive: true })
-    const stale = join(spoolDirectory, 'stale.part')
-    const current = join(spoolDirectory, 'current.part')
-    const staleStaging = join(spoolDirectory, '.staging-old')
-    await writeFile(stale, 'stale')
-    await writeFile(current, 'current')
-    await mkdir(staleStaging)
-    await writeFile(join(staleStaging, 'source.bin'), 'stale')
-    const old = new Date(Date.now() - 25 * 60 * 60 * 1000)
-    await utimes(stale, old, old)
-    await utimes(staleStaging, old, old)
-
-    const service = new WorkspaceWebFetchArtifactService('stale-chat')
-    expect(await service.cleanupStalePartFiles()).toBe(2)
-    expect(await readdir(spoolDirectory)).toEqual(['current.part'])
+  it('stores each completed result directly in one tmp file', async () => {
+    const service = new WorkspaceWebFetchArtifactService('direct-tmp')
+    const spool = await service.allocateSpool()
+    await service.writeSpool(spool, new TextEncoder().encode('<html>source</html>'))
+    const result = await service.saveResult({ spool, contentType: 'text/html',
+      readableContent: 'Readable body', summary: 'body' })
+    expect(result.readPath).toMatch(/^\.tmp\/web-fetch\/[^/]+\.tmp$/)
+    expect(result.sourcePath).toBe(result.readPath)
+    expect(await readFile(spool.absolutePath, 'utf8')).toBe('Readable body')
+    expect(await readdir(join(userDataDir, 'workspaces', 'direct-tmp', '.tmp', 'web-fetch')))
+      .toHaveLength(1)
+    await expect(readdir(join(userDataDir, 'workspaces', 'direct-tmp', '.ati')))
+      .rejects.toMatchObject({ code: 'ENOENT' })
   })
 
-  it('reuses one atomically published artifact for concurrent identical sources', async () => {
-    const service = new WorkspaceWebFetchArtifactService('same-sha')
-    const content = new TextEncoder().encode('shared source')
-    const sha256 = createHash('sha256').update(content).digest('hex')
-    const first = await service.allocateSpool()
-    const second = await service.allocateSpool()
-    await service.writeSpool(first, content)
-    await service.writeSpool(second, content)
-    const promote = (
-      spool: typeof first,
-      summary: string
-    ): ReturnType<WorkspaceWebFetchArtifactService['promote']> => service.promote({
-      spool,
-      requestedUrl: 'https://example.com/shared.txt',
-      finalUrl: 'https://example.com/shared.txt',
-      contentType: 'text/plain',
-      sizeBytes: content.length,
-      sha256,
-      readableContent: 'shared source',
-      summary
-    })
-    const [firstArtifact, secondArtifact] = await Promise.all([
-      promote(first, 'first'),
-      promote(second, 'second')
-    ])
-    expect(secondArtifact.readPath).toBe(firstArtifact.readPath)
-    expect(secondArtifact.sourcePath).toBe(firstArtifact.sourcePath)
-    expect(secondArtifact.summary).toBe(firstArtifact.summary)
-    const spoolEntries = await readdir(
-      join(userDataDir, 'workspaces', 'same-sha', '.tmp', 'web-fetch')
-    )
-    expect(spoolEntries).toEqual([])
+  it('removes an aborted result instead of returning its path', async () => {
+    const service = new WorkspaceWebFetchArtifactService('cancel-tmp')
+    const spool = await service.allocateSpool()
+    const controller = new AbortController()
+    controller.abort()
+    await expect(service.saveResult({ spool, contentType: 'text/plain',
+      readableContent: 'body', summary: '', signal: controller.signal })).rejects.toThrow()
+    await expect(readFile(spool.absolutePath)).rejects.toMatchObject({ code: 'ENOENT' })
   })
+
 })
 
 describe('web search quality gate', () => {

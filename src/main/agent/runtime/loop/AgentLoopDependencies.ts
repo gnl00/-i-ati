@@ -9,6 +9,7 @@
  * - 它不重复包含 runtime sources 或 host bootstrap
  * - 它由 `AgentRuntime` 负责 wiring
  */
+import type { ToolResultNormalizer } from '../tools/result-normalization'
 import type { AgentEventEmitter } from '../events/AgentEventEmitter'
 import type { AgentStepMaterializer } from '../step/AgentStepMaterializer'
 import type { ReadyToolCallMaterializer } from '../tools/ReadyToolCallMaterializer'
@@ -28,6 +29,7 @@ import type { SteeringMessageSource } from '../steering/SteeringMessageSource'
 
 export interface AgentLoopDependencies {
   loopIdentityProvider: LoopIdentityProvider
+  toolResultNormalizer?: ToolResultNormalizer
   runtimeClock: RuntimeClock
   agentStepMaterializer: AgentStepMaterializer
   transcriptAppender: AgentTranscriptAppender

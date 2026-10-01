@@ -1,3 +1,4 @@
+import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 import { chatDb } from '@main/db/chat'
 import type { RunEventEmitter } from '@main/agent/contracts'
 import type { HostRenderEvent, HostRenderEventSink } from '@main/hosts/shared/render'
@@ -34,12 +35,22 @@ export class ChatToolSideEffectSink implements HostRenderEventSink {
 
     const { result } = event
     if (
-      result.toolName !== 'chat_set_title'
+      !['chat_set_title', 'telegram_send_message'].includes(result.toolName)
       || result.status !== 'success'
       || !isSuccessfulToolContent(result.content)
       || !this.options.chatUuid
     ) {
       return
+    }
+
+    if (result.toolName === 'telegram_send_message') {
+      const content = result.content as { deliveryMessageId?: number }
+      const message = typeof content.deliveryMessageId === 'number'
+        ? chatDb.getMessageById(content.deliveryMessageId)
+        : undefined
+      if (!message || message.chatUuid !== this.options.chatUuid
+        || message.body.source !== MESSAGE_SOURCE.TELEGRAM_DELIVERY) return
+      this.chatEvents.emitMessageCreated(message)
     }
 
     const chatEntity = this.getChatByUuid(this.options.chatUuid)

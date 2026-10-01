@@ -597,7 +597,9 @@ export async function processExecuteCommand(
   context?: EmbeddedToolExecutionContext,
   invocation?: ExecuteCommandInvocation
 ): Promise<ExecuteCommandResponse> {
-  return commandExecutor.executeCommand(args, context, invocation)
+  const response = await commandExecutor.executeCommand(args, context, invocation)
+  context?.setModelContent?.(JSON.stringify(projectCommandResult(response)))
+  return response
 }
 
 /**
@@ -605,4 +607,29 @@ export async function processExecuteCommand(
  */
 export function setCommandWorkspaceBasePath(path: string): void {
   commandExecutor.setWorkspaceBasePath(path)
+}
+
+/** Keep each stream's final diagnostics independently, including JSON escaping in the budget. */
+export function projectCommandResult(response: ExecuteCommandResponse): ExecuteCommandResponse {
+  const tail = (value = ''): string => {
+    let start = Math.max(0, value.length - 12_000)
+    while (
+      start < value.length &&
+      (JSON.stringify(value.slice(start)).length > 12_000 ||
+        Buffer.byteLength(value.slice(start), 'utf8') > 24_000)
+    ) {
+      start += Math.max(1, Math.floor((value.length - start) / 8))
+    }
+    if (start > 0 && /[\uDC00-\uDFFF]/.test(value[start] || '')) start++
+    return value.slice(start)
+  }
+  const stdout = tail(response.stdout)
+  const stderr = tail(response.stderr)
+  return {
+    ...response,
+    stdout,
+    stderr,
+    stdout_truncated: Boolean(response.stdout_truncated || stdout !== (response.stdout || '')),
+    stderr_truncated: Boolean(response.stderr_truncated || stderr !== (response.stderr || ''))
+  }
 }

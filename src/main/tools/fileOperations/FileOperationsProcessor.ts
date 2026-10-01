@@ -73,8 +73,8 @@ import {
 } from '@shared/tools/toolFailure'
 
 const logger = createLogger('FileOperationsProcessor')
-const DEFAULT_READ_WINDOW_SIZE = 200
-const MAX_READ_WINDOW_SIZE = 500
+const DEFAULT_READ_WINDOW_SIZE = 500
+const MAX_READ_WINDOW_SIZE = 1500
 export const READ_RESULT_MAX_CHARACTERS = 32_000
 const DEFAULT_GLOB_MAX_RESULTS = 100
 const DEFAULT_EDIT_DIAGNOSTICS_LIMIT = 5

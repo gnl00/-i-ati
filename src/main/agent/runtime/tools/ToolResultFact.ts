@@ -19,6 +19,7 @@ export interface ToolResultError {
 }
 
 export interface ToolResultFactBase {
+  modelContent?: string
   stepId: string
   toolCallId: string
   toolCallIndex: number
@@ -53,8 +54,4 @@ export interface ToolDeniedFact extends ToolResultFactBase {
   error?: ToolResultError
 }
 
-export type ToolResultFact =
-  | ToolSuccessFact
-  | ToolFailureFact
-  | ToolAbortedFact
-  | ToolDeniedFact
+export type ToolResultFact = ToolSuccessFact | ToolFailureFact | ToolAbortedFact | ToolDeniedFact

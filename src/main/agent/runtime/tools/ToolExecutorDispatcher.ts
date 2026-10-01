@@ -12,16 +12,14 @@
  * - dispatcher 如果自身进入 failed / aborted，loop 应转入 terminal decision
  * - 执行过程中的 progress 事实应通过 events 广播，不直接写 transcript
  */
+import { formatToolResultForModel } from './ToolResultContentProjector'
+import type { ToolResultNormalizer } from './result-normalization'
 import type { ToolBatch } from './ToolBatch'
 import type { ToolDispatchOutcome } from './ToolDispatchOutcome'
 import type { AgentEventEmitter } from '../events/AgentEventEmitter'
 import { ToolExecutor } from '@main/agent/tools'
 import type { ToolCallProps } from '@main/agent/contracts'
-import type {
-  ToolResultFact,
-  ToolDeniedFact,
-  ToolFailureFact
-} from './ToolResultFact'
+import type { ToolResultFact, ToolDeniedFact, ToolFailureFact } from './ToolResultFact'
 import type { ToolExecutionProgress, ToolExecutionResult } from '@main/agent/tools'
 import type { RuntimeClock } from '../loop/RuntimeClock'
 import { createToolFailure } from '@shared/tools/toolFailure'
@@ -40,6 +38,7 @@ export interface ToolExecutionProgressContext {
 }
 
 export interface DefaultToolExecutorDispatcherOptions {
+  toolResultNormalizer?: ToolResultNormalizer
   agentEventEmitter?: AgentEventEmitter
   signal?: AbortSignal
   runtimeClock: RuntimeClock
@@ -65,9 +64,7 @@ const toToolCallProps = (call: ToolBatch['calls'][number]): ToolCallProps => ({
   args: call.arguments
 })
 
-const toDeniedFact = (
-  call: ToolBatch['calls'][number]
-): ToolDeniedFact => {
+const toDeniedFact = (call: ToolBatch['calls'][number]): ToolDeniedFact => {
   if (call.confirmationPolicy.mode !== 'required') {
     throw new Error('Cannot materialize denied result for tool without confirmation policy')
   }
@@ -102,7 +99,9 @@ const resolveToolResultTiming = (
   executionStartedAt?: number
 ): Pick<ToolResultFact, 'cost' | 'latencyCost' | 'executionStartedAt'> => ({
   cost: result.cost,
-  ...(typeof call.startedAt === 'number' ? { latencyCost: Math.max(0, completedAt - call.startedAt) } : {}),
+  ...(typeof call.startedAt === 'number'
+    ? { latencyCost: Math.max(0, completedAt - call.startedAt) }
+    : {}),
   ...(typeof executionStartedAt === 'number' ? { executionStartedAt } : {})
 })
 
@@ -123,6 +122,14 @@ const toToolResultFact = (
       ...timing,
       status: 'success',
       content: result.content,
+      ...(result.modelContent !== undefined
+        ? {
+            modelContent: formatToolResultForModel({
+              content: result.modelContent,
+              failure: result.failure
+            })
+          }
+        : {}),
       failure: result.failure
     }
   }
@@ -136,11 +143,13 @@ const toToolResultFact = (
       ...timing,
       status: 'aborted',
       content: result.content,
-      error: result.error ? {
-        name: result.error.name,
-        message: result.error.message,
-        code: getErrorCode(result.error)
-      } : undefined,
+      error: result.error
+        ? {
+            name: result.error.name,
+            message: result.error.message,
+            code: getErrorCode(result.error)
+          }
+        : undefined,
       failure: result.failure
     }
   }
@@ -153,11 +162,13 @@ const toToolResultFact = (
     ...timing,
     status: result.status,
     content: result.content,
-    error: result.error ? {
-      name: result.error.name,
-      message: result.error.message,
-      code: getErrorCode(result.error)
-    } : undefined,
+    error: result.error
+      ? {
+          name: result.error.name,
+          message: result.error.message,
+          code: getErrorCode(result.error)
+        }
+      : undefined,
     failure: result.failure
   }
 }
@@ -201,7 +212,11 @@ export class DefaultToolExecutorDispatcher implements ToolExecutorDispatcher {
           continue
         }
 
-        const deniedResult: ToolDeniedFact = toDeniedFact(call)
+        const rawDeniedResult = toDeniedFact(call)
+        const deniedResult: ToolDeniedFact = {
+          ...rawDeniedResult,
+          modelContent: this.options.toolResultNormalizer?.normalize(rawDeniedResult).modelContent
+        }
 
         await this.options.agentEventEmitter?.emitToolConfirmationDenied({
           timestamp: this.options.runtimeClock.now(),
@@ -218,17 +233,19 @@ export class DefaultToolExecutorDispatcher implements ToolExecutorDispatcher {
         return result.terminalOutcome(batch, results)
       }
       if (call.name === 'ask_user_question') {
-        results.push(...batch.calls.slice(callIndex + 1).map(deferredCall => ({
-          stepId: deferredCall.stepId,
-          toolCallId: deferredCall.toolCallId,
-          toolCallIndex: deferredCall.index,
-          toolName: deferredCall.name,
-          status: 'success' as const,
-          content: {
-            status: 'deferred_due_to_user_question',
-            reason: 'Submit this tool call again after incorporating the user answer.'
-          }
-        })))
+        results.push(
+          ...batch.calls.slice(callIndex + 1).map((deferredCall) => ({
+            stepId: deferredCall.stepId,
+            toolCallId: deferredCall.toolCallId,
+            toolCallIndex: deferredCall.index,
+            toolName: deferredCall.name,
+            status: 'success' as const,
+            content: {
+              status: 'deferred_due_to_user_question',
+              reason: 'Submit this tool call again after incorporating the user answer.'
+            }
+          }))
+        )
         break
       }
     }
@@ -259,13 +276,14 @@ export class DefaultToolExecutorDispatcher implements ToolExecutorDispatcher {
     const executionResults = this.options.executeToolCalls
       ? await this.options.executeToolCalls([toToolCallProps(call)], progressContext)
       : await new ToolExecutor({
-        signal: this.options.signal,
-        onProgress: progressContext.onProgress
-      }).execute([toToolCallProps(call)])
+          signal: this.options.signal,
+          onProgress: progressContext.onProgress
+        }).execute([toToolCallProps(call)])
     await progressEventChain
     const executionResult = executionResults[0]
     const completedAt = this.options.runtimeClock.now()
-    const result = toToolResultFact(call, executionResult, completedAt, executionStartedAt)
+    const rawResult = toToolResultFact(call, executionResult, completedAt, executionStartedAt)
+    const result = this.options.toolResultNormalizer?.normalize(rawResult) ?? rawResult
 
     if (result.status === 'aborted') {
       await this.options.agentEventEmitter?.emitToolExecutionAborted({
@@ -319,37 +337,39 @@ export class DefaultToolExecutorDispatcher implements ToolExecutorDispatcher {
 
     return (progress) => {
       if (progress.phase === 'output' && progress.id === call.toolCallId) {
-        enqueueEvent(() => this.options.agentEventEmitter?.emitToolExecutionOutput({
-          timestamp: this.options.runtimeClock.now(),
-          stepId: call.stepId,
-          toolCallId: call.toolCallId,
-          toolCallIndex: call.index,
-          toolName: call.name,
-          phase: 'output',
-          output: progress.output
-        }) ?? Promise.resolve())
+        enqueueEvent(
+          () =>
+            this.options.agentEventEmitter?.emitToolExecutionOutput({
+              timestamp: this.options.runtimeClock.now(),
+              stepId: call.stepId,
+              toolCallId: call.toolCallId,
+              toolCallIndex: call.index,
+              toolName: call.name,
+              phase: 'output',
+              output: progress.output
+            }) ?? Promise.resolve()
+        )
         return
       }
 
-      if (
-        progress.phase !== 'started'
-        || startedEmitted
-        || progress.id !== call.toolCallId
-      ) {
+      if (progress.phase !== 'started' || startedEmitted || progress.id !== call.toolCallId) {
         return
       }
 
       startedEmitted = true
       const startedAt = this.options.runtimeClock.now()
       onExecutionStarted?.(startedAt)
-      enqueueEvent(() => this.options.agentEventEmitter?.emitToolExecutionStarted({
-        timestamp: startedAt,
-        stepId: call.stepId,
-        toolCallId: call.toolCallId,
-        toolCallIndex: call.index,
-        toolName: call.name,
-        phase: 'started'
-      }) ?? Promise.resolve())
+      enqueueEvent(
+        () =>
+          this.options.agentEventEmitter?.emitToolExecutionStarted({
+            timestamp: startedAt,
+            stepId: call.stepId,
+            toolCallId: call.toolCallId,
+            toolCallIndex: call.index,
+            toolName: call.name,
+            phase: 'started'
+          }) ?? Promise.resolve()
+      )
     }
   }
 }

@@ -22,6 +22,8 @@ export interface EmbeddedToolOutputChunk {
 
 export interface EmbeddedToolExecutionContext {
   signal?: AbortSignal
+  /** Tool-owned bounded model view; raw handler result remains unchanged. */
+  setModelContent?: (content: string) => void
   onOutput?: (chunk: EmbeddedToolOutputChunk) => void
   /** Set only by ToolExecutor after an embedded-tool metadata review or trusted auto approval. */
   metadataConfirmationApproved?: boolean

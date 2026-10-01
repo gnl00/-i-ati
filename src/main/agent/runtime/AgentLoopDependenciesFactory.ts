@@ -40,7 +40,10 @@ import { DefaultTranscriptRecordFactory } from './transcript/TranscriptRecordFac
 import { DefaultExecutableRequestAdapter } from './model/ExecutableRequestAdapter'
 import { DefaultModelResponseParser } from './model/ModelResponseParser'
 import { DefaultModelStreamExecutor } from './model/ModelStreamExecutor'
-import { DefaultToolResultNormalizer, type ToolResultNormalizer } from './tools/result-normalization'
+import {
+  DefaultToolResultNormalizer,
+  type ToolResultNormalizer
+} from './tools/result-normalization'
 
 export interface AgentLoopDependenciesFactory {
   create(runtimeInfrastructure: RuntimeInfrastructure): AgentLoopDependencies
@@ -61,7 +64,7 @@ export interface DefaultAgentLoopDependenciesFactoryOptions {
   toolBatchAssembler?: ToolBatchAssembler
   toolExecutorDispatcher?: ToolExecutorDispatcher
   toolResultNormalizer?: ToolResultNormalizer
-  toolResultNormalizationScopeId?: string
+  toolResultWorkspaceRoot?: string
   loadedSkillsTranscriptContextProvider?: LoadedSkillsTranscriptContextProvider
   steeringMessageSource?: SteeringMessageSource
   executeToolCalls?: DefaultToolExecutorDispatcherOptions['executeToolCalls']
@@ -69,47 +72,50 @@ export interface DefaultAgentLoopDependenciesFactoryOptions {
   requestConfirmation?: DefaultToolExecutorDispatcherOptions['requestConfirmation']
 }
 
-export class DefaultAgentLoopDependenciesFactory
-implements AgentLoopDependenciesFactory {
-  constructor(
-    private readonly options: DefaultAgentLoopDependenciesFactoryOptions = {}
-  ) {}
+export class DefaultAgentLoopDependenciesFactory implements AgentLoopDependenciesFactory {
+  constructor(private readonly options: DefaultAgentLoopDependenciesFactoryOptions = {}) {}
 
   create(runtimeInfrastructure: RuntimeInfrastructure): AgentLoopDependencies {
     const agentEventBus = this.options.agentEventBus ?? new DefaultAgentEventBus()
-    const agentEventEmitter = this.options.agentEventEmitter ?? new DefaultAgentEventEmitter(agentEventBus)
-    const toolResultNormalizer = this.options.toolResultNormalizer ?? new DefaultToolResultNormalizer({
-      scopeId: this.options.toolResultNormalizationScopeId
-    })
+    const agentEventEmitter =
+      this.options.agentEventEmitter ?? new DefaultAgentEventEmitter(agentEventBus)
+    const toolResultNormalizer =
+      this.options.toolResultNormalizer ??
+      new DefaultToolResultNormalizer({
+        workspaceRoot: this.options.toolResultWorkspaceRoot
+      })
 
     return {
+      toolResultNormalizer,
       loopIdentityProvider: runtimeInfrastructure.loopIdentityProvider,
       runtimeClock: runtimeInfrastructure.runtimeClock,
-      agentStepMaterializer: this.options.agentStepMaterializer ?? new DefaultAgentStepMaterializer(),
+      agentStepMaterializer:
+        this.options.agentStepMaterializer ?? new DefaultAgentStepMaterializer(),
       transcriptAppender: this.options.transcriptAppender ?? new DefaultAgentTranscriptAppender(),
       transcriptSnapshotMaterializer:
-        this.options.transcriptSnapshotMaterializer ?? new DefaultAgentTranscriptSnapshotMaterializer({
-          toolResultNormalizer
-        }),
+        this.options.transcriptSnapshotMaterializer ??
+        new DefaultAgentTranscriptSnapshotMaterializer(),
       transcriptRecordFactory:
-        this.options.transcriptRecordFactory ?? new DefaultTranscriptRecordFactory(),
+        this.options.transcriptRecordFactory ??
+        new DefaultTranscriptRecordFactory(toolResultNormalizer),
       requestMaterializer: this.options.requestMaterializer ?? new DefaultRequestMaterializer(),
       executableRequestAdapter:
         this.options.executableRequestAdapter ?? new DefaultExecutableRequestAdapter(),
       modelStreamExecutor: this.options.modelStreamExecutor ?? new DefaultModelStreamExecutor(),
       modelResponseParser:
-        this.options.modelResponseParser
-        ?? new DefaultModelResponseParser(runtimeInfrastructure.runtimeClock),
+        this.options.modelResponseParser ??
+        new DefaultModelResponseParser(runtimeInfrastructure.runtimeClock),
       readyToolCallMaterializer:
         this.options.readyToolCallMaterializer ?? new DefaultReadyToolCallMaterializer(),
       toolBatchAssembler:
-        this.options.toolBatchAssembler
-        ?? new DefaultToolBatchAssembler(runtimeInfrastructure.loopIdentityProvider),
+        this.options.toolBatchAssembler ??
+        new DefaultToolBatchAssembler(runtimeInfrastructure.loopIdentityProvider),
       toolExecutorDispatcher:
-        this.options.toolExecutorDispatcher
-        ?? new DefaultToolExecutorDispatcher({
+        this.options.toolExecutorDispatcher ??
+        new DefaultToolExecutorDispatcher({
           agentEventEmitter,
           runtimeClock: runtimeInfrastructure.runtimeClock,
+          toolResultNormalizer,
           executeToolCalls: this.options.executeToolCalls,
           abortedResultDisposition: this.options.abortedResultDisposition,
           requestConfirmation: this.options.requestConfirmation

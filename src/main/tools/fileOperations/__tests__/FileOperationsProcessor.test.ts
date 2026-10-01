@@ -105,7 +105,7 @@ describe('FileOperationsProcessor.read_text_file', () => {
   it('defaults to a safe leading window when no range is provided', async () => {
     const filePath = join(userDataDir, 'workspaces', 'chat-3', 'sample.txt')
     await mkdir(dirname(filePath), { recursive: true })
-    await writeFile(filePath, Array.from({ length: 205 }, (_, index) => `line-${index + 1}`).join('\n'), 'utf-8')
+    await writeFile(filePath, Array.from({ length: 505 }, (_, index) => `line-${index + 1}`).join('\n'), 'utf-8')
 
     const result = await processReadTextFile({
       chat_uuid: 'chat-3',
@@ -114,28 +114,57 @@ describe('FileOperationsProcessor.read_text_file', () => {
 
     expect(result.success).toBe(true)
     expect(result.returned_start_line).toBe(1)
-    expect(result.returned_end_line).toBe(200)
+    expect(result.returned_end_line).toBe(500)
     expect(result.truncated).toBe(true)
-    expect(result.content?.split('\n')).toHaveLength(200)
+    expect(result.content?.split('\n')).toHaveLength(500)
+    expect(result.next_start_line).toBe(501)
   })
 
   it('caps oversized explicit ranges to the maximum window size', async () => {
     const filePath = join(userDataDir, 'workspaces', 'chat-4', 'sample.txt')
     await mkdir(dirname(filePath), { recursive: true })
-    await writeFile(filePath, Array.from({ length: 800 }, (_, index) => `line-${index + 1}`).join('\n'), 'utf-8')
+    await writeFile(filePath, Array.from({ length: 1800 }, (_, index) => `line-${index + 1}`).join('\n'), 'utf-8')
 
     const result = await processReadTextFile({
       chat_uuid: 'chat-4',
       file_path: 'sample.txt',
       start_line: 50,
-      end_line: 700
+      end_line: 1700
     })
 
     expect(result.success).toBe(true)
     expect(result.returned_start_line).toBe(50)
-    expect(result.returned_end_line).toBe(549)
+    expect(result.returned_end_line).toBe(1549)
     expect(result.truncated).toBe(true)
-    expect(result.content?.split('\n')).toHaveLength(500)
+    expect(result.content?.split('\n')).toHaveLength(1500)
+    expect(result.next_start_line).toBe(1550)
+  })
+
+  it.each([300, 2000])('bounds a requested %i-line scan and resumes without gaps', async (windowSize) => {
+    const filePath = join(userDataDir, 'workspaces', 'chat-scan', 'sample.txt')
+    await mkdir(dirname(filePath), { recursive: true })
+    const lines = Array.from({ length: 1600 }, (_, index) => `line-${index + 1}`)
+    await writeFile(filePath, lines.join('\n'), 'utf-8')
+
+    const first = await processReadTextFile({
+      chat_uuid: 'chat-scan',
+      file_path: 'sample.txt',
+      window_size: windowSize
+    })
+    const expectedSize = Math.min(windowSize, 1500)
+    expect(first.content?.split('\n')).toHaveLength(expectedSize)
+    expect(first.next_start_line).toBe(expectedSize + 1)
+    expect(first.truncated).toBe(true)
+
+    const next = await processReadTextFile({
+      chat_uuid: 'chat-scan',
+      file_path: 'sample.txt',
+      window_size: windowSize,
+      start_line: first.next_start_line,
+      start_column: first.next_start_column
+    })
+    expect(next.returned_start_line).toBe(expectedSize + 1)
+    expect(next.content?.split('\n')).toEqual(lines.slice(expectedSize, expectedSize * 2))
   })
 
   it('continues a single long UTF-8 line by column without repeating or skipping characters', async () => {

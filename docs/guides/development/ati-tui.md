@@ -103,7 +103,7 @@ pnpm run typecheck:web
 pnpm run check:main-boundaries
 pnpm run test:main-architecture
 pnpm run check:main-doc-paths
-pnpm exec vitest run src/main/hosts/tui src/main/orchestration/tui src/main/orchestration/chat/run src/main/orchestration/chat/postRun src/main/hosts/chat/preparation src/main/orchestration/chat/toolResultCompaction
+pnpm exec vitest run src/main/hosts/tui src/main/orchestration/tui src/main/orchestration/chat/run src/main/orchestration/chat/postRun src/main/hosts/chat/preparation
 pnpm test:coverage
 pnpm exec electron-vite build
 pnpm run verify:tui

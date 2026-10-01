@@ -313,9 +313,8 @@ Drafts and pending inputs use configs keys `tui:input:<chatUuid>` on orderly exi
 or session switch. No new message or database schema is introduced.
 
 RunService exposes `waitForPostRunJobs()` backed by PostRunJobService's pending
-job set. TUI shutdown also awaits toolResultCompactionScheduler.waitForIdle()
-before closing database/logging, so deferred jobs retain their persistence
-resources. See [the TUI guide](../guides/development/ati-tui.md) and
+job set. TUI shutdown waits for those jobs and command process cleanup before
+closing database/logging. See [the TUI guide](../guides/development/ati-tui.md) and
 [ADR 0022](../decisions/0022-interactive-terminal-host.md).
 
 ## Telegram transport

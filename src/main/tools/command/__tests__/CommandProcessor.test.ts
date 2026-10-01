@@ -606,3 +606,40 @@ describe('CommandProcessor.executeCommand filesystem scope', () => {
     }
   })
 })
+
+describe('exec model output', () => {
+  it('keeps final diagnostics from both streams without changing raw results', async () => {
+    const { projectCommandResult } = await import('../CommandProcessor')
+    const raw = {
+      success: false,
+      stdout: 'old'.repeat(20_000) + 'FINAL STDOUT',
+      stderr: '中文😀'.repeat(15_000) + 'FINAL ERROR',
+      exit_code: 2,
+      error: 'failed'
+    }
+    const view = projectCommandResult(raw)
+    expect(view.stdout).toMatch(/FINAL STDOUT$/)
+    expect(view.stderr).toMatch(/FINAL ERROR$/)
+    expect(view.stdout_truncated).toBe(true)
+    expect(view.stderr_truncated).toBe(true)
+    expect(view.exit_code).toBe(2)
+    expect(view.error).toBe('failed')
+    expect(JSON.stringify(view).length).toBeLessThan(32_000)
+    expect(Buffer.byteLength(view.stderr!, 'utf8')).toBeLessThanOrEqual(24_000)
+    expect(view.stderr).not.toMatch(/^[\uDC00-\uDFFF]/)
+    expect(raw.stdout.length).toBeGreaterThan(50_000)
+  })
+  it('accounts for escaped control characters and keeps capture truncation', async () => {
+    const { projectCommandResult } = await import('../CommandProcessor')
+    const view = projectCommandResult({
+      success: true,
+      stdout: '\u0000'.repeat(30_000) + 'done',
+      stderr: 'small',
+      stderr_truncated: true
+    })
+    expect(JSON.stringify(view.stdout).length).toBeLessThanOrEqual(12_000)
+    expect(view.stdout).toMatch(/done$/)
+    expect(view.stderr).toBe('small')
+    expect(view.stderr_truncated).toBe(true)
+  })
+})

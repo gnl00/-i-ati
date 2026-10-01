@@ -5,7 +5,7 @@ export const fileOperationsTools = [
     type: 'function',
     function: {
       name: 'read',
-      description: 'Read the contents of a text file from the local filesystem. Use this after locating the target file or line range.',
+      description: 'Read the contents of a text file from the local filesystem. Use this after locating the target file or line range. When scanning a file sequentially, use window_size=300 and continue with next_start_line and next_start_column from each truncated result.',
       parameters: {
         type: 'object',
         properties: {
@@ -36,7 +36,7 @@ export const fileOperationsTools = [
           },
           window_size: {
             type: 'number',
-            description: 'Optional: Maximum number of lines to return when using around_line or when no explicit range is provided. Defaults to 200.'
+            description: 'Optional: Maximum number of lines to return, including explicit ranges. Defaults to 500 without an explicit range; explicit ranges default to the maximum of 1500. All reads are capped at 32000 characters. Use next_start_line and next_start_column to continue truncated reads.'
           }
         },
         required: ['file_path'],

@@ -7,7 +7,3 @@ export {
 } from './ChatInitialTranscriptRecordFactory'
 export { MainAgentLoopInputBootstrapper } from './MainAgentLoopInputBootstrapper'
 export { DefaultMainAgentHostRequestBuilder } from './MainAgentHostRequestBuilder'
-export {
-  noopToolResultCompactionTrigger,
-  type ToolResultCompactionTrigger
-} from './ToolResultCompactionTrigger'

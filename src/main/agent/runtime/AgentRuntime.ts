@@ -48,6 +48,19 @@ export class DefaultAgentRuntime implements AgentRuntime {
     return this.context.agentLoop.run(
       {
         ...loopInput,
+        transcript: {
+          ...loopInput.transcript,
+          records: loopInput.transcript.records.map((record) =>
+            record.kind === 'tool_result'
+              ? {
+                  ...(dependencies.toolResultNormalizer?.normalize(record) ?? record),
+                  recordId: record.recordId,
+                  kind: 'tool_result' as const,
+                  timestamp: record.timestamp
+                }
+              : record
+          )
+        },
         signal: input.signal
       },
       dependencies

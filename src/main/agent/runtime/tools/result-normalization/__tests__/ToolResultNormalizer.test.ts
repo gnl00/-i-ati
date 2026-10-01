@@ -1,108 +1,175 @@
-import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, mkdirSync, symlinkSync, readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { gunzipSync } from 'node:zlib'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { ToolResultFact } from '../../ToolResultFact'
-import {
-  DefaultToolResultNormalizer,
-  isNormalizedToolResultContent
-} from '../ToolResultNormalizer'
+import { DefaultToolResultNormalizer } from '../ToolResultNormalizer'
+import { createToolFailure } from '@shared/tools/toolFailure'
 
-const PNG_1X1_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lK3vWQAAAABJRU5ErkJggg=='
-
-let tempDir = ''
-
-afterEach(() => {
-  if (tempDir) {
-    rmSync(tempDir, { recursive: true, force: true })
-    tempDir = ''
-  }
-})
-
-const createNormalizer = (maxInlineCharacters?: number): DefaultToolResultNormalizer => {
-  tempDir = mkdtempSync(path.join(tmpdir(), 'tool-result-normalizer-'))
-  return new DefaultToolResultNormalizer({
-    baseDir: tempDir,
-    scopeId: 'chat-1',
-    maxInlineCharacters
-  })
+const roots: string[] = []
+const workspace = (): string => {
+  const root = mkdtempSync(path.join(tmpdir(), 'tool-normalize-'))
+  roots.push(root)
+  return root
 }
-
-const createResult = (content: unknown): ToolResultFact => ({
-  stepId: 'step-1',
-  toolCallId: 'tool-1',
-  toolCallIndex: 0,
-  toolName: 'test_tool',
+afterEach(() => roots.splice(0).forEach((root) => rmSync(root, { recursive: true, force: true })))
+const fact = (content: unknown): ToolResultFact => ({
   status: 'success',
+  stepId: 's',
+  toolCallId: 'c',
+  toolCallIndex: 0,
+  toolName: 'exec',
   content
 })
+const readPath = (modelContent: string): string => modelContent.match(/raw_result: ([^\n]+)/)![1]
 
 describe('DefaultToolResultNormalizer', () => {
-  it('keeps small text inline', () => {
-    const normalizer = createNormalizer()
-    const result = createResult('small output')
-
-    expect(normalizer.normalize(result)).toEqual(result)
+  it.each([true, false])(
+    'extracts images from a custom JSON view and preserves its tail selection (data URL=%s)',
+    (dataUrl) => {
+      const root = workspace()
+      const png =
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lK3vWQAAAABJRU5ErkJggg=='
+      const image = dataUrl ? `data:image/png;base64,${png}\nFINAL STDOUT` : png
+      const content = { stdout: 'OMITTED HEAD', screenshot: image, stderr: 'FINAL ERROR' }
+      const custom = {
+        ...fact(content),
+        modelContent: JSON.stringify({ screenshot: image, stderr: 'FINAL ERROR' })
+      }
+      const normalizer = new DefaultToolResultNormalizer({ workspaceRoot: root })
+      const result = normalizer.normalize(custom)
+      expect(result.content).toBe(content)
+      expect(result.modelContent).not.toContain(png)
+      expect(result.modelContent).not.toContain('OMITTED HEAD')
+      expect(result.modelContent).toContain('FINAL ERROR')
+    if (dataUrl) expect(result.modelContent).toContain('FINAL STDOUT')
+      const imagePath = result.modelContent!.match(/image: ([^\n]+)/)![1]
+      expect(imagePath).toMatch(/^\.tmp\/images\/[^/]+\.png$/)
+      expect(readFileSync(path.join(root, imagePath))).toEqual(Buffer.from(png, 'base64'))
+      expect(normalizer.normalize(result)).toBe(result)
+    }
+  )
+  it('preserves the structured failure prefix while extracting a custom view image', () => {
+    const root = workspace()
+    const png =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lK3vWQAAAABJRU5ErkJggg=='
+    const modelContent =
+      '[tool_failure]\ncode=COMMAND_EXIT_NONZERO\n' +
+      JSON.stringify({ stdout: png, stderr: 'failed' })
+    const result = new DefaultToolResultNormalizer({ workspaceRoot: root }).normalize({
+      ...fact({ stdout: png }),
+      modelContent
+    })
+    expect(result.modelContent).toMatch(/^\[tool_failure\]\ncode=COMMAND_EXIT_NONZERO/)
+    expect(result.modelContent).not.toContain(png)
+    expect(result.modelContent).toContain('failed')
+  })
+  it('rejects image directory symlink escapes', () => {
+    const root = workspace()
+    const outside = workspace()
+    mkdirSync(path.join(root, '.tmp'))
+    symlinkSync(outside, path.join(root, '.tmp/images'))
+    const png =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lK3vWQAAAABJRU5ErkJggg=='
+    const result = new DefaultToolResultNormalizer({ workspaceRoot: root }).normalize({
+      ...fact(png),
+      modelContent: png
+    })
+    expect(result.modelContent).toContain('not recoverable')
+    expect(result.modelContent).not.toContain(png)
+    expect(readdirSync(outside)).toEqual([])
   })
 
-  it('extracts inline image data into artifacts', () => {
-    const normalizer = createNormalizer()
-    const result = normalizer.normalize(createResult({
-      screenshot: `data:image/png;base64,${PNG_1X1_BASE64}`
-    }))
-
-    expect(isNormalizedToolResultContent(result.content)).toBe(true)
-    if (!isNormalizedToolResultContent(result.content)) {
-      throw new Error('Expected normalized content')
-    }
-
-    expect(result.content.original.triggers).toContain('inline_image')
-    expect(result.content.modelContent).not.toContain(PNG_1X1_BASE64)
-    const imageArtifact = result.content.artifacts.find(artifact => artifact.kind === 'image')
-    const rawArtifact = result.content.artifacts.find(artifact => artifact.kind === 'raw_result')
-
-    expect(imageArtifact?.mimeType).toBe('image/png')
-    expect(imageArtifact?.path).toContain(path.join('chat-1', 'step-1', 'tool-1'))
-    expect(imageArtifact ? statSync(imageArtifact.path).size : 0).toBeGreaterThan(0)
-    expect(rawArtifact?.path.endsWith('raw-result.json.gz')).toBe(true)
+  it('accepts a bounded tool view and falls back when the view exceeds its budget', () => {
+    const normalizer = new DefaultToolResultNormalizer({ workspaceRoot: workspace() })
+    const custom = { ...fact('raw log'), modelContent: 'tail log' }
+    expect(normalizer.normalize(custom)).toBe(custom)
+    expect(normalizer.normalize({ ...custom, modelContent: 'x'.repeat(32_001) })).toMatchObject({
+      content: 'raw log',
+      modelContent: 'raw log'
+    })
   })
 
-  it('writes large payloads to a raw artifact', () => {
-    const normalizer = createNormalizer(20)
-    const raw = 'x'.repeat(100)
-    const result = normalizer.normalize(createResult(raw))
-
-    expect(isNormalizedToolResultContent(result.content)).toBe(true)
-    if (!isNormalizedToolResultContent(result.content)) {
-      throw new Error('Expected normalized content')
-    }
-
-    expect(result.content.original.triggers).toEqual(['large_content'])
-    const rawArtifact = result.content.artifacts.find(artifact => artifact.kind === 'raw_result')
-    expect(rawArtifact).toBeTruthy()
-    expect(gunzipSync(readFileSync(rawArtifact!.path)).toString('utf8')).toBe(raw)
+  it('preserves small values and prepares empty results', () => {
+    const root = workspace()
+    const normalizer = new DefaultToolResultNormalizer({ workspaceRoot: root })
+    const raw = { value: 123 }
+    expect(normalizer.normalize(fact(raw))).toMatchObject({
+      content: raw,
+      modelContent: '{"value":123}'
+    })
+    expect(normalizer.normalize(fact('')).modelContent).toBe('[Tool completed with no output]')
+    expect(readdirSync(root)).toEqual([])
   })
-
-  it('preserves structured failures while cooling large results', () => {
-    const normalizer = createNormalizer(20)
-    const failure = {
-      category: 'operation' as const,
-      code: 'COMMAND_TIMEOUT',
-      message: 'The command exceeded its time limit.',
-      recovery: {
-        action: 'check_state' as const,
-        message: 'Inspect partial output before continuing.'
-      },
-      termination: 'timeout' as const
+  it('bounds large model content including metadata and saves an exact readable original', () => {
+    const root = workspace()
+    const normalizer = new DefaultToolResultNormalizer({ workspaceRoot: root })
+    const raw = 'HEAD\n' + '中文😀 long line '.repeat(8_000) + '\nTAIL'
+    const result = normalizer.normalize(fact(raw))
+    expect(result.content).toBe(raw)
+    expect(result.modelContent!.length).toBeLessThanOrEqual(32_000)
+    expect(result.modelContent).toContain('HEAD')
+    expect(result.modelContent).toContain('TAIL')
+    expect(readFileSync(path.join(root, readPath(result.modelContent!)), 'utf8')).toBe(raw)
+    expect(normalizer.normalize(result)).toBe(result)
+    expect(normalizer.normalize(fact(raw)).modelContent).toBe(result.modelContent)
+  })
+  it('extracts images without removing program content', () => {
+    const root = workspace()
+    const png =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lK3vWQAAAABJRU5ErkJggg=='
+    const content = {
+      screenshot: `data:image/png;base64,${png}`,
+      windowText: 'Useful accessibility evidence'
     }
-
-    const result = normalizer.normalize({
-      ...createResult('x'.repeat(100)),
+    const result = new DefaultToolResultNormalizer({
+      workspaceRoot: root
+    }).normalize(fact(content))
+    expect(result.content).toBe(content)
+    expect(result.modelContent).not.toContain(png)
+    expect(result.modelContent).toContain('Useful accessibility evidence')
+    const imagePath = result.modelContent!.match(/image: ([^\n]+)/)![1]
+    expect(readFileSync(path.join(root, imagePath))).toEqual(Buffer.from(png, 'base64'))
+  })
+  it('reuses small tool-managed artifact descriptors without writing duplicates', () => {
+    const root = workspace()
+    const content = {
+      artifact: { readPath: '.tmp/web-fetch/doc.tmp', sourcePath: '.tmp/web-fetch/doc.tmp' }
+    }
+    const result = new DefaultToolResultNormalizer({ workspaceRoot: root }).normalize(fact(content))
+    expect(result.modelContent).toBe(JSON.stringify(content))
+    expect(readdirSync(root)).toEqual([])
+  })
+  it('keeps failure diagnostics ahead of a long/media result', () => {
+    const root = workspace()
+    const failure = createToolFailure({
+      category: 'operation',
+      code: 'EXEC_FAILED',
+      message: 'command failed',
+      recovery: { action: 'change_strategy', message: 'inspect log' }
+    })
+    const result = new DefaultToolResultNormalizer({
+      workspaceRoot: root
+    }).normalize({
+      ...fact('data:image/png;base64,' + 'a'.repeat(200) + 'x'.repeat(40_000)),
+      status: 'error',
       failure
     })
-
-    expect(result.failure).toEqual(failure)
-    expect(isNormalizedToolResultContent(result.content)).toBe(true)
+    expect(result.modelContent).toMatch(/^\[tool_failure\]/)
+    expect(result.modelContent).toContain('code=EXEC_FAILED')
+    expect(result.modelContent!.length).toBeLessThanOrEqual(32_000)
+  })
+  it('reports save failure and rejects artifact symlink escapes', () => {
+    const root = workspace()
+    const outside = workspace()
+    mkdirSync(path.join(root, '.ati'))
+    symlinkSync(outside, path.join(root, '.ati/artifacts'))
+    const result = new DefaultToolResultNormalizer({
+      workspaceRoot: root
+    }).normalize(fact('x'.repeat(40_000)))
+    expect(result.modelContent).toContain('not recoverable')
+    expect(result.modelContent).not.toContain('raw_result:')
+    expect(result.modelContent!.length).toBeLessThanOrEqual(32_000)
+    expect(readdirSync(outside)).toEqual([])
   })
 })

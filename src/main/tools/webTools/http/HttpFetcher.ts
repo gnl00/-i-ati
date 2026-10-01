@@ -1,4 +1,3 @@
-import { createHash } from 'crypto'
 import { open, rm } from 'fs/promises'
 import { net } from 'electron'
 import { createLogger } from '@main/logging/LogService'
@@ -16,7 +15,6 @@ export interface DownloadedHttpResponse {
   contentType: string
   declaredContentLength?: number
   receivedBytes: number
-  sha256: string
   tempAbsolutePath: string
   tempRelativePath: string
 }
@@ -62,9 +60,8 @@ async function writeResponseBody(
   response: Response,
   spool: WebFetchSpoolFile,
   signal?: AbortSignal
-): Promise<{ receivedBytes: number, sha256: string }> {
+): Promise<{ receivedBytes: number }> {
   const handle = await open(spool.absolutePath, 'w')
-  const hash = createHash('sha256')
   let receivedBytes = 0
   const body = response.body as ReadableStream<Uint8Array> | null
   const reader = body?.getReader()
@@ -80,7 +77,6 @@ async function writeResponseBody(
         throw new WebFetchDownloadTooLargeError(bytes.length)
       }
       await handle.write(bytes)
-      hash.update(bytes)
       receivedBytes = bytes.length
     } else {
       for (;;) {
@@ -93,7 +89,6 @@ async function writeResponseBody(
           throw new WebFetchDownloadTooLargeError(receivedBytes)
         }
         await handle.write(value)
-        hash.update(value)
       }
     }
   } finally {
@@ -101,7 +96,7 @@ async function writeResponseBody(
     await handle.close()
   }
 
-  return { receivedBytes, sha256: hash.digest('hex') }
+  return { receivedBytes }
 }
 
 export async function downloadViaHttp(
@@ -154,7 +149,6 @@ export async function downloadViaHttp(
       contentType: (response.headers.get('content-type') || '').toLowerCase(),
       declaredContentLength: declaredLength(response),
       receivedBytes: facts.receivedBytes,
-      sha256: facts.sha256,
       tempAbsolutePath: spool.absolutePath,
       tempRelativePath: spool.relativePath
     }

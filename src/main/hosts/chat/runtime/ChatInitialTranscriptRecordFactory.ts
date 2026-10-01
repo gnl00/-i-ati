@@ -21,10 +21,12 @@ export interface ChatInitialTranscriptRecordFactory {
 
 const partsFromUserContent = (content: string | VLMContent[]): AgentContentPart[] => {
   if (typeof content === 'string') {
-    return [{
-      type: 'input_text',
-      text: content
-    }]
+    return [
+      {
+        type: 'input_text',
+        text: content
+      }
+    ]
   }
 
   const parts: AgentContentPart[] = []
@@ -52,8 +54,8 @@ const stringifyAssistantContent = (content: string | VLMContent[]): string => {
   }
 
   return content
-    .filter(part => part.type === 'text')
-    .map(part => part.text || '')
+    .filter((part) => part.type === 'text')
+    .map((part) => part.text || '')
     .join('')
 }
 
@@ -108,10 +110,11 @@ export class DefaultChatInitialTranscriptRecordFactory implements ChatInitialTra
         ? records
             .slice()
             .reverse()
-            .find((record): record is AgentTranscriptAssistantStepRecord => (
-              record.kind === 'assistant_step' && record.step.stepId === currentAssistantStepId
-            ))
-            ?.step.toolCalls.find(toolCall => toolCall.id === seed.toolCallId)
+            .find(
+              (record): record is AgentTranscriptAssistantStepRecord =>
+                record.kind === 'assistant_step' && record.step.stepId === currentAssistantStepId
+            )
+            ?.step.toolCalls.find((toolCall) => toolCall.id === seed.toolCallId)
         : undefined
 
       const toolRecord: AgentTranscriptToolResultRecord = {
@@ -124,7 +127,7 @@ export class DefaultChatInitialTranscriptRecordFactory implements ChatInitialTra
         toolName: seed.toolName || matchedToolCall?.function.name || 'tool',
         status: 'success',
         content: projectToolResultContentForHistoryImport(seed.content),
-        contentRepresentation: seed.contentRepresentation
+        modelContent: seed.modelContent
       }
       records.push(toolRecord)
     }

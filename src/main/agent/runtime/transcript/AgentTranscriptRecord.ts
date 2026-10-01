@@ -14,7 +14,6 @@
  * - `assistant_step` record 应承载一个 `AgentStep`
  * - message entity 只可能是 output target，不是这里的 source
  */
-import type { ToolResultContentRepresentation } from '@main/agent/contracts'
 import type { AgentStep } from '../step/AgentStep'
 import type { ToolResultFact } from '../tools/ToolResultFact'
 import type { AgentContentPart } from './AgentContentPart'
@@ -31,8 +30,6 @@ export type AgentTranscriptToolResultRecord = ToolResultFact & {
   recordId: string
   kind: 'tool_result'
   timestamp: number
-  replayMode?: 'hot' | 'cold'
-  contentRepresentation?: ToolResultContentRepresentation
 }
 
 export interface AgentTranscriptAssistantStepRecord {
@@ -43,6 +40,4 @@ export interface AgentTranscriptAssistantStepRecord {
 }
 
 export type AgentTranscriptRecord =
-  | AgentTranscriptUserRecord
-  | AgentTranscriptAssistantStepRecord
-  | AgentTranscriptToolResultRecord
+  AgentTranscriptUserRecord | AgentTranscriptAssistantStepRecord | AgentTranscriptToolResultRecord

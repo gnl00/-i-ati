@@ -1,10 +1,10 @@
 # ADR-0009: Background tool-result compaction
 
-**Status:** Accepted<br>
+**Status:** Superseded by [ADR-0033](0033-stable-tool-result-model-content.md)<br>
 **Date:** 2026-07-21<br>
 **Related architecture:** [Chat runtime architecture](../architecture/chat-runtime-architecture-current.md)<br>
-**Related work:** [Background tool-result compaction](../work/plans/background-tool-result-compaction.md)<br>
-**Supersedes:** Active-result resolution decisions in [Tool result compaction design](../work/plans/tool-result-compaction-design.md)
+**Related work:** [Background tool-result compaction](../archive/2026/tools/2026-10-01-background-tool-result-compaction.md)<br>
+**Supersedes:** Active-result resolution decisions in [Tool result compaction design](../archive/2026/tools/2026-10-01-tool-result-compaction-design.md)
 
 ## Context
 

@@ -205,95 +205,26 @@ identity such as `toolCallId`.
 Renderer receives the new Chat and copied messages as one snapshot. The chat
 coordinator adds it to the ordinary Chat list, restores its transcript buffer,
 selects its saved model, and moves the shell to the branch. Subsequent request
-preparation uses the existing summary and compact-result lookup paths. See
+preparation uses the existing conversation summary and saved tool model content. See
 [ADR-0016](../decisions/0016-physical-chat-branch-snapshots.md).
 
-## Tool-result compaction
+## Tool-result model content
 
-Embedded tool metadata can declare `resultCompaction` with an enabled flag,
-level, and compactor ID. `web_fetch` declares the `balanced` level with the
-`web-document` compactor. `exec` declares the `balanced` level with
-the `command-output` compactor. Both profiles use a 1,000-character semantic
-content budget; the reserved `minimal` level uses 500 characters.
+Tools retain original execution facts and prepare deterministic `modelContent`
+before completion events. Chat persists raw display content and the stable model
+projection together. History restores that projection; legacy raw messages are
+prepared once at runtime bootstrap. Small results pass through. Large results
+and inline images use readable workspace artifacts with bounded previews and
+explicit save-failure notices. Subsequent assistant steps do not shorten results.
+Terminal snapshots perform no filesystem writes.
 
-`ChatRenderOutput` persists the raw tool result, emits that raw message to the
-renderer, and invokes its injected `ToolResultCompactionTrigger`. It then
-returns the same raw content to the tool-completion event. Synchronous
-scheduling failures produce a structured warning while raw persistence and
-continuation remain available. `RunRuntimeFactory` wires the production
-`ToolResultCompactionScheduler` into this narrow host contract. This keeps the
-chat render modules loadable in Node runtimes while orchestration owns the
-embedded-tool, database, compactor, and Electron dependency graph.
-
-The default transcript record factory appends the original `ToolResultFact` to
-the active run. The immediate continuation therefore receives the complete raw
-content. Later steps in that active run use the same in-memory transcript
-snapshot and retain the existing cold projection behavior for older results.
-
-`web_search` and `web_fetch` also protect the active hot continuation at the
-tool boundary. Direct responses spool into the active workspace. Completed
-files above 3 MiB, non-text files, and extracted text above the inline budget
-become workspace artifacts, and the immediate result carries a bounded
-descriptor. Non-text artifacts preserve the original source for a suitable
-workspace file tool. The embedded `read` tool consumes artifact `content.md`
-notes and extracted text in line windows with a 32,000-character ceiling and
-line/column continuation coordinates. See
-[ADR-0011](../decisions/0011-size-based-web-fetch-workspace-artifacts.md).
-
-The scheduler reads registered tool metadata and places configured jobs into a
-bounded FIFO queue. One job runs at a time, eight jobs may wait, and the first
-drain starts through `setImmediate`. Identity-keyed singleflight shares queued
-or running work. Queue overflow emits `tool_result.compaction.queue_full` and
-leaves the persisted raw message available for future replay. Compactor output
-with positive size gain becomes a ready derived row for later runs.
-`WebFetchResultCompactor` sends the fetched body to the reusable `CompactAgent`,
-which uses the configured lite model for semantic extraction. The compactor
-then restores provider-neutral URL, title, status, source, citation, and
-truncation fields. `ExecuteCommandResultCompactor` sends attributed stdout and
-stderr to the same agent. It restores command, exit code, execution time,
-error, confirmation, and risk fields around an `output_summary` that retains
-failure evidence, test totals, warnings, paths, locations, artifacts, and next
-steps. Balanced model input is bounded to 12,000 characters and minimal input
-to 6,000 characters before dispatch. Dynamic URL, title, command, status, and
-result fields stay inside a structured untrusted-source envelope. Tool metadata
-declares whether model input uses secret redaction or verbatim forwarding.
-The model request uses a 20-second default timeout, follows the parent run
-abort signal, and caps generated tokens at the semantic character budget.
-Model errors, timeouts, and empty output select the local head-tail compactor.
-Disabled policies, unavailable compactors, zero-gain output, and exhausted
-compaction paths resolve to raw content. Shared sensitive-text redaction also
-protects request debug logs. Job state, execution type, model identity, prompt
-version, token usage, latency, input size, sent size, truncation state,
-redaction count, and ready content are stored in
-`tool_result_compactions`, while `messages.body` retains the raw source.
-
-During the next submitted-run preparation, `RunRequestFactory` performs one batch
-lookup for ready compactions associated with tool messages still present in the
-request. It reloads those persisted tool messages as the raw source. Shared
-selection helpers filter results through the current metadata configuration,
-validate the raw SHA-256 hash, and choose the newest compactor version by
-persisted message ID. `InitialTranscriptSeedBuilder` wraps selected content in
-a JSON representation shaped as `compacted/lossy/result`. Valid JSON compact
-payloads remain structured under `result`; text payloads become JSON string
-values. The complete serialized representation must remain shorter than the
-persisted raw content, stay within 32,000 characters, and contain no inline
-image data. Eligible seeds carry the trusted internal
-`contentRepresentation: semantic_compaction` sidecar through transcript
-materialization. `RequestMaterializer` uses this provenance to preserve the
-complete semantic JSON through historical replay. Raw historical tool results
-continue through the 1,000-character cold replay guard, which retains the
-first 700 and final 300 source characters around a visible omission marker.
-`tool_result_compactions.content` keeps the bare provider-neutral compact
-payload, and the request assembly boundary owns the representation envelope.
-Renderer live events, `ChatSessionStore` history, and renderer message IPC all
-use raw persisted content. Database updates preserve raw tool content. Ready
-lookups deduplicate IDs and query in batches of 500. Raw fallback continues
-through the existing cold replay guard in `RequestMaterializer`.
-
-Compaction identity uses message ID, level, compactor ID, compactor version, and
-raw hash. Database claim transitions permit `pending|failed -> running`;
-terminal writes require the running claim. The scheduler reuses an in-process
-singleflight promise and an existing ready row for the same identity.
+Request materialization bounds the whole request by omitting complete oldest
+assistant/tool groups, preserving user instructions and the newest group. It
+never splits call/result pairs or re-truncates prepared output. The former
+background tool-compaction queue and ready-cache selection are retired; historical
+database rows are retained. Conversation compression remains post-run.
+See [ADR-0033](../decisions/0033-stable-tool-result-model-content.md) and
+[the tool-result contract](../specs/tools/tool-result-normalization.md).
 
 ## Dependency direction
 

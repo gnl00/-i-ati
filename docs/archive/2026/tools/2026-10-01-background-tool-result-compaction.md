@@ -1,14 +1,14 @@
 # Background Tool Result Compaction
 
 Owner: Repository maintainers<br>
-Status: Active<br>
+Status: Superseded by ADR-0033<br>
 Started: 2026-07-21<br>
 Target: Full raw tool results for the active continuation and background compact results for future runs<br>
 Exit criteria: The active loop has no compact-agent wait, renderer reads stay raw, future runs select ready compact rows, focused tests and architecture checks pass.<br>
-Related decision: [`../../decisions/0009-background-tool-result-compaction.md`](../../decisions/0009-background-tool-result-compaction.md)<br>
-Related design: [`tool-result-compaction-design.md`](tool-result-compaction-design.md)<br>
+Related decision: [`../../decisions/0009-background-tool-result-compaction.md`](../../../decisions/0009-background-tool-result-compaction.md)<br>
+Related design: [`tool-result-compaction-design.md`](2026-10-01-tool-result-compaction-design.md)<br>
 
-Related specs: [Tool result normalization](../../specs/tools/tool-result-normalization.md)<br>
+Related specs: [Tool result normalization](../../../specs/tools/tool-result-normalization.md)<br>
 Related implementation: `src/main/agent/runtime/tools/ToolResultContentProjector.ts`, `src/main/agent/runtime/transcript/RequestMaterializer.ts`
 
 ## Goal

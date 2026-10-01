@@ -130,3 +130,10 @@ Documentation: [Agent runtime](../README.md)
 
 - tool result 回传模型
 - 模型决定接下来是继续调用工具，还是直接给出最终回答
+
+## Stable result content
+
+Completion prepares bounded `modelContent` while retaining the raw `content` value.
+Large results use readable workspace artifacts; storage failures are represented
+in the preview. The dispatcher prepares before emitting completion; the record
+factory covers denied/deferred results. See [ADR-0033](../../../decisions/0033-stable-tool-result-model-content.md).

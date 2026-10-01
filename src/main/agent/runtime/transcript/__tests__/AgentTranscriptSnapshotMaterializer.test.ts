@@ -1,68 +1,31 @@
-import { mkdtempSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import path from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
-import { DefaultToolResultNormalizer, isNormalizedToolResultContent } from '../../tools/result-normalization'
+import { describe, expect, it } from 'vitest'
 import type { AgentTranscript } from '../AgentTranscript'
 import { DefaultAgentTranscriptSnapshotMaterializer } from '../AgentTranscriptSnapshotMaterializer'
 
-let tempDir = ''
-
-afterEach(() => {
-  if (tempDir) {
-    rmSync(tempDir, { recursive: true, force: true })
-    tempDir = ''
-  }
-})
-
-const createMaterializer = (): DefaultAgentTranscriptSnapshotMaterializer => {
-  tempDir = mkdtempSync(path.join(tmpdir(), 'transcript-snapshot-'))
-  return new DefaultAgentTranscriptSnapshotMaterializer({
-    toolResultNormalizer: new DefaultToolResultNormalizer({
-      baseDir: tempDir,
-      scopeId: 'chat-1',
-      maxInlineCharacters: 20
-    })
-  })
-}
-
 describe('DefaultAgentTranscriptSnapshotMaterializer', () => {
-  it('cools hot tool results into normalized content for terminal snapshots', () => {
-    const materializer = createMaterializer()
+  it('copies the record list without changing output or performing terminal normalization', () => {
     const transcript: AgentTranscript = {
-      transcriptId: 'transcript-1',
+      transcriptId: 't',
       createdAt: 1,
       updatedAt: 2,
       records: [
         {
-          recordId: 'tool-1',
+          recordId: 'r',
           kind: 'tool_result',
           timestamp: 2,
-          stepId: 'step-1',
-          toolCallId: 'call-1',
+          stepId: 's',
+          toolCallId: 'c',
           toolCallIndex: 0,
-          toolName: 'computer_use_state',
+          toolName: 'exec',
           status: 'success',
-          replayMode: 'hot',
-          content: 'x'.repeat(100)
+          content: 'x'.repeat(40_000),
+          modelContent: 'stable preview'
         }
       ]
     }
-
-    const snapshot = materializer.materialize(transcript)
-    const record = snapshot.records[0]
-
-    expect(record.kind).toBe('tool_result')
-    if (record.kind !== 'tool_result') {
-      throw new Error('Expected tool_result record')
-    }
-
-    expect(record.replayMode).toBe('cold')
-    expect(isNormalizedToolResultContent(record.content)).toBe(true)
-    if (!isNormalizedToolResultContent(record.content)) {
-      throw new Error('Expected normalized content')
-    }
-    expect(record.content.original.triggers).toContain('large_content')
-    expect(record.content.artifacts.some(artifact => artifact.kind === 'raw_result')).toBe(true)
+    const snapshot = new DefaultAgentTranscriptSnapshotMaterializer().materialize(transcript)
+    expect(snapshot).toEqual(transcript)
+    expect(snapshot.records).not.toBe(transcript.records)
+    expect(snapshot.records[0]).toBe(transcript.records[0])
   })
 })

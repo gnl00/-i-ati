@@ -45,16 +45,18 @@ vi.mock('../../persistence/ChatStepStore', () => ({
       chatUuid,
       body
     }))
-    persistSteeringUserMessage = vi.fn((input: { text: string; imageUrls: string[] }, chatId?: number, chatUuid?: string) => ({
-      id: 901,
-      chatId,
-      chatUuid,
-      body: {
-        role: 'user',
-        content: input.text,
-        segments: []
-      }
-    }))
+    persistSteeringUserMessage = vi.fn(
+      (input: { text: string; imageUrls: string[] }, chatId?: number, chatUuid?: string) => ({
+        id: 901,
+        chatId,
+        chatUuid,
+        body: {
+          role: 'user',
+          content: input.text,
+          segments: []
+        }
+      })
+    )
   }
 }))
 
@@ -130,20 +132,23 @@ describe('ChatRenderResponder', () => {
       }
     })
 
-    expect(firstAssistant.body).toEqual(expect.objectContaining({
-      content: 'First answer',
-      typewriterCompleted: true
-    }))
-    expect(responder.getFinalAssistantMessage()).toEqual(expect.objectContaining({
-      body: expect.objectContaining({
-        content: 'Guided answer',
-        model: 'model-1'
+    expect(firstAssistant.body).toEqual(
+      expect.objectContaining({
+        content: 'First answer',
+        typewriterCompleted: true
       })
-    }))
-    expect(emitter.emit).toHaveBeenCalledWith(
-      RUN_STEERING_EVENTS.STEERING_CONSUMED,
-      { queueItemId: 'queue-1' }
     )
+    expect(responder.getFinalAssistantMessage()).toEqual(
+      expect.objectContaining({
+        body: expect.objectContaining({
+          content: 'Guided answer',
+          model: 'model-1'
+        })
+      })
+    )
+    expect(emitter.emit).toHaveBeenCalledWith(RUN_STEERING_EVENTS.STEERING_CONSUMED, {
+      queueItemId: 'queue-1'
+    })
   })
 
   it('persists one steering user message and exposes its vision observation as runtime context', async () => {
@@ -179,7 +184,6 @@ describe('ChatRenderResponder', () => {
       firstAssistant,
       undefined,
       undefined,
-      undefined,
       {
         chat: {
           id: 1,
@@ -207,14 +211,16 @@ describe('ChatRenderResponder', () => {
       }
     })
 
-    expect(visionObservationService.observe).toHaveBeenCalledWith(expect.objectContaining({
-      userMessage: expect.objectContaining({
-        id: 901,
-        body: expect.objectContaining({ role: 'user' })
-      }),
-      textCtx: 'Use this screenshot',
-      mediaCtx: ['data:image/png;base64,raw-image']
-    }))
+    expect(visionObservationService.observe).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userMessage: expect.objectContaining({
+          id: 901,
+          body: expect.objectContaining({ role: 'user' })
+        }),
+        textCtx: 'Use this screenshot',
+        mediaCtx: ['data:image/png;base64,raw-image']
+      })
+    )
     expect(messageEntities).toEqual([
       firstAssistant,
       expect.objectContaining({ id: 901 }),
@@ -222,10 +228,12 @@ describe('ChatRenderResponder', () => {
     ])
     expect(responder.takeSteeringContext('queue-image')).toEqual({
       source: MESSAGE_SOURCE.VISION_OBSERVATION,
-      content: [{
-        type: 'input_text',
-        text: '<vision_observation status="ok">Summary: settings dialog</vision_observation>'
-      }]
+      content: [
+        {
+          type: 'input_text',
+          text: '<vision_observation status="ok">Summary: settings dialog</vision_observation>'
+        }
+      ]
     })
     expect(responder.takeSteeringContext('queue-image')).toBeUndefined()
   })
@@ -246,7 +254,6 @@ describe('ChatRenderResponder', () => {
       emitter,
       [firstAssistant],
       firstAssistant,
-      undefined,
       undefined,
       undefined,
       {
@@ -277,10 +284,9 @@ describe('ChatRenderResponder', () => {
       }
     })
 
-    expect(emitter.emit).toHaveBeenCalledWith(
-      RUN_STEERING_EVENTS.STEERING_CONSUMED,
-      { queueItemId: 'queue-image-failed' }
-    )
+    expect(emitter.emit).toHaveBeenCalledWith(RUN_STEERING_EVENTS.STEERING_CONSUMED, {
+      queueItemId: 'queue-image-failed'
+    })
     expect(responder.takeSteeringContext('queue-image-failed')).toBeUndefined()
     expect(loggerWarnMock).toHaveBeenCalledWith(
       'steering.vision_observation.failed',
@@ -316,10 +322,7 @@ describe('ChatRenderResponder', () => {
       output
     })
 
-    expect(emitter.emit).toHaveBeenCalledWith(
-      RUN_TOOL_EVENTS.TOOL_EXECUTION_OUTPUT,
-      output
-    )
+    expect(emitter.emit).toHaveBeenCalledWith(RUN_TOOL_EVENTS.TOOL_EXECUTION_OUTPUT, output)
   })
 
   it('keeps final text when a completed step also contains tool calls', async () => {
@@ -351,15 +354,17 @@ describe('ChatRenderResponder', () => {
         startedAt: 100,
         completedAt: 123,
         content: 'final answer',
-        toolCalls: [{
-          id: 'tool-1',
-          type: 'function',
-          function: {
-            name: 'read',
-            arguments: '{"path":"README.md"}'
-          },
-          index: 0
-        }],
+        toolCalls: [
+          {
+            id: 'tool-1',
+            type: 'function',
+            function: {
+              name: 'read',
+              arguments: '{"path":"README.md"}'
+            },
+            index: 0
+          }
+        ],
         finishReason: 'stop'
       }
     })
@@ -420,7 +425,8 @@ describe('ChatRenderResponder', () => {
       }
     })
 
-    const emitStreamPreviewUpdated = (adapter as any).messageEvents.emitStreamPreviewUpdated as ReturnType<typeof vi.fn>
+    const emitStreamPreviewUpdated = (adapter as any).messageEvents
+      .emitStreamPreviewUpdated as ReturnType<typeof vi.fn>
     expect(emitStreamPreviewUpdated).toHaveBeenCalledWith(
       expect.objectContaining({
         body: expect.objectContaining({
@@ -483,8 +489,10 @@ describe('ChatRenderResponder', () => {
       }
     })
 
-    const emitStreamPreviewUpdated = (adapter as any).messageEvents.emitStreamPreviewUpdated as ReturnType<typeof vi.fn>
-    const emitStreamPreviewSegmentUpdated = (adapter as any).messageEvents.emitStreamPreviewSegmentUpdated as ReturnType<typeof vi.fn>
+    const emitStreamPreviewUpdated = (adapter as any).messageEvents
+      .emitStreamPreviewUpdated as ReturnType<typeof vi.fn>
+    const emitStreamPreviewSegmentUpdated = (adapter as any).messageEvents
+      .emitStreamPreviewSegmentUpdated as ReturnType<typeof vi.fn>
     const firstPreviewBody = emitStreamPreviewUpdated.mock.calls[0][0].body as ChatMessage
     const firstTextSegment = firstPreviewBody.segments.find(
       (segment): segment is TextSegment => segment.type === 'text'
@@ -530,15 +538,17 @@ describe('ChatRenderResponder', () => {
         startedAt: 100,
         completedAt: 123,
         content: '',
-        toolCalls: [{
-          id: 'tool-1',
-          type: 'function',
-          function: {
-            name: 'read',
-            arguments: '{"path":"README.md"}'
-          },
-          index: 0
-        }],
+        toolCalls: [
+          {
+            id: 'tool-1',
+            type: 'function',
+            function: {
+              name: 'read',
+              arguments: '{"path":"README.md"}'
+            },
+            index: 0
+          }
+        ],
         finishReason: 'tool_calls'
       }
     })
@@ -613,15 +623,17 @@ describe('ChatRenderResponder', () => {
         startedAt: 100,
         completedAt: 123,
         content: '',
-        toolCalls: [{
-          id: 'tool-1',
-          type: 'function',
-          function: {
-            name: 'read',
-            arguments: '{"path":"README.md"}'
-          },
-          index: 0
-        }],
+        toolCalls: [
+          {
+            id: 'tool-1',
+            type: 'function',
+            function: {
+              name: 'read',
+              arguments: '{"path":"README.md"}'
+            },
+            index: 0
+          }
+        ],
         finishReason: 'tool_calls'
       }
     } as any)
@@ -685,16 +697,12 @@ describe('ChatRenderResponder', () => {
     }
 
     const messageEntities = [placeholder]
-    const compactionScheduler = {
-      schedule: vi.fn()
-    }
     const controller = new AbortController()
     const adapter = new ChatRenderResponder(
       emitter,
       messageEntities,
       placeholder,
       undefined,
-      compactionScheduler,
       controller.signal
     )
 
@@ -708,15 +716,17 @@ describe('ChatRenderResponder', () => {
         startedAt: 100,
         completedAt: 123,
         content: '',
-        toolCalls: [{
-          id: 'tool-1',
-          type: 'function',
-          function: {
-            name: 'read',
-            arguments: '{"path":"/tmp/test"}'
-          },
-          index: 0
-        }],
+        toolCalls: [
+          {
+            id: 'tool-1',
+            type: 'function',
+            function: {
+              name: 'read',
+              arguments: '{"path":"/tmp/test"}'
+            },
+            index: 0
+          }
+        ],
         finishReason: 'tool_calls'
       }
     })
@@ -748,21 +758,9 @@ describe('ChatRenderResponder', () => {
         })
       ])
     )
-    expect(compactionScheduler.schedule).toHaveBeenCalledWith(expect.objectContaining({
-      messageId: 900,
-      rawContent: '{"ok":true}',
-      args: {
-        path: '/tmp/test'
-      },
-      result: expect.objectContaining({
-        toolName: 'read',
-        toolCallId: 'tool-1'
-      }),
-      signal: controller.signal
-    }))
   })
 
-  it('persists, emits, and forwards raw content before background compaction settles', async () => {
+  it('persists, emits, and forwards raw content with a separate stable model projection', async () => {
     const emitter = {
       emit: vi.fn()
     } as any
@@ -774,23 +772,21 @@ describe('ChatRenderResponder', () => {
         role: 'assistant',
         content: '',
         segments: [],
-        toolCalls: [{
-          id: 'tool-1',
-          type: 'function',
-          function: {
-            name: 'web_fetch',
-            arguments: '{"url":"https://example.com"}'
+        toolCalls: [
+          {
+            id: 'tool-1',
+            type: 'function',
+            function: {
+              name: 'web_fetch',
+              arguments: '{"url":"https://example.com"}'
+            }
           }
-        }]
+        ]
       }
     }
     const persistedContents: unknown[] = []
     const stepStore = {
-      persistToolResultMessage: vi.fn((
-        body: ChatMessage,
-        chatId?: number,
-        chatUuid?: string
-      ) => {
+      persistToolResultMessage: vi.fn((body: ChatMessage, chatId?: number, chatUuid?: string) => {
         persistedContents.push(body.content)
         return {
           id: 900,
@@ -800,25 +796,16 @@ describe('ChatRenderResponder', () => {
         }
       })
     } as any
-    const backgroundCompaction = new Promise(() => {})
-    const compactionScheduler = {
-      schedule: vi.fn(() => backgroundCompaction)
-    }
     const messageEntities = [assistantDraft]
-    const responder = new ChatRenderResponder(
-      emitter,
-      messageEntities,
-      assistantDraft,
-      stepStore,
-      compactionScheduler
-    )
+    const responder = new ChatRenderResponder(emitter, messageEntities, assistantDraft, stepStore)
     const result = {
       status: 'success' as const,
       stepId: 'step-1',
       toolCallId: 'tool-1',
       toolCallIndex: 0,
       toolName: 'web_fetch',
-      content: 'raw result'
+      content: 'raw result',
+      modelContent: 'stable preview'
     }
 
     await responder.handle({
@@ -829,14 +816,8 @@ describe('ChatRenderResponder', () => {
 
     expect(persistedContents).toEqual(['raw result'])
     expect(messageEntities.at(-1)?.body.content).toBe('raw result')
+    expect(messageEntities.at(-1)?.body.toolResultModelContent).toBe('stable preview')
     expect(result.content).toBe('raw result')
-    expect(compactionScheduler.schedule).toHaveBeenCalledWith(expect.objectContaining({
-      messageId: 900,
-      rawContent: 'raw result',
-      args: {
-        url: 'https://example.com'
-      }
-    }))
     expect(emitter.emit).toHaveBeenCalledWith(
       RUN_TOOL_EVENTS.TOOL_EXECUTION_COMPLETED,
       expect.objectContaining({
@@ -861,24 +842,16 @@ describe('ChatRenderResponder', () => {
         segments: []
       }
     }
-    const compactionScheduler = {
-      schedule: vi.fn()
-    }
-    const responder = new ChatRenderResponder(
-      emitter,
-      [assistantDraft],
-      assistantDraft,
-      undefined,
-      compactionScheduler
-    )
+    const responder = new ChatRenderResponder(emitter, [assistantDraft], assistantDraft, undefined)
     const sideEffectSink = new ChatToolSideEffectSink({
       emitter,
       chatUuid: 'chat-1',
-      getChatByUuid: () => ({
-        id: 1,
-        uuid: 'chat-1',
-        title: 'Updated title'
-      } as ChatEntity)
+      getChatByUuid: () =>
+        ({
+          id: 1,
+          uuid: 'chat-1',
+          title: 'Updated title'
+        }) as ChatEntity
     })
     const result = {
       status: 'success' as const,
@@ -904,69 +877,10 @@ describe('ChatRenderResponder', () => {
       success: true,
       title: 'Updated title'
     })
-    expect(emitChatUpdatedMock).toHaveBeenCalledWith(expect.objectContaining({
-      uuid: 'chat-1',
-      title: 'Updated title'
-    }))
-  })
-
-  it('forwards raw content when scheduling background compaction throws', async () => {
-    loggerWarnMock.mockClear()
-    const emitter = {
-      emit: vi.fn()
-    } as any
-    const assistantDraft: MessageEntity = {
-      id: 101,
-      chatId: 1,
-      chatUuid: 'chat-1',
-      body: {
-        role: 'assistant',
-        content: '',
-        segments: []
-      }
-    }
-    const compactionScheduler = {
-      schedule: vi.fn(() => {
-        throw new Error('compaction unavailable')
-      })
-    }
-    const messageEntities = [assistantDraft]
-    const responder = new ChatRenderResponder(
-      emitter,
-      messageEntities,
-      assistantDraft,
-      undefined,
-      compactionScheduler
-    )
-    const result = {
-      status: 'success' as const,
-      stepId: 'step-1',
-      toolCallId: 'tool-1',
-      toolCallIndex: 0,
-      toolName: 'web_fetch',
-      content: 'raw result'
-    }
-
-    await responder.handle({
-      type: 'host.tool.result.available',
-      timestamp: 124,
-      result
-    })
-
-    expect(messageEntities.at(-1)?.body.content).toBe('raw result')
-    expect(result.content).toBe('raw result')
-    expect(loggerWarnMock).toHaveBeenCalledWith(
-      'tool_result.compaction.schedule_failed',
+    expect(emitChatUpdatedMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        messageId: 900,
-        toolName: 'web_fetch',
-        toolCallId: 'tool-1'
-      })
-    )
-    expect(emitter.emit).toHaveBeenCalledWith(
-      RUN_TOOL_EVENTS.TOOL_EXECUTION_COMPLETED,
-      expect.objectContaining({
-        result: 'raw result'
+        uuid: 'chat-1',
+        title: 'Updated title'
       })
     )
   })
@@ -1034,8 +948,11 @@ describe('ChatRenderResponder', () => {
       }
     })
 
-    const emitStreamPreviewUpdated = (adapter as any).messageEvents.emitStreamPreviewUpdated as ReturnType<typeof vi.fn>
-    const emitMessageUpdated = (adapter as any).messageEvents.emitMessageUpdated as ReturnType<typeof vi.fn>
+    const emitStreamPreviewUpdated = (adapter as any).messageEvents
+      .emitStreamPreviewUpdated as ReturnType<typeof vi.fn>
+    const emitMessageUpdated = (adapter as any).messageEvents.emitMessageUpdated as ReturnType<
+      typeof vi.fn
+    >
 
     expect(emitStreamPreviewUpdated).not.toHaveBeenCalled()
     expect(emitMessageUpdated).toHaveBeenCalledWith(
@@ -1083,21 +1000,26 @@ describe('ChatRenderResponder', () => {
         startedAt: 100,
         completedAt: 123,
         content: '',
-        toolCalls: [{
-          id: 'tool-1',
-          type: 'function',
-          function: {
-            name: 'read',
-            arguments: '{"path":"README.md"}'
-          },
-          index: 0
-        }],
+        toolCalls: [
+          {
+            id: 'tool-1',
+            type: 'function',
+            function: {
+              name: 'read',
+              arguments: '{"path":"README.md"}'
+            },
+            index: 0
+          }
+        ],
         finishReason: 'tool_calls'
       }
     })
 
-    const emitMessageUpdated = (adapter as any).messageEvents.emitMessageUpdated as ReturnType<typeof vi.fn>
-    const emitStreamPreviewUpdated = (adapter as any).messageEvents.emitStreamPreviewUpdated as ReturnType<typeof vi.fn>
+    const emitMessageUpdated = (adapter as any).messageEvents.emitMessageUpdated as ReturnType<
+      typeof vi.fn
+    >
+    const emitStreamPreviewUpdated = (adapter as any).messageEvents
+      .emitStreamPreviewUpdated as ReturnType<typeof vi.fn>
     emitMessageUpdated.mockClear()
     emitStreamPreviewUpdated.mockClear()
 
@@ -1175,21 +1097,26 @@ describe('ChatRenderResponder', () => {
         startedAt: 100,
         completedAt: 121,
         content: 'hello',
-        toolCalls: [{
-          id: 'tool-1',
-          type: 'function',
-          function: {
-            name: 'read',
-            arguments: '{"path":"README.md"}'
-          },
-          index: 0
-        }],
+        toolCalls: [
+          {
+            id: 'tool-1',
+            type: 'function',
+            function: {
+              name: 'read',
+              arguments: '{"path":"README.md"}'
+            },
+            index: 0
+          }
+        ],
         finishReason: 'tool_calls'
       }
     })
 
-    const emitStreamPreviewUpdated = (adapter as any).messageEvents.emitStreamPreviewUpdated as ReturnType<typeof vi.fn>
-    const emitMessageUpdated = (adapter as any).messageEvents.emitMessageUpdated as ReturnType<typeof vi.fn>
+    const emitStreamPreviewUpdated = (adapter as any).messageEvents
+      .emitStreamPreviewUpdated as ReturnType<typeof vi.fn>
+    const emitMessageUpdated = (adapter as any).messageEvents.emitMessageUpdated as ReturnType<
+      typeof vi.fn
+    >
     emitStreamPreviewUpdated.mockClear()
     emitMessageUpdated.mockClear()
 
@@ -1243,21 +1170,26 @@ describe('ChatRenderResponder', () => {
         startedAt: 100,
         completedAt: 123,
         content: 'final answer',
-        toolCalls: [{
-          id: 'tool-1',
-          type: 'function',
-          function: {
-            name: 'read',
-            arguments: '{"path":"README.md"}'
-          },
-          index: 0
-        }],
+        toolCalls: [
+          {
+            id: 'tool-1',
+            type: 'function',
+            function: {
+              name: 'read',
+              arguments: '{"path":"README.md"}'
+            },
+            index: 0
+          }
+        ],
         finishReason: 'tool_calls'
       }
     })
 
-    const emitStreamPreviewUpdated = (adapter as any).messageEvents.emitStreamPreviewUpdated as ReturnType<typeof vi.fn>
-    const emitMessageUpdated = (adapter as any).messageEvents.emitMessageUpdated as ReturnType<typeof vi.fn>
+    const emitStreamPreviewUpdated = (adapter as any).messageEvents
+      .emitStreamPreviewUpdated as ReturnType<typeof vi.fn>
+    const emitMessageUpdated = (adapter as any).messageEvents.emitMessageUpdated as ReturnType<
+      typeof vi.fn
+    >
     emitStreamPreviewUpdated.mockClear()
     emitMessageUpdated.mockClear()
 
@@ -1325,15 +1257,17 @@ describe('ChatRenderResponder', () => {
         startedAt: 100,
         completedAt: 123,
         content: '',
-        toolCalls: [{
-          id: 'tool-1',
-          type: 'function',
-          function: {
-            name: 'read',
-            arguments: '{"path":"README.md"}'
-          },
-          index: 0
-        }],
+        toolCalls: [
+          {
+            id: 'tool-1',
+            type: 'function',
+            function: {
+              name: 'read',
+              arguments: '{"path":"README.md"}'
+            },
+            index: 0
+          }
+        ],
         finishReason: 'tool_calls'
       }
     })
@@ -1414,15 +1348,17 @@ describe('ChatRenderResponder', () => {
         startedAt: 100,
         completedAt: 120,
         content: '让我先看看这颗新脑袋。',
-        toolCalls: [{
-          id: 'tool-1',
-          type: 'function',
-          function: {
-            name: 'emotion_report',
-            arguments: '{"impact":1,"activation":0,"control":0}'
-          },
-          index: 0
-        }],
+        toolCalls: [
+          {
+            id: 'tool-1',
+            type: 'function',
+            function: {
+              name: 'emotion_report',
+              arguments: '{"impact":1,"activation":0,"control":0}'
+            },
+            index: 0
+          }
+        ],
         finishReason: 'tool_calls'
       }
     })
@@ -1515,15 +1451,17 @@ describe('ChatRenderResponder', () => {
         completedAt: 120,
         content: '先帮你检查一遍。',
         reasoning: '正在核对你的当前配置和默认行为。',
-        toolCalls: [{
-          id: 'tool-1',
-          type: 'function',
-          function: {
-            name: 'read',
-            arguments: '{"path":"README.md"}'
-          },
-          index: 0
-        }],
+        toolCalls: [
+          {
+            id: 'tool-1',
+            type: 'function',
+            function: {
+              name: 'read',
+              arguments: '{"path":"README.md"}'
+            },
+            index: 0
+          }
+        ],
         finishReason: 'tool_calls'
       }
     })
@@ -1615,19 +1553,22 @@ describe('ChatRenderResponder', () => {
       snapshot: {
         content: '',
         reasoning: '',
-        toolCalls: [{
-          id: 'tool-1',
-          type: 'function',
-          function: {
-            name: 'read',
-            arguments: '{"path":"README'
-          },
-          index: 0
-        }]
+        toolCalls: [
+          {
+            id: 'tool-1',
+            type: 'function',
+            function: {
+              name: 'read',
+              arguments: '{"path":"README'
+            },
+            index: 0
+          }
+        ]
       }
     })
 
-    const emitStreamPreviewUpdated = (adapter as any).messageEvents.emitStreamPreviewUpdated as ReturnType<typeof vi.fn>
+    const emitStreamPreviewUpdated = (adapter as any).messageEvents
+      .emitStreamPreviewUpdated as ReturnType<typeof vi.fn>
     const startedPreview = emitStreamPreviewUpdated.mock.calls.at(-1)?.[0]?.body as ChatMessage
     const startedToolSegment = startedPreview.segments.find(
       (segment): segment is ToolCallSegment => segment.type === 'toolCall'
@@ -1666,15 +1607,17 @@ describe('ChatRenderResponder', () => {
       snapshot: {
         content: '',
         reasoning: '',
-        toolCalls: [{
-          id: 'tool-1',
-          type: 'function',
-          function: {
-            name: 'read',
-            arguments: fullArgs
-          },
-          index: 0
-        }]
+        toolCalls: [
+          {
+            id: 'tool-1',
+            type: 'function',
+            function: {
+              name: 'read',
+              arguments: fullArgs
+            },
+            index: 0
+          }
+        ]
       }
     })
 
@@ -1696,15 +1639,17 @@ describe('ChatRenderResponder', () => {
         completedAt: 120,
         content: '',
         reasoning: '',
-        toolCalls: [{
-          id: 'tool-1',
-          type: 'function',
-          function: {
-            name: 'read',
-            arguments: fullArgs
-          },
-          index: 0
-        }],
+        toolCalls: [
+          {
+            id: 'tool-1',
+            type: 'function',
+            function: {
+              name: 'read',
+              arguments: fullArgs
+            },
+            index: 0
+          }
+        ],
         finishReason: 'tool_calls'
       }
     })
@@ -1852,15 +1797,17 @@ describe('ChatRenderResponder', () => {
         completedAt: 140,
         content: 'final text',
         reasoning: 'reasoning-1reasoning-2',
-        toolCalls: [{
-          id: 'tool-1',
-          type: 'function',
-          function: {
-            name: 'read',
-            arguments: '{}'
-          },
-          index: 0
-        }],
+        toolCalls: [
+          {
+            id: 'tool-1',
+            type: 'function',
+            function: {
+              name: 'read',
+              arguments: '{}'
+            },
+            index: 0
+          }
+        ],
         finishReason: 'stop'
       }
     })
@@ -1955,8 +1902,10 @@ describe('ChatRenderResponder', () => {
       }
     })
 
-    const emitStreamPreviewUpdated = (adapter as any).messageEvents.emitStreamPreviewUpdated as ReturnType<typeof vi.fn>
-    const emitStreamPreviewSegmentUpdated = (adapter as any).messageEvents.emitStreamPreviewSegmentUpdated as ReturnType<typeof vi.fn>
+    const emitStreamPreviewUpdated = (adapter as any).messageEvents
+      .emitStreamPreviewUpdated as ReturnType<typeof vi.fn>
+    const emitStreamPreviewSegmentUpdated = (adapter as any).messageEvents
+      .emitStreamPreviewSegmentUpdated as ReturnType<typeof vi.fn>
     const latestPreview = emitStreamPreviewUpdated.mock.calls.at(-1)?.[0]?.body as ChatMessage
     const reasoningSegment = latestPreview.segments.find(
       (segment): segment is ReasoningSegment => segment.type === 'reasoning'
@@ -2012,15 +1961,17 @@ describe('ChatRenderResponder', () => {
         completedAt: 140,
         content: '',
         reasoning: 'reasoning',
-        toolCalls: [{
-          id: 'tool-1',
-          type: 'function',
-          function: {
-            name: 'read',
-            arguments: '{}'
-          },
-          index: 0
-        }],
+        toolCalls: [
+          {
+            id: 'tool-1',
+            type: 'function',
+            function: {
+              name: 'read',
+              arguments: '{}'
+            },
+            index: 0
+          }
+        ],
         finishReason: 'tool_calls'
       }
     })
@@ -2039,9 +1990,9 @@ describe('ChatRenderResponder', () => {
       }
     })
 
-    const reasoningSegment = adapter.getFinalAssistantMessage().body.segments.find(
-      (segment): segment is ReasoningSegment => segment.type === 'reasoning'
-    )
+    const reasoningSegment = adapter
+      .getFinalAssistantMessage()
+      .body.segments.find((segment): segment is ReasoningSegment => segment.type === 'reasoning')
 
     expect(reasoningSegment).toEqual(
       expect.objectContaining({
@@ -2138,15 +2089,17 @@ describe('ChatRenderResponder', () => {
         startedAt: 90,
         completedAt: 100,
         content: '',
-        toolCalls: [{
-          id: 'tool-b',
-          type: 'function',
-          function: {
-            name: 'read',
-            arguments: '{"path":"b.txt"}'
-          },
-          index: 0
-        }],
+        toolCalls: [
+          {
+            id: 'tool-b',
+            type: 'function',
+            function: {
+              name: 'read',
+              arguments: '{"path":"b.txt"}'
+            },
+            index: 0
+          }
+        ],
         finishReason: 'tool_calls'
       }
     })
@@ -2175,15 +2128,17 @@ describe('ChatRenderResponder', () => {
         startedAt: 105,
         completedAt: 110,
         content: 'done',
-        toolCalls: [{
-          id: 'tool-a',
-          type: 'function',
-          function: {
-            name: 'read',
-            arguments: '{"path":"a.txt"}'
-          },
-          index: 0
-        }],
+        toolCalls: [
+          {
+            id: 'tool-a',
+            type: 'function',
+            function: {
+              name: 'read',
+              arguments: '{"path":"a.txt"}'
+            },
+            index: 0
+          }
+        ],
         finishReason: 'tool_calls'
       }
     })
@@ -2202,10 +2157,10 @@ describe('ChatRenderResponder', () => {
       }
     })
 
-    const toolCallSegments = adapter.getFinalAssistantMessage().body.segments.filter(
-      (segment): segment is ToolCallSegment => segment.type === 'toolCall'
-    )
+    const toolCallSegments = adapter
+      .getFinalAssistantMessage()
+      .body.segments.filter((segment): segment is ToolCallSegment => segment.type === 'toolCall')
 
-    expect(toolCallSegments.map(segment => segment.toolCallId)).toEqual(['tool-b', 'tool-a'])
+    expect(toolCallSegments.map((segment) => segment.toolCallId)).toEqual(['tool-b', 'tool-a'])
   })
 })

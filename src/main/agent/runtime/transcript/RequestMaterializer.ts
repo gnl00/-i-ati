@@ -80,18 +80,18 @@ const REQUEST_CONTEXT_SOURCES = new Set<string>([
 const REDACTED_ARGUMENT_VALUE = '[REDACTED]'
 const VISION_ANALYZE_TOOL_NAME = 'vision_analyze'
 
-const isRequestContextRecord = (
-  record: AgentTranscriptRecord
-): boolean => (
-  record.kind === 'user'
-  && Boolean(record.source && REQUEST_CONTEXT_SOURCES.has(record.source))
-)
+const isRequestContextRecord = (record: AgentTranscriptRecord): boolean =>
+  record.kind === 'user' && Boolean(record.source && REQUEST_CONTEXT_SOURCES.has(record.source))
 
-const partsToText = (parts: AgentContentPart[]): string => parts
-  .filter((part): part is Extract<AgentContentPart, { type: 'input_text' }> => part.type === 'input_text')
-  .map(part => part.text.trim())
-  .filter(Boolean)
-  .join('\n\n')
+const partsToText = (parts: AgentContentPart[]): string =>
+  parts
+    .filter(
+      (part): part is Extract<AgentContentPart, { type: 'input_text' }> =>
+        part.type === 'input_text'
+    )
+    .map((part) => part.text.trim())
+    .filter(Boolean)
+    .join('\n\n')
 
 const buildRequestContextPart = (parts: AgentContentPart[]): AgentContentPart | null => {
   const text = partsToText(parts)
@@ -120,21 +120,14 @@ const appendRequestContext = (
     return [...content]
   }
 
-  return [
-    ...content,
-    contextPart
-  ]
+  return [...content, contextPart]
 }
 
-const stripRawImageParts = (content: AgentContentPart[]): AgentContentPart[] => (
-  content.filter(part => part.type !== 'input_image')
-)
+const stripRawImageParts = (content: AgentContentPart[]): AgentContentPart[] =>
+  content.filter((part) => part.type !== 'input_image')
 
-const isRecordObject = (value: unknown): value is Record<string, unknown> => (
-  Boolean(value)
-  && typeof value === 'object'
-  && !Array.isArray(value)
-)
+const isRecordObject = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 
 const redactVisionImageInput = (value: unknown): unknown => {
   if (typeof value === 'string') {
@@ -158,13 +151,15 @@ const redactVisionImageInput = (value: unknown): unknown => {
     next.file = REDACTED_ARGUMENT_VALUE
   }
   if (Array.isArray(next.url)) {
-    next.url = next.url.map(item => typeof item === 'string' ? REDACTED_ARGUMENT_VALUE : item)
+    next.url = next.url.map((item) => (typeof item === 'string' ? REDACTED_ARGUMENT_VALUE : item))
   }
   if (Array.isArray(next.urls)) {
-    next.urls = next.urls.map(item => typeof item === 'string' ? REDACTED_ARGUMENT_VALUE : item)
+    next.urls = next.urls.map((item) => (typeof item === 'string' ? REDACTED_ARGUMENT_VALUE : item))
   }
   if (Array.isArray(next.raw_data)) {
-    next.raw_data = next.raw_data.map(item => typeof item === 'string' ? REDACTED_ARGUMENT_VALUE : item)
+    next.raw_data = next.raw_data.map((item) =>
+      typeof item === 'string' ? REDACTED_ARGUMENT_VALUE : item
+    )
   }
   return next
 }
@@ -174,7 +169,7 @@ const redactStringOrStringArray = (value: unknown): unknown => {
     return REDACTED_ARGUMENT_VALUE
   }
   if (Array.isArray(value)) {
-    return value.map(item => typeof item === 'string' ? REDACTED_ARGUMENT_VALUE : item)
+    return value.map((item) => (typeof item === 'string' ? REDACTED_ARGUMENT_VALUE : item))
   }
   return value
 }
@@ -220,8 +215,8 @@ const sanitizeVisionAnalyzeArguments = (rawArguments: string): string => {
   return JSON.stringify(sanitized)
 }
 
-const sanitizeAssistantToolCallsForRequest = (toolCalls: IToolCall[]): IToolCall[] => (
-  toolCalls.map(toolCall => {
+const sanitizeAssistantToolCallsForRequest = (toolCalls: IToolCall[]): IToolCall[] =>
+  toolCalls.map((toolCall) => {
     if (toolCall.function?.name !== VISION_ANALYZE_TOOL_NAME) {
       return toolCall
     }
@@ -234,19 +229,52 @@ const sanitizeAssistantToolCallsForRequest = (toolCalls: IToolCall[]): IToolCall
       }
     }
   })
-)
 
-const hasFollowingAssistantStep = (
-  records: AgentTranscriptRecord[],
-  recordIndex: number
-): boolean => {
-  for (let index = recordIndex + 1; index < records.length; index += 1) {
-    if (records[index].kind === 'assistant_step') {
-      return true
+/** Conservative character budget, not an exact tokenizer count. Keep user/context
+ * messages and the latest assistant/tool group; never split call/result pairs. */
+export const boundRequestMessages = (
+  messages: MaterializedProtocolMessage[],
+  requestSpec: AgentRequestSpec
+): MaterializedProtocolMessage[] => {
+  const contextTokens = requestSpec.contextWindowTokens
+  const capacity =
+    contextTokens && Number.isFinite(contextTokens) && contextTokens > 0
+      ? Math.min(128_000, Math.floor(contextTokens * 0.75))
+      : 128_000
+  const fixedCharacters =
+    (requestSpec.systemPrompt?.length ?? 0) + JSON.stringify(requestSpec.tools ?? []).length
+  const size = (items: MaterializedProtocolMessage[]): number =>
+    JSON.stringify(items).length + fixedCharacters
+  if (size(messages) <= capacity) return messages
+  const groups: number[][] = []
+  let current: number[] | undefined
+  messages.forEach((message, index) => {
+    if (message.role === 'assistant') {
+      current = [index]
+      groups.push(current)
+    } else if (message.role === 'tool') {
+      current?.push(index)
     }
+  })
+  const removed = new Set<number>()
+  const notice: MaterializedUserProtocolMessage = {
+    role: 'user',
+    content: [
+      {
+        type: 'input_text',
+        text: '[Earlier assistant/tool groups omitted to fit the request budget. Use saved output paths or repeat read-only inspection when earlier evidence is needed.]'
+      }
+    ]
   }
-
-  return false
+  let retained = messages
+  for (const group of groups.slice(0, -1)) {
+    group.forEach((index) => removed.add(index))
+    retained = [notice, ...messages.filter((_message, index) => !removed.has(index))]
+    if (size(retained) <= capacity) return retained
+  }
+  throw new Error(
+    'Request context budget exceeded: user instructions, system/tools, and the latest assistant/tool group cannot fit. Reduce input or select a model with a larger context window.'
+  )
 }
 
 export class DefaultRequestMaterializer implements RequestMaterializer {
@@ -273,10 +301,7 @@ export class DefaultRequestMaterializer implements RequestMaterializer {
       const record = input.transcript.records[recordIndex]
 
       if (record.kind === 'user' && isRequestContextRecord(record)) {
-        pendingRequestContextParts = [
-          ...pendingRequestContextParts,
-          ...record.content
-        ]
+        pendingRequestContextParts = [...pendingRequestContextParts, ...record.content]
         continue
       }
 
@@ -284,7 +309,9 @@ export class DefaultRequestMaterializer implements RequestMaterializer {
         case 'user':
           messages.push({
             role: 'user',
-            content: stripRawImageParts(appendRequestContext(record.content, pendingRequestContextParts))
+            content: stripRawImageParts(
+              appendRequestContext(record.content, pendingRequestContextParts)
+            )
           })
           pendingRequestContextParts = []
           break
@@ -294,9 +321,10 @@ export class DefaultRequestMaterializer implements RequestMaterializer {
             role: 'assistant',
             content: record.step.content,
             reasoning: record.step.reasoning,
-            toolCalls: record.step.toolCalls.length > 0
-              ? sanitizeAssistantToolCallsForRequest(record.step.toolCalls)
-              : undefined
+            toolCalls:
+              record.step.toolCalls.length > 0
+                ? sanitizeAssistantToolCallsForRequest(record.step.toolCalls)
+                : undefined
           })
           break
         case 'tool_result':
@@ -307,10 +335,8 @@ export class DefaultRequestMaterializer implements RequestMaterializer {
               content: record.content,
               error: record.error,
               failure: record.failure,
-              contentRepresentation: record.contentRepresentation,
-              replayMode: hasFollowingAssistantStep(input.transcript.records, recordIndex)
-                ? 'cold'
-                : record.replayMode
+              status: record.status,
+              modelContent: record.modelContent
             }),
             toolCallId: record.toolCallId,
             toolName: record.toolName
@@ -328,7 +354,7 @@ export class DefaultRequestMaterializer implements RequestMaterializer {
       model: input.requestSpec.model,
       modelType: input.requestSpec.modelType,
       systemPrompt: input.requestSpec.systemPrompt,
-      messages,
+      messages: boundRequestMessages(messages, input.requestSpec),
       tools: input.requestSpec.tools,
       stream: input.requestSpec.stream,
       payloadExtensions: input.requestSpec.payloadExtensions,

@@ -116,9 +116,6 @@ export async function runTuiApplication(argv = process.argv.slice(2)): Promise<n
     stop = async (): Promise<void> => {
       await session.close()
       await waitForCommandProcessCleanup()
-      const { toolResultCompactionScheduler } =
-        await import('@main/orchestration/chat/toolResultCompaction/ToolResultCompactionScheduler')
-      await toolResultCompactionScheduler.waitForIdle()
       mcpRuntimeService.disconnectAll()
     }
     await SkillService.initializeFromConfig(config)

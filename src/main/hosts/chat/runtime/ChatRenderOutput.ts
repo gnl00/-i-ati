@@ -1,36 +1,24 @@
 import { assertMessageEntitySegmentsHaveIds } from '@shared/chat/segmentId'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
-import { projectToolResultContentForDisplay, type ToolResultFact } from '@main/agent/contracts/HostRuntimeContracts'
-import { createLogger } from '@main/logging/LogService'
+import {
+  projectToolResultContentForDisplay,
+  type ToolResultFact
+} from '@main/agent/contracts/HostRuntimeContracts'
 import type { AgentRenderMessageState } from '@main/hosts/shared/render'
 import { ChatEventMapper } from '../mapping/ChatEventMapper'
 import { ChatStepStore } from '../persistence/ChatStepStore'
 import { ChatRenderMapper } from './ChatRenderMapper'
-import type { ToolResultCompactionTrigger } from './ToolResultCompactionTrigger'
-
-const logger = createLogger('ChatRenderOutput')
 
 const hasPersistableAssistantPayload = (body: ChatMessage): boolean => {
-  const hasContent = typeof body.content === 'string'
-    ? body.content.trim().length > 0
-    : Array.isArray(body.content) && body.content.length > 0
+  const hasContent =
+    typeof body.content === 'string'
+      ? body.content.trim().length > 0
+      : Array.isArray(body.content) && body.content.length > 0
 
   const hasSegments = Array.isArray(body.segments) && body.segments.length > 0
   const hasToolCalls = Array.isArray(body.toolCalls) && body.toolCalls.length > 0
 
   return hasContent || hasSegments || hasToolCalls
-}
-
-const parseToolCallArguments = (rawArguments: string | undefined): unknown => {
-  if (!rawArguments) {
-    return undefined
-  }
-
-  try {
-    return JSON.parse(rawArguments)
-  } catch {
-    return rawArguments
-  }
 }
 
 export class ChatRenderOutput {
@@ -42,9 +30,7 @@ export class ChatRenderOutput {
     private readonly messageEntities: MessageEntity[],
     private assistantDraft: MessageEntity,
     private readonly stepStore = new ChatStepStore(),
-    mapper = new ChatRenderMapper(),
-    private readonly toolResultCompactionTrigger: ToolResultCompactionTrigger,
-    private readonly signal?: AbortSignal
+    mapper = new ChatRenderMapper()
   ) {
     this.messageEvents = new ChatEventMapper(emitter)
     this.mapper = mapper
@@ -174,6 +160,7 @@ export class ChatRenderOutput {
       name: result.toolName,
       toolCallId: result.toolCallId,
       content: rawContent,
+      toolResultModelContent: result.modelContent,
       segments: []
     }
 
@@ -185,27 +172,6 @@ export class ChatRenderOutput {
     this.messageEntities.push(entity)
 
     this.messageEvents.emitToolResultAttached(result.toolCallId, entity)
-
-    if (entity.id != null) {
-      const toolCall = this.assistantDraft.body.toolCalls
-        ?.find(candidate => candidate.id === result.toolCallId)
-      try {
-        this.toolResultCompactionTrigger.schedule({
-          messageId: entity.id,
-          result,
-          rawContent,
-          args: parseToolCallArguments(toolCall?.function.arguments),
-          signal: this.signal
-        })
-      } catch (error) {
-        logger.warn('tool_result.compaction.schedule_failed', {
-          messageId: entity.id,
-          toolName: result.toolName,
-          toolCallId: result.toolCallId,
-          error: error instanceof Error ? error.message : String(error)
-        })
-      }
-    }
 
     return rawContent
   }

@@ -1,26 +1,13 @@
 import type { ToolResultFact } from '../ToolResultFact'
 import {
+  formatToolResultForModel,
+  projectToolResultContentForDisplay
+} from '../ToolResultContentProjector'
+import { compactToolContentForModelRequest } from '@shared/tools/toolResultContent'
+import {
   DefaultToolResultArtifactStore,
-  type ToolResultArtifactDescriptor,
   type ToolResultArtifactStoreOptions
 } from './ToolResultArtifactStore'
-
-export type ToolResultNormalizationTrigger = 'inline_image' | 'large_content'
-
-export interface NormalizedToolResultContent {
-  __atiToolResultNormalized: true
-  version: 1
-  toolName: string
-  toolCallId: string
-  status: ToolResultFact['status']
-  summary: string
-  original: {
-    characters: number
-    triggers: ToolResultNormalizationTrigger[]
-  }
-  artifacts: ToolResultArtifactDescriptor[]
-  modelContent: string
-}
 
 export interface ToolResultNormalizer {
   normalize(result: ToolResultFact): ToolResultFact
@@ -37,41 +24,13 @@ interface ExtractedImage {
 }
 
 const DEFAULT_MAX_INLINE_CHARACTERS = 32_000
-const DATA_IMAGE_PATTERN = /data:(image\/[a-zA-Z0-9.+-]+);base64,([a-zA-Z0-9+/=\r\n]+)/g
-
-export const isNormalizedToolResultContent = (
-  content: unknown
-): content is NormalizedToolResultContent => (
-  Boolean(
-    content
-    && typeof content === 'object'
-    && (content as { __atiToolResultNormalized?: unknown }).__atiToolResultNormalized === true
-  )
-)
-
-const safeStringify = (value: unknown): string => {
-  if (typeof value === 'string') {
-    return value
-  }
-
-  const seen = new WeakSet<object>()
-  try {
-    return JSON.stringify(value, (_key, nested) => {
-      if (typeof nested === 'object' && nested !== null) {
-        if (seen.has(nested)) {
-          return '[Circular]'
-        }
-        seen.add(nested)
-      }
-      return nested
-    })
-  } catch {
-    return String(value)
-  }
-}
+const DATA_IMAGE_PATTERN = /data:(image\/[a-zA-Z0-9.+-]+);base64,([a-zA-Z0-9+/\r\n]+={0,2})/g
 
 const mimeFromMagic = (bytes: Buffer): string | null => {
-  if (bytes.length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) {
+  if (
+    bytes.length >= 8 &&
+    bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+  ) {
     return 'image/png'
   }
   if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
@@ -81,9 +40,9 @@ const mimeFromMagic = (bytes: Buffer): string | null => {
     return 'image/gif'
   }
   if (
-    bytes.length >= 12
-    && bytes.subarray(0, 4).toString('ascii') === 'RIFF'
-    && bytes.subarray(8, 12).toString('ascii') === 'WEBP'
+    bytes.length >= 12 &&
+    bytes.subarray(0, 4).toString('ascii') === 'RIFF' &&
+    bytes.subarray(8, 12).toString('ascii') === 'WEBP'
   ) {
     return 'image/webp'
   }
@@ -166,22 +125,32 @@ const collectImages = (
   return images
 }
 
-const buildModelContent = (input: {
-  summary: string
-  artifacts: ToolResultArtifactDescriptor[]
-  triggers: ToolResultNormalizationTrigger[]
-  originalCharacters: number
-}): string => (
-  [
-    '[Tool result normalized]',
-    input.summary,
-    `originalChars=${input.originalCharacters}`,
-    `reason=${input.triggers.join(',')}`,
-    ...input.artifacts.map((artifact, index) => (
-      `artifact${index + 1}=${artifact.kind} path=${artifact.path} bytes=${artifact.bytes} sha256=${artifact.sha256}`
-    ))
-  ].join('\n')
-)
+const stripExtractedImages = (
+  value: unknown,
+  imagePaths: Set<string>,
+  sourcePath = 'content',
+  seen = new WeakSet<object>()
+): unknown => {
+  if (typeof value === 'string') {
+    if (!imagePaths.has(sourcePath)) return value
+    return value.includes('data:image/')
+      ? value.replace(DATA_IMAGE_PATTERN, '[Image saved as artifact]')
+      : '[Image saved as artifact]'
+  }
+  if (!value || typeof value !== 'object') return value
+  if (seen.has(value)) return '[Circular]'
+  seen.add(value)
+  if (Array.isArray(value))
+    return value.map((item, index) =>
+      stripExtractedImages(item, imagePaths, `${sourcePath}[${index}]`, seen)
+    )
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [
+      key,
+      stripExtractedImages(item, imagePaths, `${sourcePath}.${key}`, seen)
+    ])
+  )
+}
 
 export class DefaultToolResultNormalizer implements ToolResultNormalizer {
   private readonly artifactStore: DefaultToolResultArtifactStore
@@ -193,60 +162,80 @@ export class DefaultToolResultNormalizer implements ToolResultNormalizer {
   }
 
   normalize(result: ToolResultFact): ToolResultFact {
-    if (isNormalizedToolResultContent(result.content)) {
-      return result
+    if (
+      result.modelContent !== undefined &&
+      result.modelContent.length > this.maxInlineCharacters
+    ) {
+      result = { ...result, modelContent: undefined }
+    }
+    const formatted = formatToolResultForModel(result)
+    // Inspect the selected view, including base64 fields inside tool-owned JSON.
+    let selectedContent: unknown = result.modelContent ?? result.content
+    let modelPrefix = ''
+    if (result.modelContent !== undefined) {
+      try {
+        selectedContent = JSON.parse(result.modelContent)
+      } catch {
+        const jsonStart = result.modelContent.indexOf('{')
+        if (jsonStart >= 0) {
+          try {
+            selectedContent = JSON.parse(result.modelContent.slice(jsonStart))
+            modelPrefix = result.modelContent.slice(0, jsonStart)
+          } catch {
+            /* Plain text views are scanned directly. */
+          }
+        }
+      }
+    }
+    const images = collectImages(selectedContent)
+    if (formatted.length <= this.maxInlineCharacters && images.length === 0) {
+      return result.modelContent !== undefined ? result : { ...result, modelContent: formatted }
     }
 
-    const rawContent = safeStringify(result.content)
-    const images = collectImages(result.content)
-    const triggers: ToolResultNormalizationTrigger[] = []
-
-    if (images.length > 0) {
-      triggers.push('inline_image')
+    const rawContent = projectToolResultContentForDisplay(result)
+    let recovery: string
+    try {
+      const saved = this.artifactStore.write({
+        rawContent,
+        images
+      })
+      recovery = [
+        '[Tool result preview; original output saved]',
+        ...saved.artifacts.slice(0, 9).map((artifact) => `${artifact.kind}: ${artifact.path}`),
+        'Use read with the raw_result path; follow its line/column continuation to read more.'
+      ].join('\n')
+    } catch {
+      recovery =
+        '[Tool result preview; saving original output failed. Omitted content is not recoverable.]'
     }
-
-    if (rawContent.length > this.maxInlineCharacters) {
-      triggers.push('large_content')
-    }
-
-    if (triggers.length === 0) {
-      return result
-    }
-
-    const artifactResult = this.artifactStore.write({
-      stepId: result.stepId,
-      toolCallId: result.toolCallId,
-      rawContent,
-      images
+    const failurePrefix =
+      result.modelContent !== undefined
+        ? modelPrefix
+        : result.failure || result.error || result.status !== 'success'
+          ? formatToolResultForModel({ ...result, content: null, modelContent: undefined }).slice(
+              0,
+              4_000
+            ) + '\n'
+          : ''
+    const budget = Math.max(
+      0,
+      this.maxInlineCharacters - recovery.length - failurePrefix.length - 1
+    )
+    const previewSource =
+      images.length > 0
+        ? projectToolResultContentForDisplay({
+            content: stripExtractedImages(
+              selectedContent,
+              new Set(images.map((image) => image.sourcePath))
+            )
+          })
+        : (result.modelContent ?? rawContent)
+    const preview = compactToolContentForModelRequest(previewSource, {
+      maxCharacters: budget
     })
-    const summary = images.length > 0
-      ? `Tool result contained ${images.length} inline image artifact(s). Original payload was written to ${artifactResult.rootDir}.`
-      : `Tool result exceeded inline budget. Original payload was written to ${artifactResult.rootDir}.`
-    const modelContent = buildModelContent({
-      summary,
-      artifacts: artifactResult.artifacts,
-      triggers,
-      originalCharacters: rawContent.length
-    })
-
-    const content: NormalizedToolResultContent = {
-      __atiToolResultNormalized: true,
-      version: 1,
-      toolName: result.toolName,
-      toolCallId: result.toolCallId,
-      status: result.status,
-      summary,
-      original: {
-        characters: rawContent.length,
-        triggers
-      },
-      artifacts: artifactResult.artifacts,
-      modelContent
-    }
-
     return {
       ...result,
-      content
-    } as ToolResultFact
+      modelContent: `${failurePrefix}${preview}\n${recovery}`.slice(0, this.maxInlineCharacters)
+    }
   }
 }

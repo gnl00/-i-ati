@@ -3,10 +3,9 @@ import type { ModelResponseChunk } from '@main/agent/runtime/model/ModelResponse
 import type { ModelStreamExecutor } from '@main/agent/runtime/model/ModelStreamExecutor'
 import { DefaultMainAgentRuntimeRunner } from '../DefaultMainAgentRuntimeRunner'
 
-const noopToolResultCompactionTrigger = {
-  schedule: vi.fn()
-}
 import { AgentRun } from '../AgentRun'
+
+vi.mock('electron', () => ({ app: { getPath: (): string => '/tmp/ati-test-user-data' } }))
 
 vi.mock('@main/logging/LogService', () => ({
   createLogger: vi.fn(() => ({
@@ -38,13 +37,13 @@ vi.mock('@main/db/DatabaseService', () => ({
     updateMessage: vi.fn(),
     updateChat: vi.fn(),
     saveRunEvent: vi.fn(),
-    transitionEmotionState: vi.fn((
-      transition: (previous: EmotionStateSnapshot | undefined) => unknown
-    ) => transition(undefined))
+    transitionEmotionState: vi.fn(
+      (transition: (previous: EmotionStateSnapshot | undefined) => unknown) => transition(undefined)
+    )
   }
 }))
 
-const createAsyncStream = async function *(
+const createAsyncStream = async function* (
   chunks: ModelResponseChunk[]
 ): AsyncGenerator<ModelResponseChunk, void, unknown> {
   for (const chunk of chunks) {
@@ -129,30 +128,31 @@ const prepared = {
 describe('AgentRun runtime integration', () => {
   it('runs through runtime runner and finalizeRun end-to-end', async () => {
     const modelStreamExecutor: ModelStreamExecutor = {
-      execute: vi.fn(async () => createAsyncStream([
-        {
-          kind: 'delta',
-          responseId: 'resp-1',
-          model: 'model-1',
-          content: 'hello from runtime',
-          finishReason: 'stop',
-          usage: {
-            promptTokens: 1,
-            completionTokens: 2,
-            totalTokens: 3
+      execute: vi.fn(async () =>
+        createAsyncStream([
+          {
+            kind: 'delta',
+            responseId: 'resp-1',
+            model: 'model-1',
+            content: 'hello from runtime',
+            finishReason: 'stop',
+            usage: {
+              promptTokens: 1,
+              completionTokens: 2,
+              totalTokens: 3
+            }
+          },
+          {
+            kind: 'final',
+            responseId: 'resp-1',
+            model: 'model-1'
           }
-        },
-        {
-          kind: 'final',
-          responseId: 'resp-1',
-          model: 'model-1'
-        }
-      ]))
+        ])
+      )
     }
 
     const mainAgentRuntimeRunner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
-      modelStreamExecutor,
-      toolResultCompactionTrigger: noopToolResultCompactionTrigger
+      modelStreamExecutor
     })
 
     const emitter = {

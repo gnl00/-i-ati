@@ -16,9 +16,9 @@ Use sequential names such as `0001-chat-runtime-host-boundary.md`.
 - [0006: App-level emotion state ownership](0006-app-level-emotion-state.md) - Accepted
 - [0007: Streaming command execution](0007-streaming-command-execution.md) - Accepted
 - [0008: Workspace path confinement](0008-workspace-path-confinement.md) - Accepted
-- [0009: Background tool-result compaction](0009-background-tool-result-compaction.md) - Accepted
+- [0009: Background tool-result compaction](0009-background-tool-result-compaction.md) - Superseded by ADR-0033
 - [0010: Persisted cron schedule occurrences](0010-persisted-cron-schedule-occurrences.md) - Accepted
-- [0011: Size-based web fetch workspace artifacts](0011-size-based-web-fetch-workspace-artifacts.md) - Accepted
+- [0011: Size-based web fetch workspace artifacts](0011-size-based-web-fetch-workspace-artifacts.md) - Storage layout superseded by ADR-0033
 - [0012: Minimal system prompt kernel](0012-minimal-system-prompt-kernel.md) - Accepted
 - [0013: Remove Assistant presets](0013-remove-assistant-presets.md) - Accepted
 - [0014: Resource-action tool consolidation](0014-resource-action-tool-consolidation.md) - Accepted
@@ -44,3 +44,5 @@ Use sequential names such as `0001-chat-runtime-host-boundary.md`.
 - [0030: Retire legacy tool input compatibility](0030-retire-legacy-tool-input-compatibility.md) - Accepted
 - [0031: Retire pre-1.2 persisted-data compatibility](0031-retire-pre-1.2-persisted-data-compatibility.md) - Accepted
 - [0032: Scheduled chat list ownership](0032-scheduled-chat-list-ownership.md) - Accepted
+
+- [0033: Stable tool-result model content](0033-stable-tool-result-model-content.md) - Accepted

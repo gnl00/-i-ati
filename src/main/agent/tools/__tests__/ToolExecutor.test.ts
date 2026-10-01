@@ -55,6 +55,25 @@ vi.mock('@main/tools/command/risk', () => ({
 }))
 
 describe('ToolExecutor runtime context', () => {
+  it('transports the tool-owned model view separately from raw content', async () => {
+    handlerMock.mockImplementationOnce(async (_args: unknown, context?: unknown) => {
+      (context as { setModelContent: (content: string) => void }).setModelContent('tail diagnostics')
+      return { ok: true, args: _args, stdout: 'complete captured output' }
+    })
+    const results = await new ToolExecutor({ chatUuid: 'chat-runtime' }).execute([
+      {
+        id: 'view',
+        function: 'emotion_report',
+        args: '{}'
+      }
+    ])
+    expect(results[0]).toMatchObject({
+      content: { stdout: 'complete captured output' },
+      modelContent: 'tail diagnostics'
+    })
+  })
+
+
   beforeEach(() => {
     handlerMock.mockClear()
   })

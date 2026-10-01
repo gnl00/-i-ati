@@ -1,3 +1,5 @@
+import { isAbsolute } from 'node:path'
+import { resolveWorkspaceRoot } from '@main/services/filesystem/WorkspacePathResolver'
 import { HostOutputDispatcher } from '@main/hosts/shared/output/HostOutputDispatcher'
 import { isInteractiveMessageSource } from '@shared/messages/messageSources'
 import { ToolExecutor, type ToolExecutorConfig } from '@main/agent/tools'
@@ -16,8 +18,7 @@ import {
   ChatToolSideEffectSink,
   ChatRenderResponder,
   DefaultMainAgentHostRequestBuilder,
-  MainAgentLoopInputBootstrapper,
-  type ToolResultCompactionTrigger
+  MainAgentLoopInputBootstrapper
 } from '@main/hosts/chat/runtime'
 import { toAgentContentParts } from '@main/hosts/chat/runtime/MainAgentHostRequestBuilder'
 import { normalizeMediaUrls } from '@main/hosts/chat/persistence/ChatStepStore'
@@ -43,7 +44,6 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
     private readonly options: {
       hostOutputDispatcher?: HostOutputDispatcher
       modelStreamExecutor?: ModelStreamExecutor
-      toolResultCompactionTrigger?: ToolResultCompactionTrigger
       notificationSinkFactory?: (
         chatTitle: string,
         options: {
@@ -70,41 +70,45 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
       input.prepared.chatContext.messageEntities,
       input.prepared.chatContext.assistantDraft,
       undefined,
-      this.options.toolResultCompactionTrigger,
       input.signal,
       {
         chat: input.prepared.chatContext.chat,
-        visionObservationService: this.options.visionObservationService
-          ?? new VisionObservationService()
+        visionObservationService:
+          this.options.visionObservationService ?? new VisionObservationService()
       }
     )
     const renderEventMapper = new HostRenderEventMapper()
     chatResponder.connectRenderStateSource(renderEventMapper)
-    eventBus.register(new HostRenderEventForwarder([
-      chatResponder,
-      new ChatToolSideEffectSink({
-        emitter: input.emitter,
-        chatUuid: input.prepared.runSpec.runtimeContext.chatUuid
-      }),
-      ...(input.hostRenderSinks || [])
-    ], renderEventMapper, this.options.hostOutputDispatcher, 2))
+    eventBus.register(
+      new HostRenderEventForwarder(
+        [
+          chatResponder,
+          new ChatToolSideEffectSink({
+            emitter: input.emitter,
+            chatUuid: input.prepared.runSpec.runtimeContext.chatUuid
+          }),
+          ...(input.hostRenderSinks || [])
+        ],
+        renderEventMapper,
+        this.options.hostOutputDispatcher,
+        2
+      )
+    )
 
     // Register notification sink last so render pipeline completes even if notifications fail.
     // Desktop interactive and scheduler runs share native terminal notifications.
     const source = input.runInput.input.source
-    if (
-      (source === undefined || source === 'schedule')
-      && this.options.notificationSinkFactory
-    ) {
-      eventBus.register(this.options.notificationSinkFactory(
-        input.prepared.chatContext.chat.title,
-        {
+    if ((source === undefined || source === 'schedule') && this.options.notificationSinkFactory) {
+      eventBus.register(
+        this.options.notificationSinkFactory(input.prepared.chatContext.chat.title, {
           notifyOnFailure: input.runInput.input.nativeNotification?.notifyOnFailure ?? true,
           ...(input.runInput.input.nativeNotification?.occurrenceKey
-            ? { occurrenceKey: input.runInput.input.nativeNotification.occurrenceKey }
+            ? {
+                occurrenceKey: input.runInput.input.nativeNotification.occurrenceKey
+              }
             : {})
-        }
-      ))
+        })
+      )
     }
 
     const runtime = new DefaultAgentRuntime({
@@ -130,34 +134,41 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
             resolveConfirmationPolicy: () => ({ mode: 'not_required' })
           }
         ),
-        executeToolCalls: (calls, context) => this.executeToolCalls(calls, input, context.onProgress),
-        toolResultNormalizationScopeId: input.prepared.runSpec.runtimeContext.chatUuid,
+        executeToolCalls: (calls, context) =>
+          this.executeToolCalls(calls, input, context.onProgress),
+        toolResultWorkspaceRoot:
+          input.prepared.runSpec.runtimeContext.workspacePath &&
+          isAbsolute(input.prepared.runSpec.runtimeContext.workspacePath)
+            ? input.prepared.runSpec.runtimeContext.workspacePath
+            : resolveWorkspaceRoot(input.prepared.runSpec.runtimeContext.chatUuid),
         loadedSkillsTranscriptContextProvider: new ChatLoadedSkillsTranscriptContextProvider(
           input.prepared.runSpec.runtimeContext.chatId
         ),
-        steeringMessageSource: input.runtimeContext ? {
-          take: () => {
-            const message = input.runtimeContext?.takeSteeringMessage?.()
-            if (!message) {
-              return undefined
+        steeringMessageSource: input.runtimeContext
+          ? {
+              take: () => {
+                const message = input.runtimeContext?.takeSteeringMessage?.()
+                if (!message) {
+                  return undefined
+                }
+                const imageUrls = normalizeMediaUrls(message.images)
+                return {
+                  queueItemId: message.queueItemId,
+                  text: message.text,
+                  imageUrls,
+                  content: toAgentContentParts(
+                    input.prepared.runSpec.modelContext.model.type,
+                    message.text,
+                    imageUrls
+                  )
+                }
+              },
+              resolveContext: (message) => chatResponder.takeSteeringContext(message.queueItemId),
+              acknowledge: (queueItemId) => {
+                input.runtimeContext?.acknowledgeSteeringMessage?.(queueItemId)
+              }
             }
-            const imageUrls = normalizeMediaUrls(message.images)
-            return {
-              queueItemId: message.queueItemId,
-              text: message.text,
-              imageUrls,
-              content: toAgentContentParts(
-                input.prepared.runSpec.modelContext.model.type,
-                message.text,
-                imageUrls
-              )
-            }
-          },
-          resolveContext: (message) => chatResponder.takeSteeringContext(message.queueItemId),
-          acknowledge: (queueItemId) => {
-            input.runtimeContext?.acknowledgeSteeringMessage?.(queueItemId)
-          }
-        } : undefined,
+          : undefined,
         abortedResultDisposition: 'non_terminal'
       })
     })
@@ -182,9 +193,9 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
     onProgress?: ToolExecutorConfig['onProgress']
   ) {
     const permissionApprovalMode = normalizePermissionApprovalMode(
-      input.runtimeContext?.getPermissionApprovalMode()
-        ?? input.runInput.input.permissionApprovalMode
-        ?? input.prepared.chatContext.chat.permissionApprovalMode
+      input.runtimeContext?.getPermissionApprovalMode() ??
+        input.runInput.input.permissionApprovalMode ??
+        input.prepared.chatContext.chat.permissionApprovalMode
     )
 
     const toolExecutor = new ToolExecutor({

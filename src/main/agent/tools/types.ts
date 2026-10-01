@@ -9,6 +9,7 @@ export interface ToolExecutionResult {
   index: number
   name: string
   content: any
+  modelContent?: string
   cost: number
   error?: Error
   failure?: ToolFailure

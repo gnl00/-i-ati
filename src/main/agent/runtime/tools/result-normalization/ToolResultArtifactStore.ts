@@ -1,22 +1,18 @@
-import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { createHash, randomUUID } from 'node:crypto'
+import { mkdirSync, writeFileSync, renameSync, rmSync } from 'node:fs'
 import path from 'node:path'
-import { gzipSync } from 'node:zlib'
+import {
+  canonicalizeThroughExistingPrefix,
+  isPathWithin
+} from '@main/services/filesystem/WorkspacePathBoundary'
 
 export interface ToolResultArtifactStoreOptions {
-  baseDir?: string
-  scopeId?: string
+  workspaceRoot?: string
 }
 
 export interface ToolResultArtifactWriteInput {
-  stepId: string
-  toolCallId: string
   rawContent: string
-  images: Array<{
-    bytes: Buffer
-    mimeType: string
-    sourcePath: string
-  }>
+  images: Array<{ bytes: Buffer; mimeType: string; sourcePath: string }>
 }
 
 export interface ToolResultArtifactDescriptor {
@@ -29,106 +25,77 @@ export interface ToolResultArtifactDescriptor {
 }
 
 export interface ToolResultArtifactWriteResult {
-  rootDir: string
   artifacts: ToolResultArtifactDescriptor[]
 }
 
-const sanitizePathSegment = (value: string): string => {
-  const sanitized = value.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 96)
-  return sanitized || 'unknown'
-}
-
-const resolveDefaultBaseDir = (): string => {
-  try {
-    const electron = require('electron') as {
-      app?: {
-        isReady?: () => boolean
-        getPath?: (name: 'userData') => string
-      }
-    }
-    const userData = electron.app?.getPath?.('userData')
-    if (userData) {
-      return path.join(userData, 'tool-result-artifacts')
-    }
-  } catch {
-    // Fall through to the test-friendly path.
-  }
-
-  return path.join(process.cwd(), '.tool-result-artifacts')
-}
-
-const sha256 = (bytes: Buffer | string): string => (
-  createHash('sha256').update(bytes).digest('hex')
-)
-
-const extensionForMime = (mimeType: string): string => {
-  switch (mimeType) {
-    case 'image/png':
-      return 'png'
-    case 'image/jpeg':
-      return 'jpg'
-    case 'image/gif':
-      return 'gif'
-    case 'image/webp':
-      return 'webp'
-    default:
-      return 'bin'
-  }
-}
+const sha256 = (bytes: Buffer | string): string => createHash('sha256').update(bytes).digest('hex')
 
 export class DefaultToolResultArtifactStore {
-  private readonly baseDir: string
-  private readonly scopeId: string
-
-  constructor(options: ToolResultArtifactStoreOptions = {}) {
-    this.baseDir = options.baseDir ?? resolveDefaultBaseDir()
-    this.scopeId = options.scopeId ?? 'runtime'
-  }
+  constructor(private readonly options: ToolResultArtifactStoreOptions = {}) {}
 
   write(input: ToolResultArtifactWriteInput): ToolResultArtifactWriteResult {
-    const rootDir = path.join(
-      this.baseDir,
-      sanitizePathSegment(this.scopeId),
-      sanitizePathSegment(input.stepId),
-      sanitizePathSegment(input.toolCallId)
-    )
-
-    if (!existsSync(rootDir)) {
-      mkdirSync(rootDir, { recursive: true })
+    const workspaceRoot = path.resolve(this.options.workspaceRoot ?? process.cwd())
+    const relativeDir = path.posix.join('.ati/artifacts/tools', sha256(input.rawContent))
+    const rootDir = path.join(workspaceRoot, relativeDir)
+    if (
+      !isPathWithin(
+        canonicalizeThroughExistingPrefix(rootDir),
+        canonicalizeThroughExistingPrefix(workspaceRoot)
+      )
+    ) {
+      throw new Error('Tool result artifact path escapes the workspace')
     }
-
+    mkdirSync(rootDir, { recursive: true })
     const artifacts: ToolResultArtifactDescriptor[] = []
-    const rawBytes = gzipSync(Buffer.from(input.rawContent, 'utf8'))
-    const rawPath = path.join(rootDir, 'raw-result.json.gz')
-    writeFileSync(rawPath, rawBytes)
-    artifacts.push({
-      kind: 'raw_result',
-      path: rawPath,
-      bytes: rawBytes.byteLength,
-      sha256: sha256(rawBytes)
-    })
-
-    input.images.forEach((image, index) => {
-      const imagePath = path.join(rootDir, `image-${index + 1}.${extensionForMime(image.mimeType)}`)
-      writeFileSync(imagePath, image.bytes)
+    const write = (
+      relativePath: string,
+      bytes: Buffer,
+      metadata: Omit<ToolResultArtifactDescriptor, 'path' | 'bytes' | 'sha256'>
+    ): void => {
+      const absolutePath = path.join(workspaceRoot, relativePath)
+      if (
+        !isPathWithin(
+          canonicalizeThroughExistingPrefix(absolutePath),
+          canonicalizeThroughExistingPrefix(workspaceRoot)
+        )
+      ) {
+        throw new Error('Tool result artifact file escapes the workspace')
+      }
+      mkdirSync(path.dirname(absolutePath), { recursive: true })
+      const temporaryPath = path.join(path.dirname(absolutePath), `.part-${randomUUID()}`)
+      try {
+        writeFileSync(temporaryPath, bytes, { flag: 'wx' })
+        renameSync(temporaryPath, absolutePath)
+      } finally {
+        rmSync(temporaryPath, { force: true })
+      }
       artifacts.push({
+        ...metadata,
+        path: relativePath,
+        bytes: bytes.length,
+        sha256: sha256(bytes)
+      })
+    }
+    write(path.posix.join(relativeDir, 'content.txt'), Buffer.from(input.rawContent, 'utf8'), {
+      kind: 'raw_result',
+      mimeType: 'text/plain'
+    })
+    input.images.forEach((image) => {
+      const extension =
+        (
+          {
+            'image/png': 'png',
+            'image/jpeg': 'jpg',
+            'image/gif': 'gif',
+            'image/webp': 'webp'
+          } as Record<string, string>
+        )[image.mimeType] ?? 'bin'
+      write(path.posix.join('.tmp/images', `${sha256(image.bytes)}.${extension}`), image.bytes, {
         kind: 'image',
-        path: imagePath,
-        bytes: image.bytes.byteLength,
-        sha256: sha256(image.bytes),
         mimeType: image.mimeType,
         sourcePath: image.sourcePath
       })
     })
-
-    writeFileSync(
-      path.join(rootDir, 'metadata.json'),
-      JSON.stringify({ artifacts }, null, 2)
-    )
-
-    return {
-      rootDir,
-      artifacts
-    }
+    return { artifacts }
   }
 }

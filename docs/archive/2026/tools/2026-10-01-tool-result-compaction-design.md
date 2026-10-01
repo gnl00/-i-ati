@@ -1,14 +1,14 @@
 # Tool Result Compaction Design
 
 Owner: Repository maintainers<br>
-Status: Active<br>
+Status: Superseded by ADR-0033<br>
 Started: 2026-07-17<br>
 Target: Metadata-driven background tool-result compaction for future model reuse<br>
 Exit criteria: The storage contract, trigger policy, compactor interface, request selection, failure handling, and delivery sequence are approved for implementation.<br>
-Related specs: [`../../specs/documentation-governance.md`](../../specs/documentation-governance.md)<br>
-Related decision: [`../../decisions/0009-background-tool-result-compaction.md`](../../decisions/0009-background-tool-result-compaction.md)<br>
-Current delivery plan: [`background-tool-result-compaction.md`](background-tool-result-compaction.md)<br>
-Related implementation: [`../../../src/shared/tools/metadata-types.ts`](../../../src/shared/tools/metadata-types.ts), [`../../../src/shared/tools/webTools/metadata.ts`](../../../src/shared/tools/webTools/metadata.ts), [`../../../src/shared/tools/command/metadata.ts`](../../../src/shared/tools/command/metadata.ts), [`../../../src/main/agent/runtime/tools/ToolResultContentProjector.ts`](../../../src/main/agent/runtime/tools/ToolResultContentProjector.ts), [`../../../src/main/hosts/chat/runtime/ChatRenderOutput.ts`](../../../src/main/hosts/chat/runtime/ChatRenderOutput.ts), [`../../../src/main/agent/runtime/transcript/RequestMaterializer.ts`](../../../src/main/agent/runtime/transcript/RequestMaterializer.ts)
+Related specs: [`../../specs/documentation-governance.md`](../../../specs/documentation-governance.md)<br>
+Related decision: [`../../decisions/0009-background-tool-result-compaction.md`](../../../decisions/0009-background-tool-result-compaction.md)<br>
+Current delivery plan: [`background-tool-result-compaction.md`](2026-10-01-background-tool-result-compaction.md)<br>
+Related implementation: [`../../../src/shared/tools/metadata-types.ts`](../../../../src/shared/tools/metadata-types.ts), [`../../../src/shared/tools/webTools/metadata.ts`](../../../../src/shared/tools/webTools/metadata.ts), [`../../../src/shared/tools/command/metadata.ts`](../../../../src/shared/tools/command/metadata.ts), [`../../../src/main/agent/runtime/tools/ToolResultContentProjector.ts`](../../../../src/main/agent/runtime/tools/ToolResultContentProjector.ts), [`../../../src/main/hosts/chat/runtime/ChatRenderOutput.ts`](../../../../src/main/hosts/chat/runtime/ChatRenderOutput.ts), [`../../../src/main/agent/runtime/transcript/RequestMaterializer.ts`](../../../../src/main/agent/runtime/transcript/RequestMaterializer.ts)
 
 ## Goal
 
@@ -57,15 +57,15 @@ tool execution
   -> provider request
 ```
 
-[`MessageMapper.ts`](../../../src/main/db/mappers/MessageMapper.ts) serializes
+[`MessageMapper.ts`](../../../../src/main/db/mappers/MessageMapper.ts) serializes
 the complete `ChatMessage` into `messages.body`. This remains the raw data source.
 
-[`ToolResultContentProjector.ts`](../../../src/main/agent/runtime/tools/ToolResultContentProjector.ts)
+[`ToolResultContentProjector.ts`](../../../../src/main/agent/runtime/tools/ToolResultContentProjector.ts)
 currently truncates raw cold results while the provider request is being assembled.
 The implementation uses a character limit and preserves the beginning of the
 content.
 
-[`ToolResultNormalizer.ts`](../../../src/main/agent/runtime/tools/result-normalization/ToolResultNormalizer.ts)
+[`ToolResultNormalizer.ts`](../../../../src/main/agent/runtime/tools/result-normalization/ToolResultNormalizer.ts)
 already extracts inline image artifacts and generates model-facing content for
 large results. Its artifact handling should be reused by the compaction module.
 
@@ -267,7 +267,7 @@ resultCompaction missing or disabled
 ```
 
 The first metadata configuration lives in
-[`webTools/metadata.ts`](../../../src/shared/tools/webTools/metadata.ts):
+[`webTools/metadata.ts`](../../../../src/shared/tools/webTools/metadata.ts):
 
 ```ts
 export const webToolMetadata = {
@@ -312,7 +312,7 @@ Navigation text, repeated page chrome, duplicated sections, and low-value
 markup can be removed.
 
 The second metadata configuration lives in
-[`command/metadata.ts`](../../../src/shared/tools/command/metadata.ts).
+[`command/metadata.ts`](../../../../src/shared/tools/command/metadata.ts).
 `exec` uses `level: 'balanced'` with the `command-output` compactor.
 Its compact envelope preserves command, exit code, execution time, errors,
 confirmation state, and risk fields. The semantic `output_summary` retains
@@ -352,7 +352,7 @@ selects compact content only when the complete envelope has positive gain.
 
 ## Trigger point
 
-[`ChatRenderOutput.appendToolResult()`](../../../src/main/hosts/chat/runtime/ChatRenderOutput.ts)
+[`ChatRenderOutput.appendToolResult()`](../../../../src/main/hosts/chat/runtime/ChatRenderOutput.ts)
 receives the stable `ToolResultFact`, creates the tool `ChatMessage`, and
 persists it through `ChatStepStore`. The host depends on a narrow scheduling
 contract. `RunRuntimeFactory` injects the production scheduler so loading the

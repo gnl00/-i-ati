@@ -1,16 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 
-const {
-  mainAgentRuntimeRunnerConstructorMock,
-  toolResultCompactionSchedulerMock,
-  notificationSinkConstructorMock
-} = vi.hoisted(() => ({
-  mainAgentRuntimeRunnerConstructorMock: vi.fn(),
-  notificationSinkConstructorMock: vi.fn(),
-  toolResultCompactionSchedulerMock: {
-    schedule: vi.fn()
-  }
-}))
+const { mainAgentRuntimeRunnerConstructorMock, notificationSinkConstructorMock } = vi.hoisted(
+  () => ({
+    mainAgentRuntimeRunnerConstructorMock: vi.fn(),
+    notificationSinkConstructorMock: vi.fn()
+  })
+)
 
 vi.mock('../DefaultMainAgentRuntimeRunner', () => ({
   DefaultMainAgentRuntimeRunner: class {
@@ -18,10 +13,6 @@ vi.mock('../DefaultMainAgentRuntimeRunner', () => ({
       mainAgentRuntimeRunnerConstructorMock(...args)
     }
   }
-}))
-
-vi.mock('@main/orchestration/chat/toolResultCompaction/ToolResultCompactionScheduler', () => ({
-  toolResultCompactionScheduler: toolResultCompactionSchedulerMock
 }))
 
 vi.mock('@main/notifications/AgentNotificationSink', () => ({
@@ -58,28 +49,25 @@ vi.mock('../RunManager', () => ({
 import { RunRuntimeFactory } from '../RunRuntimeFactory'
 
 describe('RunRuntimeFactory', () => {
-  it('injects production tool-result and notification dependencies', () => {
+  it('injects notification dependencies', () => {
     new RunRuntimeFactory().create()
 
     expect(mainAgentRuntimeRunnerConstructorMock).toHaveBeenCalledWith(
       undefined,
       undefined,
       expect.objectContaining({
-        toolResultCompactionTrigger: toolResultCompactionSchedulerMock,
         notificationSinkFactory: expect.any(Function)
       })
     )
 
     const runnerOptions = mainAgentRuntimeRunnerConstructorMock.mock.calls[0][2] as {
-      notificationSinkFactory: (
-        chatTitle: string,
-        options: { notifyOnFailure: boolean }
-      ) => unknown
+      notificationSinkFactory: (chatTitle: string, options: { notifyOnFailure: boolean }) => unknown
     }
-    runnerOptions.notificationSinkFactory('Recurring check', { notifyOnFailure: false })
-    expect(notificationSinkConstructorMock).toHaveBeenCalledWith(
-      'Recurring check',
-      { notifyOnFailure: false }
-    )
+    runnerOptions.notificationSinkFactory('Recurring check', {
+      notifyOnFailure: false
+    })
+    expect(notificationSinkConstructorMock).toHaveBeenCalledWith('Recurring check', {
+      notifyOnFailure: false
+    })
   })
 })

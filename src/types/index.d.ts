@@ -482,6 +482,7 @@ declare type MessageUiStatePatch = {
 }
 
 declare interface ChatMessage extends BaseChatMessage {
+  toolResultModelContent?: string
   model?: string
   modelRef?: { accountId: string; modelId: string }
   typewriterCompleted?: boolean,

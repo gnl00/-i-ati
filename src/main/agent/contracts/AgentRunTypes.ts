@@ -29,8 +29,6 @@ export type RunModelContext = {
 
 export type ChatInitialTranscriptSeedContent = string | VLMContent[]
 
-export type ToolResultContentRepresentation = 'semantic_compaction'
-
 export type ChatInitialTranscriptSeed =
   | {
       kind: 'user'
@@ -52,7 +50,7 @@ export type ChatInitialTranscriptSeed =
       toolCallId?: string
       toolName?: string
       content: ChatInitialTranscriptSeedContent
-      contentRepresentation?: ToolResultContentRepresentation
+      modelContent?: string
     }
 
 export type RunSpec = {

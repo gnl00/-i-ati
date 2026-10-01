@@ -16,16 +16,12 @@ import {
   SystemPromptComposer,
   UserInfoPromptProvider,
   InitialTranscriptSeedBuilder,
-  matchesToolResultCompactionOriginalContent,
-  selectConfiguredReadyToolResultCompactions,
-  selectPreferredReadyToolResultCompactions,
   ToolListBuilder
 } from './request'
 import { LoadedSkillsContextProvider } from './request/LoadedSkillsContextProvider'
 import type { HostRunInputState, RunEnvironment, StepBootstrap } from './types'
 import type { AgentRequestSpec } from '@main/agent/contracts/HostRuntimeContracts'
 import type { ChatInitialTranscriptSeed } from '@main/agent/contracts'
-import { chatDb } from '@main/db/chat'
 
 const SCHEDULE_EXECUTION_INSTRUCTION = [
   '## Schedule Execution Context',
@@ -66,17 +62,18 @@ export class RunRequestFactory {
     const systemEnvironmentContext = this.systemEnvironmentContextProvider.build({
       workspacePath: environment.workspacePath
     })
-    const [loadedSkillsContext, userInfoContext, knowledgebaseContext, awakeContext] = await Promise.all([
-      this.loadedSkillsContextProvider.build(environment.chat.id),
-      this.userInfoPromptProvider.buildContext(),
-      this.knowledgebaseContextProvider.build(input.textCtx),
-      this.awakeContextProvider.build({
-        chat: environment.chat,
-        workspacePath: environment.workspacePath,
-        currentQuery: input.textCtx,
-        compressionSummary
-      })
-    ])
+    const [loadedSkillsContext, userInfoContext, knowledgebaseContext, awakeContext] =
+      await Promise.all([
+        this.loadedSkillsContextProvider.build(environment.chat.id),
+        this.userInfoPromptProvider.buildContext(),
+        this.knowledgebaseContextProvider.build(input.textCtx),
+        this.awakeContextProvider.build({
+          chat: environment.chat,
+          workspacePath: environment.workspacePath,
+          currentQuery: input.textCtx,
+          compressionSummary
+        })
+      ])
     const availableImagesContext = this.availableImagesContextProvider.build(
       step.messageBuffer,
       compressionSummary
@@ -92,68 +89,12 @@ export class RunRequestFactory {
           systemEnvironmentContext,
           awakeContext,
           availableImagesContext
-        ]
-          .filter((message): message is ChatMessage => Boolean(message))
+        ].filter((message): message is ChatMessage => Boolean(message))
       )
       .setUserInstruction(mergedUserInstruction)
       .setMessages(step.messageBuffer)
       .setCompressionSummary(compressionSummary)
       .build()
-    const messageIdByBody = new Map(
-      step.messageBuffer
-        .filter((message): message is MessageEntity & { id: number } => message.id != null)
-        .map(message => [message.body, message.id] as const)
-    )
-    const retainedToolMessages = requestMessageBuild.chatMessages
-      .filter((message) => message.role === 'tool' && messageIdByBody.has(message))
-    const retainedToolMessageById = new Map(
-      retainedToolMessages.map(message => [
-        messageIdByBody.get(message) as number,
-        message
-      ] as const)
-    )
-    const toolMessageIds = [...retainedToolMessageById.keys()]
-    const persistedRawToolMessageById = new Map(
-      chatDb.getMessageByIds(toolMessageIds)
-        .filter((message): message is MessageEntity & { id: number } =>
-          message.id != null && message.body.role === 'tool'
-        )
-        .map(message => [message.id, message] as const)
-    )
-    const readyToolResultCompactions = toolMessageIds.length > 0
-      ? chatDb.getReadyToolResultCompactionsByMessageIds(toolMessageIds)
-      : []
-    const configuredReadyToolResultCompactions =
-      selectConfiguredReadyToolResultCompactions(readyToolResultCompactions)
-        .filter(compaction => matchesToolResultCompactionOriginalContent(
-          compaction,
-          persistedRawToolMessageById.get(compaction.messageId)?.body.content
-        ))
-    const readyToolResultCompactionByMessageId =
-      selectPreferredReadyToolResultCompactions(
-        configuredReadyToolResultCompactions,
-        compaction => compaction.messageId
-      )
-    const readyToolResultCompactionByMessage = new Map(
-      retainedToolMessages.flatMap((message) => {
-        const messageId = messageIdByBody.get(message)
-        const compaction = messageId == null
-          ? undefined
-          : readyToolResultCompactionByMessageId.get(messageId)
-        return compaction ? [[message, compaction] as const] : []
-      })
-    )
-    const persistedRawToolContentByMessage = new Map(
-      retainedToolMessages.flatMap((message) => {
-        const messageId = messageIdByBody.get(message)
-        const rawMessage = messageId == null
-          ? undefined
-          : persistedRawToolMessageById.get(messageId)
-        return rawMessage
-          ? [[message, rawMessage.body.content] as const]
-          : []
-      })
-    )
 
     return {
       requestSpec: {
@@ -162,6 +103,7 @@ export class RunRequestFactory {
         systemPrompt: requestMessageBuild.systemPrompt,
         apiKey: environment.modelContext.account.apiKey,
         model: environment.modelContext.model.id,
+        contextWindowTokens: environment.modelContext.model.contextWindowTokens,
         modelType: environment.modelContext.model.type,
         tools: this.toolListBuilder.build(input.tools, {
           excludedToolNames: isInteractiveMessageSource(input.source) ? [] : ['ask_user_question']
@@ -172,9 +114,7 @@ export class RunRequestFactory {
         requestOverrides: environment.modelContext.providerDefinition.requestOverrides
       },
       initialTranscriptSeed: this.initialTranscriptSeedBuilder.build(
-        requestMessageBuild.chatMessages,
-        readyToolResultCompactionByMessage,
-        persistedRawToolContentByMessage
+        requestMessageBuild.chatMessages
       )
     }
   }

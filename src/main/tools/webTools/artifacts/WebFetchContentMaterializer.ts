@@ -1,4 +1,3 @@
-import { createHash } from 'crypto'
 import { readFile } from 'fs/promises'
 import { lookup as lookupMimeType } from 'mime-types'
 import { extractCleanContent } from '../extract/ContentExtractor'
@@ -8,6 +7,7 @@ import type { WebFetchArtifact } from '@tools/webTools/index.d'
 import { createLogger } from '@main/logging/LogService'
 import {
   WEB_FETCH_ARTIFACT_THRESHOLD_BYTES,
+  WEB_FETCH_INLINE_MAX_BYTES,
   WEB_FETCH_SUMMARY_MAX_CHARACTERS
 } from './constants'
 import {
@@ -117,17 +117,6 @@ function extractText(
     : { title, text: postClean(bodyText, mode) }
 }
 
-function wrapLongLines(value: string, max = 4000): string {
-  return value.split('\n').flatMap(line => {
-    if (line.length <= max) return [line]
-    const pieces: string[] = []
-    for (let offset = 0; offset < line.length; offset += max) {
-      pieces.push(line.slice(offset, offset + max))
-    }
-    return pieces
-  }).join('\n')
-}
-
 function createSummary(readable: string): string {
   return readable.replace(/\s+/g, ' ').trim().slice(0, WEB_FETCH_SUMMARY_MAX_CHARACTERS)
 }
@@ -138,16 +127,17 @@ function throwIfAborted(signal?: AbortSignal): void {
 
 function descriptor(artifact: WebFetchArtifact): string {
   const lines = [
-    'Response saved to workspace.',
+    'Response saved to a workspace temporary file.',
     `Source file: ${artifact.sourcePath}`,
-    `Readable note: ${artifact.readPath}`,
     `Size: ${artifact.sizeBytes} bytes`
   ]
   if (artifact.mimeType) lines.push(`MIME: ${artifact.mimeType}`)
   lines.push(`Summary: ${artifact.summary}`)
   lines.push('')
   lines.push('Inspect the source file with a suitable workspace file-reading tool.')
-  lines.push(`Use read with file_path="${artifact.readPath}", start_line=1, end_line=200 for the bounded note.`)
+  if (artifact.mimeType?.startsWith('text/')) {
+    lines.push(`Use read with file_path="${artifact.readPath}", start_line=1, end_line=200 to read the saved content.`)
+  }
   return lines.join('\n')
 }
 
@@ -185,7 +175,8 @@ export class WebFetchContentMaterializer {
       && looksTextual(bytes, effectiveResponse.contentType)
     ) {
       const extracted = extractText(bytes, effectiveResponse.contentType, mode, title)
-      if (extracted.text.length <= inlineMaxCharacters) {
+      if (JSON.stringify(extracted.text).length <= inlineMaxCharacters
+        && Buffer.byteLength(extracted.text, 'utf8') <= WEB_FETCH_INLINE_MAX_BYTES) {
         await this.artifactService.cleanupSpool(spool)
         logger.info('web_fetch.inline.materialized', {
           url: response.finalUrl,
@@ -201,11 +192,11 @@ export class WebFetchContentMaterializer {
       const artifactContent = mode === 'full'
         ? extracted
         : extractText(bytes, effectiveResponse.contentType, 'full', title)
-      return this.promote(
+      return this.saveResult(
         effectiveResponse,
         spool,
         sizeBytes,
-        wrapLongLines(artifactContent.text),
+        artifactContent.text,
         artifactContent.title || title,
         undefined,
         signal
@@ -215,11 +206,11 @@ export class WebFetchContentMaterializer {
     if (looksTextual(bytes, effectiveResponse.contentType)) {
       throwIfAborted(signal)
       const extracted = extractText(bytes, effectiveResponse.contentType, 'full', title)
-      return this.promote(
+      return this.saveResult(
         effectiveResponse,
         spool,
         sizeBytes,
-        wrapLongLines(extracted.text),
+        extracted.text,
         extracted.title || title,
         undefined,
         signal
@@ -237,7 +228,7 @@ export class WebFetchContentMaterializer {
       'Inspect the source file with a suitable workspace file-reading tool.'
     ].join('\n')
     throwIfAborted(signal)
-    return this.promote({
+    return this.saveResult({
       ...effectiveResponse,
       contentType: mimeType
     }, spool, sizeBytes, diagnostic, title, 'Source file requires format-aware inspection', signal)
@@ -251,7 +242,8 @@ export class WebFetchContentMaterializer {
     signal?: AbortSignal
   }): Promise<MaterializedWebContent> {
     throwIfAborted(args.signal)
-    if (args.extractedText.length <= args.inlineMaxCharacters) {
+    if (JSON.stringify(args.extractedText).length <= args.inlineMaxCharacters
+      && Buffer.byteLength(args.extractedText, 'utf8') <= WEB_FETCH_INLINE_MAX_BYTES) {
       return args
     }
 
@@ -259,24 +251,22 @@ export class WebFetchContentMaterializer {
     try {
       const bytes = new TextEncoder().encode(args.extractedText)
       await this.artifactService.writeSpool(spool, bytes)
-      const sha256 = createHash('sha256').update(bytes).digest('hex')
       throwIfAborted(args.signal)
-      return await this.promote({
+      return await this.saveResult({
         requestedUrl: args.finalUrl,
         finalUrl: args.finalUrl,
         contentType: 'text/markdown; charset=utf-8',
         receivedBytes: bytes.length,
-        sha256,
         tempAbsolutePath: spool.absolutePath,
         tempRelativePath: spool.relativePath
-      }, spool, bytes.length, wrapLongLines(args.extractedText), args.pageTitle, undefined, args.signal)
+      }, spool, bytes.length, args.extractedText, args.pageTitle, undefined, args.signal)
     } catch (error) {
       await this.artifactService.cleanupSpool(spool)
       throw error
     }
   }
 
-  private async promote(
+  private async saveResult(
     response: DownloadedHttpResponse,
     spool: WebFetchSpoolFile,
     sizeBytes: number,
@@ -302,17 +292,11 @@ export class WebFetchContentMaterializer {
     const summary = createSummary(readable)
     let artifact: WebFetchArtifact
     try {
-      artifact = await this.artifactService.promote({
+      artifact = await this.artifactService.saveResult({
         spool,
-        requestedUrl: response.requestedUrl,
-        finalUrl: response.finalUrl,
         contentType: response.contentType,
-        declaredContentLength: response.declaredContentLength,
-        sizeBytes,
-        sha256: response.sha256,
-        readableContent: readable,
+        readableContent: warning ? undefined : readable,
         summary,
-        extractionWarning: warning,
         signal
       })
       reservation?.commit()

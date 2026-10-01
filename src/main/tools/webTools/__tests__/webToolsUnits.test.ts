@@ -1,4 +1,3 @@
-import { createHash } from 'crypto'
 import { mkdtemp, readFile, rm, writeFile } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -248,8 +247,7 @@ describe('downloadViaHttp', () => {
       requestedUrl: 'https://example.com/requested',
       finalUrl: 'https://example.com/final',
       declaredContentLength: 999,
-      receivedBytes: 5,
-      sha256: createHash('sha256').update(new Uint8Array([1, 2, 3, 4, 5])).digest('hex')
+      receivedBytes: 5
     })
     await rm(root, { recursive: true, force: true })
   })
@@ -415,4 +413,47 @@ describe('extractMainHtml', () => {
     expect(main).toContain('主要正文段落文字')
     expect(main).not.toContain('相关推荐链接不应出现')
   })
+})
+
+describe('web_fetch inline budgets', () => {
+  it.each(['x'.repeat(24_001), '中文'.repeat(9_000), '\u0000'.repeat(5_000)])(
+    'saves oversized rendered text and returns read paths',
+    async (text) => {
+      const { WebFetchContentMaterializer } =
+        await import('../artifacts/WebFetchContentMaterializer')
+      const root = await mkdtemp(join(tmpdir(), 'web-view-'))
+      const source = join(root, 'source.md')
+      const service = {
+        allocateSpool: vi.fn(async () => ({
+          absolutePath: source,
+          relativePath: '.tmp/web-fetch/source.part'
+        })),
+        writeSpool: vi.fn(async (_spool, bytes) => writeFile(source, bytes)),
+        cleanupSpool: vi.fn(),
+        saveResult: vi.fn(async (args) => ({
+          sourcePath: '.tmp/web-fetch/source.tmp',
+          readPath: '.tmp/web-fetch/source.tmp',
+          sizeBytes: Buffer.byteLength(text),
+          mimeType: 'text/markdown',
+          summary: args.summary
+        }))
+      }
+      try {
+        const result = await new WebFetchContentMaterializer(
+          service as unknown as ConstructorParameters<typeof WebFetchContentMaterializer>[0]
+        ).materializeExtractedText({
+          pageTitle: 'Test',
+          finalUrl: 'https://example.com',
+          extractedText: text,
+          inlineMaxCharacters: 24_000
+        })
+        expect(result.artifact?.readPath).toBe('.tmp/web-fetch/source.tmp')
+        expect(result.extractedText).toContain('start_line=1')
+        expect(result.extractedText.length).toBeLessThan(4_000)
+        expect(await readFile(source, 'utf8')).toBe(text)
+      } finally {
+        await rm(root, { recursive: true, force: true })
+      }
+    }
+  )
 })

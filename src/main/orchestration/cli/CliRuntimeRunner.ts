@@ -28,13 +28,15 @@ export interface CliRuntimeRunInput {
   signal: AbortSignal
 }
 
-const confirmationRequester = (
-  approval: CliApprovalMode
-): ToolExecutorConfig['requestConfirmation'] => async () => (
-  approval === 'auto'
-    ? { approved: true }
-    : { approved: false, reason: 'CLI approval mode deny rejected this operation' }
-)
+const confirmationRequester =
+  (approval: CliApprovalMode): ToolExecutorConfig['requestConfirmation'] =>
+  async () =>
+    approval === 'auto'
+      ? { approved: true }
+      : {
+          approved: false,
+          reason: 'CLI approval mode deny rejected this operation'
+        }
 
 export const runCliRuntime = async (input: CliRuntimeRunInput): Promise<AgentLoopResult> => {
   const runtimeInfrastructure = createDefaultRuntimeInfrastructure()
@@ -75,13 +77,17 @@ export const runCliRuntime = async (input: CliRuntimeRunInput): Promise<AgentLoo
     agentLoop: new DefaultAgentLoop(),
     agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
       agentEventBus: eventBus,
+      toolResultWorkspaceRoot: input.workspace,
       toolBatchAssembler: new DefaultToolBatchAssembler(
         runtimeInfrastructure.loopIdentityProvider,
-        { resolveConfirmationPolicy: (): { mode: 'not_required' } => ({ mode: 'not_required' }) }
+        {
+          resolveConfirmationPolicy: (): { mode: 'not_required' } => ({
+            mode: 'not_required'
+          })
+        }
       ),
       executeToolCalls,
-      abortedResultDisposition: 'non_terminal',
-      toolResultNormalizationScopeId: 'cli'
+      abortedResultDisposition: 'non_terminal'
     })
   })
 

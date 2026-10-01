@@ -368,11 +368,13 @@ export class ToolExecutor implements IToolExecutor {
       }
 
       executionStartTime ??= Date.now()
+      let modelContent: string | undefined
       const content = await this.executeTool(
         call,
         runtimeArgs,
         toolId,
-        metadataConfirmationApproved
+        metadataConfirmationApproved,
+        (content): void => { modelContent = content }
       )
 
       const result: ToolExecutionResult = {
@@ -380,6 +382,7 @@ export class ToolExecutor implements IToolExecutor {
         index: toolIndex,
         name: toolName,
         content,
+        ...(modelContent !== undefined ? { modelContent } : {}),
         cost: Date.now() - executionStartTime,
         status: 'success',
         ...(
@@ -417,7 +420,8 @@ export class ToolExecutor implements IToolExecutor {
     call: ToolCallProps,
     runtimeArgs?: any,
     resolvedToolCallId?: string,
-    metadataConfirmationApproved = false
+    metadataConfirmationApproved = false,
+    setModelContent?: (content: string) => void
   ): Promise<any> {
     const toolName = call.function
     const toolCallId = resolvedToolCallId ?? call.id ?? `call_${uuidv4()}`
@@ -488,6 +492,7 @@ export class ToolExecutor implements IToolExecutor {
       try {
         return await handler(safeArgs, {
           signal: this.signal,
+          setModelContent,
           metadataConfirmationApproved,
           toolCallId,
           submissionId: this.submissionId,

@@ -1,3 +1,5 @@
+import { isAbsolute } from 'node:path'
+import { resolveWorkspaceRoot } from '@main/services/filesystem/WorkspacePathResolver'
 import { DefaultAgentEventBus } from '@main/agent/runtime/events/AgentEventBus'
 import { DefaultLoopInputBootstrapper } from '@main/agent/runtime/host/bootstrap/LoopInputBootstrapper'
 import { DefaultAgentLoop } from '@main/agent/runtime/loop/AgentLoop'
@@ -54,15 +56,16 @@ export const createSubagentConfirmationRequester = (
     })
   }
 
-  return async (request) => subagentRuntimeBridge.request(input.parentSubmissionId!, {
-    ...request,
-    agent: request.agent ?? {
-      kind: 'subagent',
-      subagentId: input.subagentId,
-      role: input.role,
-      task: input.task
-    }
-  })
+  return async (request) =>
+    subagentRuntimeBridge.request(input.parentSubmissionId!, {
+      ...request,
+      agent: request.agent ?? {
+        kind: 'subagent',
+        subagentId: input.subagentId,
+        role: input.role,
+        task: input.task
+      }
+    })
 }
 
 export class DefaultSubagentRuntimeRunner implements SubagentRuntimeRunner {
@@ -123,32 +126,36 @@ export class DefaultSubagentRuntimeRunner implements SubagentRuntimeRunner {
 
     const runtimeInfrastructure = createDefaultRuntimeInfrastructure()
 
-    const runtime = this.options.runtime ?? new DefaultAgentRuntime({
-      requestSpecSource: new SubagentRequestSpecSource({
-        modelContext: context.modelContext,
-        systemPrompt: context.systemPrompt,
-        allowedTools: context.allowedTools
-      }),
-      runDescriptorSource,
-      loopInputBootstrapper: new DefaultLoopInputBootstrapper(),
-      userRecordMaterializer: new DefaultUserRecordMaterializer(),
-      initialTranscriptMaterializer: new DefaultInitialTranscriptMaterializer(),
-      runtimeInfrastructure,
-      agentLoop: new DefaultAgentLoop(),
-      agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
-        agentEventBus: eventBus,
-        modelStreamExecutor: this.options.modelStreamExecutor,
-        toolBatchAssembler: new DefaultToolBatchAssembler(
-          runtimeInfrastructure.loopIdentityProvider,
-          {
-            resolveConfirmationPolicy: () => ({ mode: 'not_required' })
-          }
-        ),
-        executeToolCalls,
-        toolResultNormalizationScopeId: 'subagent',
-        abortedResultDisposition: 'non_terminal'
+    const runtime =
+      this.options.runtime ??
+      new DefaultAgentRuntime({
+        requestSpecSource: new SubagentRequestSpecSource({
+          modelContext: context.modelContext,
+          systemPrompt: context.systemPrompt,
+          allowedTools: context.allowedTools
+        }),
+        runDescriptorSource,
+        loopInputBootstrapper: new DefaultLoopInputBootstrapper(),
+        userRecordMaterializer: new DefaultUserRecordMaterializer(),
+        initialTranscriptMaterializer: new DefaultInitialTranscriptMaterializer(),
+        runtimeInfrastructure,
+        agentLoop: new DefaultAgentLoop(),
+        agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
+          agentEventBus: eventBus,
+          modelStreamExecutor: this.options.modelStreamExecutor,
+          toolBatchAssembler: new DefaultToolBatchAssembler(
+            runtimeInfrastructure.loopIdentityProvider,
+            {
+              resolveConfirmationPolicy: () => ({ mode: 'not_required' })
+            }
+          ),
+          executeToolCalls,
+          toolResultWorkspaceRoot: isAbsolute(context.workspacePath)
+            ? context.workspacePath
+            : resolveWorkspaceRoot(input.chatUuid),
+          abortedResultDisposition: 'non_terminal'
+        })
       })
-    })
 
     const result = await runtime.run({
       hostRequest,

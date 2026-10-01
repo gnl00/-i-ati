@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { DefaultToolExecutorDispatcher } from '../ToolExecutorDispatcher'
 import type { AgentEventEmitter } from '../../events/AgentEventEmitter'
+import type { ToolExecutionResult } from '@main/agent/tools'
 import type { RuntimeClock } from '../../loop/RuntimeClock'
 
 const executeMock = vi.fn()
@@ -46,6 +47,20 @@ const createEventEmitter = (): AgentEventEmitter => ({
 })
 
 describe('DefaultToolExecutorDispatcher', () => {
+  it('preserves tool-owned views before publishing completion facts', async () => {
+    const dispatcher = new DefaultToolExecutorDispatcher({
+      runtimeClock: { now: (): number => 123 },
+      executeToolCalls: async (): Promise<ToolExecutionResult[]> => [{ id: 'c', index: 0, name: 'exec',
+        content: { stdout: 'raw' }, modelContent: 'tail', cost: 1, status: 'success' }]
+    })
+    const outcome = await dispatcher.dispatch({ batchId: 'b', stepId: 's', createdAt: 1,
+      calls: [{ toolCallId: 'c', stepId: 's', index: 0, name: 'exec', arguments: '{}',
+        confirmationPolicy: { mode: 'not_required' }, status: 'pending' }] })
+    expect(outcome).toMatchObject({ status: 'completed', results: [
+      { content: { stdout: 'raw' }, modelContent: 'tail' }
+    ] })
+  })
+
   beforeEach(() => {
     executeMock.mockReset()
     toolExecutorConfig = undefined

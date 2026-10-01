@@ -3,16 +3,14 @@ export interface ToolContentRequestGuardOptions {
 }
 
 export const DEFAULT_TOOL_CONTENT_REQUEST_MAX_CHARACTERS = 32_000
-export const COLD_TOOL_CONTENT_REQUEST_MAX_CHARACTERS = 1_000
 
 const TOOL_CONTENT_REQUEST_HEAD_RATIO = 0.7
 const TOOL_CONTENT_OMISSION_MARKER = '[tool result content omitted]'
 
 const DATA_IMAGE_PATTERN = /data:image\/[a-zA-Z0-9.+-]+;base64,[a-zA-Z0-9+/=\r\n]+/
 
-export const containsInlineImageData = (content: string): boolean => (
+export const containsInlineImageData = (content: string): boolean =>
   DATA_IMAGE_PATTERN.test(content)
-)
 
 export const compactToolContentForModelRequest = (
   content: string,
@@ -35,38 +33,22 @@ export const compactToolContentForModelRequest = (
     return content
   }
 
-  if (hasInlineImageData) {
-    return [
-      '[Tool result truncated for model request]',
-      `originalChars=${content.length}`,
-      'shownChars=0',
-      `reason=${triggers.join(',')}`,
-      'Inline image data was omitted from the model request.',
-      'Inspect the persisted tool result or local artifact for the original payload.'
-    ].join('\n')
-  }
-
-  const shownHeadCharacters = Math.floor(maxCharacters * TOOL_CONTENT_REQUEST_HEAD_RATIO)
-  const shownTailCharacters = maxCharacters - shownHeadCharacters
-  const shownHead = content.slice(0, shownHeadCharacters)
-  const shownTail = shownTailCharacters > 0
-    ? content.slice(-shownTailCharacters)
-    : ''
-
-  return [
-    '[Tool result truncated for model request]',
+  const safeContent = hasInlineImageData
+    ? content.replace(new RegExp(DATA_IMAGE_PATTERN.source, 'g'), '[Inline image data omitted]')
+    : content
+  const header = [
+    '[Tool result preview]',
     `originalChars=${content.length}`,
-    `shownChars=${shownHead.length + shownTail.length}`,
-    `shownHeadChars=${shownHead.length}`,
-    `shownTailChars=${shownTail.length}`,
-    `reason=${triggers.join(',')}`,
-    `Showing the first ${shownHead.length} and final ${shownTail.length} characters of the tool result.`,
-    'Inspect the persisted tool result or local artifact for the original payload.',
-    '',
-    shownHead,
-    '',
-    TOOL_CONTENT_OMISSION_MARKER,
-    '',
-    shownTail
+    `reason=${triggers.join(',')}`
   ].join('\n')
+  const marker = `\n\n${TOOL_CONTENT_OMISSION_MARKER}\n\n`
+  const available = Math.max(0, maxCharacters - header.length - 2)
+  if (safeContent.length <= available) return `${header}\n\n${safeContent}`.slice(0, maxCharacters)
+  const sourceBudget = Math.max(0, available - marker.length)
+  const headSize = Math.floor(sourceBudget * TOOL_CONTENT_REQUEST_HEAD_RATIO)
+  const tailSize = sourceBudget - headSize
+  return `${header}\n\n${safeContent.slice(0, headSize)}${marker}${tailSize ? safeContent.slice(-tailSize) : ''}`.slice(
+    0,
+    maxCharacters
+  )
 }

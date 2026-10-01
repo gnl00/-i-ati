@@ -34,7 +34,6 @@ export interface WebFetchArtifact {
   sourcePath: string
   readPath: string
   sizeBytes: number
-  sha256: string
   mimeType?: string
   summary: string
 }

@@ -1,6 +1,6 @@
 # ADR-0011: Size-based web fetch workspace artifacts
 
-**Status:** Accepted<br>
+**Status:** Superseded for storage layout by [ADR-0033](0033-stable-tool-result-model-content.md)<br>
 **Date:** 2026-07-24<br>
 **Related plan:** [Web fetch workspace artifacts](../archive/2026/tools/2026-09-29-web-fetch-workspace-artifacts.md)<br>
 **Related decisions:** [Workspace path confinement](0008-workspace-path-confinement.md), [Background tool-result compaction](0009-background-tool-result-compaction.md)

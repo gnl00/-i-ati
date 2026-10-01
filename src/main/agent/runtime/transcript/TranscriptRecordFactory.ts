@@ -9,6 +9,7 @@
  * - step visibility、loop continuation、terminal path 由 loop / host 层决策
  * - denied / aborted tool result 也应通过同一条 write-back 链路进入 transcript
  */
+import type { ToolResultNormalizer } from '../tools/result-normalization'
 import type { AgentStep } from '../step/AgentStep'
 import type { ToolResultFact } from '../tools/ToolResultFact'
 import type {
@@ -29,17 +30,13 @@ export interface CreateToolResultRecordInput {
 }
 
 export interface TranscriptRecordFactory {
-  createAssistantStep(
-    input: CreateAssistantStepRecordInput
-  ): AgentTranscriptAssistantStepRecord
+  createAssistantStep(input: CreateAssistantStepRecordInput): AgentTranscriptAssistantStepRecord
   createToolResult(input: CreateToolResultRecordInput): AgentTranscriptToolResultRecord
 }
 
-export class DefaultTranscriptRecordFactory
-implements TranscriptRecordFactory {
-  createAssistantStep(
-    input: CreateAssistantStepRecordInput
-  ): AgentTranscriptAssistantStepRecord {
+export class DefaultTranscriptRecordFactory implements TranscriptRecordFactory {
+  constructor(private readonly toolResultNormalizer?: ToolResultNormalizer) {}
+  createAssistantStep(input: CreateAssistantStepRecordInput): AgentTranscriptAssistantStepRecord {
     return {
       recordId: input.recordId,
       kind: 'assistant_step',
@@ -50,11 +47,10 @@ implements TranscriptRecordFactory {
 
   createToolResult(input: CreateToolResultRecordInput): AgentTranscriptToolResultRecord {
     return {
-      ...input.result,
+      ...(this.toolResultNormalizer?.normalize(input.result) ?? input.result),
       recordId: input.recordId,
       kind: 'tool_result',
-      timestamp: input.timestamp,
-      replayMode: 'hot'
+      timestamp: input.timestamp
     }
   }
 }

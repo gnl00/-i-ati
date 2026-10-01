@@ -31,8 +31,14 @@ describe('DefaultChatInitialTranscriptRecordFactory', () => {
           kind: 'user',
           content: [
             { type: 'text', text: 'look' },
-            { type: 'image_url', image_url: { url: 'file://image.png', detail: 'high' } },
-            { type: 'image_url', image_url: { url: 'file://auto.png', detail: undefined as any } }
+            {
+              type: 'image_url',
+              image_url: { url: 'file://image.png', detail: 'high' }
+            },
+            {
+              type: 'image_url',
+              image_url: { url: 'file://auto.png', detail: undefined as any }
+            }
           ]
         }
       ],
@@ -78,7 +84,10 @@ describe('DefaultChatInitialTranscriptRecordFactory', () => {
           kind: 'assistant',
           content: [
             { type: 'text', text: 'answer ' },
-            { type: 'image_url', image_url: { url: 'file://ignored.png', detail: 'auto' } },
+            {
+              type: 'image_url',
+              image_url: { url: 'file://ignored.png', detail: 'auto' }
+            },
             { type: 'text', text: 'done' }
           ],
           model: 'model-1',
@@ -159,10 +168,13 @@ describe('DefaultChatInitialTranscriptRecordFactory', () => {
         {
           kind: 'tool',
           toolCallId: 'call-1',
-          contentRepresentation: 'semantic_compaction',
+          modelContent: 'stable projection',
           content: [
             { type: 'text', text: 'result' },
-            { type: 'image_url', image_url: { url: 'file://image.png', detail: 'auto' } }
+            {
+              type: 'image_url',
+              image_url: { url: 'file://image.png', detail: 'auto' }
+            }
           ],
           timestamp: 12
         }
@@ -180,8 +192,9 @@ describe('DefaultChatInitialTranscriptRecordFactory', () => {
       toolCallIndex: 3,
       toolName: 'read',
       status: 'success',
-      contentRepresentation: 'semantic_compaction',
-      content: '[{"type":"text","text":"result"},{"type":"image_url","image_url":{"url":"file://image.png","detail":"auto"}}]'
+      modelContent: 'stable projection',
+      content:
+        '[{"type":"text","text":"result"},{"type":"image_url","image_url":{"url":"file://image.png","detail":"auto"}}]'
     })
   })
 

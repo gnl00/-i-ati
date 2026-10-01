@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DefaultRequestMaterializer } from '../RequestMaterializer'
 import type { AgentTranscript } from '../AgentTranscript'
-import type { NormalizedToolResultContent } from '../../tools/result-normalization'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
-import { COLD_TOOL_CONTENT_REQUEST_MAX_CHARACTERS } from '@shared/tools/toolResultContent'
 
 describe('DefaultRequestMaterializer', () => {
   it('merges hidden request context into the following user protocol message', () => {
@@ -38,28 +36,48 @@ describe('DefaultRequestMaterializer', () => {
           kind: 'user',
           timestamp: 2,
           source: MESSAGE_SOURCE.SYSTEM_ENVIRONMENT_CONTEXT,
-          content: [{ type: 'input_text', text: '<system-environment>{"currentDate":"2026-06-26"}</system-environment>' }]
+          content: [
+            {
+              type: 'input_text',
+              text: '<system-environment>{"currentDate":"2026-06-26"}</system-environment>'
+            }
+          ]
         },
         {
           recordId: 'user-info-context',
           kind: 'user',
           timestamp: 2,
           source: MESSAGE_SOURCE.USER_INFO_CONTEXT,
-          content: [{ type: 'input_text', text: '<user_info_context>{"profile":{"name":"Gn"}}</user_info_context>' }]
+          content: [
+            {
+              type: 'input_text',
+              text: '<user_info_context>{"profile":{"name":"Gn"}}</user_info_context>'
+            }
+          ]
         },
         {
           recordId: 'awake-context',
           kind: 'user',
           timestamp: 2,
           source: MESSAGE_SOURCE.AWAKE_CONTEXT,
-          content: [{ type: 'input_text', text: '<awake_state>{"chat_meta":{"chat_id":1}}</awake_state>' }]
+          content: [
+            {
+              type: 'input_text',
+              text: '<awake_state>{"chat_meta":{"chat_id":1}}</awake_state>'
+            }
+          ]
         },
         {
           recordId: 'available-images-context',
           kind: 'user',
           timestamp: 2,
           source: MESSAGE_SOURCE.AVAILABLE_IMAGES_CONTEXT,
-          content: [{ type: 'input_text', text: '<available_images><image ref="message:101#image:1" /></available_images>' }]
+          content: [
+            {
+              type: 'input_text',
+              text: '<available_images><image ref="message:101#image:1" /></available_images>'
+            }
+          ]
         },
         {
           recordId: 'current-user',
@@ -93,10 +111,11 @@ describe('DefaultRequestMaterializer', () => {
       role: 'user'
     })
 
-    const currentContent = request.messages[2].role === 'user'
-      ? request.messages[2].content
-      : []
-    expect(currentContent[0]).toEqual({ type: 'input_text', text: 'current question' })
+    const currentContent = request.messages[2].role === 'user' ? request.messages[2].content : []
+    expect(currentContent[0]).toEqual({
+      type: 'input_text',
+      text: 'current question'
+    })
     expect(currentContent[1]).toMatchObject({
       type: 'input_text',
       text: expect.stringContaining('<request_context>')
@@ -407,7 +426,11 @@ describe('DefaultRequestMaterializer', () => {
           kind: 'user',
           timestamp: 2,
           content: [
-            { type: 'input_image', imageUrl: 'data:image/png;base64,abc', detail: 'auto' },
+            {
+              type: 'input_image',
+              imageUrl: 'data:image/png;base64,abc',
+              detail: 'auto'
+            },
             { type: 'input_text', text: 'describe this' }
           ]
         },
@@ -416,10 +439,12 @@ describe('DefaultRequestMaterializer', () => {
           kind: 'user',
           timestamp: 2,
           source: MESSAGE_SOURCE.VISION_OBSERVATION,
-          content: [{
-            type: 'input_text',
-            text: '<vision_observation image_ref="message:101" status="ok">Summary: chart</vision_observation>'
-          }]
+          content: [
+            {
+              type: 'input_text',
+              text: '<vision_observation image_ref="message:101" status="ok">Summary: chart</vision_observation>'
+            }
+          ]
         }
       ]
     }
@@ -441,10 +466,12 @@ describe('DefaultRequestMaterializer', () => {
       },
       {
         role: 'user',
-        content: [{
-          type: 'input_text',
-          text: '<vision_observation image_ref="message:101" status="ok">Summary: chart</vision_observation>'
-        }]
+        content: [
+          {
+            type: 'input_text',
+            text: '<vision_observation image_ref="message:101" status="ok">Summary: chart</vision_observation>'
+          }
+        ]
       }
     ])
   })
@@ -461,7 +488,11 @@ describe('DefaultRequestMaterializer', () => {
           kind: 'user',
           timestamp: 1,
           content: [
-            { type: 'input_image', imageUrl: 'data:image/png;base64,abc', detail: 'auto' },
+            {
+              type: 'input_image',
+              imageUrl: 'data:image/png;base64,abc',
+              detail: 'auto'
+            },
             { type: 'input_text', text: 'what is shown here?' }
           ]
         },
@@ -470,10 +501,12 @@ describe('DefaultRequestMaterializer', () => {
           kind: 'user',
           timestamp: 1,
           source: MESSAGE_SOURCE.VISION_OBSERVATION,
-          content: [{
-            type: 'input_text',
-            text: '<vision_observation image_ref="message:101" status="ok">Summary: invoice screenshot</vision_observation>'
-          }]
+          content: [
+            {
+              type: 'input_text',
+              text: '<vision_observation image_ref="message:101" status="ok">Summary: invoice screenshot</vision_observation>'
+            }
+          ]
         },
         {
           recordId: 'assistant-reply',
@@ -521,10 +554,12 @@ describe('DefaultRequestMaterializer', () => {
       },
       {
         role: 'user',
-        content: [{
-          type: 'input_text',
-          text: '<vision_observation image_ref="message:101" status="ok">Summary: invoice screenshot</vision_observation>'
-        }]
+        content: [
+          {
+            type: 'input_text',
+            text: '<vision_observation image_ref="message:101" status="ok">Summary: invoice screenshot</vision_observation>'
+          }
+        ]
       },
       {
         role: 'assistant',
@@ -539,7 +574,7 @@ describe('DefaultRequestMaterializer', () => {
     ])
   })
 
-  it('truncates inline image tool results during protocol replay', () => {
+  it('replays prepared media content without further truncation', () => {
     const materializer = new DefaultRequestMaterializer()
     const transcript: AgentTranscript = {
       transcriptId: 'transcript-1',
@@ -555,7 +590,8 @@ describe('DefaultRequestMaterializer', () => {
           toolCallIndex: 0,
           toolName: 'vision_tool',
           status: 'success',
-          content: `{"image":"data:image/png;base64,${'a'.repeat(200)}"}`
+          content: `{"image":"data:image/png;base64,${'a'.repeat(200)}"}`,
+          modelContent: 'image artifact: .ati/artifacts/tools/test/image-1.png'
         }
       ]
     }
@@ -572,14 +608,16 @@ describe('DefaultRequestMaterializer', () => {
 
     expect(request.messages[0]).toMatchObject({
       role: 'tool',
-      content: expect.stringContaining('[Tool result truncated for model request]'),
+      content: 'image artifact: .ati/artifacts/tools/test/image-1.png',
       toolCallId: 'call-1',
       toolName: 'vision_tool'
     })
-    expect((request.messages[0] as { content: string }).content).not.toContain('data:image/png;base64')
+    expect((request.messages[0] as { content: string }).content).not.toContain(
+      'data:image/png;base64'
+    )
   })
 
-  it('preserves hot tool results during active run replay', () => {
+  it('preserves prepared tool results during active run replay', () => {
     const materializer = new DefaultRequestMaterializer()
     const largeContent = JSON.stringify({
       nodes: 'x'.repeat(40_000),
@@ -599,7 +637,6 @@ describe('DefaultRequestMaterializer', () => {
           toolCallIndex: 0,
           toolName: 'computer_use_state',
           status: 'success',
-          replayMode: 'hot',
           content: largeContent
         }
       ]
@@ -623,7 +660,7 @@ describe('DefaultRequestMaterializer', () => {
     })
   })
 
-  it('preserves a trusted semantic compaction when a following assistant step forces cold replay', () => {
+  it('preserves stable model content after a following assistant step', () => {
     const materializer = new DefaultRequestMaterializer()
     const representation = JSON.stringify({
       compacted: true,
@@ -645,7 +682,7 @@ describe('DefaultRequestMaterializer', () => {
           toolName: 'web_fetch',
           status: 'success',
           content: representation,
-          contentRepresentation: 'semantic_compaction'
+          modelContent: representation
         },
         {
           recordId: 'assistant-1',
@@ -685,7 +722,7 @@ describe('DefaultRequestMaterializer', () => {
     })
   })
 
-  it('preserves a trusted semantic compaction with undefined replay mode', () => {
+  it('uses the prepared model content', () => {
     const materializer = new DefaultRequestMaterializer()
     const representation = JSON.stringify({
       compacted: true,
@@ -696,18 +733,20 @@ describe('DefaultRequestMaterializer', () => {
       transcriptId: 'transcript-1',
       createdAt: 1,
       updatedAt: 2,
-      records: [{
-        recordId: 'tool-1',
-        kind: 'tool_result',
-        timestamp: 2,
-        stepId: 'step-1',
-        toolCallId: 'call-1',
-        toolCallIndex: 0,
-        toolName: 'web_fetch',
-        status: 'success',
-        content: representation,
-        contentRepresentation: 'semantic_compaction'
-      }]
+      records: [
+        {
+          recordId: 'tool-1',
+          kind: 'tool_result',
+          timestamp: 2,
+          stepId: 'step-1',
+          toolCallId: 'call-1',
+          toolCallIndex: 0,
+          toolName: 'web_fetch',
+          status: 'success',
+          content: representation,
+          modelContent: representation
+        }
+      ]
     }
 
     const request = materializer.materialize({
@@ -726,174 +765,52 @@ describe('DefaultRequestMaterializer', () => {
     })
   })
 
-  it('truncates consumed hot tool results with a head-tail cold projection', () => {
-    const materializer = new DefaultRequestMaterializer()
-    const largeContent = `tool-prefix-${'x'.repeat(40_000)}-tool-tail`
+  it('preserves earlier tool evidence after another assistant step', () => {
+    const content = 'test failure detail '.repeat(1_000)
+    const record = {
+      kind: 'tool_result' as const,
+      recordId: 'r1',
+      timestamp: 1,
+      stepId: 's1',
+      toolCallId: 'c1',
+      toolCallIndex: 0,
+      toolName: 'exec',
+      status: 'success' as const,
+      content,
+      modelContent: content
+    }
     const transcript: AgentTranscript = {
-      transcriptId: 'transcript-1',
+      transcriptId: 't1',
       createdAt: 1,
       updatedAt: 2,
       records: [
+        record,
         {
-          recordId: 'tool-1',
-          kind: 'tool_result',
-          timestamp: 2,
-          stepId: 'step-1',
-          toolCallId: 'call-1',
-          toolCallIndex: 0,
-          toolName: 'read',
-          status: 'success',
-          replayMode: 'hot',
-          content: largeContent
-        },
-        {
-          recordId: 'assistant-1',
           kind: 'assistant_step',
-          timestamp: 3,
+          recordId: 'r2',
+          timestamp: 2,
           step: {
-            stepId: 'step-2',
+            stepId: 's2',
             stepIndex: 1,
-            startedAt: 3,
-            completedAt: 4,
+            startedAt: 2,
+            completedAt: 2,
             status: 'completed',
-            content: 'used the tool result',
+            content: 'inspect source next',
             toolCalls: []
           }
         }
       ]
     }
-
-    const request = materializer.materialize({
+    const request = new DefaultRequestMaterializer().materialize({
       transcript,
       requestSpec: {
-        adapterPluginId: 'openai-chat-compatible-adapter',
-        baseUrl: 'https://example.invalid/v1',
-        apiKey: 'test-key',
-        model: 'test-model'
+        adapterPluginId: 'test',
+        baseUrl: '',
+        apiKey: '',
+        model: 'test'
       }
     })
-
-    expect(request.messages[0]).toMatchObject({
-      role: 'tool',
-      content: expect.stringContaining('[Tool result truncated for model request]'),
-      toolCallId: 'call-1',
-      toolName: 'read'
-    })
-    const requestContent = (request.messages[0] as { content: string }).content
-    expect(requestContent).toContain(`shownChars=${COLD_TOOL_CONTENT_REQUEST_MAX_CHARACTERS}`)
-    expect(requestContent).toContain('shownHeadChars=700')
-    expect(requestContent).toContain('shownTailChars=300')
-    expect(requestContent).toContain(`large_content>${COLD_TOOL_CONTENT_REQUEST_MAX_CHARACTERS}`)
-    expect(requestContent).toContain('tool-prefix-')
-    expect(requestContent).toContain('-tool-tail')
-    expect(requestContent.split('[tool result content omitted]')).toHaveLength(2)
-
-    const toolRecord = transcript.records[0]
-    expect(toolRecord.kind).toBe('tool_result')
-    if (toolRecord.kind !== 'tool_result') {
-      throw new Error('Expected tool_result record')
-    }
-    expect(toolRecord.replayMode).toBe('hot')
-    expect(toolRecord.content).toBe(largeContent)
-  })
-
-  it('uses normalized model content during protocol replay', () => {
-    const materializer = new DefaultRequestMaterializer()
-    const normalizedContent: NormalizedToolResultContent = {
-      __atiToolResultNormalized: true,
-      version: 1,
-      toolName: 'read',
-      toolCallId: 'call-1',
-      status: 'success',
-      summary: 'large result',
-      original: {
-        characters: 100_000,
-        triggers: ['large_content']
-      },
-      artifacts: [],
-      modelContent: '[normalized model content]'
-    }
-    const transcript: AgentTranscript = {
-      transcriptId: 'transcript-1',
-      createdAt: 1,
-      updatedAt: 2,
-      records: [
-        {
-          recordId: 'tool-1',
-          kind: 'tool_result',
-          timestamp: 2,
-          stepId: 'step-1',
-          toolCallId: 'call-1',
-          toolCallIndex: 0,
-          toolName: 'read',
-          status: 'success',
-          content: normalizedContent
-        }
-      ]
-    }
-
-    const request = materializer.materialize({
-      transcript,
-      requestSpec: {
-        adapterPluginId: 'openai-chat-compatible-adapter',
-        baseUrl: 'https://example.invalid/v1',
-        apiKey: 'test-key',
-        model: 'test-model'
-      }
-    })
-
-    expect(request.messages[0]).toMatchObject({
-      role: 'tool',
-      content: '[normalized model content]',
-      toolCallId: 'call-1',
-      toolName: 'read'
-    })
-  })
-
-  it('includes structured tool failures in the model protocol message', () => {
-    const materializer = new DefaultRequestMaterializer()
-    const transcript: AgentTranscript = {
-      transcriptId: 'transcript-failure',
-      createdAt: 1,
-      updatedAt: 2,
-      records: [{
-        recordId: 'tool-failure',
-        kind: 'tool_result',
-        timestamp: 2,
-        stepId: 'step-1',
-        toolCallId: 'call-1',
-        toolCallIndex: 0,
-        toolName: 'exec',
-        status: 'timeout',
-        content: null,
-        error: { message: 'Command timeout after 10ms' },
-        failure: {
-          category: 'operation',
-          code: 'COMMAND_TIMEOUT',
-          message: 'The command exceeded its time limit.',
-          recovery: {
-            action: 'check_state',
-            message: 'Inspect partial output before continuing.'
-          },
-          termination: 'timeout'
-        }
-      }]
-    }
-
-    const request = materializer.materialize({
-      transcript,
-      requestSpec: {
-        adapterPluginId: 'openai-chat-compatible-adapter',
-        baseUrl: 'https://example.invalid/v1',
-        apiKey: 'test-key',
-        model: 'test-model'
-      }
-    })
-
-    expect(request.messages[0]).toMatchObject({
-      role: 'tool',
-      content: expect.stringContaining('code=COMMAND_TIMEOUT')
-    })
-    expect((request.messages[0] as { content: string }).content).toContain('termination=timeout')
+    expect(request.messages[0].content).toBe(content)
+    expect(record.modelContent).toBe(content)
   })
 })

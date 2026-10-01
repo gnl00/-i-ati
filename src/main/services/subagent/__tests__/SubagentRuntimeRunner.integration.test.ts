@@ -35,7 +35,7 @@ vi.mock('@main/agent/tools/ToolExecutor', () => ({
   ToolExecutor: class {
     constructor(private readonly config: any) {}
 
-    async execute(calls: Array<{ id: string, index: number, function: string, args: string }>) {
+    async execute(calls: Array<{ id: string; index: number; function: string; args: string }>) {
       executeMock(calls)
       const call = calls[0]
       const decision = await this.config.requestConfirmation?.({
@@ -78,7 +78,7 @@ vi.mock('@main/agent/tools/ToolExecutor', () => ({
   }
 }))
 
-const createAsyncStream = async function *(
+const createAsyncStream = async function* (
   chunks: ModelResponseChunk[]
 ): AsyncGenerator<ModelResponseChunk, void, unknown> {
   for (const chunk of chunks) {
@@ -100,7 +100,7 @@ describe('DefaultSubagentRuntimeRunner integration', () => {
 
     const modelStreamExecutor: ModelStreamExecutor = {
       execute: vi.fn(async ({ request }) => {
-        const hasToolResult = request.messages.some(message => message.role === 'tool')
+        const hasToolResult = request.messages.some((message) => message.role === 'tool')
 
         if (hasToolResult) {
           return createAsyncStream([
@@ -197,19 +197,21 @@ describe('DefaultSubagentRuntimeRunner integration', () => {
     expect(modelStreamExecutor.execute).toHaveBeenCalledTimes(2)
     expect(requestSpy).toHaveBeenCalledTimes(1)
     expect(requestSpy.mock.calls[0]?.[0]).toBe('parent-1')
-    expect(requestSpy.mock.calls[0]?.[1]).toEqual(expect.objectContaining({
-      toolCallId: 'tool-1',
-      name: 'exec',
-      ui: expect.objectContaining({
-        command: 'echo legacy',
-        riskLevel: 'dangerous'
-      }),
-      agent: expect.objectContaining({
-        kind: 'subagent',
-        subagentId: 'sub-1',
-        role: 'coder'
+    expect(requestSpy.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({
+        toolCallId: 'tool-1',
+        name: 'exec',
+        ui: expect.objectContaining({
+          command: 'echo legacy',
+          riskLevel: 'dangerous'
+        }),
+        agent: expect.objectContaining({
+          kind: 'subagent',
+          subagentId: 'sub-1',
+          role: 'coder'
+        })
       })
-    }))
+    )
     expect(String(requestSpy.mock.calls[0]?.[1]?.args)).toContain('echo original')
 
     const secondRequest = (modelStreamExecutor.execute as any).mock.calls[1][0].request
@@ -219,7 +221,7 @@ describe('DefaultSubagentRuntimeRunner integration', () => {
           role: 'tool',
           toolCallId: 'tool-1',
           toolName: 'exec',
-          content: 'parent denied'
+          content: '[Tool status: aborted]\nparent denied'
         })
       ])
     )

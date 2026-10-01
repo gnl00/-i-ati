@@ -32,7 +32,7 @@ describe('DefaultTranscriptRecordFactory', () => {
     })
   })
 
-  it('creates hot tool_result transcript records from tool result facts', () => {
+  it('creates tool_result transcript records from tool result facts', () => {
     const factory = new DefaultTranscriptRecordFactory()
     const result: ToolResultFact = {
       stepId: 'step-1',
@@ -56,8 +56,7 @@ describe('DefaultTranscriptRecordFactory', () => {
       ...result,
       recordId: 'record-2',
       kind: 'tool_result',
-      timestamp: 30,
-      replayMode: 'hot'
+      timestamp: 30
     })
   })
 })

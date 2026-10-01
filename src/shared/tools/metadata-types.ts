@@ -2,16 +2,6 @@ import type { SubagentRole } from './subagent/index.d'
 
 export type EmbeddedToolRiskLevel = 'none' | 'warning' | 'dangerous'
 
-export type ToolResultCompactionLevel = 'balanced' | 'minimal'
-export type ToolResultCompactionModelInputPolicy = 'redact-secrets' | 'verbatim'
-
-export interface ToolResultCompactionMetadata {
-  enabled: boolean
-  level: ToolResultCompactionLevel
-  compactorId: string
-  modelInputPolicy?: ToolResultCompactionModelInputPolicy
-}
-
 export type EmbeddedToolCapability =
   | 'filesystem_read'
   | 'filesystem_write'
@@ -44,9 +34,10 @@ export interface EmbeddedToolMetadata {
   mutatesWorkspace: boolean
   subagent: 'allow' | 'deny'
   roles?: SubagentRole[]
-  actionOverrides?: Record<string, Partial<Pick<EmbeddedToolMetadata,
-    'capability' | 'riskLevel' | 'mutatesWorkspace'>>>
-  resultCompaction?: ToolResultCompactionMetadata
+  actionOverrides?: Record<
+    string,
+    Partial<Pick<EmbeddedToolMetadata, 'capability' | 'riskLevel' | 'mutatesWorkspace'>>
+  >
 }
 
 export type EmbeddedToolMetadataMap = Record<string, EmbeddedToolMetadata>

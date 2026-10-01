@@ -1,5 +1,8 @@
 import { HostOutputDispatcher } from '@main/hosts/shared/output/HostOutputDispatcher'
-import { TitleGenerationService, CompressionExecutionService } from '@main/orchestration/chat/maintenance'
+import {
+  TitleGenerationService,
+  CompressionExecutionService
+} from '@main/orchestration/chat/maintenance'
 import { PostRunJobService } from '@main/orchestration/chat/postRun'
 import { ChatAgentAdapter } from '@main/hosts/chat/ChatAgentAdapter'
 import {
@@ -9,7 +12,6 @@ import {
 } from '../infrastructure'
 import { RunManager } from './RunManager'
 import { DefaultMainAgentRuntimeRunner } from './DefaultMainAgentRuntimeRunner'
-import { toolResultCompactionScheduler } from '@main/orchestration/chat/toolResultCompaction/ToolResultCompactionScheduler'
 import { AgentNotificationSink } from '@main/notifications/AgentNotificationSink'
 
 export type RunRuntimeDeps = {
@@ -32,10 +34,8 @@ export class RunRuntimeFactory {
     const postRunJobService = new PostRunJobService(eventEmitterFactory)
     const mainAgentRuntimeRunner = new DefaultMainAgentRuntimeRunner(undefined, undefined, {
       hostOutputDispatcher,
-      toolResultCompactionTrigger: toolResultCompactionScheduler,
-      notificationSinkFactory: (chatTitle, options): AgentNotificationSink => (
+      notificationSinkFactory: (chatTitle, options): AgentNotificationSink =>
         new AgentNotificationSink(chatTitle, options)
-      )
     })
 
     const runManager = new RunManager({
