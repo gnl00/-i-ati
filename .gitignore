@@ -13,6 +13,8 @@ node_modules*
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+scripts/eval/**
+coverage
 
 .idea
 
