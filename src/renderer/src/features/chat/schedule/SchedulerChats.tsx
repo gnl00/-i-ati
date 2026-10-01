@@ -116,7 +116,7 @@ export function SchedulerChats(): React.ReactElement {
           />
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-(--app-border-subtle)">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]">
         {loading ? (
           <p role="status" className="p-8 text-center text-xs text-slate-500">
             Loading chats...
@@ -139,9 +139,9 @@ export function SchedulerChats(): React.ReactElement {
                 void openChat(chat)
               }}
               aria-label={`Open ${chat.title}`}
-              className="flex w-full items-center gap-3 border-b border-(--app-border-subtle) px-4 py-3 text-left last:border-b-0 hover:bg-(--app-surface-hover) active:bg-(--app-surface-inset) focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-(--app-accent) disabled:opacity-50"
+              className="group mb-1 flex min-h-10 w-full items-center gap-2.5 rounded-md px-3 py-2 text-left hover:bg-(--app-surface-hover) active:bg-(--app-surface-inset) focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-(--app-accent) disabled:opacity-50"
             >
-              <MessageSquare className="size-3.5 shrink-0 text-slate-400 dark:text-(--app-text-muted)" />
+              <MessageSquare className="size-3.5 shrink-0 opacity-65 text-slate-400 dark:text-(--app-text-muted)" />
               <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-700 dark:text-(--app-text-primary)">
                 {chat.title}
               </span>
@@ -151,7 +151,7 @@ export function SchedulerChats(): React.ReactElement {
               >
                 {taskTime(chat.updateTime)}
               </time>
-              <ChevronRight className="size-3 shrink-0 text-slate-400" />
+              <ChevronRight className="size-3 shrink-0 text-slate-400 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" />
             </button>
           ))
         )}

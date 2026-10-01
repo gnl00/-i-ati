@@ -185,13 +185,17 @@ remains available through the planning database facade.
 
 ## Tasks chat list
 
-The entire task summary row toggles inline details, with subtle hover and keyboard
-focus feedback. Cancel, Keep, and Remove remain independent buttons; detail text
-and execution chat links sit outside the disclosure trigger. The task list and
-its separate column header reserve matching stable scrollbar gutters.
+The task board uses a master-detail layout. Selecting a task displays its full
+goal, status, scheduled time, schedule, timezone, execution link and error in the
+adjacent detail panel. Execution errors appear in an inline muted red badge beside the current state, with the full error available on hover or keyboard focus; recurring tasks awaiting their next run retain Pending and identify the previous run failure. The execution chat link aligns with the other detail values. The first visible task is selected initially; selection
+survives live updates and falls back to the first visible task when filtering or
+removal hides it. Cancel confirmation and execution-chat navigation remain
+independent of selection. At container widths of 640px or less, the same detail
+panel follows the task list within one scrolling board, keeping every action
+reachable. Desktop task and detail columns scroll independently.
 
 The Tasks page retains its schedule board and adds a separate **Chats**
-list below it. Both regions occupy equal height with independent list scrolling,
+list below it. Tasks uses 2/5 and Chats 3/5 of the available content height with independent list scrolling,
 so filter changes preserve the chat section position. All/Active/History filter only the schedule board; scheduled chats
 sort by chat update time and have an independent title search. The search control
 expands within the flexible space beside the fixed Chats heading; its container
@@ -216,7 +220,8 @@ ATI_SEARCH_TEST_CDP_URL=http://127.0.0.1:9341 pnpm --config.verify-deps-before-r
 Without this environment variable, the runtime test is skipped; ordinary DOM
 tests do not validate Chromium animation interpolation.
 
-Selecting a row
+Chat rows use spacing and shared hover/focus surfaces without horizontal
+separators. Opening chevrons appear on hover or keyboard focus. Selecting a chat row
 opens the existing transcript using the normal workspace and hydration path.
 Load errors, empty states and navigation failures remain visible. Selection
 request and epoch guards prevent an obsolete asynchronous open from taking over.

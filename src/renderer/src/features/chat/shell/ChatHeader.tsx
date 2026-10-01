@@ -237,7 +237,7 @@ const ChatHeader: React.FC = () => {
               )}
             </AnimatePresence>
             <span className="block truncate py-1 text-sm font-semibold text-slate-600 dark:text-(--chat-text-primary)">
-              {tasksPageOpen ? 'Tasks' : chatTitle}
+              {tasksPageOpen ? 'Task Board' : chatTitle}
             </span>
             <div className="absolute inset-x-0 bottom-0 h-px origin-center scale-x-75 bg-linear-to-r from-transparent via-blue-400/55 to-transparent opacity-80 transition-transform duration-300 group-hover:scale-x-100 dark:via-(--chat-accent)/45" />
           </div>

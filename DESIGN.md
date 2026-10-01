@@ -382,14 +382,25 @@ Settings 模型选择弹层使用半透明白色 / graphite raised 背景与 bac
 ## Tasks: Chats
 
 Tasks places Chats below the schedule board, aligned to the same
-content width. The board keeps its All/Active/History controls. The chat section
+content width. The board keeps its All/Active/History controls beside a Tasks heading.
+It uses a 1.1:0.9 master-detail layout with a 24px gap: quiet two-line task
+selectors on the left and the selected task's full details and actions on the
+right. The first visible task is selected by default. Spacing separates the detail panel without a vertical divider. At container widths of 640px or less, details follow
+the list in the same scrolling region. Running and failed states remain visible
+in task selectors. Completed selectors use regular-weight secondary text and a
+muted check icon. Recurring tasks awaiting their next run retain normal emphasis.
+Selector schedule and time use spacing without a dot separator; the time uses a
+compact inset-surface badge with medium-weight secondary text and tabular numerals.
+Completed time badges use muted text and 40% inset-surface fill, retaining medium weight.
+Other status and cancellation controls live in the detail panel. The chat section
 uses a 13px medium section title and row title, 11px muted count/time, the existing
-canvas background and subtle horizontal dividers, and an independent title search reusing ChatSearch from the chat title list. Each chat row
-contains a neutral message icon, single-line title, timestamp and opening chevron.
+canvas background and spacing between rows without horizontal dividers, and an independent title search reusing ChatSearch from the chat title list. Each chat row
+contains a neutral message icon, single-line title, timestamp and an opening chevron visible on hover or keyboard focus.
 Both lists sit directly on the canvas without rounded outer frames or raised
 background fills. Rows use shared hover/focus colors without extra status badges or nested run
-hierarchies. The task and chat regions each occupy half of the available content height,
-with a fixed gap and independent list scrolling. Task filter changes never move
+hierarchies. The task region occupies 2/5 and the chat region 3/5 of the available content height,
+with a fixed gap and independent list scrolling. A decorative 48px × 1px
+separator sits centered within the 24px gap, using `--app-border-subtle`. Task filter changes never move
 the Chats header. Light/Dark share the same geometry.
 The Chats search uses the flexible space to the right of its fixed title and count.
 It uses the same `ChatSearch` actions layout as the Chat Sheet: a 40px row,

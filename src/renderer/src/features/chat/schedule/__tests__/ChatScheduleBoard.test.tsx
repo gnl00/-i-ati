@@ -85,6 +85,21 @@ describe('ChatScheduleBoard', () => {
     await act(async () => root.unmount())
     container.remove()
   })
+  it.each(['pending', 'failed'] as const)('groups execution errors with %s state', async (status) => {
+    ipc.invokeDbScheduledTasksList.mockResolvedValue([
+      { ...task(status), last_error: 'fetch failed' }
+    ])
+    await act(async () => root.render(<ChatScheduleBoard />))
+    const label = Array.from(container.querySelectorAll('dt')).find(
+      (item) => item.textContent === 'State'
+    )!
+    const value = label.nextElementSibling!
+    expect(value.textContent).toContain(status === 'pending' ? 'Pending' : 'Failed')
+    expect(value.querySelector('button')?.textContent).toBe(
+      status === 'pending' ? 'Last run failed' : 'fetch failed'
+    )
+    expect(value.querySelector('button')?.getAttribute('aria-label')).toBe('Execution error: fetch failed')
+  })
   it('shows only the earliest pending task and opens the full page', async () => {
     ipc.invokeDbScheduledTasksList.mockResolvedValue([
       { ...task('running'), id: 'running', goal: 'Already running', run_at: 1 },
@@ -148,6 +163,38 @@ describe('ChatScheduleBoard', () => {
     )
     expect(container.textContent).toContain('No task history')
   })
+  it('cancels only after confirmation and selects the remaining task', async () => {
+    ipc.invokeDbScheduledTasksList.mockResolvedValue([
+      task(),
+      {
+        ...task(),
+        id: 'remaining',
+        goal: 'Remaining task',
+        run_at: 1800000000100
+      }
+    ])
+    ipc.invokeDbScheduledTaskUpdateStatus.mockResolvedValue(task('cancelled'))
+    await act(async () => root.render(<ChatScheduleBoard />))
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>('[aria-label="Cancel task"]')!
+        .click()
+    )
+    expect(ipc.invokeDbScheduledTaskUpdateStatus).not.toHaveBeenCalled()
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>('[aria-label="Cancel task"]')!
+        .click()
+    )
+    expect(ipc.invokeDbScheduledTaskUpdateStatus).toHaveBeenCalledWith({
+      id: 'task-1',
+      status: 'cancelled',
+      lastError: 'Cancelled by user'
+    })
+    expect(container.querySelector('aside h3')?.textContent).toBe(
+      'Remaining task'
+    )
+  })
   it('merges live updates over a loading snapshot and releases its subscription', async () => {
     let resolve!: (tasks: ScheduleTask[]) => void
     ipc.invokeDbScheduledTasksList.mockReturnValue(
@@ -208,7 +255,9 @@ describe('ChatScheduleBoard', () => {
     expect(taskTime(new Date(2026, 11, 31, 16).getTime(), now)).toContain(
       'Today'
     )
-    expect(taskTime(new Date(2027, 0, 1, 11).getTime(), now)).toContain('Tomorrow')
+    expect(taskTime(new Date(2027, 0, 1, 11).getTime(), now)).toContain(
+      'Tomorrow'
+    )
     expect(taskTime(new Date(2025, 0, 1, 11).getTime(), now)).toContain('2025')
     expect(
       scheduleLabel({
@@ -225,18 +274,38 @@ describe('ChatScheduleBoard', () => {
       })
     ).toBe('Cron: 0 9 * * 1-5')
   })
-  it('keeps task actions independent from summary disclosure', async () => {
-    ipc.invokeDbScheduledTasksList.mockResolvedValue([task()])
+  it('keeps selection stable and cancellation independent from task selection', async () => {
+    ipc.invokeDbScheduledTasksList.mockResolvedValue([
+      task(),
+      { ...task(), id: 'second', goal: 'Second task', run_at: 1800000000100 }
+    ])
     await act(async () => root.render(<ChatScheduleBoard />))
-    const trigger = container.querySelector<HTMLButtonElement>('[aria-expanded]')!
+    const trigger = container.querySelector<HTMLButtonElement>(
+      '[aria-label="Second task"]'
+    )!
     await act(async () => trigger.click())
-    expect(trigger.getAttribute('aria-expanded')).toBe('true')
-    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Cancel task"]')!.click())
-    expect(trigger.getAttribute('aria-expanded')).toBe('true')
-    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Keep task"]')!.click())
-    expect(trigger.getAttribute('aria-expanded')).toBe('true')
-    await act(async () => trigger.click())
-    expect(trigger.getAttribute('aria-expanded')).toBe('false')
+    expect(trigger.getAttribute('aria-pressed')).toBe('true')
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>('[aria-label="Cancel task"]')!
+        .click()
+    )
+    expect(trigger.getAttribute('aria-pressed')).toBe('true')
+    expect(ipc.invokeDbScheduledTaskUpdateStatus).not.toHaveBeenCalled()
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>('[aria-label="Keep task"]')!
+        .click()
+    )
+    expect(trigger.getAttribute('aria-pressed')).toBe('true')
+    await update({ ...task(), id: 'second', goal: 'Updated selected task' })
+    expect(container.querySelector('aside h3')?.textContent).toBe(
+      'Updated selected task'
+    )
+    await update({ ...task('cancelled'), id: 'second' })
+    expect(container.querySelector('aside h3')?.textContent).toBe(
+      'Check gold price'
+    )
   })
   it('expands real task details and opens the associated chat', async () => {
     ipc.invokeDbScheduledTasksList.mockResolvedValue([
@@ -244,11 +313,16 @@ describe('ChatScheduleBoard', () => {
         ...task(),
         schedule_type: 'cron',
         cron_expression: '0 11 * * *',
-        timezone: 'Asia/Shanghai', result_message_id: 123
+        timezone: 'Asia/Shanghai',
+        result_message_id: 123
       }
     ])
-    ipc.invokeDbMessageGetById.mockResolvedValue({ chatUuid: 'execution-chat' })
-    navigation.getAllChat.mockResolvedValue([{ id: 42, uuid: 'execution-chat' }])
+    ipc.invokeDbMessageGetById.mockResolvedValue({
+      chatUuid: 'execution-chat'
+    })
+    navigation.getAllChat.mockResolvedValue([
+      { id: 42, uuid: 'execution-chat' }
+    ])
     navigation.switchWorkspace.mockResolvedValue({ success: true })
     const hydrateChat = vi.fn(async () => {
       useChatStore.setState({ currentChatUuid: 'execution-chat' })
@@ -262,13 +336,23 @@ describe('ChatScheduleBoard', () => {
     useSheetStore.setState({ sheetOpenState: false })
     try {
       await act(async () => root.render(<ChatScheduleBoard />))
-      expect(container.textContent).not.toContain('Instructions')
-      await act(async () =>
-        container.querySelector<HTMLButtonElement>('[aria-expanded]')!.click()
+      expect(container.querySelector('aside h3')?.textContent).toBe(
+        'Check gold price'
       )
-      expect(container.textContent).toContain('Instructions')
+      await act(async () =>
+        container
+          .querySelector<HTMLButtonElement>('[aria-label="Check gold price"]')!
+          .click()
+      )
+      expect(
+        container.querySelector('[aria-label="Task details"]')
+      ).toBeTruthy()
       expect(container.textContent).toContain('Asia/Shanghai')
-      expect(container.querySelector('[aria-expanded="true"]')).toBeTruthy()
+      expect(
+        container.querySelector(
+          '[aria-label="Check gold price"][aria-pressed="true"]'
+        )
+      ).toBeTruthy()
       const open = Array.from(container.querySelectorAll('button')).find(
         (button) => button.textContent?.includes('Open chat')
       )!
@@ -286,12 +370,18 @@ describe('ChatScheduleBoard', () => {
     ipc.invokeDbScheduledTasksList.mockResolvedValue([task()])
     useChatStore.setState({ tasksPageOpen: true, currentChatUuid: 'current' })
     useSheetStore.setState({ sheetOpenState: false })
-    ipc.invokeDbMessageGetById.mockResolvedValue({ chatUuid: 'execution-chat' })
-    ipc.invokeDbScheduledTasksList.mockResolvedValue([{ ...task(), result_message_id: 123 }])
+    ipc.invokeDbMessageGetById.mockResolvedValue({
+      chatUuid: 'execution-chat'
+    })
+    ipc.invokeDbScheduledTasksList.mockResolvedValue([
+      { ...task(), result_message_id: 123 }
+    ])
     navigation.getAllChat.mockResolvedValue([])
     await act(async () => root.render(<ChatScheduleBoard />))
     await act(async () =>
-      container.querySelector<HTMLButtonElement>('[aria-expanded]')!.click()
+      container
+        .querySelector<HTMLButtonElement>('[aria-label="Check gold price"]')!
+        .click()
     )
     const open = Array.from(container.querySelectorAll('button')).find(
       (button) => button.textContent?.includes('Open chat')
@@ -314,12 +404,15 @@ describe('ChatScheduleBoard', () => {
   it('shows a placeholder before execution and exposes the link when a result arrives', async () => {
     ipc.invokeDbScheduledTasksList.mockResolvedValue([task()])
     await act(async () => root.render(<ChatScheduleBoard />))
-    await act(async () => container.querySelector<HTMLButtonElement>('[aria-expanded]')!.click())
-    expect(container.textContent).toContain('Execution chat--')
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>('[aria-label="Check gold price"]')!
+        .click()
+    )
+    expect(container.textContent).toContain('No execution result yet')
     expect(container.textContent).not.toContain('Open chat')
     expect(ipc.invokeDbMessageGetById).not.toHaveBeenCalled()
     await update({ ...task(), result_message_id: 123, run_count: 1 })
     expect(container.textContent).toContain('Open chat')
   })
-
 })

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import './tasks-page.css'
 import {
   ArrowUpRight,
   ChevronRight,
@@ -8,7 +9,11 @@ import {
   XCircle
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { invokeDbMessageGetById, invokeDbScheduledTaskUpdateStatus } from '@renderer/infrastructure/ipc'
+import {
+  invokeDbMessageGetById,
+  invokeDbScheduledTaskUpdateStatus
+} from '@renderer/infrastructure/ipc'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@renderer/shared/components/ui/tooltip'
 import { cn } from '@renderer/shared/lib/utils'
 import type { ScheduleTask } from '@shared/tools/schedule'
 import { useScheduledTasks } from './useScheduledTasks'
@@ -95,7 +100,7 @@ const actionClass =
 export default function ChatScheduleBoard(): React.ReactElement {
   const { scheduledTasks, scheduleLoading, scheduleLoadError, replaceTask } =
     useScheduledTasks()
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [now, setNow] = useState(() => new Date())
   const [openingChat, setOpeningChat] = useState(false)
   const navigationRequest = useRef(0)
@@ -119,14 +124,16 @@ export default function ChatScheduleBoard(): React.ReactElement {
       const message = await invokeDbMessageGetById(resultMessageId)
       if (!isCurrent()) return
       const chatUuid = message?.chatUuid
-      if (!chatUuid) throw new Error('The execution chat is no longer available')
+      if (!chatUuid)
+        throw new Error('The execution chat is no longer available')
       if (useChatStore.getState().currentChatUuid === chatUuid) {
         useChatStore.getState().setTasksPageOpen(false)
         return
       }
       const chat = (await getAllChat()).find((item) => item.uuid === chatUuid)
       if (!isCurrent()) return
-      if (!chat?.id) throw new Error('The execution chat is no longer available')
+      if (!chat?.id)
+        throw new Error('The execution chat is no longer available')
       const workspace = await switchWorkspace(chat.uuid, chat.workspacePath)
       if (!isCurrent()) return
       if (!workspace.success)
@@ -168,6 +175,9 @@ export default function ChatScheduleBoard(): React.ReactElement {
         (task.status === 'pending' || task.status === 'running')
   )
 
+  const selectedTask =
+    visibleTasks.find((task) => task.id === selectedId) ?? visibleTasks[0]
+
   const handleAction = async (task: ScheduleTask): Promise<void> => {
     const cancel = task.status === 'pending' || task.status === 'running'
     setPendingIds((current) => new Set(current).add(task.id))
@@ -195,208 +205,264 @@ export default function ChatScheduleBoard(): React.ReactElement {
     }
   }
 
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div
-        aria-label="Filter tasks"
-        className="mb-4 flex shrink-0 items-center gap-1"
+  const renderDetails = (
+    task: ScheduleTask & { status: VisibleStatus }
+  ): React.ReactElement => {
+    const meta = STATUS[task.status]
+    const cancel = task.status === 'pending' || task.status === 'running'
+    const confirming = confirmingId === task.id && cancel
+    const pending = pendingIds.has(task.id)
+    return (
+      <aside
+        aria-label="Task details"
+        id="selected-task-details"
+        className="tasks-detail min-h-0 overflow-y-auto overscroll-contain"
       >
-        {filters.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            aria-pressed={filter === item.key}
-            onClick={() => setFilter(item.key)}
-            className={cn(
-              'inline-flex h-8 items-center gap-2 rounded-md border px-3 text-xs transition-colors active:scale-[0.98] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-(--app-accent)',
-              filter === item.key
-                ? 'border-(--app-border-standard) bg-(--app-surface-raised) font-semibold text-slate-800 dark:text-(--app-text-primary)'
-                : 'border-transparent text-slate-500 hover:bg-(--app-surface-hover) dark:text-(--app-text-secondary)'
-            )}
-          >
-            {item.label}
-            <span className="text-[10px] tabular-nums text-slate-400 dark:text-(--app-text-muted)">
-              {scheduleLoading || scheduleLoadError ? '—' : item.count}
+        <p className="mb-3 text-[10px] font-medium uppercase tracking-wide text-slate-400 dark:text-(--app-text-muted)">
+          Task details
+        </p>
+        <h3 className="mb-5 wrap-break-word text-[14px] font-medium leading-6 text-slate-700 dark:text-(--app-text-primary)">
+          {task.goal}
+        </h3>
+        <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-5 gap-y-3 text-[11px] text-slate-500 dark:text-(--app-text-secondary)">
+          <dt>State</dt>
+          <dd className="flex min-w-0 items-center gap-2">
+            <span className={cn('flex shrink-0 items-center gap-1.5', meta.color)}>
+              <meta.Icon
+                className={cn(
+                  'size-3.5 shrink-0',
+                  task.status === 'running' &&
+                    'animate-spin motion-reduce:animate-none'
+                )}
+              />
+              {meta.label}
             </span>
-          </button>
-        ))}
-      </div>
-      <div className="flex min-h-0 flex-col overflow-hidden">
-        <div className="hidden shrink-0 grid-cols-[minmax(0,1fr)_140px_96px_128px] gap-4 overflow-hidden border-b border-(--app-border-subtle) px-4 py-2 text-[10px] font-medium uppercase tracking-wide text-slate-400 [scrollbar-gutter:stable] sm:grid dark:text-(--app-text-muted)">
-          <span>Task</span>
-          <span>Scheduled for</span>
-          <span>Status</span>
-          <span className="text-right">Action</span>
-        </div>
-        {scheduleLoading ? (
-          <p role="status" className="p-8 text-center text-xs text-slate-500">
-            Loading schedules...
-          </p>
-        ) : scheduleLoadError ? (
-          <p role="alert" className="p-8 text-center text-xs text-rose-500">
-            {scheduleLoadError}
-          </p>
-        ) : visibleTasks.length === 0 ? (
-          <p className="p-8 text-center text-xs text-slate-500 dark:text-(--app-text-secondary)">
-            {filter === 'all'
-              ? 'No Tasks'
-              : filter === 'active'
-                ? 'No active tasks'
-                : 'No task history'}
-          </p>
-        ) : (
-          <div
-            className="min-h-0 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]"
-            aria-label="Task list"
-          >
-            {visibleTasks.map((task) => {
-              const meta = STATUS[task.status]
-              const cancel =
-                task.status === 'pending' || task.status === 'running'
-              const confirming = confirmingId === task.id && cancel
-              const pending = pendingIds.has(task.id)
-              return (
-                <article
-                  key={task.id}
-                  className="border-b border-(--app-border-subtle) last:border-b-0"
-                >
-                  <div className="relative grid grid-cols-[minmax(0,1fr)_128px] items-center gap-x-4 gap-y-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_140px_96px_128px]">
+            {task.last_error && (
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
                     <button
                       type="button"
-                      aria-label={task.goal}
-                      aria-expanded={expandedId === task.id}
-                      aria-controls={`task-detail-${task.id}`}
-                      onClick={() =>
-                        setExpandedId(expandedId === task.id ? null : task.id)
-                      }
-                      className="absolute inset-0 cursor-pointer transition-colors duration-150 hover:bg-(--app-surface-hover) focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-(--app-accent) motion-reduce:transition-none"
-                    />
-                    <div className="pointer-events-none relative min-w-0">
-                      <h2 className="wrap-break-word text-[13px] font-medium leading-5 text-slate-700 dark:text-(--app-text-primary)">
-                        <span className="flex w-full items-start gap-2 text-left">
-                          <ChevronRight
-                            className={cn(
-                              'mt-1 size-3 shrink-0 text-slate-400',
-                              expandedId === task.id && 'rotate-90'
-                            )}
-                          />
-                          <span className="min-w-0 wrap-break-word">
-                            {task.goal}
-                          </span>
-                        </span>
-                      </h2>
-                      <p className="mt-1 pl-5 wrap-break-word text-[11px] text-slate-400 dark:text-(--app-text-muted)">
-                        {scheduleLabel(task)}
-                      </p>
-                      {task.status === 'failed' && task.last_error && (
-                        <p
-                          className="mt-1 line-clamp-2 wrap-break-word text-[11px] text-rose-500"
-                          title={task.last_error}
-                        >
-                          {task.last_error}
-                        </p>
-                      )}
-                    </div>
+                      aria-label={`Execution error: ${task.last_error}`}
+                      className="inline-flex min-w-0 items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-rose-600 bg-rose-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-(--app-accent) dark:bg-rose-400/10 dark:text-rose-400"
+                    >
+                      <span className="truncate">
+                        {task.status === 'failed' ? task.last_error : 'Last run failed'}
+                      </span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-72 whitespace-pre-wrap wrap-break-word rounded-lg border border-slate-700/50 bg-slate-900/95 px-3 py-1.5 text-xs font-medium text-slate-100 shadow-xl shadow-black/20 backdrop-blur-xl dark:border-(--app-border-standard) dark:bg-(--app-surface-raised) dark:text-(--app-text-primary) dark:backdrop-blur-none">
+                    {task.last_error}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </dd>
+          <dt>{cancel ? 'Next run' : 'Scheduled for'}</dt>
+          <dd>
+            <time
+              dateTime={new Date(task.run_at).toISOString()}
+              title={new Date(task.run_at).toLocaleString('en-US', {
+                timeZoneName: 'short'
+              })}
+            >
+              {taskTime(task.run_at, now)}
+            </time>
+          </dd>
+          <dt>Schedule</dt>
+          <dd className="wrap-break-word">{scheduleLabel(task)}</dd>
+          {task.timezone && (
+            <>
+              <dt>Timezone</dt>
+              <dd className="wrap-break-word">{task.timezone}</dd>
+            </>
+          )}
+          <dt>Execution chat</dt>
+          <dd>
+            {task.result_message_id != null ? (
+              <button
+                type="button"
+                disabled={openingChat}
+                className="inline-flex items-center gap-1 rounded-sm text-[11px] leading-[inherit] transition-colors hover:text-slate-700 hover:underline underline-offset-4 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-(--app-accent) disabled:opacity-50 dark:hover:text-(--app-text-primary)"
+                onClick={() => void openChat(task.result_message_id!)}
+              >
+                Open chat
+                <ArrowUpRight className="size-3" />
+              </button>
+            ) : (
+              <span>No execution result yet</span>
+            )}
+          </dd>
+        </dl>
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          {confirming && (
+            <button
+              type="button"
+              disabled={pending}
+              aria-label="Keep task"
+              className={actionClass}
+              onClick={() => setConfirmingId(null)}
+            >
+              Keep
+            </button>
+          )}
+          <button
+            type="button"
+            disabled={pending}
+            aria-label={cancel ? 'Cancel task' : 'Dismiss task'}
+            className={cn(
+              actionClass,
+              'border border-(--app-border-standard)',
+              cancel && 'text-rose-600 dark:text-rose-400'
+            )}
+            onClick={() => {
+              if (cancel && !confirming) setConfirmingId(task.id)
+              else void handleAction(task)
+            }}
+          >
+            {pending && (
+              <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" />
+            )}
+            {confirming ? 'Confirm' : cancel ? 'Cancel task' : 'Remove'}
+          </button>
+        </div>
+      </aside>
+    )
+  }
+
+  return (
+    <section
+      aria-label="Scheduled tasks"
+      className="tasks-board flex min-h-0 flex-1 flex-col"
+    >
+      <div className="mb-3 flex min-h-10 shrink-0 flex-wrap items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 text-[13px] font-medium">
+          Tasks
+          <span className="text-[11px] font-normal tabular-nums text-slate-400 dark:text-(--app-text-muted)">
+            {scheduleLoading || scheduleLoadError ? '—' : tasks.length}
+          </span>
+        </h2>
+        <div aria-label="Filter tasks" className="flex items-center gap-1">
+          {filters.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              aria-pressed={filter === item.key}
+              onClick={() => {
+                setFilter(item.key)
+                setConfirmingId(null)
+              }}
+              className={cn(
+                'inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-[11px] transition-colors active:scale-[0.98] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-(--app-accent)',
+                filter === item.key
+                  ? 'border-(--app-border-standard) bg-(--app-surface-raised) font-medium text-slate-800 dark:text-(--app-text-primary)'
+                  : 'border-transparent text-slate-500 hover:bg-(--app-surface-hover) dark:text-(--app-text-secondary)'
+              )}
+            >
+              {item.label}
+              <span className="text-[10px] tabular-nums text-slate-400 dark:text-(--app-text-muted)">
+                {scheduleLoading || scheduleLoadError ? '—' : item.count}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+      {scheduleLoading ? (
+        <p role="status" className="p-8 text-center text-xs text-slate-500">
+          Loading schedules...
+        </p>
+      ) : scheduleLoadError ? (
+        <p role="alert" className="p-8 text-center text-xs text-rose-500">
+          {scheduleLoadError}
+        </p>
+      ) : !selectedTask ? (
+        <p className="p-8 text-center text-xs text-slate-500 dark:text-(--app-text-secondary)">
+          {filter === 'all'
+            ? 'No Tasks'
+            : filter === 'active'
+              ? 'No active tasks'
+              : 'No task history'}
+        </p>
+      ) : (
+        <div className="tasks-master-detail min-h-0 flex-1">
+          <div
+            aria-label="Task list"
+            className="tasks-list min-h-0 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]"
+          >
+            {visibleTasks.map((task) => (
+              <button
+                key={task.id}
+                type="button"
+                aria-label={task.status === 'completed' ? `${task.goal} (Completed)` : task.goal}
+                aria-pressed={selectedTask.id === task.id}
+                aria-controls="selected-task-details"
+                onClick={() => {
+                  setSelectedId(task.id)
+                  setConfirmingId(null)
+                }}
+                className={cn(
+                  'flex w-full items-center gap-3 rounded-md border-b border-(--app-border-subtle) px-3 py-2 text-left last:border-b-0 hover:bg-(--app-surface-hover) focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-(--app-accent)',
+                  selectedTask.id === task.id && 'bg-(--app-surface-hover)'
+                )}
+              >
+                <span className="min-w-0 flex-1">
+                  <span
+                    className={cn(
+                      'block wrap-break-word text-[13px] leading-5',
+                      task.status === 'completed'
+                        ? 'font-normal text-slate-500 dark:text-(--app-text-secondary)'
+                        : 'font-medium'
+                    )}
+                  >
+                    {task.goal}
+                  </span>
+                  <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] leading-4 text-slate-400 dark:text-(--app-text-muted)">
+                    <span className="wrap-break-word">{scheduleLabel(task)}</span>
                     <time
                       dateTime={new Date(task.run_at).toISOString()}
-                      title={new Date(task.run_at).toLocaleString('en-US', {
-                        timeZoneName: 'short'
-                      })}
-                      className="pointer-events-none relative col-start-1 row-start-2 text-[11px] tabular-nums text-slate-500 sm:col-auto sm:row-auto dark:text-(--app-text-secondary)"
+                      className={cn(
+                        'rounded px-1.5 py-0.5 font-medium tabular-nums',
+                        task.status === 'completed'
+                          ? 'bg-(--app-surface-inset)/40 text-slate-400 dark:text-(--app-text-muted)'
+                          : 'bg-(--app-surface-inset) text-slate-500 dark:text-(--app-text-secondary)'
+                      )}
                     >
                       {taskTime(task.run_at, now)}
                     </time>
+                  </span>
+                  {(task.status === 'running' || task.status === 'failed') && (
                     <span
                       className={cn(
-                        'pointer-events-none relative col-start-1 row-start-3 inline-flex items-center gap-1.5 text-[11px] sm:col-auto sm:row-auto',
-                        meta.color
+                        'mt-1 flex items-center gap-1.5 text-[11px]',
+                        STATUS[task.status].color
                       )}
                     >
-                      <meta.Icon
-                        className={cn(
-                          'size-3.5',
-                          task.status === 'running' &&
-                            'animate-spin motion-reduce:animate-none'
-                        )}
-                      />
-                      {meta.label}
-                    </span>
-                    <div className="pointer-events-none relative col-start-2 row-start-1 flex flex-wrap justify-end gap-1 [&>button]:pointer-events-auto sm:col-auto sm:row-auto">
-                      {confirming && (
-                        <button
-                          type="button"
-                          disabled={pending}
-                          aria-label="Keep task"
-                          className={actionClass}
-                          onClick={() => setConfirmingId(null)}
-                        >
-                          Keep
-                        </button>
+                      {task.status === 'running' ? (
+                        <Loader2 className="size-3 animate-spin motion-reduce:animate-none" />
+                      ) : (
+                        <XCircle className="size-3" />
                       )}
-                      <button
-                        type="button"
-                        disabled={pending}
-                        aria-label={cancel ? 'Cancel task' : 'Dismiss task'}
-                        className={cn(
-                          actionClass,
-                          cancel && 'text-rose-600 dark:text-rose-400'
-                        )}
-                        onClick={() => {
-                          if (cancel && !confirming) setConfirmingId(task.id)
-                          else void handleAction(task)
-                        }}
-                      >
-                        {pending && (
-                          <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" />
-                        )}
-                        {confirming
-                          ? 'Confirm'
-                          : cancel
-                            ? 'Cancel'
-                            : 'Remove'}
-                      </button>
-                    </div>
-                  </div>
-                  {expandedId === task.id && (
-                    <div id={`task-detail-${task.id}`} className="px-4 pb-3">
-                      <dl className="mt-2 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-3 rounded-lg bg-(--app-surface-hover) p-3 text-[11px] text-slate-500 dark:text-(--app-text-secondary)">
-                        <dt>Instructions</dt>
-                        <dd className="whitespace-pre-wrap wrap-break-word text-slate-700 dark:text-(--app-text-primary)">
-                          {task.goal}
-                        </dd>
-                        <dt>Schedule</dt>
-                        <dd className="wrap-break-word">
-                          {scheduleLabel(task)}
-                          {task.schedule_type === 'cron' &&
-                            ` · ${task.timezone || 'Timezone not specified'}`}
-                        </dd>
-                        <dt>Scheduled for</dt>
-                        <dd className="wrap-break-word">
-                          {new Date(task.run_at).toLocaleString('en-US', {
-                            timeZoneName: 'short'
-                          })}
-                        </dd>
-                        <dt className="self-center">Execution chat</dt>
-                        <dd>
-                          {task.result_message_id != null ? <button
-                            type="button"
-                            disabled={openingChat}
-                            className={cn(actionClass, '-ml-2')}
-                            onClick={() => void openChat(task.result_message_id!)}
-                          >
-                            Open chat
-                            <ArrowUpRight className="size-3" />
-                          </button> : <span title="No execution result yet">--</span>}
-                        </dd>
-                      </dl>
-                    </div>
+                      {STATUS[task.status].label}
+                    </span>
                   )}
-                </article>
-              )
-            })}
+                </span>
+                {task.status === 'completed' ? (
+                  <>
+                    <span className="sr-only">Completed</span>
+                    <CheckCircle2
+                      aria-hidden="true"
+                      className="size-3.5 shrink-0 text-slate-400 dark:text-(--app-text-muted)"
+                    />
+                  </>
+                ) : (
+                  <ChevronRight className="size-3 shrink-0 text-slate-400 dark:text-(--app-text-muted)" />
+                )}
+              </button>
+            ))}
           </div>
-        )}
-      </div>
-    </div>
+          {renderDetails(selectedTask)}
+        </div>
+      )}
+    </section>
   )
 }
