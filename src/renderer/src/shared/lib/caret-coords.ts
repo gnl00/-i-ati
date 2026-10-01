@@ -49,14 +49,24 @@ const properties = [
 ] as const;
 
 const isBrowser = typeof window !== 'undefined';
-const isFirefox = isBrowser && (window as any).mozInnerScreenX != null;
+const isFirefox = isBrowser && (window as Window & { mozInnerScreenX?: number }).mozInnerScreenX != null;
 
 const signatureProperties = ['font', ...properties] as const;
 
-let mirrorDiv: HTMLDivElement | null = null;
+let mirror: ReturnType<typeof createMirror> | null = null;
 let cachedElement: HTMLTextAreaElement | null = null;
 let cachedComputed: CSSStyleDeclaration | null = null;
 let cachedStyleSignature = '';
+let cachedValue = '';
+let cachedPosition = -1;
+let cachedCoordinates: CaretCoordinates | null = null;
+
+// Font metrics can change without changing the computed font-family string.
+if (isBrowser) {
+  document.fonts?.addEventListener('loadingdone', () => {
+    cachedCoordinates = null;
+  });
+}
 
 function getStyleSignature(element: HTMLTextAreaElement, computed: CSSStyleDeclaration): string {
   const computedValues = computed as unknown as Record<string, string>;
@@ -68,7 +78,12 @@ function getStyleSignature(element: HTMLTextAreaElement, computed: CSSStyleDecla
   ].join('|');
 }
 
-function createMirrorDiv(debug: boolean): HTMLDivElement {
+function createMirror(debug: boolean): {
+  div: HTMLDivElement;
+  prefix: Text;
+  span: HTMLSpanElement;
+  suffix: Text;
+} {
   const div = document.createElement('div');
   if (debug) div.id = 'input-textarea-caret-position-mirror-div';
 
@@ -83,8 +98,13 @@ function createMirrorDiv(debug: boolean): HTMLDivElement {
     style.left = '-9999px';
   }
 
+  const prefix = document.createTextNode('');
+  const span = document.createElement('span');
+  const suffix = document.createTextNode('');
+  span.appendChild(suffix);
+  div.append(prefix, span);
   document.body.appendChild(div);
-  return div;
+  return { div, prefix, span, suffix };
 }
 
 export function getCaretCoordinates(element: HTMLTextAreaElement, position: number, options?: { debug?: boolean }): CaretCoordinates {
@@ -99,7 +119,8 @@ export function getCaretCoordinates(element: HTMLTextAreaElement, position: numb
   }
 
   // The mirror div will become a clone of the input element
-  const div = debug ? createMirrorDiv(true) : (mirrorDiv ??= createMirrorDiv(false));
+  const currentMirror = debug ? createMirror(true) : (mirror ??= createMirror(false));
+  const { div, prefix, span, suffix } = currentMirror;
   if (!div.isConnected) document.body.appendChild(div);
 
   const style = div.style;
@@ -112,7 +133,14 @@ export function getCaretCoordinates(element: HTMLTextAreaElement, position: numb
   style.wordWrap = isInput ? '' : 'break-word'; // only for textarea-s
 
   const styleSignature = getStyleSignature(element, computed);
-  if (debug || cachedElement !== element || cachedStyleSignature !== styleSignature) {
+  const styleUnchanged = cachedElement === element && cachedStyleSignature === styleSignature;
+  const value = element.value;
+  if (!debug && styleUnchanged && cachedCoordinates && cachedValue === value && cachedPosition === position) {
+    return { ...cachedCoordinates };
+  }
+  if (debug || !styleUnchanged) {
+    const mirroredStyle = style as unknown as Record<string, string>;
+    const sourceStyle = computed as unknown as Record<string, string>;
     // Transfer the element's properties to the div
     properties.forEach(prop => {
       if (isInput && prop === 'lineHeight') {
@@ -137,7 +165,7 @@ export function getCaretCoordinates(element: HTMLTextAreaElement, position: numb
           style.lineHeight = computed.height;
         }
       } else {
-        style[prop as any] = computed[prop as any];
+        mirroredStyle[prop] = sourceStyle[prop];
       }
     });
 
@@ -156,18 +184,16 @@ export function getCaretCoordinates(element: HTMLTextAreaElement, position: numb
     style.overflow = 'hidden'; // for Chrome to not render a scrollbar; IE keeps overflowY = 'scroll'
   }
 
-  div.textContent = element.value.substring(0, position);
   // The second special handling for input type="text" vs textarea:
   // spaces need to be replaced with non-breaking spaces - http://stackoverflow.com/a/13402035/1269037
-  if (isInput)
-    div.textContent = div.textContent.replace(/\s/g, '\u00a0');
-
-  const span = document.createElement('span');
+  const beforeCaret = value.substring(0, position);
+  const prefixValue = isInput ? beforeCaret.replace(/\s/g, '\u00a0') : beforeCaret;
+  if (prefix.data !== prefixValue) prefix.data = prefixValue;
   // Wrapping must be replicated *exactly*, including when a long word gets onto the next line.
   // Overflows only happen in 'text-content', so if the last part is special (like a space)
   // we may need to put it into the span itself.
-  span.textContent = element.value.substring(position) || '.';  // || '.' because the very last character is a newline and span might collapse
-  div.appendChild(span);
+  const suffixValue = value.substring(position) || '.';  // || '.' because the very last character is a newline and span might collapse
+  if (suffix.data !== suffixValue) suffix.data = suffixValue;
 
   const coordinates = {
     top: span.offsetTop + parseInt(computed['borderTopWidth']),
@@ -178,6 +204,10 @@ export function getCaretCoordinates(element: HTMLTextAreaElement, position: numb
 
   if (debug) {
     span.style.backgroundColor = '#aaa';
+  } else {
+    cachedValue = value;
+    cachedPosition = position;
+    cachedCoordinates = { ...coordinates };
   }
 
   return coordinates;

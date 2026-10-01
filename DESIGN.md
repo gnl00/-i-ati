@@ -178,6 +178,7 @@ Light 使用 `#f0f2f4` 底色和 `#343a41` 文字，Dark 使用 `#2e3135` 底色
 - Model selector、approval mode、Workspace 和 Send 共享高度、圆角、间距与暗色 material。
 - 输入、搜索和内部编辑区使用 `--app-surface-inset`，形成向内的空间关系。
 - placeholder 使用 muted text，focus 通过 border、ring 和 surface 变化表达。Composer 使用 textarea 原生 placeholder，共享正文的字号、行高和内边距；textarea 与自绘光标位于同一个文字区域，附件增删只移动该区域，避免独立定位偏差。
+- 自绘光标保持 3px 蓝色核心、柔和光晕、1.5s 呼吸和蓝色输入 / 红色退格拖尾；位置过渡保留 120ms，使用 `cubic-bezier(0.16, 1, 0.3, 1)` 快速起步、柔和收尾，拖尾仍为 300ms 渐隐。输入、选区、滚动、聚焦与 resize 合并到帧调度；拖尾只由当前动画清理，并按使用顺序复用。相同文字、UTF-16 选区与布局复用坐标，滚动只更新偏移，文字 / 选区 / 布局 / 字体加载变化后重新测量；reduced-motion 下保留即时位置反馈，关闭位移过渡、呼吸和拖尾。
 
 ### 4.4 Selector、popover 与 menu
 

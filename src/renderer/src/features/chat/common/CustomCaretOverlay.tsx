@@ -19,6 +19,7 @@ interface TrailNode {
   inner: HTMLDivElement
   animation: Animation | null
   busy: boolean
+  sequence: number
 }
 
 // Configuration constants
@@ -35,9 +36,6 @@ const CARET_CONFIG = {
   CARET_HEIGHT_OFFSET: 4,                // px - added to fontSize for caret height
   CARET_HEIGHT_FINAL_ADJUSTMENT: 1.25,   // px - final height adjustment
   CARET_VERTICAL_OFFSET: -2.5,           // px - vertical centering adjustment
-
-  // Performance
-  RESIZE_THROTTLE_MS: 100,               // ms - resize event throttle
 
   // Trail visual
   TRAIL_WIDTH_PADDING: 2,                // px - extra width for trail
@@ -60,6 +58,7 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
   const rafIdRef = useRef<number | null>(null)
   const needsUpdateRef = useRef(false)
   const trailPoolRef = useRef<TrailNode[]>([])
+  const trailSequenceRef = useRef(0)
 
   const setOverlayVisibility = useCallback((visible: boolean) => {
     const overlay = overlayRef.current
@@ -121,14 +120,12 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
         root.appendChild(inner)
 
         container.appendChild(root)
-        node = { root, inner, animation: null, busy: false }
+        node = { root, inner, animation: null, busy: false, sequence: 0 }
         trailPoolRef.current.push(node)
       } else {
-        node = trailPoolRef.current[0]
-        if (node.animation) {
-          node.animation.cancel()
-        }
-        node.busy = false
+        node = trailPoolRef.current.reduce((oldest, candidate) => (
+          candidate.sequence < oldest.sequence ? candidate : oldest
+        ))
       }
     }
 
@@ -140,6 +137,7 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
   }, [])
 
   const createTrail = useCallback((x: number, y: number, width: number, height: number, isDelete: boolean, direction: number) => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
     const trailRoot = trailContainerRef.current
     if (!trailRoot) return
 
@@ -151,6 +149,7 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
     }
 
     node.busy = true
+    node.sequence = ++trailSequenceRef.current
     node.root.style.willChange = 'transform, opacity'
     node.root.style.transform = `translate3d(${x}px, ${y}px, 0)`
     node.root.style.width = `${width}px`
@@ -182,7 +181,9 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
       }
     )
 
-    const complete = () => {
+    const complete = (): void => {
+      // A cancelled animation can dispatch after this node has been reused.
+      if (node.animation !== animation) return
       node.busy = false
       node.root.style.opacity = '0'
       node.root.style.willChange = ''
@@ -291,46 +292,44 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
     updateCaret,
     showCaret,
     hideCaret,
-    setBackspace: (val: boolean) => { isBackspaceRef.current = val }
+    setBackspace: (val: boolean): void => { isBackspaceRef.current = val }
   }))
 
   useEffect(() => {
     const textarea = textareaRef.current
     if (!textarea) return
 
-    const handleFocus = () => {
+    const handleFocus = (): void => {
       isFocusedRef.current = true
       setOverlayVisibility(true)
       markMeasurementsDirty()
-      requestAnimationFrame(() => {
-        updateCaret()
-      })
+      updateCaret()
     }
 
-    const handleBlur = () => {
+    const handleBlur = (): void => {
       isFocusedRef.current = false
       hideCaretElement()
     }
 
-    const handleInput = () => {
+    const handleInput = (): void => {
       if (isFocusedRef.current) {
         updateCaret()
       }
     }
 
-    const handleScroll = () => {
+    const handleScroll = (): void => {
       if (isFocusedRef.current) {
         updateCaret()
       }
     }
 
-    const handleClick = () => {
+    const handleClick = (): void => {
       if (isFocusedRef.current || document.activeElement === textareaRef.current) {
         updateCaret()
       }
     }
 
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
       if (e.key === 'Backspace' || e.key === 'Delete') {
         isBackspaceRef.current = (e.key === 'Backspace')
       }
@@ -346,25 +345,34 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
     textarea.addEventListener('scroll', handleScroll, { passive: true })
     textarea.addEventListener('click', handleClick)
     textarea.addEventListener('keydown', handleKeyDown)
+    const trails = trailPoolRef.current
 
-    return () => {
+    return (): void => {
       if (rafIdRef.current !== null) {
         cancelAnimationFrame(rafIdRef.current)
         rafIdRef.current = null
       }
       needsUpdateRef.current = false
+      for (const node of trails) {
+        if (node.animation) {
+          node.animation.onfinish = null
+          node.animation.oncancel = null
+          node.animation.cancel()
+          node.animation = null
+        }
+      }
 
       textarea.removeEventListener('focus', handleFocus)
       textarea.removeEventListener('blur', handleBlur)
       textarea.removeEventListener('input', handleInput)
-      textarea.removeEventListener('scroll', handleScroll, { passive: true } as any)
+      textarea.removeEventListener('scroll', handleScroll)
       textarea.removeEventListener('click', handleClick)
       textarea.removeEventListener('keydown', handleKeyDown)
     }
   }, [textareaRef, updateCaret, hideCaretElement, markMeasurementsDirty])
 
   useEffect(() => {
-    const handleSelectionChange = () => {
+    const handleSelectionChange = (): void => {
       if (isFocusedRef.current && document.activeElement === textareaRef.current) {
         updateCaret()
       } else if (isFocusedRef.current) {
@@ -372,28 +380,23 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
       }
     }
 
-    const handleWindowBlur = () => {
+    const handleWindowBlur = (): void => {
       isWindowFocusedRef.current = false
       hideCaretElement()
     }
 
-    const handleWindowFocus = () => {
+    const handleWindowFocus = (): void => {
       isWindowFocusedRef.current = true
       if (isFocusedRef.current && document.activeElement === textareaRef.current) {
         updateCaret()
       }
     }
 
-    let resizeTimeout: number | null = null
-    const handleResize = () => {
-      if (resizeTimeout) return
-      resizeTimeout = window.setTimeout(() => {
-        resizeTimeout = null
-        if (isFocusedRef.current) {
-          markMeasurementsDirty()
-          updateCaret()
-        }
-      }, CARET_CONFIG.RESIZE_THROTTLE_MS)
+    const handleResize = (): void => {
+      markMeasurementsDirty()
+      if (isFocusedRef.current) {
+        updateCaret()
+      }
     }
 
     document.addEventListener('selectionchange', handleSelectionChange)
@@ -401,8 +404,7 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
     window.addEventListener('blur', handleWindowBlur)
     window.addEventListener('focus', handleWindowFocus)
 
-    return () => {
-      if (resizeTimeout) clearTimeout(resizeTimeout)
+    return (): void => {
       document.removeEventListener('selectionchange', handleSelectionChange)
       window.removeEventListener('resize', handleResize)
       window.removeEventListener('blur', handleWindowBlur)
@@ -426,7 +428,7 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
     observer.observe(textarea)
     observer.observe(overlay)
 
-    return () => {
+    return (): void => {
       observer.disconnect()
     }
   }, [textareaRef, markMeasurementsDirty, scheduleCaretUpdate])
@@ -445,7 +447,7 @@ export const CustomCaretOverlay = forwardRef<CustomCaretRef, CustomCaretOverlayP
         style={{
           opacity: 0,
           transform: 'translate3d(0, 0, 0)',
-          transition: 'transform 0.12s cubic-bezier(0.2, 0, 0, 1), height 0.1s ease, opacity 0.08s ease'
+          transition: 'transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), height 0.1s ease, opacity 0.08s ease'
         }}
       >
         <div className="absolute top-0 bottom-0 -left-px w-[6px] bg-blue-400/20 blur-[2px] rounded-full" />

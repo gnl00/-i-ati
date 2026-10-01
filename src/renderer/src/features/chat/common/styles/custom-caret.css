@@ -40,3 +40,13 @@
 .animate-caret-breathe {
   animation: caret-breathe 1.5s ease-in-out infinite;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-caret-breathe {
+    animation: none;
+  }
+
+  .custom-caret {
+    transition: none !important;
+  }
+}
