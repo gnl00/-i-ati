@@ -1,4 +1,8 @@
 import type { Bot } from 'grammy'
+import { randomInt } from 'node:crypto'
+import { AbortController as TelegramAbortController } from 'abort-controller'
+import { deliverTelegramText, isTelegramFormattingError, withTelegramRetry, type TelegramTextMessage } from '@main/services/telegram/TelegramTextDelivery'
+import { formatTelegramRichText, splitTelegramText } from '@main/services/telegram/telegram-rich-text'
 import { TelegramToolMessages } from './TelegramToolMessages'
 import type { TelegramInboundEnvelope } from '@main/hosts/telegram'
 import {
@@ -14,13 +18,11 @@ const STREAM_UPDATE_THROTTLE_MS = 400
 const MAX_TOOL_ARGS_DISPLAY_LENGTH = 200
 
 type SentTelegramMessage = {
-  messageId: number
+  messages: TelegramTextMessage[]
   lastText: string
-}
-
-type TelegramSendMessageOptions = {
-  parseMode?: 'HTML'
-  inlineKeyboard?: Array<Array<{ text: string; callbackData: string }>>
+  draftId?: number
+  draftText?: string
+  deliveryFailed?: boolean
 }
 
 type TelegramToolState = {
@@ -55,6 +57,11 @@ export class TelegramRenderResponder implements HostRenderEventSink {
   private readonly toolStates = new Map<string, TelegramToolState>()
   private readonly pendingTextEdits = new Map<string, { text: string }>()
   private finalized = false
+  private stopped = false
+  private draftsEnabled = true
+  private draftHeartbeat?: NodeJS.Timeout
+  private readonly draftAbort = new AbortController()
+  private readonly draftApiAbort = new TelegramAbortController()
   private flushTimer?: NodeJS.Timeout
   private queue: Promise<void> = Promise.resolve()
 
@@ -64,6 +71,7 @@ export class TelegramRenderResponder implements HostRenderEventSink {
     this.bot = args.bot
     this.envelope = args.envelope
     this.logger = args.logger
+    this.draftAbort.signal.addEventListener('abort', (): void => this.draftApiAbort.abort(), { once: true })
   }
 
   handle(event: HostRenderEvent): Promise<void> {
@@ -86,6 +94,7 @@ export class TelegramRenderResponder implements HostRenderEventSink {
   }
 
   private async handleEventInternal(event: HostRenderEvent): Promise<void> {
+    if (this.finalized && event.type !== 'host.lifecycle.updated') return
     switch (event.type) {
       case 'host.preview.updated':
         await this.renderPreview(event)
@@ -99,17 +108,26 @@ export class TelegramRenderResponder implements HostRenderEventSink {
         return
 
       case 'host.lifecycle.updated':
+        if (event.state === RUN_STATES.STREAMING && this.envelope.chatType === 'private' && this.draftsEnabled && this.textMessages.size === 0) {
+          const entry: SentTelegramMessage = { messages: [], lastText: '' }
+          this.textMessages.set('__thinking', entry)
+          await this.sendDraft(entry, '')
+        }
         if (event.state === RUN_STATES.COMPLETED) {
           this.finalized = true
           this.clearScheduledFlush()
+          this.clearDraftHeartbeat()
           await this.flushPendingTextEdits()
+          await this.persistDrafts()
           return
         }
 
         if (event.state === RUN_STATES.FAILED || event.state === RUN_STATES.ABORTED) {
           this.finalized = true
           this.clearScheduledFlush()
+          this.clearDraftHeartbeat()
           await this.flushPendingTextEdits()
+          await this.persistDrafts()
           return
         }
 
@@ -176,43 +194,100 @@ export class TelegramRenderResponder implements HostRenderEventSink {
     this.flushTimer = undefined
   }
 
-  private async sendMessage(args: { text: string } & TelegramSendMessageOptions): Promise<{ message_id: number }> {
-    const baseOptions = {
-      ...(this.envelope.threadId ? { message_thread_id: Number(this.envelope.threadId) } : {}),
-      ...(this.envelope.messageId ? { reply_parameters: { message_id: Number(this.envelope.messageId) } } : {}),
-      ...(args.parseMode ? { parse_mode: args.parseMode } : {}),
-      ...(args.inlineKeyboard ? {
-        reply_markup: {
-          inline_keyboard: args.inlineKeyboard.map((row) =>
-            row.map((button) => ({
-              text: button.text,
-              callback_data: button.callbackData
-            }))
-          )
-        }
-      } : {})
-    }
-
-    return await this.bot.api.sendMessage(
-      Number(this.envelope.chatId),
-      args.text,
-      baseOptions
-    )
+  /** Stop only a live draft belonging to this run. Called before queuing cancellation. */
+  stopDraft(draftId: number): boolean {
+    if (this.finalized || this.stopped || ![...this.textMessages.values()].some(entry => entry.draftId === draftId && entry.draftText !== undefined)) return false
+    this.stopped = true
+    this.draftAbort.abort()
+    this.clearScheduledFlush()
+    this.clearDraftHeartbeat()
+    return true
   }
 
-  private async editMessage(args: { messageId: number; text: string }): Promise<void> {
+  dispose(): void {
+    this.finalized = true
+    this.stopped = true
+    this.draftAbort.abort()
+    this.clearScheduledFlush()
+    this.clearDraftHeartbeat()
+    this.pendingTextEdits.clear()
+    for (const entry of this.textMessages.values()) entry.draftText = undefined
+  }
+
+  async finish(): Promise<void> {
+    await this.handle({ type: 'host.lifecycle.updated', state: RUN_STATES.COMPLETED, timestamp: Date.now() })
+  }
+
+  private clearDraftHeartbeat(): void {
+    if (this.draftHeartbeat) clearTimeout(this.draftHeartbeat)
+    this.draftHeartbeat = undefined
+  }
+
+  private scheduleDraftHeartbeat(): void {
+    if (this.draftHeartbeat || this.finalized || this.stopped) return
+    this.draftHeartbeat = setTimeout(() => {
+      this.draftHeartbeat = undefined
+      this.queue = this.queue.then(async () => {
+        for (const entry of this.textMessages.values()) {
+          if (entry.draftId && entry.draftText !== undefined) await this.sendDraft(entry, entry.draftText)
+        }
+      }).catch(error => this.logger?.warn?.('telegram.draft_refresh_failed', { error: String(error) }))
+    }, 15000)
+    this.draftHeartbeat.unref()
+  }
+
+  private async sendDraft(entry: SentTelegramMessage, text: string): Promise<void> {
+    if (this.stopped || this.finalized) return
+    entry.draftId ??= randomInt(1, 2 ** 31)
+    // Drafts are bounded previews; final delivery retains all chunks.
+    const preview = splitTelegramText(text, 30000)[0] ?? ''
+    entry.draftText = text
     try {
-      await this.bot.api.editMessageText(
-        Number(this.envelope.chatId),
-        args.messageId,
-        args.text,
-        {}
-      )
+      await withTelegramRetry(() => this.bot.api.sendRichMessageDraft(Number(this.envelope.chatId), entry.draftId!, {
+        html: preview ? formatTelegramRichText(preview, true).text : '<tg-thinking>Thinking...</tg-thinking>'
+      }, {
+        ...(this.envelope.threadId ? { message_thread_id: Number(this.envelope.threadId) } : {}),
+        can_stop: true, keep_on_stop: true
+      }, this.draftApiAbort.signal), this.draftAbort.signal)
+      entry.draftText = text
+      entry.lastText = text
+      this.scheduleDraftHeartbeat()
     } catch (error) {
-      if (this.isMessageNotModifiedError(error)) {
-        return
-      }
+      if (this.stopped) return
+      // Only explicit unsupported/formatting rejections trigger the persistent fallback.
+      const description = error && typeof error === 'object' && 'description' in error ? String(error.description) : ''
+      const code = error && typeof error === 'object' && 'error_code' in error ? error.error_code : undefined
+      if (!isTelegramFormattingError(error) && !([400, 404].includes(Number(code)) && /method.*(?:not found|not supported|unknown)|unknown method/i.test(description))) throw error
+      this.draftsEnabled = false
+      entry.draftText = undefined
+      if (text.trim()) await this.deliverText(entry, text)
+    }
+  }
+
+  private async deliverText(entry: SentTelegramMessage, text: string): Promise<void> {
+    if (entry.deliveryFailed) return
+    try {
+      await deliverTelegramText(this.bot, {
+        chatId: this.envelope.chatId, threadId: this.envelope.threadId, replyToMessageId: this.envelope.messageId
+      }, text, entry.messages)
+      entry.lastText = text
+      entry.draftText = undefined
+    } catch (error) {
+      // An unconfirmed send may have arrived. Later lifecycle/commit events must not resend it.
+      entry.deliveryFailed = true
+      entry.draftText = undefined
       throw error
+    }
+  }
+
+  private async persistDrafts(): Promise<void> {
+    this.clearDraftHeartbeat()
+    for (const entry of this.textMessages.values()) {
+      if (entry.draftText !== undefined) {
+        if (entry.draftText.trim()) await this.deliverText(entry, entry.draftText)
+        else if (this.stopped) await this.deliverText(entry, 'Generation stopped.')
+        entry.draftText = undefined
+      }
     }
   }
 
@@ -274,62 +349,46 @@ export class TelegramRenderResponder implements HostRenderEventSink {
       return
     }
 
-    const existing = this.textMessages.get(key)
+    let existing = this.textMessages.get(key)
+    if (!existing && this.textMessages.has('__thinking')) {
+      existing = this.textMessages.get('__thinking')!
+      this.textMessages.delete('__thinking')
+      this.textMessages.set(key, existing)
+    }
     if (!existing) {
-      const sent = await this.sendMessage({ text })
-      this.textMessages.set(key, {
-        messageId: sent.message_id,
-        lastText: text
-      })
-      this.logger?.info?.('telegram.render_responder.text_message_sent', {
-        updateId: this.envelope.updateId,
-        chatId: this.envelope.chatId,
-        messageId: sent.message_id,
-        stream: options.stream
-      })
-      return
+      existing = { messages: [], lastText: '' }
+      this.textMessages.set(key, existing)
     }
-
-    if (existing.lastText === text) {
-      return
-    }
-
-    if (options.stream) {
+    if (existing.deliveryFailed) return
+    const draft = options.stream && this.envelope.chatType === 'private' && this.draftsEnabled
+    if (options.stream && this.stopped) return
+    if (existing.lastText === text && (options.stream || existing.draftText === undefined)) return
+    if (options.stream && existing.lastText) {
       this.pendingTextEdits.set(key, { text })
       this.scheduleFlush()
       return
     }
-
     this.pendingTextEdits.delete(key)
-    await this.editTextMessage(key, existing, text)
+    if (draft) {
+      // A private chat displays one native draft at a time. Persist previous text blocks first.
+      for (const entry of this.textMessages.values()) {
+        if (entry !== existing && entry.draftText !== undefined && entry.draftText.trim()) await this.deliverText(entry, entry.draftText)
+      }
+      await this.sendDraft(existing, text)
+    }
+    else await this.deliverText(existing, text)
   }
 
   private async flushPendingTextEdits(): Promise<void> {
     const pending = [...this.pendingTextEdits.entries()]
     this.pendingTextEdits.clear()
-
     for (const [key, pendingEdit] of pending) {
       const existing = this.textMessages.get(key)
-      if (!existing || existing.lastText === pendingEdit.text) {
-        continue
-      }
-      await this.editTextMessage(key, existing, pendingEdit.text)
+      if (!existing || existing.lastText === pendingEdit.text) continue
+      if (this.envelope.chatType === 'private' && this.draftsEnabled && !this.finalized) {
+        await this.sendDraft(existing, pendingEdit.text)
+      } else await this.deliverText(existing, pendingEdit.text)
     }
-  }
-
-  private async editTextMessage(
-    key: string,
-    existing: SentTelegramMessage,
-    text: string
-  ): Promise<void> {
-    await this.editMessage({
-      messageId: existing.messageId,
-      text
-    })
-    this.textMessages.set(key, {
-      messageId: existing.messageId,
-      lastText: text
-    })
   }
 
   private async renderToolSegment(segment: ToolCallSegment): Promise<void> {
@@ -462,7 +521,7 @@ export class TelegramRenderResponder implements HostRenderEventSink {
     const title = this.escapeHtml(`tool ${label} ${status}`)
     const argsValue = this.formatToolArgsValue(args.args)
     return argsValue
-      ? `<blockquote>${title}</blockquote>\n<pre>${this.escapeHtml(argsValue)}</pre>`
+      ? `<blockquote>${title}</blockquote>\n<blockquote expandable>${this.escapeHtml(argsValue)}</blockquote>`
       : `<blockquote>${title}</blockquote>`
   }
 
@@ -507,8 +566,4 @@ export class TelegramRenderResponder implements HostRenderEventSink {
     return segment.segmentId.replace(/^(preview|committed):/, '')
   }
 
-  private isMessageNotModifiedError(error: unknown): boolean {
-    const message = error instanceof Error ? error.message : String(error)
-    return message.toLowerCase().includes('message is not modified')
-  }
 }

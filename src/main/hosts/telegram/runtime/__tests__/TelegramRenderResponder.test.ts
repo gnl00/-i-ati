@@ -172,7 +172,7 @@ const createResponder = (args: {
         messageId: args.messageId ?? '55',
         threadId: args.threadId,
         chatId: '123',
-        chatType: 'private',
+        chatType: 'supergroup',
         text: 'hello',
         media: [],
         isMentioned: false,
@@ -260,7 +260,7 @@ describe('TelegramRenderResponder', () => {
       status: 'success'
     }))
 
-    expect(sendMessage).toHaveBeenNthCalledWith(1, 123, '<blockquote>tool memory retrieval running</blockquote>\n<pre>{&quot;query&quot;:&quot;latest api&quot;}</pre>', {
+    expect(sendMessage).toHaveBeenNthCalledWith(1, 123, '<blockquote>tool memory retrieval running</blockquote>\n<blockquote expandable>{&quot;query&quot;:&quot;latest api&quot;}</blockquote>', {
       reply_parameters: { message_id: 55 },
       parse_mode: 'HTML',
       reply_markup: { inline_keyboard: [] }
@@ -268,7 +268,7 @@ describe('TelegramRenderResponder', () => {
     expect(sendMessage).toHaveBeenCalledTimes(1)
     expect(editMessageText).toHaveBeenCalledWith(123, 120, [
       '<blockquote>tool memory retrieval done</blockquote>',
-      '<pre>{&quot;query&quot;:&quot;latest api&quot;}</pre>'
+      '<blockquote expandable>{&quot;query&quot;:&quot;latest api&quot;}</blockquote>'
     ].join('\n'), {
       parse_mode: 'HTML',
       reply_markup: { inline_keyboard: [] }
@@ -290,7 +290,7 @@ describe('TelegramRenderResponder', () => {
     }))
 
     expect(sendMessage).toHaveBeenCalledTimes(1)
-    expect(sendMessage).toHaveBeenCalledWith(123, '<blockquote>tool memory retrieval running</blockquote>\n<pre>{&quot;query&quot;:&quot;latest api&quot;}</pre>', {
+    expect(sendMessage).toHaveBeenCalledWith(123, '<blockquote>tool memory retrieval running</blockquote>\n<blockquote expandable>{&quot;query&quot;:&quot;latest api&quot;}</blockquote>', {
       reply_parameters: { message_id: 55 },
       parse_mode: 'HTML',
       reply_markup: { inline_keyboard: [] }
@@ -428,7 +428,7 @@ describe('TelegramRenderResponder', () => {
     expect(sendMessage).toHaveBeenCalledTimes(2)
     expect(sendMessage).toHaveBeenNthCalledWith(1, 123, [
       '<blockquote>tool memory retrieval done</blockquote>',
-      '<pre>{&quot;query&quot;:&quot;latest api&quot;}</pre>'
+      '<blockquote expandable>{&quot;query&quot;:&quot;latest api&quot;}</blockquote>'
     ].join('\n'), {
       reply_parameters: { message_id: 55 },
       parse_mode: 'HTML',
@@ -484,8 +484,8 @@ describe('TelegramRenderResponder', () => {
     }))
 
     const text = sendMessage.mock.calls[0][1] as string
-    expect(text).toMatch(/^<blockquote>tool web search done<\/blockquote>\n<pre>/)
-    expect(text).toContain('...</pre>')
+    expect(text).toMatch(/^<blockquote>tool web search done<\/blockquote>\n<blockquote expandable>/)
+    expect(text).toContain('...</blockquote>')
     expect(text.length).toBeLessThan(longArgs.length)
   })
 
@@ -506,7 +506,7 @@ describe('TelegramRenderResponder', () => {
 
     expect(sendMessage).toHaveBeenNthCalledWith(1, 123, [
       '<blockquote>tool web search done</blockquote>',
-      '<pre>{&quot;query&quot;:&quot;&lt;tag&gt;&amp;\\&quot;quote\\&quot;&quot;}</pre>'
+      '<blockquote expandable>{&quot;query&quot;:&quot;&lt;tag&gt;&amp;\\&quot;quote\\&quot;&quot;}</blockquote>'
     ].join('\n'), {
       reply_parameters: { message_id: 55 },
       parse_mode: 'HTML',
@@ -547,4 +547,113 @@ describe('TelegramRenderResponder', () => {
 
     await expect(responder.handle(lifecycleUpdated(RUN_STATES.COMPLETED))).resolves.toBeUndefined()
   })
+})
+
+
+describe('Telegram native drafts', () => {
+  const createPrivate = (): {
+    responder: TelegramRenderResponder
+    draft: ReturnType<typeof vi.fn>
+    send: ReturnType<typeof vi.fn>
+  } => {
+    const draft = vi.fn().mockResolvedValue(true)
+    const send = vi.fn().mockResolvedValue({ message_id: 99 })
+    return {
+      draft, send,
+      responder: new TelegramRenderResponder({
+        bot: { api: { sendRichMessageDraft: draft, sendMessage: send, sendRichMessage: send } } as never,
+        envelope: { updateId: 1, chatId: '123', chatType: 'private', messageId: '55', fromUserId: '123', text: '', media: [], isMentioned: false, replyToBot: false, receivedAt: 1 }
+      })
+    }
+  }
+
+  it('streams temporary previews, exposes Stop, and saves the final response once', async () => {
+    vi.useFakeTimers()
+    const { responder, draft, send } = createPrivate()
+    await responder.handle(lifecycleUpdated(RUN_STATES.STREAMING))
+    const draftId = draft.mock.calls[0][1]
+    expect(draft.mock.calls[0][2]).toEqual({ html: '<tg-thinking>Thinking...</tg-thinking>' })
+    await responder.handle(previewUpdated(createState({ text: '**Hello**' })))
+    expect(draft).toHaveBeenLastCalledWith(123, draftId, { html: '<p><b>Hello</b></p>' }, { can_stop: true, keep_on_stop: true }, expect.objectContaining({ aborted: false }))
+    expect(send).not.toHaveBeenCalled()
+    await responder.handle(committedUpdated(createState({ text: '**Hello**' })))
+    await responder.finish()
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(send).toHaveBeenCalledWith(123, '<b>Hello</b>', expect.objectContaining({ parse_mode: 'HTML' }))
+    const previous = draft.mock.calls.length
+    await vi.advanceTimersByTimeAsync(30000)
+    expect(draft).toHaveBeenCalledTimes(previous)
+  })
+
+  it('rejects stale draft stops, freezes previews and persists partial text on abort', async () => {
+    vi.useFakeTimers()
+    const { responder, draft, send } = createPrivate()
+    await responder.handle(previewUpdated(createState({ text: 'Partial' })))
+    const draftId = draft.mock.calls[0][1]
+    expect(responder.stopDraft(draftId + 1)).toBe(false)
+    expect(responder.stopDraft(draftId)).toBe(true)
+    expect(draft.mock.calls[0][4].aborted).toBe(true)
+    expect(responder.stopDraft(draftId)).toBe(false)
+    await responder.handle(previewUpdated(createState({ text: 'Late token' })))
+    await responder.handle(lifecycleUpdated(RUN_STATES.ABORTED))
+    expect(send).toHaveBeenCalledWith(123, 'Partial', expect.anything())
+    expect(draft).toHaveBeenCalledTimes(1)
+    expect(responder.stopDraft(draftId)).toBe(false)
+  })
+
+  it('refreshes quiet drafts and supports stopping before the first text token', async () => {
+    vi.useFakeTimers()
+    const { responder, draft, send } = createPrivate()
+    await responder.handle(lifecycleUpdated(RUN_STATES.STREAMING))
+    await vi.advanceTimersByTimeAsync(15000)
+    expect(draft).toHaveBeenCalledTimes(2)
+    expect(responder.stopDraft(draft.mock.calls[0][1])).toBe(true)
+    await responder.handle(lifecycleUpdated(RUN_STATES.ABORTED))
+    expect(send).toHaveBeenCalledWith(123, 'Generation stopped.', expect.anything())
+  })
+
+  it('persists the latest queued text on failure and ignores events after finalization', async () => {
+    vi.useFakeTimers()
+    const { responder, draft, send } = createPrivate()
+    await responder.handle(previewUpdated(createState({ text: 'Part' })))
+    await responder.handle(previewUpdated(createState({ text: 'Partial latest' })))
+    await responder.handle(lifecycleUpdated(RUN_STATES.FAILED))
+    expect(send).toHaveBeenCalledWith(123, 'Partial latest', expect.anything())
+    await responder.handle(previewUpdated(createState({ text: 'Late' })))
+    expect(draft).toHaveBeenCalledTimes(1)
+    await responder.finish()
+    expect(send).toHaveBeenCalledTimes(1)
+  })
+
+  it('uses persistent messages when the server explicitly rejects draft support', async () => {
+    vi.useFakeTimers()
+    const { responder, draft, send } = createPrivate()
+    draft.mockRejectedValueOnce({ error_code: 404, description: 'Method not found' })
+    await responder.handle(previewUpdated(createState({ text: 'Hello' })))
+    expect(send).toHaveBeenCalledWith(123, 'Hello', expect.anything())
+    expect(responder.stopDraft(draft.mock.calls[0][1])).toBe(false)
+    await responder.finish()
+  })
+  it('does not resend uncertain final sends on repeated lifecycle events', async () => {
+    const { responder, send } = createPrivate()
+    send.mockRejectedValue(new Error('network timeout after send'))
+    await responder.handle(previewUpdated(createState({ text: 'Partial' })))
+    await responder.handle(lifecycleUpdated(RUN_STATES.COMPLETED))
+    await responder.finish()
+    await responder.handle(committedUpdated(createState({ text: 'Partial' })))
+    expect(send).toHaveBeenCalledTimes(1)
+    responder.dispose()
+  })
+
+  it('disposes draft timers and prevents further output at gateway shutdown', async () => {
+    vi.useFakeTimers()
+    const { responder, draft, send } = createPrivate()
+    await responder.handle(previewUpdated(createState({ text: 'Partial' })))
+    responder.dispose()
+    await responder.handle(lifecycleUpdated(RUN_STATES.ABORTED))
+    await vi.advanceTimersByTimeAsync(30000)
+    expect(draft).toHaveBeenCalledTimes(1)
+    expect(send).not.toHaveBeenCalled()
+  })
+
 })

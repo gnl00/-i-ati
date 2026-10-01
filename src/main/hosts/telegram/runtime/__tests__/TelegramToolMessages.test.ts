@@ -49,7 +49,7 @@ describe('TelegramToolMessages', () => {
     })
     expect(sendMessage).toHaveBeenCalledTimes(1)
     expect(editMessageText.mock.calls.map(([, id]) => id)).toEqual([42, 42, 42])
-    expect(editMessageText.mock.lastCall?.[2]).toBe('<blockquote>tool exec done</blockquote>\n<pre>pnpm run typecheck:node</pre>')
+    expect(editMessageText.mock.lastCall?.[2]).toBe('<blockquote>tool exec done</blockquote>\n<blockquote expandable>pnpm run typecheck:node</blockquote>')
   })
 
   it('reuses approval for execution and ignores late approval and running updates', async () => {

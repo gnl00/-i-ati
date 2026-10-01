@@ -77,9 +77,15 @@ is remembered for future sends from the source chat. With no saved target or
 inbound binding, a single reachable peer/topic can be selected automatically;
 multiple recipients require user selection before retrying the tool.
 
-A successful result includes `sourceChatUuid`, `deliveryRecorded`, and, when the
+Message text accepts Markdown up to 30000 source characters. Short messages use
+safe HTML, while structured/long messages use native Rich Messages.
+
+A successful result includes `sourceChatUuid`, `deliveryRecorded`, `deliveryComplete`,
+`sentMessageIds` for overflow messages, and, when the
 local record completes, `deliveryMessageId`. `success: true` means the Telegram
 send succeeded even if `deliveryRecorded: false`; do not retry the send to repair
-local storage. Ordinary inbound bindings are unchanged. Replies to recorded
+local storage. `deliveryComplete: false` means some chunks arrived and later
+delivery failed; do not resend the full message. Each delivered chunk has a
+source-chat reply receipt. Ordinary inbound bindings are unchanged. Replies to recorded
 pushes select their source chat for that run. See
 [ADR 0032](../../decisions/0032-telegram-delivery-source-routing.md).

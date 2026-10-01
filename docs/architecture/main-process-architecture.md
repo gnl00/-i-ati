@@ -338,8 +338,8 @@ The original exception is rethrown so grammY retains its existing error behavior
 shared by approval projection in `TelegramGatewayService` and execution rendering
 in `TelegramRenderResponder`. Each submission/tool call/chat/topic combination
 sends one message; subsequent states edit that message with HTML formatting and
-remove approval buttons once resolved. Ordinary assistant text keeps its existing
-streaming behavior.
+remove approval buttons once resolved. Assistant text and proactive sends share safe Markdown rendering; private
+streaming uses native drafts, while group replies edit persistent messages.
 
 Approval remains authoritative in the versioned run interaction stream. The
 transport serializes updates per tool endpoint, suppresses identical updates,
@@ -364,3 +364,37 @@ without rebinding the ordinary inbound session. Persistence remains behind
 `db/chat.ts`; transport handling remains in the Telegram tool and host adapter.
 See [ADR 0032](../decisions/0032-telegram-delivery-source-routing.md) for resolution
 order, ambiguity handling, failure semantics, and compatibility.
+
+
+### Telegram rich output and generation cancellation
+
+`services/telegram/telegram-rich-text.ts` parses Markdown with the existing
+remark ecosystem and emits a supported HTML subset. Inline code, fenced code
+languages, nested emphasis, reference links, tables, lists and formulas retain
+structure. Raw HTML is escaped, unsafe URL schemes are discarded, and images
+remain alt text; model content cannot create active buttons or upload media.
+`TelegramTextDelivery` selects classic HTML for short replies and Rich Messages
+for headings, tables, formulas and long replies. Source is split before rendering
+so every chunk has balanced tags and intact UTF-16 surrogate pairs. Rich chunks
+use a 30000-character source ceiling; classic chunks use 3500. Explicit format
+or unsupported-method rejections permit fallback; ambiguous network failures do
+not cause automatic resend. Explicit 429 responses honor retry_after, with two
+retries. Successfully delivered overflow receipts are retained.
+
+Private previews use `sendRichMessageDraft` with `can_stop` and `keep_on_stop`,
+refreshing every 15 seconds during quiet periods. An initial Thinking draft lets
+the user stop before the first text token. Committed/terminal output becomes a
+persistent message; failed or aborted runs preserve partial output. Group previews
+continue editing persistent messages. The gateway explicitly subscribes to
+`stopped_message_generation` and validates its private peer, topic and live draft
+against the active responder before calling `RunService.cancel(submissionId)`.
+The update has no separate user field. Stale, duplicate or finalized draft IDs
+cannot cancel a subsequent run. Gateway shutdown disposes responders and cancels
+its active submissions; completion clears their timers and tracking records.
+
+Proactive sends allow up to 30000 source characters. Every resulting Telegram
+message ID maps to the same source transcript entry. Partial network delivery
+returns `success: true`, `deliveryComplete: false` and delivered IDs, displays a
+local incomplete-delivery notice, and instructs the caller not to resend the full
+message. Local recording success remains separate in `deliveryRecorded`.
+See [ADR 0035](../decisions/0035-telegram-rich-output-and-drafts.md).

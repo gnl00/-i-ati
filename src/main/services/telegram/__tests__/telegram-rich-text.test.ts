@@ -8,7 +8,7 @@ describe('formatTelegramRichText', () => {
     expect(result.parseMode).toBe('HTML')
     expect(result.text).toContain('<b>Hello</b>')
     expect(result.text).toContain('<i>world</i>')
-    expect(result.text).toContain('<pre><code>code</code></pre>')
+    expect(result.text).toContain('<code>code</code>')
     expect(result.fallbackText).toBe('Hello world code')
   })
 
@@ -17,7 +17,7 @@ describe('formatTelegramRichText', () => {
 
     expect(result.parseMode).toBe('HTML')
     expect(result.text).toContain('<a href="https://example.com/">docs</a>')
-    expect(result.text).toContain('<pre><code>const a = 1</code></pre>')
+    expect(result.text).toContain('<pre><code class="language-ts">const a = 1</code></pre>')
   })
 
   it('formats quotes and keeps markdown lists as plain text', () => {
@@ -36,12 +36,12 @@ describe('formatTelegramRichText', () => {
     expect(result.text).toContain('before <i>italic</i> after')
   })
 
-  it('supports strike and underline mappings for telegram html', () => {
+  it('supports strike and standard Markdown bold mappings for telegram html', () => {
     const result = formatTelegramRichText('~~strike~~ and __underline__')
 
     expect(result.parseMode).toBe('HTML')
     expect(result.text).toContain('<s>strike</s>')
-    expect(result.text).toContain('<u>underline</u>')
+    expect(result.text).toContain('<b>underline</b>')
   })
 
   it('falls back to plain text when there is no supported formatting', () => {

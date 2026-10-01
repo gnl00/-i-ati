@@ -68,13 +68,13 @@ export const telegramTools = [
     type: 'function',
     function: {
       name: 'telegram_send_message',
-      description: 'Send a Telegram message from the current chat and keep the delivery record in that chat. Reuse its saved delivery target or inbound binding. An unassociated chat automatically selects a target only when exactly one reachable Telegram peer/topic exists; otherwise ask the user to select a recipient using telegram_search_targets and pass target_chat_uuid or chat_id. An explicit target is saved for future sends without changing Telegram inbound routing. If success is true, never resend solely because deliveryRecorded is false.',
+      description: 'Send a Telegram message from the current chat and keep the delivery record in that chat. Reuse its saved delivery target or inbound binding. An unassociated chat automatically selects a target only when exactly one reachable Telegram peer/topic exists; otherwise ask the user to select a recipient using telegram_search_targets and pass target_chat_uuid or chat_id. An explicit target is saved for future sends without changing Telegram inbound routing. If success is true, never resend solely because deliveryRecorded or deliveryComplete is false; partial delivery may already have reached Telegram.',
       parameters: {
         type: 'object',
         properties: {
           text: {
             type: 'string',
-            description: 'Telegram message text to send.'
+            description: 'Markdown message text to send, at most 30000 characters. Short messages use safe HTML; structured and long messages use Rich Messages.'
           },
           target_chat_uuid: {
             type: 'string',

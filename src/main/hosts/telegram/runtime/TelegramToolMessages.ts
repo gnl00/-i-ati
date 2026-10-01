@@ -1,4 +1,5 @@
 import type { Bot } from 'grammy'
+import { withTelegramRetry } from '@main/services/telegram/TelegramTextDelivery'
 import type { TelegramInboundEnvelope } from '../types'
 
 type ToolMessage = { messageId?: number; text?: string; markup?: string; rank: number; queue: Promise<void> }
@@ -32,15 +33,15 @@ export class TelegramToolMessages {
       if (state.text === args.text && state.markup === markup) return
       const options = { parse_mode: 'HTML' as const, reply_markup: { inline_keyboard: keyboard } }
       if (state.messageId === undefined) {
-        const sent = await bot.api.sendMessage(Number(envelope.chatId), args.text, {
+        const sent = await withTelegramRetry(() => bot.api.sendMessage(Number(envelope.chatId), args.text, {
           ...options,
           ...(envelope.threadId ? { message_thread_id: Number(envelope.threadId) } : {}),
           ...(envelope.messageId ? { reply_parameters: { message_id: Number(envelope.messageId) } } : {})
-        })
+        }))
         state.messageId = sent.message_id
       } else {
         try {
-          await bot.api.editMessageText(Number(envelope.chatId), state.messageId, args.text, options)
+          await withTelegramRetry(() => bot.api.editMessageText(Number(envelope.chatId), state.messageId!, args.text, options))
         } catch (error) {
           if (!String(error).toLowerCase().includes('message is not modified')) throw error
         }

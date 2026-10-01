@@ -16,7 +16,7 @@ import type {
 
 const DEFAULT_SEARCH_LIMIT = 5
 const MAX_SEARCH_LIMIT = 20
-const MAX_TELEGRAM_MESSAGE_LENGTH = 3500
+const MAX_TELEGRAM_MESSAGE_LENGTH = 30000
 
 type TelegramBindingMetadata = {
   chatType?: 'private' | 'group' | 'supergroup' | 'channel'
@@ -210,6 +210,8 @@ const persistTelegramOutboundMessage = (args: {
   association: ChatTelegramTargetEntity
   text: string
   sentMessageId?: string
+  sentMessageIds?: string[]
+  partial?: boolean
   replyToMessageId?: string
 }): number => {
   // Reload after the network wait so concurrent messages are preserved.
@@ -225,7 +227,7 @@ const persistTelegramOutboundMessage = (args: {
     body: {
       createdAt,
       role: 'assistant',
-      content: args.text,
+      content: args.partial ? `Telegram delivery was incomplete. Some chunks were sent; do not resend the full message.\n\n${args.text}` : args.text,
       segments: [],
       typewriterCompleted: true,
       source: MESSAGE_SOURCE.TELEGRAM_DELIVERY,
@@ -244,8 +246,8 @@ const persistTelegramOutboundMessage = (args: {
     }
   })
 
-  if (args.sentMessageId) {
-    chatDb.saveTelegramReceipt(args.association, args.sentMessageId, messageId)
+  for (const sentId of args.sentMessageIds ?? (args.sentMessageId ? [args.sentMessageId] : [])) {
+    chatDb.saveTelegramReceipt(args.association, sentId, messageId)
   }
   chatDb.updateChat({
     ...chat,
@@ -537,6 +539,8 @@ export async function processTelegramSendMessage(
   }
   const replyToMessageId = normalizeText(args.reply_to_message_id)
   let sentMessageId: string | undefined
+  let sentMessageIds: string[] | undefined
+  let partial = false
   try {
     // Associate before sending, without changing the inbound binding.
     chatDb.saveTelegramTarget(association)
@@ -547,6 +551,8 @@ export async function processTelegramSendMessage(
       replyToMessageId
     })
     sentMessageId = result.messageId
+    sentMessageIds = result.messageIds
+    partial = result.partial === true
   } catch (error) {
     return {
       success: false,
@@ -563,13 +569,15 @@ export async function processTelegramSendMessage(
   let deliveryMessageId: number | undefined
   let deliveryRecorded = true
   try {
-    deliveryMessageId = persistTelegramOutboundMessage({ target, source, association, text, sentMessageId, replyToMessageId })
+    deliveryMessageId = persistTelegramOutboundMessage({ target, source, association, text, sentMessageId, sentMessageIds, partial, replyToMessageId })
   } catch {
     deliveryRecorded = false
   }
   return {
     success: true,
     sentMessageId,
+    sentMessageIds,
+    deliveryComplete: !partial,
     sourceChatUuid: source.uuid,
     targetChatUuid: target.targetChatUuid || undefined,
     chatId: target.telegramChatId,
@@ -578,7 +586,9 @@ export async function processTelegramSendMessage(
     botId: status.botId,
     deliveryRecorded,
     deliveryMessageId,
-    message: deliveryRecorded
+    message: partial
+      ? 'Telegram message was partially delivered. Do not resend the full message; some chunks already arrived.'
+      : deliveryRecorded
       ? `Telegram message sent from "${source.title}".`
       : 'Telegram message was sent, but its local delivery record could not be completed. Do not resend; reply routing may be unavailable.'
   }

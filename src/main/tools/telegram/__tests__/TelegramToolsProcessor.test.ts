@@ -100,6 +100,24 @@ describe('TelegramToolsProcessor', () => {
     updateChatHostBindingLastMessageMock.mockReturnValue(undefined)
   })
 
+  it('records every overflow receipt and reports partial delivery without retrying', async () => {
+    getChatByUuidMock.mockReturnValue({ id: 1, uuid: 'source', title: 'Source', messages: [] })
+    sendTextMock.mockResolvedValue({ ok: true, messageId: '9001', messageIds: ['9001', '9002'], partial: true })
+    const result = await processTelegramSendMessage({ chat_uuid: 'source', chat_id: '123', text: 'x'.repeat(5000) })
+    expect(result).toMatchObject({ success: true, deliveryComplete: false, sentMessageIds: ['9001', '9002'], deliveryRecorded: true })
+    expect(result.message).toContain('Do not resend')
+    expect(sendTextMock).toHaveBeenCalledTimes(1)
+    expect(saveTelegramReceiptMock.mock.calls.map(([, id]) => id)).toEqual(['9001', '9002'])
+    expect(saveMessageMock.mock.calls[0][0].body.content).toContain('Telegram delivery was incomplete.')
+  })
+
+  it('rejects oversized proactive text before saving a target or sending', async () => {
+    const result = await processTelegramSendMessage({ text: 'x'.repeat(30001), chat_uuid: 'source' })
+    expect(result).toMatchObject({ success: false, message: 'text must be at most 30000 characters.' })
+    expect(saveTelegramTargetMock).not.toHaveBeenCalled()
+    expect(sendTextMock).not.toHaveBeenCalled()
+  })
+
   it('requires bot_token', async () => {
     const result = await processTelegramSetupTool({})
 

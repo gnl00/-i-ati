@@ -1,4 +1,5 @@
 import { telegramFetch } from './telegram-fetch'
+import { deliverTelegramText, type TelegramTextMessage } from './TelegramTextDelivery'
 import { v4 as uuidv4 } from 'uuid'
 import { Bot } from 'grammy'
 import { configDb } from '@main/db/config'
@@ -44,6 +45,8 @@ export class TelegramGatewayService {
   private lastMessageProcessedAt?: number
   private static readonly START_TIMEOUT_MS = 30_000
   private static readonly POLLING_START_TIMEOUT_MS = 30_000
+
+  private readonly activeResponders = new Map<string, { submissionId: string; responder: TelegramRenderResponder }>()
 
   private readonly toolMessages = new TelegramToolMessages()
   private readonly confirmationMessages = new Map<string, {
@@ -300,6 +303,11 @@ export class TelegramGatewayService {
   }
 
   stop(): void {
+    for (const { submissionId, responder } of this.activeResponders.values()) {
+      responder.dispose()
+      this.runService.cancel(submissionId)
+    }
+    this.activeResponders.clear()
     this.startRunId += 1
     this.starting = false
     this.running = false
@@ -348,18 +356,26 @@ export class TelegramGatewayService {
     text: string
     threadId?: string
     replyToMessageId?: string
-  }): Promise<{ ok: boolean; messageId?: string }> {
+  }): Promise<{ ok: boolean; messageId?: string; messageIds?: string[]; partial?: boolean }> {
     if (!this.bot) {
       throw new Error('Telegram gateway not started')
     }
-    const sent = await this.bot.api.sendMessage(Number(args.chatId), args.text, {
-      ...(args.threadId ? { message_thread_id: Number(args.threadId) } : {}),
-      ...(args.replyToMessageId ? { reply_parameters: { message_id: Number(args.replyToMessageId) } } : {})
-    })
+    // Proactive sends fit one safe rich message; validate before any network side effect.
+    if (args.text.length > 30000) throw new Error('Telegram text must be at most 30000 characters.')
+    const messages: TelegramTextMessage[] = []
+    let partial = false
+    try { await deliverTelegramText(this.bot, args, args.text, messages) } catch (error) {
+      if (!messages.length) throw error
+      // A later chunk can fail after earlier chunks arrived. Return receipts and prevent resend.
+      partial = true
+      this.logger.warn('send_text.partial', { chatId: args.chatId, deliveredChunks: messages.length })
+    }
 
     return {
       ok: true,
-      messageId: String(sent.message_id)
+      ...(partial ? { partial: true } : {}),
+      messageId: String(messages[0]?.messageId),
+      messageIds: messages.map(message => String(message.messageId))
     }
   }
 
@@ -486,6 +502,8 @@ export class TelegramGatewayService {
       })
       : null
 
+    if (responder) this.activeResponders.set(chatKey, { submissionId: input.submissionId, responder })
+
     void (async (): Promise<RunResult> => this.runService.submit(input, {
       ...(responder ? { hostRenderSinks: [responder] } : {})
     }).completion)()
@@ -503,9 +521,12 @@ export class TelegramGatewayService {
       .catch((error) => {
         this.logger.error('update.run_failed', error)
       })
-      .finally(() => {
-        this.commandService.unregisterActiveSubmission(chatKey, input.submissionId)
-      })
+      .finally(async () => {
+        try { await responder?.finish() } finally {
+          if (this.activeResponders.get(chatKey)?.submissionId === input.submissionId) this.activeResponders.delete(chatKey)
+          this.commandService.unregisterActiveSubmission(chatKey, input.submissionId)
+        }
+      }).catch(error => this.logger.error('update.finish_failed', error))
 
     this.lastMessageProcessedAt = Date.now()
   }
@@ -626,7 +647,7 @@ export class TelegramGatewayService {
       }, TelegramGatewayService.POLLING_START_TIMEOUT_MS)
 
       void bot.start({
-        allowed_updates: ['message', 'callback_query'],
+        allowed_updates: ['message', 'callback_query', 'stopped_message_generation'],
         onStart: async (botInfo) => {
           clearTimeout(startTimeout)
           if (runId !== this.startRunId) {
@@ -742,6 +763,23 @@ export class TelegramGatewayService {
   }
 
   private registerHandlers(bot: Bot, modelRef: ModelRef): void {
+    bot.on('stopped_message_generation', (ctx) => {
+      this.lastSuccessfulPollAt = Date.now()
+      this.lastUpdateId = ctx.update.update_id
+      const stopped = ctx.update.stopped_message_generation
+      if (stopped.chat.type !== 'private') return
+      const envelope: TelegramInboundEnvelope = {
+        updateId: ctx.update.update_id, messageId: '', chatId: String(stopped.chat.id),
+        chatType: 'private', threadId: stopped.message_thread_id ? String(stopped.message_thread_id) : undefined,
+        text: '', media: [], isMentioned: false, replyToBot: false, receivedAt: Date.now()
+      }
+      if (!this.shouldHandleCommand(envelope)) return
+      const active = this.activeResponders.get(this.buildChatKey(envelope))
+      if (!active?.responder.stopDraft(stopped.draft_id)) return
+      this.runService.cancel(active.submissionId)
+      this.logger.info('generation.stopped', { chatId: envelope.chatId, draftId: stopped.draft_id, submissionId: active.submissionId })
+    })
+
     bot.on('callback_query:data', async (ctx) => {
       this.lastSuccessfulPollAt = Date.now()
       this.logger.info('callback_query.received', {

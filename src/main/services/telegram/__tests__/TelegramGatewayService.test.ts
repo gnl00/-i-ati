@@ -148,7 +148,9 @@ vi.mock('@main/hosts/telegram/runtime', async (importOriginal) => ({
   ...await importOriginal<typeof import('@main/hosts/telegram/runtime')>(),
   TelegramRenderResponder: vi.fn(function () {
     return {
-    handle: vi.fn()
+    handle: vi.fn(),
+    finish: vi.fn().mockResolvedValue(undefined),
+    stopDraft: vi.fn(() => true)
     }
   })
 }))
@@ -598,5 +600,64 @@ describe('Telegram authoritative approval projection', () => {
     await callback(ctx)
     expect(ctx.answerCallbackQuery).toHaveBeenLastCalledWith({ text: 'Approval expired or is no longer available.' })
     await (service as unknown as GatewayProbe).queueConfirmationSync()
+  })
+})
+
+
+describe('Telegram generation stopped updates', () => {
+  it('cancels only the active submission matching chat, topic and live draft', async () => {
+    const service = createService()
+    const probe = service as unknown as {
+      registerHandlers: (bot: { on: ReturnType<typeof vi.fn> }, ref: ModelRef) => void
+      activeResponders: Map<string, { submissionId: string; responder: { stopDraft: (id: number) => boolean } }>
+      runService: { cancel: ReturnType<typeof vi.fn> }
+    }
+    probe.runService.cancel = vi.fn()
+    const stopDraft = vi.fn(id => id === 42)
+    probe.activeResponders.set('123:9', { submissionId: 'active-run', responder: { stopDraft } })
+    const on = vi.fn()
+    probe.registerHandlers({ on }, modelRef)
+    const handler = on.mock.calls.find(([name]) => name === 'stopped_message_generation')![1]
+    const ctx = { update: { update_id: 1, stopped_message_generation: { chat: { id: 123, type: 'private' }, message_thread_id: 9, draft_id: 41 } } }
+    await handler(ctx)
+    expect(probe.runService.cancel).not.toHaveBeenCalled()
+    ctx.update.stopped_message_generation.draft_id = 42
+    ctx.update.stopped_message_generation.message_thread_id = 10
+    await handler(ctx)
+    expect(probe.runService.cancel).not.toHaveBeenCalled()
+    ctx.update.stopped_message_generation.message_thread_id = 9
+    await handler(ctx)
+    expect(probe.runService.cancel).toHaveBeenCalledWith('active-run')
+    probe.activeResponders.clear()
+    await handler(ctx)
+    expect(probe.runService.cancel).toHaveBeenCalledTimes(1)
+  })
+
+  it('honors the current private-chat policy for stopped generation updates', async () => {
+    const service = createService()
+    const probe = service as unknown as {
+      registerHandlers: (bot: { on: ReturnType<typeof vi.fn> }, ref: ModelRef) => void
+      activeResponders: Map<string, { submissionId: string; responder: { stopDraft: ReturnType<typeof vi.fn> } }>
+      runService: { cancel: ReturnType<typeof vi.fn> }
+      appConfigStore: { requireConfig: () => unknown }
+    }
+    probe.runService.cancel = vi.fn()
+    probe.appConfigStore.requireConfig = (): unknown => ({ telegram: { enabled: true, dmPolicy: 'disabled' } })
+    const stopDraft = vi.fn(() => true)
+    probe.activeResponders.set('123', { submissionId: 'run', responder: { stopDraft } })
+    const on = vi.fn()
+    probe.registerHandlers({ on }, modelRef)
+    const handler = on.mock.calls.find(([name]) => name === 'stopped_message_generation')![1]
+    await handler({ update: { update_id: 1, stopped_message_generation: { chat: { id: 123, type: 'private' }, draft_id: 42 } } })
+    expect(stopDraft).not.toHaveBeenCalled()
+    expect(probe.runService.cancel).not.toHaveBeenCalled()
+  })
+
+  it('returns partial delivery receipts instead of inviting a duplicate resend', async () => {
+    const sendMessage = vi.fn().mockResolvedValueOnce({ message_id: 91 }).mockRejectedValueOnce(new Error('timeout'))
+    const service = createService({ sendMessage })
+    const probe = service as unknown as { bot: { api: { sendRichMessage: ReturnType<typeof vi.fn> } } }
+    probe.bot.api.sendRichMessage = vi.fn().mockRejectedValue({ error_code: 404, description: 'Method not found' })
+    await expect(service.sendText({ chatId: '123', text: 'x'.repeat(5000) })).resolves.toEqual({ ok: true, partial: true, messageId: '91', messageIds: ['91'] })
   })
 })
