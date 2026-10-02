@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 export const CreatePlanSchema = z.object({
   goal: z.string().describe('The goal to accomplish'),
-  context: z.record(z.any()).optional().describe('Relevant context information'),
+  context: z.record(z.string(), z.any()).optional().describe('Relevant context information'),
   constraints: z.object({
     maxSteps: z.number().optional().describe('Maximum number of steps (default: 10)'),
     timeout: z.string().optional().describe("Timeout duration, e.g. '1 hour'"),
@@ -40,7 +40,7 @@ export const PlanStepSchema = z.object({
   status: PlanStepStatusSchema,
   dependsOn: z.array(z.string()).optional(),
   tool: z.string().optional(),
-  input: z.record(z.any()).optional(),
+  input: z.record(z.string(), z.any()).optional(),
   output: z.any().optional(),
   error: z.string().optional(),
   notes: z.string().optional(),
@@ -52,7 +52,7 @@ export const PlanSchema = z.object({
   id: z.string(),
   chatUuid: z.string().optional(),
   goal: z.string(),
-  context: z.record(z.any()).optional(),
+  context: z.record(z.string(), z.any()).optional(),
   constraints: CreatePlanSchema.shape.constraints,
   status: PlanStatusSchema,
   steps: z.array(PlanStepSchema),

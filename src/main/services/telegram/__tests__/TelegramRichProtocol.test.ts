@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+vi.mock('@main/services/images/ImageAssetService', () => ({ imageAssetService: { read: vi.fn() } }))
 import { Bot } from 'grammy'
 import { deliverTelegramText } from '../TelegramTextDelivery'
 import { TelegramRenderResponder } from '@main/hosts/telegram/runtime'

@@ -25,6 +25,15 @@ export default defineConfig({
     build: {
       externalizeDeps: false,
       rollupOptions: {
+        onwarn(warning, defaultHandler) {
+          const id = (warning.id ?? '').replace(/\\/g, '/')
+          const isZodCommentWarning =
+            warning.code === 'INVALID_ANNOTATION' &&
+            /\/zod\/v4\/core\/(?:regexes|util)\.js$/.test(id)
+
+          if (isZodCommentWarning) return
+          defaultHandler(warning)
+        },
         external: mainExternal,
         input: {
           index: resolve('src/main/index.ts'),

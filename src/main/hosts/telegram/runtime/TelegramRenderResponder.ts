@@ -2,6 +2,7 @@ import { InputFile, type Bot } from 'grammy'
 import { parseImageShowResult, type ImageShowResult } from '@shared/tools/image/types'
 import { randomInt } from 'node:crypto'
 import { AbortController as TelegramAbortController } from 'abort-controller'
+import { imageAssetService } from '@main/services/images/ImageAssetService'
 import { deliverTelegramText, isTelegramFormattingError, withTelegramRetry, type TelegramTextMessage } from '@main/services/telegram/TelegramTextDelivery'
 import { formatTelegramRichText, splitTelegramText } from '@main/services/telegram/telegram-rich-text'
 import { TelegramToolMessages } from './TelegramToolMessages'
@@ -197,7 +198,6 @@ export class TelegramRenderResponder implements HostRenderEventSink {
     }
     let data: Buffer
     try {
-      const { imageAssetService } = await import('@main/services/images/ImageAssetService')
       data = await imageAssetService.read(result.image.assetId)
     } catch {
       this.updateToolResult(toolCallId, { ...result, telegram: { ...delivery, state: 'failed' } })

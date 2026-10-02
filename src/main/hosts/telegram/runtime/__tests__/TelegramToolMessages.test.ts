@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+vi.mock('@main/services/images/ImageAssetService', () => ({ imageAssetService: { read: vi.fn() } }))
 import type { Bot } from 'grammy'
 import { TelegramRenderResponder } from '../TelegramRenderResponder'
 import { TelegramToolMessages } from '../TelegramToolMessages'
