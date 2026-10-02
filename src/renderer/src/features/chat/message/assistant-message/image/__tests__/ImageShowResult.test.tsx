@@ -110,6 +110,36 @@ describe('inline image results', () => {
       container.querySelector('img')!.dispatchEvent(new Event('error')),
     )
     expect(container.textContent).toContain('Image unavailable')
-    expect(container.querySelector('button')?.className).toContain('h-48')
+    expect(container.querySelector('button')?.style.aspectRatio).toBe(
+      '400 / 300',
+    )
   })
+  it.each([
+    [1024, 1024, 192],
+    [1600, 800, 320],
+    [800, 1600, 96],
+  ])(
+    'fits a %s by %s image within the thumbnail bounds without padding',
+    async (width, height, expectedWidth) => {
+      await act(async () =>
+        root.render(
+          <ImageShowResult
+            toolCall={{
+              ...toolCall,
+              content: {
+                ...toolCall.content,
+                result: {
+                  ...payload,
+                  image: { ...payload.image, width, height },
+                },
+              },
+            }}
+          />,
+        ),
+      )
+      const button = container.querySelector('button')!
+      expect(button.style.width).toBe(`${expectedWidth}px`)
+      expect(button.style.aspectRatio).toBe(`${width} / ${height}`)
+    },
+  )
 })

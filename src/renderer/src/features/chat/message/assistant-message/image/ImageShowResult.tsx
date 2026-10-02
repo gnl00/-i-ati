@@ -48,7 +48,14 @@ export function ImageShowResult({
             type="button"
             aria-label="Open image"
             onClick={(event) => open(0, event.detail > 0)}
-            className="flex h-48 w-80 max-w-full items-center justify-center overflow-hidden rounded-lg border border-(--chat-border-subtle) bg-(--chat-surface) transition-colors duration-150 hover:border-(--chat-border-standard) focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-(--chat-accent) motion-reduce:transition-none"
+            style={{
+              width: Math.min(
+                320,
+                (192 * result.image.width) / result.image.height,
+              ),
+              aspectRatio: `${result.image.width} / ${result.image.height}`,
+            }}
+            className="flex max-w-full items-center justify-center overflow-hidden rounded-lg border border-(--chat-border-subtle) bg-(--chat-surface) transition-colors duration-150 hover:border-(--chat-border-standard) focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-(--chat-accent) motion-reduce:transition-none"
           >
             <PreviewImage
               key={result.image.url}
