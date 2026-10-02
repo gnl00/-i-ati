@@ -184,6 +184,7 @@ Light 使用 `#f0f2f4` 底色和 `#343a41` 文字，Dark 使用 `#2e3135` 底色
 
 - trigger 使用 raised surface、8px 至 10px 圆角和 standard border。
 - popover 使用 10px 圆角、raised surface、standard border 和受控阴影。
+- Chat 与 Welcome 的 slash command 面板与 textarea 等宽并左对齐，在其上方保持 10px 间隔。面板使用 10px 圆角、raised surface、standard border 和轻阴影；命令行最小 40px 高，标题为 13px semibold，说明与等宽命令为 11px secondary text。选中与 hover 使用中性 surface-hover，当前行右侧显示裸 Enter 提示并保留固定槽位。面板容器小于 520px 时隐藏说明，完整说明保留在可访问名称中；命令保持完整可见，标题可截断。键盘打开、筛选和切换立即呈现，不使用弹簧缩放。
 - search 区使用 inset surface，provider header 使用安静的 sticky 分组样式。
 - hover 与键盘 current state 使用 `--app-surface-hover`，selected state 同时显示 check 或明确图标。
 - Chat 模型 selector 的 thinking 子菜单使用 184px 宽度、10px 圆角与 32px 选项高度，直接从档位列表开始；当前模型档位使用轻背景与右侧裸勾，其他模型的默认档位使用 `Default` 标记。模型列表使用能力图标，不显示具体档位；入口与子菜单中的 `xhigh` 展示为 `Extra high`。档位选择一次确认模型与档位，并关闭菜单。
