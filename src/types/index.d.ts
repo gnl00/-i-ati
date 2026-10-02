@@ -81,6 +81,7 @@ declare interface IAppConfig {
     mainModel?: ModelRef
     liteModel?: ModelRef
     visionModel?: ModelRef
+    imageGenModel?: ModelRef
     maxWebSearchItems?: number
     memoryEnabled?: boolean
     streamChunkDebugEnabled?: boolean

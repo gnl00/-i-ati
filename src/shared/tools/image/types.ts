@@ -79,3 +79,11 @@ export function parseImageShowResult(
     return undefined
   return result
 }
+
+export interface ImageGenerateArgs {
+  prompt: string
+  caption?: string
+}
+
+export const isImageDisplayTool = (name?: string): boolean =>
+  name === 'image_show' || name === 'image_generate'

@@ -1,5 +1,5 @@
 import { InputFile, type Bot } from 'grammy'
-import { parseImageShowResult, type ImageShowResult } from '@shared/tools/image/types'
+import { parseImageShowResult, isImageDisplayTool, type ImageShowResult } from '@shared/tools/image/types'
 import { randomInt } from 'node:crypto'
 import { AbortController as TelegramAbortController } from 'abort-controller'
 import { imageAssetService } from '@main/services/images/ImageAssetService'
@@ -157,7 +157,7 @@ export class TelegramRenderResponder implements HostRenderEventSink {
         return
 
       case 'host.tool.result.available':
-        if (event.result.toolName === 'image_show' && event.result.status === 'success') {
+        if (isImageDisplayTool(event.result.toolName) && event.result.status === 'success') {
           const image = parseImageShowResult(event.result.content)
           if (image) await this.sendImage(event.result.toolCallId, image)
         }

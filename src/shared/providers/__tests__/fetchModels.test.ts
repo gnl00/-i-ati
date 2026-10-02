@@ -47,6 +47,7 @@ describe('fetchModels shared helpers', () => {
   })
 
   it('infers image generation models', () => {
+    expect(inferFetchedModelType('gpt-image-1')).toBe('img_gen')
     expect(inferFetchedModelType('dall-e-3')).toBe('img_gen')
   })
 })

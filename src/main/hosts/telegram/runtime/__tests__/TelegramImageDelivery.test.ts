@@ -55,6 +55,7 @@ describe('Telegram image delivery', () => {
   const send = (
     responder: TelegramRenderResponder,
     content = image(),
+    toolName = 'image_show',
   ): Promise<void> =>
     responder.handle({
       type: 'host.tool.result.available',
@@ -64,7 +65,7 @@ describe('Telegram image delivery', () => {
         stepId: 'step',
         toolCallId: 'call',
         toolCallIndex: 0,
-        toolName: 'image_show',
+        toolName,
         content,
       },
     })
@@ -75,7 +76,7 @@ describe('Telegram image delivery', () => {
     api.sendDocument.mockResolvedValue({ message_id: 11 })
     api.sendMessage.mockResolvedValue({ message_id: 12 })
   })
-  it('persists the attempt before upload, sends to the current topic and saves a receipt once', async () => {
+  it.each(['image_show', 'image_generate'])('%s persists the attempt before upload, sends to the current topic and saves a receipt once', async (toolName) => {
     const { responder, update } = make()
     api.sendPhoto.mockImplementationOnce(async () => {
       expect(update.mock.calls[0][1]).toMatchObject({
@@ -83,8 +84,8 @@ describe('Telegram image delivery', () => {
       })
       return { message_id: 10 }
     })
-    await send(responder)
-    await send(responder)
+    await send(responder, image(), toolName)
+    await send(responder, image(), toolName)
     expect(api.sendPhoto).toHaveBeenCalledTimes(1)
     expect(api.sendPhoto.mock.calls[0][0]).toBe(123)
     expect(api.sendPhoto.mock.calls[0][2]).toMatchObject({

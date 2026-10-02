@@ -101,6 +101,12 @@ export class ImageAssetService {
       }
       data = Buffer.concat(chunks)
     }
+    return this.prepareBytes(data, args.caption, signal)
+  }
+
+  async prepareBytes(data: Buffer, caption?: string, signal?: AbortSignal): Promise<ImageShowResult> {
+    if (caption !== undefined && (typeof caption !== 'string' || caption.length > 1024))
+      throw new Error('caption must be plain text of at most 1024 characters.')
     signal?.throwIfAborted()
     if (!data.length || data.length > MAX_IMAGE_BYTES)
       throw new Error('Image must be between 1 byte and 50 MB.')
@@ -119,6 +125,7 @@ export class ImageAssetService {
     const temporaryPath = join(this.root(), `${randomUUID()}.tmp`)
     try {
       await writeFile(temporaryPath, data, { flag: 'wx' })
+      signal?.throwIfAborted()
       await rename(temporaryPath, join(this.root(), assetId))
     } finally {
       await rm(temporaryPath, { force: true })
@@ -134,7 +141,7 @@ export class ImageAssetService {
         width,
         height,
       },
-      ...(args.caption?.trim() ? { caption: args.caption.trim() } : {}),
+      ...(caption?.trim() ? { caption: caption.trim() } : {}),
     }
   }
 

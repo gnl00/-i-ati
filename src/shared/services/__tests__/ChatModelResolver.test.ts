@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   isVisionModel,
+  isImageGenModel,
+  isImageGenModelRefAvailable,
   isModelRefAvailable,
   isVisionModelRefAvailable,
   resolveExistingChatModelRef,
@@ -397,5 +399,27 @@ describe('ChatModelResolver', () => {
       accountId: 'account-2',
       modelId: 'model-c'
     })
+  })
+})
+
+
+describe('image generation model selection', () => {
+  it('accepts enabled img_gen models across adapters and plugin states', () => {
+    const ref = { accountId: 'images', modelId: 'generate' }
+    const model: AccountModel = { id: ref.modelId, label: 'Generate', type: 'img_gen' }
+    const config: IAppConfig = {
+      providerDefinitions: [{ id: 'provider', displayName: 'Provider', adapterPluginId: 'google-gemini-compatible-adapter' }],
+      accounts: [{ id: ref.accountId, providerId: 'provider', label: 'Images', apiUrl: 'https://example.test', apiKey: '', models: [model] }],
+      plugins: { items: [{ id: 'google-gemini-compatible-adapter', enabled: false }] as AppPluginConfig[] }
+    }
+    expect(isImageGenModel(model)).toBe(true)
+    expect(isImageGenModelRefAvailable(config, ref)).toBe(true)
+    model.enabled = false
+    expect(isImageGenModel(model)).toBe(false)
+    expect(isImageGenModelRefAvailable(config, ref)).toBe(false)
+    model.enabled = true
+    model.type = 'mllm'
+    expect(isImageGenModel(model)).toBe(false)
+    expect(isImageGenModelRefAvailable(config, ref)).toBe(false)
   })
 })

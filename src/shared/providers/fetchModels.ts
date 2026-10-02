@@ -50,6 +50,7 @@ export const inferFetchedModelType = (modelId: string): ModelType => {
   const id = modelId.toLowerCase()
 
   if (
+    id.includes('gpt-image') ||
     id.includes('dall-e') ||
     id.includes('stable-diffusion') ||
     id.includes('imagen') ||

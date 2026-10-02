@@ -49,8 +49,10 @@ describe('inline image results', () => {
     await act(async () => root.unmount())
     container.remove()
   })
-  const render = async (): Promise<void> => {
-    await act(async () => root.render(<ImageShowResult toolCall={toolCall} />))
+  const render = async (name = 'image_show'): Promise<void> => {
+    await act(async () =>
+      root.render(<ImageShowResult toolCall={{ ...toolCall, name }} />),
+    )
   }
   it('shows the thumbnail and opens the existing viewer with keyboard focus restoration', async () => {
     await render()
@@ -78,9 +80,16 @@ describe('inline image results', () => {
     ).toBeNull()
     await vi.waitFor(() => expect(document.activeElement).toBe(button))
   })
-  it.each(['sent', 'failed', 'unknown', 'sending'])(
-    'restores the persisted %s receipt instead of stale segment data',
-    async (deliveryState) => {
+  it.each(
+    ['image_show', 'image_generate'].flatMap((name) =>
+      ['sent', 'failed', 'unknown', 'sending'].map((deliveryState) => [
+        name,
+        deliveryState,
+      ]),
+    ),
+  )(
+    '%s restores the persisted %s receipt instead of stale segment data',
+    async (name, deliveryState) => {
       state.messages = [
         {
           id: 2,
@@ -88,7 +97,7 @@ describe('inline image results', () => {
           chatUuid: 'chat',
           body: {
             role: 'tool',
-            name: 'image_show',
+            name,
             toolCallId: 'call',
             content: JSON.stringify({
               ...payload,
@@ -98,7 +107,7 @@ describe('inline image results', () => {
           },
         },
       ]
-      await render()
+      await render(name)
       expect(container.querySelector('[role="status"]')?.textContent).toContain(
         'Telegram',
       )

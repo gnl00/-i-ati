@@ -1,3 +1,4 @@
+import { processImageGenerate } from '@main/tools/image/ImageGenerateProcessor'
 import tools from '@tools/definitions'
 import {
   embeddedToolsRegistry,
@@ -115,6 +116,7 @@ export const toolHandlers: Record<
   user_info: processUserInfo,
   image_analyze: processImageAnalyze,
   image_show: processImageShow,
+  image_generate: processImageGenerate,
   activity_journal_append: processActivityJournalAppend,
   activity_journal_list: processActivityJournalList,
   activity_journal_search: processActivityJournalSearch,

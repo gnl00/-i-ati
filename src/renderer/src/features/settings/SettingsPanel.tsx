@@ -31,6 +31,7 @@ const SettingsPanel: React.FC = () => {
         mainModel,
         liteModel,
         visionModel,
+        imageGenModel,
         memoryEnabled,
         setMemoryEnabled,
         streamChunkDebugEnabled,
@@ -123,6 +124,7 @@ const SettingsPanel: React.FC = () => {
                 mainModel,
                 liteModel,
                 visionModel,
+                imageGenModel,
                 maxWebSearchItems: maxWebSearchItems,
                 memoryEnabled: memoryEnabled,
                 streamChunkDebugEnabled: streamChunkDebugEnabled
@@ -221,6 +223,8 @@ const SettingsPanel: React.FC = () => {
         || liteModel?.modelId !== savedTools.liteModel?.modelId
         || visionModel?.accountId !== savedTools.visionModel?.accountId
         || visionModel?.modelId !== savedTools.visionModel?.modelId
+        || imageGenModel?.accountId !== savedTools.imageGenModel?.accountId
+        || imageGenModel?.modelId !== savedTools.imageGenModel?.modelId
 
     const compressionDirty = compressionEnabled !== (savedCompression?.enabled ?? true)
         || compressionTriggerTokenRatio !== (savedCompression?.triggerTokenRatio ?? 0.7)
@@ -287,6 +291,7 @@ const SettingsPanel: React.FC = () => {
 
                     <TabsContent value="tools" className="mt-0 w-full min-w-0 flex-1 min-h-0 focus:ring-0 focus-visible:ring-0">
                         <ToolsManager
+                            onConfigureImageGenModel={() => setActiveTab('provider-list')}
                             maxWebSearchItems={maxWebSearchItems}
                             setMaxWebSearchItems={setMaxWebSearchItems}
                             telegramEnabled={telegramEnabled}

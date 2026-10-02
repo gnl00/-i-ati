@@ -227,4 +227,11 @@ describe('tool definitions', () => {
     expect(names).not.toContain('vision_analyze')
     expect(names).toContain('image_analyze')
   })
+  it('exposes image_generate with prompt and the shared call reason required', () => {
+    const tool = (tools as ToolDefinition[]).find(item => item.function.name === 'image_generate')
+    expect(tool?.function.parameters.required).toEqual(expect.arrayContaining(['prompt', 'tool_call_reason']))
+    expect(Object.keys(tool?.function.parameters.properties)).toEqual(['prompt', 'caption', 'tool_call_reason'])
+    expect(tool?.function.parameters.additionalProperties).toBe(false)
+  })
+
 })

@@ -25,8 +25,8 @@ import {
 import { cn } from '@renderer/shared/lib/utils'
 import { createRendererLogger } from '@renderer/shared/logging/rendererLogger'
 import { useAppConfigStore } from '@renderer/infrastructure/config/appConfig'
-import { isVisionModel } from '@shared/services/ChatModelResolver'
-import { Eye, EyeOff, LoaderCircle, Send, X } from 'lucide-react'
+import { isVisionModel, isImageGenModel } from '@shared/services/ChatModelResolver'
+import { Eye, EyeOff, LoaderCircle, Plus, Send, X } from 'lucide-react'
 import React, { useState } from 'react'
 import { toast } from 'sonner'
 import {
@@ -76,6 +76,7 @@ export const emotionPackSelectItemClassName = cn(
 )
 
 interface ToolsManagerProps {
+  onConfigureImageGenModel: () => void
   maxWebSearchItems: number
   setMaxWebSearchItems: (value: number) => void
   telegramEnabled: boolean
@@ -93,6 +94,7 @@ interface ToolsManagerProps {
 }
 
 const ToolsManager: React.FC<ToolsManagerProps> = ({
+  onConfigureImageGenModel,
   maxWebSearchItems,
   setMaxWebSearchItems,
   telegramEnabled,
@@ -119,6 +121,8 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
     setLiteModel,
     visionModel,
     setVisionModel,
+    imageGenModel,
+    setImageGenModel,
     setAppConfig
   } = useAppConfigStore()
 
@@ -129,6 +133,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
     useState(false)
   const [selectVisionModelPopoutState, setSelectVisionModelPopoutState] =
     useState(false)
+  const [selectImageGenModelPopoutState, setSelectImageGenModelPopoutState] = useState(false)
   const [telegramGatewayStatus, setTelegramGatewayStatus] = useState<{
     running: boolean
     starting: boolean
@@ -158,6 +163,12 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
   const visionModelOptions = React.useMemo(() => {
     return modelOptions.filter((option) => isVisionModel(option.model))
   }, [modelOptions])
+  const imageGenModelOptions = React.useMemo(() => {
+    return modelOptions.filter((option) => isImageGenModel(option.model))
+  }, [modelOptions])
+  const selectedImageGenModel = React.useMemo(() => {
+    return resolveModelRef(imageGenModel)
+  }, [imageGenModel, providersRevision, resolveModelRef])
   const selectedMainModel = React.useMemo(() => {
     return resolveModelRef(mainModel)
   }, [mainModel, providersRevision, resolveModelRef])
@@ -286,7 +297,7 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
         <SettingsSectionHeader
           className="flex-col gap-2 sm:flex-row sm:items-center [&>div:last-child]:max-w-full"
           title={<Label className="cursor-default">Model Routing</Label>}
-          description="Choose defaults for chat, background tasks, and image-aware requests."
+          description="Choose models for chat, background tasks, image analysis, and image generation."
         />
         <div className="mx-4 overflow-hidden rounded-lg border border-gray-100 bg-gray-50/60 dark:border-(--app-border-subtle) dark:bg-(--app-surface-inset)">
           <SettingsFieldRow
@@ -405,6 +416,62 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                     aria-label="Clear vision model"
                     title="Clear vision model"
                     onClick={() => setVisionModel(undefined)}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </SettingsControlGroup>
+            }
+          />
+          <SettingsFieldRow
+            className={modelRouteRowClassName}
+            title={
+              <span className="flex min-w-0 items-center gap-2">
+                <span>Image Gen Model</span>
+              </span>
+            }
+            description="Generate images with the selected model."
+            control={
+              <SettingsControlGroup className={modelRouteControlClassName}>
+                {imageGenModelOptions.length > 0 ? (
+                  <SettingsInlineModelSelector
+                    selectedModel={selectedImageGenModel}
+                    modelOptions={imageGenModelOptions}
+                    isOpen={selectImageGenModelPopoutState}
+                    onOpenChange={setSelectImageGenModelPopoutState}
+                    ariaLabel="Select image generation model"
+                    triggerClassName={modelRouteSelectorClassName}
+                    onModelSelect={(ref) => {
+                      setSelectImageGenModelPopoutState(false)
+                      setImageGenModel(ref)
+                    }}
+                  />
+                ) : (
+                  <div className="flex w-full min-w-0 items-center justify-between gap-3 sm:w-[260px]">
+                    <span className="text-[11.5px] leading-5 text-gray-400 dark:text-(--app-text-muted)">
+                      No image models available
+                    </span>
+                    <button
+                      type="button"
+                      className={cn(settingsOutlineButtonClassName, 'shrink-0 gap-1.5')}
+                      onClick={onConfigureImageGenModel}
+                      title="Add an image generation model in Providers"
+                    >
+                      <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                      Add model
+                    </button>
+                  </div>
+                )}
+                {imageGenModel && (
+                  <button
+                    type="button"
+                    className={cn(
+                      settingsIconButtonClassName,
+                      'shrink-0 bg-white dark:bg-(--app-surface-raised)'
+                    )}
+                    aria-label="Clear image generation model"
+                    title="Clear image generation model"
+                    onClick={() => setImageGenModel(undefined)}
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>

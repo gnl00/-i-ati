@@ -4,7 +4,10 @@ import {
   ImageViewer,
   PreviewImage,
 } from '@renderer/shared/components/image-viewer'
-import { parseImageShowResult } from '@shared/tools/image/types'
+import {
+  parseImageShowResult,
+  isImageDisplayTool,
+} from '@shared/tools/image/types'
 
 export function ImageShowResult({
   toolCall,
@@ -16,7 +19,7 @@ export function ImageShowResult({
       state.messages.find(
         (message) =>
           message.body.role === 'tool' &&
-          message.body.name === 'image_show' &&
+          isImageDisplayTool(message.body.name) &&
           message.body.toolCallId === toolCall.toolCallId,
       )?.body.content,
   )

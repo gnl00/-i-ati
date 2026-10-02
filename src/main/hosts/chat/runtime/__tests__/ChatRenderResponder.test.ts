@@ -2171,12 +2171,12 @@ describe('image delivery persistence', () => {
     kind: 'image_show', success: true,
     image: { assetId: `${'a'.repeat(64)}.png`, url: `image-asset://snapshot/${'a'.repeat(64)}.png`, size: 100, width: 400, height: 300, mimeType: 'image/png' }
   }
-  it('saves one result, publishes receipt revisions and prevents a second durable claim', async () => {
+  it.each(['image_show', 'image_generate'])('%s saves one result, publishes receipt revisions and prevents a second durable claim', async (toolName) => {
     const draft: MessageEntity = { id: 1, chatId: 1, chatUuid: 'chat-1', body: { role: 'assistant', content: '', segments: [] } }
     const entities = [draft]
     const responder = new ChatRenderResponder({ emit: vi.fn(), submissionId: 'run-image', setChatMeta: vi.fn() }, entities, draft)
     const event = { type: 'host.tool.result.available' as const, timestamp: 1, result: {
-      status: 'success' as const, stepId: 'step', toolCallId: 'image-call', toolCallIndex: 0, toolName: 'image_show', content, modelContent: 'Image prepared.'
+      status: 'success' as const, stepId: 'step', toolCallId: 'image-call', toolCallIndex: 0, toolName, content, modelContent: 'Image prepared.'
     } }
     await responder.handle(event)
     await responder.handle(event)

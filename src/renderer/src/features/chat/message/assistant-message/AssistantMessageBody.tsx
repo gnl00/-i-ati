@@ -1,4 +1,4 @@
-import { parseImageShowResult } from '@shared/tools/image/types'
+import { parseImageShowResult, isImageDisplayTool } from '@shared/tools/image/types'
 import { ImageShowResult } from './image/ImageShowResult'
 import React, { memo } from 'react'
 import { AssistantTextSegmentList } from './renderers/AssistantTextSegmentList'
@@ -41,7 +41,7 @@ export const AssistantMessageBody: React.FC<AssistantMessageBodyProps> = memo(({
   const hasError = transcript.supportItems.some(item => item.segment.type === 'error')
   const hasPendingTool = transcript.supportItems.some(item => item.segment.type === 'toolCall'
     && (!item.segment.content?.status || ['pending', 'running'].includes(item.segment.content.status)))
-  const hasShownImage = transcript.supportItems.some(item => item.segment.type === 'toolCall' && item.segment.name === 'image_show'
+  const hasShownImage = transcript.supportItems.some(item => item.segment.type === 'toolCall' && isImageDisplayTool(item.segment.name)
     && parseImageShowResult(item.segment.content?.result))
   let status = model.workStatus ?? 'completed'
   if (hasError) status = 'failed'
@@ -62,7 +62,7 @@ export const AssistantMessageBody: React.FC<AssistantMessageBodyProps> = memo(({
           items={answerText}
           isOverlayPreview={transcript.isOverlayPreview}
         />
-        {transcript.supportItems.filter(item => item.segment.type === 'toolCall' && item.segment.name === 'image_show')
+        {transcript.supportItems.filter(item => item.segment.type === 'toolCall' && isImageDisplayTool(item.segment.name))
           .map(item => <ImageShowResult key={item.key} toolCall={item.segment as ToolCallSegment} />)}
         {transcript.supportItems.length > 0 && (
           <div style={{ order: -1 }}>

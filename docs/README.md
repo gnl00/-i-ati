@@ -36,6 +36,7 @@ retired implementation records belong in archive.
 
 - [Renderer architecture](architecture/renderer-architecture.md)
 - [Main-process architecture](architecture/main-process-architecture.md)
+- [Image generation](architecture/image-generation.md)
 - [Agent runtime](architecture/agent-runtime/README.md)
 - [Chat runtime](architecture/chat-runtime-architecture-current.md)
 - [Chat transcript scrolling](architecture/chat-transcript-scrolling.md)

@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { toast } from 'sonner'
 import { createRendererLogger } from '@renderer/shared/logging/rendererLogger'
 import type { RemotePluginCatalogItem } from '@shared/plugins/remoteRegistry'
-import { isModelRefAvailable, isVisionModelRefAvailable } from '@shared/services/ChatModelResolver'
+import { isModelRefAvailable, isVisionModelRefAvailable, isImageGenModelRefAvailable } from '@shared/services/ChatModelResolver'
 import { defaultConfig } from '@renderer/shared/config'
 import type { ModelOption } from '@renderer/shared/config/modelTypes'
 import { getConfig, initConfig, saveConfig } from '@renderer/infrastructure/persistence/ConfigRepository'
@@ -214,6 +214,7 @@ type ModelSlotCleanupState = {
   mainModel: ModelRef | undefined
   liteModel: ModelRef | undefined
   visionModel: ModelRef | undefined
+  imageGenModel: ModelRef | undefined
 }
 
 type ModelSlotCleanupResult = {
@@ -221,6 +222,7 @@ type ModelSlotCleanupResult = {
   mainModel: ModelRef | undefined
   liteModel: ModelRef | undefined
   visionModel: ModelRef | undefined
+  imageGenModel: ModelRef | undefined
   changed: boolean
 }
 
@@ -264,7 +266,8 @@ const cleanupModelSlotsForProviderState = (
     ...currentTools,
     mainModel: state.mainModel,
     liteModel: state.liteModel,
-    visionModel: state.visionModel
+    visionModel: state.visionModel,
+    imageGenModel: state.imageGenModel
   }
   const availabilityConfig: IAppConfig = {
     ...state.appConfig,
@@ -281,18 +284,24 @@ const cleanupModelSlotsForProviderState = (
   const visionModel = isVisionModelSlotAvailable(availabilityConfig, state.visionModel)
     ? state.visionModel
     : undefined
+  const imageGenModel = isImageGenModelRefAvailable(availabilityConfig, state.imageGenModel)
+    ? state.imageGenModel
+    : undefined
   const nextTools = {
     ...currentTools,
     mainModel,
     liteModel,
-    visionModel
+    visionModel,
+    imageGenModel
   }
   const changed = !areModelRefsEqual(state.mainModel, mainModel)
     || !areModelRefsEqual(state.liteModel, liteModel)
     || !areModelRefsEqual(state.visionModel, visionModel)
+    || !areModelRefsEqual(state.imageGenModel, imageGenModel)
     || !areModelRefsEqual(currentTools.mainModel, mainModel)
     || !areModelRefsEqual(currentTools.liteModel, liteModel)
     || !areModelRefsEqual(currentTools.visionModel, visionModel)
+    || !areModelRefsEqual(currentTools.imageGenModel, imageGenModel)
 
   return {
     appConfig: changed
@@ -304,6 +313,7 @@ const cleanupModelSlotsForProviderState = (
     mainModel,
     liteModel,
     visionModel,
+    imageGenModel,
     changed
   }
 }
@@ -340,6 +350,7 @@ type AppConfigState = {
   mainModel: ModelRef | undefined
   liteModel: ModelRef | undefined
   visionModel: ModelRef | undefined
+  imageGenModel: ModelRef | undefined
   memoryEnabled: boolean
   streamChunkDebugEnabled: boolean
   mcpServerConfig: McpServerConfig
@@ -387,6 +398,7 @@ type AppConfigAction = {
   setMainModel: (modelRef: ModelRef | undefined) => void
   setLiteModel: (modelRef: ModelRef | undefined) => void
   setVisionModel: (modelRef: ModelRef | undefined) => void
+  setImageGenModel: (modelRef: ModelRef | undefined) => void
   setMemoryEnabled: (state: boolean) => void
   setStreamChunkDebugEnabled: (state: boolean) => void
   setMcpServerConfig: (config: McpServerConfig) => void
@@ -415,6 +427,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   // State - Tool settings
   liteModel: defaultConfig.tools?.liteModel || undefined,
   visionModel: defaultConfig.tools?.visionModel || undefined,
+  imageGenModel: defaultConfig.tools?.imageGenModel || undefined,
   memoryEnabled: defaultConfig.tools?.memoryEnabled ?? true,
   streamChunkDebugEnabled: defaultConfig.tools?.streamChunkDebugEnabled ?? false,
   mcpServerConfig: { mcpServers: {} },
@@ -451,6 +464,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
       mainModel: config.tools?.mainModel || undefined,
       liteModel: config.tools?.liteModel || undefined,
       visionModel: config.tools?.visionModel || undefined,
+      imageGenModel: config.tools?.imageGenModel || undefined,
       memoryEnabled: config.tools?.memoryEnabled ?? true,
       streamChunkDebugEnabled: config.tools?.streamChunkDebugEnabled ?? false,
       knowledgebase: nextKnowledgebase,
@@ -509,6 +523,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
       mainModel: nextConfig.tools?.mainModel || undefined,
       liteModel: nextConfig.tools?.liteModel || undefined,
       visionModel: nextConfig.tools?.visionModel || undefined,
+      imageGenModel: nextConfig.tools?.imageGenModel || undefined,
       memoryEnabled: nextConfig.tools?.memoryEnabled ?? true,
       streamChunkDebugEnabled: nextConfig.tools?.streamChunkDebugEnabled ?? false,
       knowledgebase: nextConfig.knowledgebase,
@@ -550,6 +565,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
           mainModel: cleanup.mainModel,
           liteModel: cleanup.liteModel,
           visionModel: cleanup.visionModel,
+          imageGenModel: cleanup.imageGenModel,
           providersRevision: state.providersRevision + 1
         }
       })()
@@ -573,6 +589,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
           mainModel: cleanup.mainModel,
           liteModel: cleanup.liteModel,
           visionModel: cleanup.visionModel,
+          imageGenModel: cleanup.imageGenModel,
           providersRevision: state.providersRevision + 1
         }
       })()
@@ -703,6 +720,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
         mainModel: cleanup.mainModel,
         liteModel: cleanup.liteModel,
         visionModel: cleanup.visionModel,
+        imageGenModel: cleanup.imageGenModel,
         providersRevision: state.providersRevision + 1
       }
     })
@@ -760,6 +778,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
         mainModel: cleanup.mainModel,
         liteModel: cleanup.liteModel,
         visionModel: cleanup.visionModel,
+        imageGenModel: cleanup.imageGenModel,
         providersRevision: state.providersRevision + 1
       }
     })
@@ -790,6 +809,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
         mainModel: cleanup.mainModel,
         liteModel: cleanup.liteModel,
         visionModel: cleanup.visionModel,
+        imageGenModel: cleanup.imageGenModel,
         providersRevision: state.providersRevision + 1
       }
     })
@@ -831,6 +851,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
         mainModel: cleanup.mainModel,
         liteModel: cleanup.liteModel,
         visionModel: cleanup.visionModel,
+        imageGenModel: cleanup.imageGenModel,
         providersRevision: state.providersRevision + 1
       }
     })
@@ -846,6 +867,7 @@ export const useAppConfigStore = create<AppConfigState & AppConfigAction>((set, 
   setMainModel: (modelRef) => set({ mainModel: modelRef }),
   setLiteModel: (modelRef) => set({ liteModel: modelRef }),
   setVisionModel: (modelRef) => set({ visionModel: modelRef }),
+  setImageGenModel: (modelRef): void => set({ imageGenModel: modelRef }),
   setMemoryEnabled: (state) => set({ memoryEnabled: state }),
   setStreamChunkDebugEnabled: (state) => set({ streamChunkDebugEnabled: state }),
   setMcpServerConfig: (config) => set({ mcpServerConfig: config }),

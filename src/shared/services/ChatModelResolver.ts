@@ -174,3 +174,12 @@ export const resolveExistingChatModelRef = (
     ?? resolveHistoryChatModelRef(config, messages)
     ?? resolveNewChatModelRef(config)
 }
+
+export const isImageGenModel = (model: AccountModel): boolean => (
+  model.enabled !== false && model.type === 'img_gen'
+)
+
+export const isImageGenModelRefAvailable = (config: IAppConfig, ref?: ModelRef): boolean => {
+  const context = findAvailableModelByRef(config, ref)
+  return Boolean(context && isImageGenModel(context.model))
+}

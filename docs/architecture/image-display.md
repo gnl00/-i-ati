@@ -2,6 +2,10 @@
 
 `image_show` presents one image from exactly one `file` or `url`, with an optional
 plain-text `caption` (1024 characters). It is distinct from `image_analyze`.
+`image_generate` also produces this display payload after generating an image.
+See [Image generation](image-generation.md) for its explicit model route and
+provider contract. Both tools share snapshot ownership and delivery receipts.
+
 Files use the existing workspace-relative resolver and trusted execution-context
 chat UUID. URLs must use HTTP(S), with no embedded credentials. Downloads have a
 30-second timeout and a 50 MiB streaming limit. PNG, JPEG, WebP and GIF signatures

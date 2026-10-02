@@ -1,5 +1,5 @@
 import { chatDb } from '@main/db/chat'
-import { parseImageShowResult } from '@shared/tools/image/types'
+import { parseImageShowResult, isImageDisplayTool } from '@shared/tools/image/types'
 import { assertMessageEntitySegmentsHaveIds } from '@shared/chat/segmentId'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 import {
@@ -152,7 +152,7 @@ export class ChatRenderOutput {
   }
 
   async appendToolResult(result: ToolResultFact): Promise<string> {
-    if (result.toolName === 'image_show') {
+    if (isImageDisplayTool(result.toolName)) {
       const existing = this.messageEntities.find(message => message.body.role === 'tool'
         && message.body.name === result.toolName && message.body.toolCallId === result.toolCallId)
       if (existing) return projectToolResultContentForDisplay({ content: existing.body.content })
@@ -179,7 +179,7 @@ export class ChatRenderOutput {
     this.messageEntities.push(entity)
 
     this.messageEvents.emitToolResultAttached(result.toolCallId, entity)
-    if (result.toolName === 'image_show' && parseImageShowResult(result.content)) {
+    if (isImageDisplayTool(result.toolName) && parseImageShowResult(result.content)) {
       this.messageEvents.emitMessageCreated(entity)
     }
 
@@ -188,7 +188,7 @@ export class ChatRenderOutput {
 
   updateToolResult(toolCallId: string, content: unknown): boolean {
     const entity = this.messageEntities.find(message => message.body.role === 'tool'
-      && message.body.name === 'image_show' && message.body.toolCallId === toolCallId)
+      && isImageDisplayTool(message.body.name) && message.body.toolCallId === toolCallId)
     const previous = parseImageShowResult(entity?.body.content)
     const next = parseImageShowResult(content)
     if (!entity || entity.id == null || !previous || !next || previous.image.assetId !== next.image.assetId) {

@@ -331,3 +331,23 @@ describe('infrastructure appConfig provider persistence', () => {
     )
   })
 })
+
+
+describe('image generation model routing', () => {
+  it('saves and reloads an explicit image route and clears it when the model is disabled', async () => {
+    const { useAppConfigStore } = await import('../appConfig')
+    const ref = { accountId: 'images', modelId: 'image-model' }
+    const definition = { ...createProviderDefinition('image-provider'), adapterPluginId: 'openai-image-compatible-adapter' }
+    const account = createAccount('images', definition.id, [createModel('image-model', { type: 'img_gen' })])
+    useAppConfigStore.setState({ appConfig: { tools: {} }, accounts: [account], providerDefinitions: [definition], imageGenModel: undefined })
+    useAppConfigStore.getState().setImageGenModel(ref)
+    expect(useAppConfigStore.getState().imageGenModel).toEqual(ref)
+    await useAppConfigStore.getState().setAppConfig({ accounts: [account], providerDefinitions: [definition], tools: { imageGenModel: ref } })
+    expect(useAppConfigStore.getState().appConfig.tools?.imageGenModel).toEqual(ref)
+    expect(useAppConfigStore.getState().imageGenModel).toEqual(ref)
+    useAppConfigStore.getState().toggleModelEnabled('images', 'image-model')
+    expect(useAppConfigStore.getState().imageGenModel).toBeUndefined()
+    expect(useAppConfigStore.getState().appConfig.tools?.imageGenModel).toBeUndefined()
+    await vi.waitFor(() => expect(invokeDbConfigSaveMock.mock.calls.at(-1)?.[0].tools?.imageGenModel).toBeUndefined())
+  })
+})
