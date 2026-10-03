@@ -16,31 +16,43 @@ const NOISE_LINE = /^(分享到|广告|推广|Copyright|©|版权所有|备案�
 // 混排页脚里已知分隔符后的版权/备案尾巴，仅做精确尾清理，不用裸 .*$
 const TRAILING_FOOTER = /\s*[|｜·•]\s*(Copyright|©|版权所有|备案号).*$/i
 
-function normalizeLines(text: string): string[] {
-  return text
-    .replace(/\r\n/g, '\n')
-    .replace(/[ \t]+/g, ' ')
-    .split('\n')
-    .map(l => l.trim())
+function cleanLines(text: string, lite: boolean): string {
+  let fence: { marker: string; length: number } | undefined
+  const lines: string[] = []
+  for (const line of text.replace(/\r\n?/g, '\n').split('\n')) {
+    const match = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line)
+    if (fence) {
+      lines.push(line)
+      if (match && match[1][0] === fence.marker && match[1].length >= fence.length && !match[2].trim()) {
+        fence = undefined
+      }
+      continue
+    }
+    if (match) {
+      fence = { marker: match[1][0], length: match[1].length }
+      lines.push(line)
+      continue
+    }
+    // Preserve indentation and spacing in source files and Markdown code/lists.
+    if (/^[ \t]+\S/.test(line)) {
+      lines.push(line)
+      continue
+    }
+    const cleaned = lite ? line.replace(TRAILING_FOOTER, '').trim() : line.trimEnd()
+    if (lite && NOISE_LINE.test(cleaned)) continue
+    lines.push(cleaned)
+  }
+  while (lines.length && !lines[0].trim()) lines.shift()
+  while (lines.length && !lines[lines.length - 1].trim()) lines.pop()
+  return lines.join('\n')
 }
 
 export function postCleanLite(text: string): string {
-  return normalizeLines(text)
-    .filter(l => l.length > 0)
-    .filter(l => !NOISE_LINE.test(l))
-    .map(l => l.replace(TRAILING_FOOTER, '').trim())
-    .filter(l => l.length > 0)
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
+  return cleanLines(text, true)
 }
 
 export function postCleanFull(text: string): string {
-  return normalizeLines(text)
-    .filter(l => l.length > 0)
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
+  return cleanLines(text, false)
 }
 
 export function postClean(text: string, mode: CleanMode): string {

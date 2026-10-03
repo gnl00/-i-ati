@@ -86,12 +86,14 @@ class BrowserWindowPool {
    * Acquire a search window from the pool.
    * 先获取信号量 permit（容量 = 池大小，满则排队），再取空闲窗口。
    */
-  async acquireSearchWindow(): Promise<BrowserWindow> {
+  async acquireSearchWindow(signal?: AbortSignal): Promise<BrowserWindow> {
+    signal?.throwIfAborted()
     if (!this.isInitialized) {
       await this.initialize()
     }
-    await this.searchSem.acquire()
+    await this.searchSem.acquire(signal)
     try {
+      signal?.throwIfAborted()
       return this.checkoutWindow(this.searchWindows, () => this.createSearchWindow())
     } catch (err) {
       this.searchSem.release()
@@ -102,12 +104,14 @@ class BrowserWindowPool {
   /**
    * Acquire a content window from the pool.
    */
-  async acquireContentWindow(): Promise<BrowserWindow> {
+  async acquireContentWindow(signal?: AbortSignal): Promise<BrowserWindow> {
+    signal?.throwIfAborted()
     if (!this.isInitialized) {
       await this.initialize()
     }
-    await this.contentSem.acquire()
+    await this.contentSem.acquire(signal)
     try {
+      signal?.throwIfAborted()
       return this.checkoutWindow(this.contentWindows, () => this.createContentWindow())
     } catch (err) {
       this.contentSem.release()
@@ -173,6 +177,11 @@ class BrowserWindowPool {
     // 对 checkoutWindow 的 find(w => !w.inUse) 不可见，避免并发 acquirer 选中一个
     // 仍在导航 about:blank 的窗口后 loadURL(realUrl) 竞态导致 ERR_ABORTED。
     await this.clearWindowState(window)
+    if (window.isDestroyed()) {
+      const currentIndex = pool.indexOf(pooled)
+      if (currentIndex !== -1) pool.splice(currentIndex, 1)
+      return
+    }
     pooled.inUse = false
     pooled.lastUsedAt = Date.now()
   }
@@ -183,22 +192,29 @@ class BrowserWindowPool {
   private async clearWindowState(window: BrowserWindow): Promise<void> {
     if (window.isDestroyed()) return
 
+    let timer: NodeJS.Timeout | undefined
     try {
       window.webContents.stop()
       // 等待 about:blank 加载完成再放行，避免与下一次 loadURL(realUrl) 竞态导致 ERR_ABORTED
       await Promise.race([
-        window.loadURL('about:blank').catch(() => {}),
-        new Promise<void>(resolve =>
-          setTimeout(() => {
-            // 超时放行前先中止未完成的 about:blank 导航，否则下次 loadURL(realUrl)
-            // 仍会与飞行中的导航竞态（Bing 路径不恢复 ERR_ABORTED，会直接失败）。
-            if (!window.isDestroyed()) window.webContents.stop()
+        window.loadURL('about:blank'),
+        new Promise<void>(resolve => {
+          timer = setTimeout(() => {
+            // A window that cannot navigate to blank may have a stuck renderer.
+            // Retire it instead of passing pending work to the next borrower.
+            if (!window.isDestroyed()) {
+              window.webContents.stop()
+              window.destroy()
+            }
             resolve()
           }, CLEAR_STATE_TIMEOUT)
-        )
+        })
       ])
     } catch (err) {
       logger.error('clear_window_state.failed', err)
+      if (!window.isDestroyed()) window.destroy()
+    } finally {
+      if (timer) clearTimeout(timer)
     }
   }
 

@@ -13,6 +13,7 @@ export interface WebSearchResultV2 {
   snippet: string     // 从 Bing 搜索结果提取
   content: string     // 完整抓取内容
   artifact?: WebFetchArtifact
+  contentStatus?: 'not_requested' | 'fetched' | 'failed' | 'blocked'
   error?: string      // 失败时的错误信息
 }
 

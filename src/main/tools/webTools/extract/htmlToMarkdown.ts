@@ -10,7 +10,7 @@ export type { CleanMode }
 /**
  * 创建并配置 Turndown 实例
  */
-export function createTurndownService(mode: CleanMode): TurndownService {
+export function createTurndownService(): TurndownService {
   const turndownService = new TurndownService({
     headingStyle: 'atx',
     codeBlockStyle: 'fenced',
@@ -31,18 +31,18 @@ export function createTurndownService(mode: CleanMode): TurndownService {
     replacement: () => ''
   })
 
-  if (mode === 'lite') {
-    turndownService.addRule('trimLongCodeBlocks', {
-      filter: (node) => node.nodeName === 'PRE',
-      replacement: (content) => {
-        const trimmed = content.trim()
-        if (trimmed.length > 4000) {
-          return `${trimmed.slice(0, 4000)}\n...`
-        }
-        return `\n\n${trimmed}\n\n`
-      }
-    })
-  }
+  turndownService.addRule('fencedPreformattedCode', {
+    filter: 'pre',
+    replacement: (_content, node) => {
+      const code = node.querySelector('code')
+      const text = (code?.textContent ?? node.textContent ?? '').replace(/\r\n?/g, '\n')
+      const classes = code?.getAttribute('class') || node.parentElement?.getAttribute('class') || ''
+      const language = /(?:language|highlight)-([\w+-]+)/.exec(classes)?.[1] || ''
+      const runs = text.match(/`{3,}/g) || []
+      const fence = '`'.repeat(Math.max(3, ...runs.map(run => run.length + 1)))
+      return `\n\n${fence}${language}\n${text}${text.endsWith('\n') ? '' : '\n'}${fence}\n\n`
+    }
+  })
 
   return turndownService
 }
@@ -50,9 +50,9 @@ export function createTurndownService(mode: CleanMode): TurndownService {
 /**
  * 将（已抽取的）HTML 片段转换为 Markdown。转换失败时降级为纯文本。
  */
-export function convertHtmlToMarkdown(html: string, mode: CleanMode): string {
+export function convertHtmlToMarkdown(html: string): string {
   try {
-    return createTurndownService(mode).turndown(html)
+    return createTurndownService().turndown(html)
   } catch (error) {
     logger.error('turndown_convert.failed', error)
     const $ = cheerio.load(html)

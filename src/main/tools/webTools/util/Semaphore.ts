@@ -12,12 +12,24 @@ export class Semaphore {
     this.permits = Math.max(0, permits)
   }
 
-  async acquire(): Promise<void> {
+  async acquire(signal?: AbortSignal): Promise<void> {
+    signal?.throwIfAborted()
     if (this.permits > 0) {
       this.permits--
       return
     }
-    await new Promise<void>(resolve => this.waiters.push(resolve))
+    await new Promise<void>((resolve, reject) => {
+      const wake = (): void => {
+        signal?.removeEventListener('abort', onAbort)
+        resolve()
+      }
+      const onAbort = (): void => {
+        this.waiters = this.waiters.filter(waiter => waiter !== wake)
+        reject(signal?.reason ?? new Error('Operation aborted'))
+      }
+      signal?.addEventListener('abort', onAbort, { once: true })
+      this.waiters.push(wake)
+    })
   }
 
   release(): void {

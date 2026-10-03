@@ -12,7 +12,7 @@ import { waitForCondition } from '../util/waitForCondition'
 import { downloadViaHttp } from '../http/HttpFetcher'
 import { WEB_FETCH_DOWNLOAD_MAX_BYTES } from '../artifacts/constants'
 import { postCleanLite, postCleanFull } from '../extract/postClean'
-import { extractMainHtml } from '../extract/ContentExtractor'
+import { assertUsableWebContent, extractMainHtml, extractCleanContent } from '../extract/ContentExtractor'
 import { bingSearchEngine } from '../search-engine/bing'
 import { duckDuckGoSearchEngine } from '../search-engine/duckduckgo'
 import { resolveSearchEngine } from '../search-engine'
@@ -303,7 +303,36 @@ describe('downloadViaHttp', () => {
     await rm(root, { recursive: true, force: true })
   })
 
-  it('throws and cancels the reader when the signal is already aborted', async () => {
+  it('cancels a stalled body read and removes the spool promptly', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'ati-http-stalled-read-'))
+    const path = join(root, 'response.part')
+    await writeFile(path, '')
+    const controller = new AbortController()
+    let started!: () => void
+    const ready = new Promise<void>(resolve => { started = resolve })
+    const cancel = vi.fn(async () => {})
+    const read = vi.fn((): Promise<never> => {
+      started()
+      return new Promise(() => {})
+    })
+    const reader = { read, cancel }
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      body: { getReader: (): typeof reader => reader },
+      headers: new Headers(), ok: true, status: 200, url: 'https://example.com/'
+    })))
+    const downloading = downloadViaHttp('https://example.com/', 'agent', {
+      absolutePath: path, relativePath: '.tmp/web-fetch/stalled.tmp'
+    }, controller.signal)
+    const rejected = expect(downloading).rejects.toThrow('Fetch aborted')
+    await ready
+    controller.abort()
+    await rejected
+    expect(cancel).toHaveBeenCalled()
+    await expect(readFile(path)).rejects.toMatchObject({ code: 'ENOENT' })
+    await rm(root, { recursive: true, force: true })
+  })
+
+  it('cleans the spool without issuing HTTP when already cancelled', async () => {
     const root = await mkdtemp(join(tmpdir(), 'ati-http-abort-'))
     const path = join(root, 'response.part')
     await writeFile(path, '')
@@ -325,9 +354,28 @@ describe('downloadViaHttp', () => {
       relativePath: '.tmp/web-fetch/response.part'
     }, controller.signal)).rejects.toThrow('Fetch aborted')
     expect(read).not.toHaveBeenCalled()
-    expect(cancel).toHaveBeenCalled()
+    expect(cancel).not.toHaveBeenCalled()
+    expect(fetch).not.toHaveBeenCalled()
     await expect(readFile(path)).rejects.toMatchObject({ code: 'ENOENT' })
     await rm(root, { recursive: true, force: true })
+  })
+})
+
+describe('Google extraction script', () => {
+  it('requires a result heading and shares readiness with extraction', async () => {
+    const { Window } = await import('happy-dom')
+    const { googleSearchEngine } = await import('../search-engine/google')
+    const window = new Window({ url: 'https://www.google.com/search?q=test' })
+    window.document.body.innerHTML = '<div id="search"><a href="https://google.com/preferences">Settings</a></div>'
+    expect(window.eval(googleSearchEngine.waitForResultsScript)).toBe(false)
+    window.document.querySelector('#search')!.innerHTML += `<div><a href="/url?q=https%3A%2F%2Freact.dev%2Freference%2Freact%2FuseEffect"><h3>useEffect</h3></a><div class="VwiC3b">Run cleanup before the next effect.</div></div><div><a href="/goto?url=opaque"><h3>Opaque result</h3></a></div><div><a href="https://notgoogle.com/page"><h3>Other site</h3></a></div>`
+    expect(window.eval(googleSearchEngine.waitForResultsScript)).toBe(true)
+    expect(window.eval(googleSearchEngine.buildExtractResultsScript(3))).toEqual([
+      { title: 'useEffect', link: 'https://react.dev/reference/react/useEffect', snippet: 'Run cleanup before the next effect.' },
+      { title: 'Opaque result', link: 'https://www.google.com/goto?url=opaque', snippet: '' },
+      { title: 'Other site', link: 'https://notgoogle.com/page', snippet: '' }
+    ])
+    window.close()
   })
 })
 
@@ -377,9 +425,32 @@ describe('postClean', () => {
     expect(out).not.toContain('关注我们')
   })
 
-  it('full mode drops empty lines but keeps every non-empty line', () => {
+  it('full mode preserves paragraph boundaries', () => {
     const out = postCleanFull('a\n\n\nb\nc')
-    expect(out).toBe('a\nb\nc')
+    expect(out).toBe('a\n\n\nb\nc')
+  })
+})
+
+describe('code formatting', () => {
+  it.each(['lite', 'full'] as const)('preserves fenced source in %s mode', mode => {
+    const source = '```python\nif True:\n    print("a  b")\n\nCopyright = "code"\n```'
+    const clean = mode === 'lite' ? postCleanLite : postCleanFull
+    expect(clean(source)).toBe(source)
+    expect(clean('if True:\n    print("a  b")')).toBe('if True:\n    print("a  b")')
+    expect(clean('~~~js\n\tconst value = 1\n~~~')).toBe('~~~js\n\tconst value = 1\n~~~')
+  })
+
+  it.each(['lite', 'full'] as const)('preserves syntax-highlighted pre without a code child in %s mode', mode => {
+    const { text } = extractCleanContent('<div class="highlight-python"><pre><span>&gt;&gt;&gt; </span>if True:\n    print("a  b")\n\n    # ``` embedded fence\n</pre></div>', mode)
+    expect(text).toBe('````python\n>>> if True:\n    print("a  b")\n\n    # ``` embedded fence\n````')
+  })
+
+  it.each(['lite', 'full'] as const)('retains complete HTML code blocks in %s mode', mode => {
+    const source = 'if True:\n    print("a  b")\n\n' + '# comment\n'.repeat(600)
+    const result = extractCleanContent(`<article><pre><code class="language-python">${source}</code></pre></article>`, mode)
+    expect(result.text).toContain('```python\nif True:\n    print("a  b")\n\n')
+    expect(result.text.match(/# comment/g)).toHaveLength(600)
+    expect(result.text).toMatch(/```$/)
   })
 })
 
@@ -392,6 +463,23 @@ describe('extractMainHtml', () => {
       </body></html>`
     const { html: main } = extractMainHtml(html)
     expect(main).toContain('这是正文段落')
+  })
+
+  it('selects a nested article instead of a much larger guide shell', () => {
+    const { html } = extractMainHtml(`<main><div>${'Guide contents '.repeat(1000)}</div><article><h1>Actual article</h1><p>${'Article text. '.repeat(30)}</p></article></main>`)
+    expect(html).toContain('Actual article')
+    expect(html).not.toContain('Guide contents')
+  })
+
+  it('selects Apple guide article-section instead of the body TOC', () => {
+    const { html } = extractMainHtml(`<div class="main"><div>${'Guide contents '.repeat(1000)}</div><div id="article-section"><div class="book-content"><h1>Actual article</h1><p>${'Article text. '.repeat(30)}</p></div></div></div>`)
+    expect(html).toContain('Actual article')
+    expect(html).not.toContain('Guide contents')
+  })
+
+  it('keeps a documentation main when it contains no qualifying article', () => {
+    const { html } = extractMainHtml(`<main><h1>Documentation</h1><article>Small teaser</article><p>${'Documentation text. '.repeat(30)}</p></main>`)
+    expect(html).toContain('Documentation text')
   })
 
   it('does not remove content whose class merely contains the substring "hot"', () => {
@@ -456,4 +544,17 @@ describe('web_fetch inline budgets', () => {
       }
     }
   )
+})
+
+
+describe('web content validity', () => {
+  it('accepts short useful text and articles discussing verification', () => {
+    expect(() => assertUsableWebContent('OK', 'Health status')).not.toThrow()
+    expect(() => assertUsableWebContent('This guide explains how to verify you are human.', 'Browser guide')).not.toThrow()
+  })
+
+  it('rejects empty content and explicit blocking pages', () => {
+    expect(() => assertUsableWebContent('  ')).toThrow('WEB_FETCH_EMPTY_CONTENT')
+    expect(() => assertUsableWebContent('Verify you are human to continue.', 'Security verification')).toThrow('WEB_FETCH_BLOCKED_PAGE')
+  })
 })

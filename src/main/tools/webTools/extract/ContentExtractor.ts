@@ -47,6 +47,8 @@ const CANDIDATE_SELECTORS = [
   '.post-content',
   '.entry-content',
   '.article-content',
+  '#article-section',
+  '.book-content',
   '.article',
   '.post',
   '.content',
@@ -55,14 +57,14 @@ const CANDIDATE_SELECTORS = [
   '#main'
 ]
 
-const SEMANTIC_BOOST = new Set(['article', 'main'])
+const ARTICLE_SELECTORS = 'article, [itemprop="articleBody"], [data-testid="article-body"], [data-content="article"], .post-content, .entry-content, .article-content, #article-section, .book-content'
 const MIN_CONTAINER_TEXT = 200
 
 /**
  * 从完整 HTML 中抽取正文容器的 HTML 与页面标题。只 load 一次 cheerio。
  *
  * 选容器策略：不再「第一个命中即用」（易选到空壳 <main>），而是对所有候选按
- * 「文本量 × (1 - 链接密度) + 段落数加权」评分，取最高分容器，无合格候选退 body。
+ * 优先独立正文，排除包含合格正文的目录外壳；同层候选按文本量、链接密度与段落数评分。
  */
 export function extractMainHtml(html: string): { title: string; html: string } {
   const $ = cheerio.load(html)
@@ -78,8 +80,9 @@ export function extractMainHtml(html: string): { title: string; html: string } {
   })
 
   // 3) 评分选容器
-  let best: { el: any; score: number } | null = null
-  const consider = (el: any, tag: string): void => {
+  type Node = Parameters<typeof cheerio.contains>[0]
+  let best: { el: Node; score: number } | null = null
+  const consider = (el: Node, tag: string): void => {
     const $el = $(el)
     const text = $el.text().replace(/\s+/g, ' ').trim()
     const textLen = text.length
@@ -88,15 +91,18 @@ export function extractMainHtml(html: string): { title: string; html: string } {
     const linkDensity = textLen ? Math.min(linkLen / textLen, 1) : 1
     const pCount = $el.find('p').length
     let score = textLen * (1 - linkDensity) + pCount * 50
-    if (SEMANTIC_BOOST.has(tag)) score *= 1.2
+    // A qualifying article body outranks its surrounding main/TOC shell.
+    if ($el.is(ARTICLE_SELECTORS)) score *= 3
+    else if (tag === 'main') score *= 1.2
+    if ($el.find(ARTICLE_SELECTORS).toArray().some(child => $(child).text().trim().length >= MIN_CONTAINER_TEXT)) return
     if (!best || score > best.score) best = { el, score }
   }
 
   for (const selector of CANDIDATE_SELECTORS) {
-    $(selector).each((_, el) => consider(el, (el as any).tagName?.toLowerCase() || ''))
+    $(selector).each((_, el) => consider(el, 'tagName' in el ? el.tagName.toLowerCase() : ''))
   }
 
-  const target = best ? $((best as { el: any }).el) : $('body')
+  const target = best ? $((best as { el: Node }).el) : $('body')
   return { title, html: target.html() || '' }
 }
 
@@ -113,7 +119,7 @@ export function extractCleanContent(
 ): { title: string; text: string } {
   try {
     const { title, html: mainHtml } = extractMainHtml(html)
-    const markdown = convertHtmlToMarkdown(mainHtml, mode)
+    const markdown = convertHtmlToMarkdown(mainHtml)
     return {
       title: title || fallbackTitle,
       text: postClean(markdown, mode)
@@ -122,4 +128,21 @@ export function extractCleanContent(
     logger.error('extract_clean_content.failed', error)
     return { title: fallbackTitle, text: '' }
   }
+}
+
+/** Reject empty extractions and explicit interstitials without a minimum article length. */
+export function assertUsableWebContent(text: string, title = '', url = ''): void {
+  if (!text.trim()) throw new Error('WEB_FETCH_EMPTY_CONTENT')
+  let blockedUrl = false
+  try {
+    const parsed = new URL(url)
+    blockedUrl = /(^|\/)sorry(\/|$)/i.test(parsed.pathname)
+      && /(^|\.)google\.com$/i.test(parsed.hostname)
+  } catch {
+    // URL validation belongs to the transport.
+  }
+  const blockedTitle = /^(?:just a moment(?:\.\.\.)?|access denied|verify (?:you are human|your identity)|security (?:check|verification)|sign in|log in|登录|安全验证|访问被拒绝)[.!\s]*$/i.test(title.trim())
+  const blockedBody = text.length < 1000
+    && /(?:^|\n)\s*(?:#{1,6}\s*)?(?:verify you are human|checking your browser|our systems have detected unusual traffic|验证您是否是真人|验证您不是机器人)(?:\b|[。！\s])/i.test(text)
+  if (blockedUrl || blockedTitle || blockedBody) throw new Error('WEB_FETCH_BLOCKED_PAGE')
 }

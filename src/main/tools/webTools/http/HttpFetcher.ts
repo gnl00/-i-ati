@@ -61,18 +61,25 @@ async function writeResponseBody(
   spool: WebFetchSpoolFile,
   signal?: AbortSignal
 ): Promise<{ receivedBytes: number }> {
+  signal?.throwIfAborted()
   const handle = await open(spool.absolutePath, 'w')
   let receivedBytes = 0
   const body = response.body as ReadableStream<Uint8Array> | null
   const reader = body?.getReader()
+  let onAbort: (() => void) | undefined
+  const aborted = new Promise<never>((_, reject) => {
+    onAbort = (): void => reject(new Error('Fetch aborted'))
+    signal?.addEventListener('abort', onAbort, { once: true })
+  })
 
   try {
+    if (signal?.aborted) throw new Error('Fetch aborted')
     if (!reader) {
       const declared = declaredLength(response)
       if (declared !== undefined && declared > WEB_FETCH_DOWNLOAD_MAX_BYTES) {
         throw new WebFetchDownloadTooLargeError(declared)
       }
-      const bytes = new Uint8Array(await response.arrayBuffer())
+      const bytes = new Uint8Array(await Promise.race([response.arrayBuffer(), aborted]))
       if (bytes.length > WEB_FETCH_DOWNLOAD_MAX_BYTES) {
         throw new WebFetchDownloadTooLargeError(bytes.length)
       }
@@ -81,7 +88,7 @@ async function writeResponseBody(
     } else {
       for (;;) {
         if (signal?.aborted) throw new Error('Fetch aborted')
-        const { done, value } = await reader.read()
+        const { done, value } = await Promise.race([reader.read(), aborted])
         if (done) break
         if (!value?.length) continue
         receivedBytes += value.length
@@ -92,7 +99,8 @@ async function writeResponseBody(
       }
     }
   } finally {
-    await reader?.cancel().catch(() => {})
+    if (onAbort) signal?.removeEventListener('abort', onAbort)
+    void reader?.cancel().catch(() => {})
     await handle.close()
   }
 
@@ -105,6 +113,10 @@ export async function downloadViaHttp(
   spool: WebFetchSpoolFile,
   signal?: AbortSignal
 ): Promise<DownloadedHttpResponse> {
+  if (signal?.aborted) {
+    await rm(spool.absolutePath, { force: true })
+    throw new Error('Fetch aborted')
+  }
   const { fetchImpl, transport } = resolveDefaultHttpFetch()
   let response: Response
   const cleanupOnAbort = (): void => {

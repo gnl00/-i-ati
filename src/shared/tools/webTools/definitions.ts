@@ -5,7 +5,7 @@ export const webTools = [
     type: 'function',
     function: {
       name: 'web_search',
-      description: 'Perform a web search and return relevant results or summaries. Large text and fetched files are saved directly to .tmp/web-fetch/*.tmp with a file path, MIME, and a bounded summary. Inspect source files with a suitable workspace file-reading tool.',
+      description: 'Perform a web search and return titles, snippets, and links. Prefer snippetsOnly=true for initial discovery, then web_fetch selected URLs when full content is needed. Each result contentStatus distinguishes not_requested, fetched, failed, or blocked; search metadata can remain useful when fetching fails. Large text and fetched files are saved directly to .tmp/web-fetch/*.tmp with a file path, MIME, and a bounded summary. Inspect source files with a suitable workspace file-reading tool.',
       parameters: {
         type: 'object',
         properties: {

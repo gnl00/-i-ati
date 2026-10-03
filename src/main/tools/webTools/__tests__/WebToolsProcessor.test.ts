@@ -125,10 +125,20 @@ const irrelevantTimeResults = [
   }
 ]
 
-function createSearchWindow(snapshot: object, items: object[]): object {
+function createSearchWindow(snapshot: object, items: object[]): {
+  loadURL: ReturnType<typeof vi.fn<() => Promise<undefined>>>
+  isDestroyed: ReturnType<typeof vi.fn<() => boolean>>
+  destroy: ReturnType<typeof vi.fn>
+  webContents: {
+    executeJavaScript: ReturnType<typeof vi.fn<(script: string) => Promise<object | object[] | boolean>>>
+    getURL: ReturnType<typeof vi.fn<() => string>>
+    stop: ReturnType<typeof vi.fn>
+  }
+} {
   return {
     loadURL: vi.fn().mockResolvedValue(undefined),
     isDestroyed: vi.fn(() => false),
+    destroy: vi.fn(),
     webContents: {
       executeJavaScript: vi.fn(async (script: string) => {
         if (script.includes('bodyPreview')) return snapshot
@@ -154,6 +164,141 @@ describe('WebToolsProcessor', () => {
     await rm(userDataDir, { recursive: true, force: true })
   })
 
+  it.each([
+    { body: 'Useful example content. '.repeat(20), status: 'fetched', success: true },
+    { body: '', status: 'failed', success: false },
+    { body: '<html><title>Access denied</title><body>Request blocked.</body></html>', status: 'blocked', success: false }
+  ])('distinguishes $status content while retaining search metadata', async ({ body, status, success }) => {
+    const link = 'https://example.com/article.txt'
+    mocks.acquireSearchWindow.mockResolvedValueOnce(createSearchWindow(normalBingSnapshot, [
+      { link, title: 'Example article', snippet: 'Example search snippet' }
+    ]))
+    mocks.netFetch.mockResolvedValueOnce(new Response(body, { headers: { 'content-type': 'text/html' } }))
+    const result = await processWebSearch({ query: 'example' })
+    expect(result.success).toBe(true)
+    expect(result.results[0]).toMatchObject({
+      link, snippet: 'Example search snippet', contentStatus: status, success
+    })
+  })
+
+  it('deduplicates and orders sources before fetching content', async () => {
+    const links = [
+      'https://discussions.apple.com/thread/1',
+      'https://support.apple.com/en-au/guide/mac-help/article/mac',
+      'https://support.apple.com/en-tm/guide/mac-help/article/mac',
+      'https://support.apple.com/en-us/104984'
+    ]
+    mocks.acquireSearchWindow.mockResolvedValueOnce(createSearchWindow(normalBingSnapshot,
+      links.map(link => ({ link, title: 'Apple Time Machine backup', snippet: 'Apple backup documentation' }))
+    ))
+    mocks.netFetch.mockImplementation(async () => new Response('Useful backup content. '.repeat(20), {
+      headers: { 'content-type': 'text/plain' }
+    }))
+    const result = await processWebSearch({ query: 'Apple Time Machine backup', fetchCounts: 2 })
+    expect(result.results.map(item => item.link)).toEqual([links[1], links[3]])
+    expect(mocks.netFetch.mock.calls.map(call => call[0]).sort()).toEqual([links[1], links[3]].sort())
+  })
+
+  it('marks snippets as not requested without fetching content', async () => {
+    mocks.acquireSearchWindow.mockResolvedValueOnce(createSearchWindow(normalBingSnapshot, [
+      { link: 'https://example.com/article', title: 'Example article', snippet: 'Example search snippet' }
+    ]))
+    const result = await processWebSearch({ query: 'example', snippetsOnly: true })
+    expect(result.results[0]).toMatchObject({ success: true, contentStatus: 'not_requested', content: '' })
+    expect(mocks.netFetch).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    { html: '<body></body>', title: 'Empty page', error: 'WEB_FETCH_EMPTY_CONTENT' },
+    { html: '<body>Request blocked.</body>', title: 'Access denied', error: 'WEB_FETCH_BLOCKED_PAGE' }
+  ])('rejects $error after rendered extraction and returns the window', async ({ html, title, error }) => {
+    const url = 'https://example.com/rendered-page'
+    mocks.netFetch.mockResolvedValueOnce(new Response('short direct content', {
+      headers: { 'content-type': 'text/plain' }
+    }))
+    const window = {
+      loadURL: vi.fn(async () => {}),
+      isDestroyed: vi.fn(() => false),
+    destroy: vi.fn(),
+      webContents: {
+        stop: vi.fn(), getURL: vi.fn(() => url),
+        executeJavaScript: vi.fn(async (script: string) => script.includes('html:')
+          ? { html, title, finalUrl: url }
+          : 100)
+      }
+    }
+    mocks.acquireContentWindow.mockResolvedValueOnce(window)
+    expect(await processWebFetch({ url })).toMatchObject({ success: false, error })
+    expect(mocks.releaseContentWindow).toHaveBeenCalledWith(window)
+  })
+
+  it('retires an active rendered window when the run is cancelled and returns its permit', async () => {
+    const controller = new AbortController()
+    const url = 'https://example.com/rendered-page'
+    mocks.netFetch.mockResolvedValueOnce(new Response('short direct content'))
+    let started!: () => void
+    const ready = new Promise<void>(resolve => { started = resolve })
+    let destroyed = false
+    const window = {
+      loadURL: vi.fn((): Promise<never> => {
+        started()
+        return new Promise(() => {})
+      }),
+      isDestroyed: vi.fn(() => destroyed),
+      destroy: vi.fn(() => { destroyed = true }),
+      webContents: { stop: vi.fn() }
+    }
+    mocks.acquireContentWindow.mockResolvedValueOnce(window)
+    const fetching = processWebFetch({ url }, { signal: controller.signal })
+    await ready
+    controller.abort(new Error('Run stopped'))
+    expect(await fetching).toMatchObject({ success: false, error: 'Run stopped' })
+    await vi.waitFor(() => expect(mocks.releaseContentWindow).toHaveBeenCalledWith(window))
+    expect(window.destroy).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects empty direct text instead of returning successful empty content', async () => {
+    mocks.netFetch.mockResolvedValueOnce(new Response('', {
+      headers: { 'content-type': 'text/plain' }
+    }))
+    const result = await processWebFetch({ url: 'https://example.com/empty.txt' })
+    expect(result).toMatchObject({ success: false, error: 'WEB_FETCH_EMPTY_CONTENT' })
+    expect(mocks.acquireContentWindow).not.toHaveBeenCalled()
+  })
+
+  it('rejects a verification page even when its body is large enough for an artifact', async () => {
+    mocks.netFetch.mockResolvedValueOnce(new Response(
+      `<html><title>Just a moment...</title><body>${'Checking your browser. '.repeat(2000)}</body></html>`,
+      { headers: { 'content-type': 'text/html' } }
+    ))
+    const result = await processWebFetch({ url: 'https://example.com/check.txt' })
+    expect(result).toMatchObject({ success: false, error: 'WEB_FETCH_BLOCKED_PAGE' })
+    const workspace = new WorkspaceWebFetchArtifactService()
+    const probe = await workspace.allocateSpool()
+    await workspace.cleanupSpool(probe)
+    expect(await readdir(join(probe.absolutePath, '..'))).toEqual([])
+  })
+
+  it('propagates run cancellation to the active direct HTTP request', async () => {
+    const controller = new AbortController()
+    let started!: () => void
+    const ready = new Promise<void>(resolve => { started = resolve })
+    let transportSignal: AbortSignal | undefined
+    mocks.netFetch.mockImplementationOnce((_url, options) => {
+      transportSignal = options.signal
+      started()
+      return new Promise((_resolve, reject) => {
+        transportSignal!.addEventListener('abort', () => reject(transportSignal!.reason), { once: true })
+      })
+    })
+    const fetching = processWebFetch({ url: 'https://example.com/article' }, { signal: controller.signal })
+    await ready
+    controller.abort(new Error('Run stopped'))
+    expect(await fetching).toMatchObject({ success: false, error: 'Run stopped' })
+    expect(transportSignal?.aborted).toBe(true)
+    expect(mocks.acquireContentWindow).not.toHaveBeenCalled()
+  })
+
   it('uses Electron net.fetch for direct HTTP markdown URLs', async () => {
     mocks.netFetch.mockResolvedValue(new Response('# Title\n\nBody text', {
       status: 200,
@@ -176,7 +321,7 @@ describe('WebToolsProcessor', () => {
       success: true,
       url,
       title: 'README.md',
-      content: '# Title\nBody text'
+      content: '# Title\n\nBody text'
     })
   })
 
@@ -358,6 +503,39 @@ describe('WebToolsProcessor', () => {
 })
 
 describe('web search quality gate', () => {
+  it('bounds a stuck search navigation and releases the search window', async () => {
+    vi.useFakeTimers()
+    try {
+      const window = createSearchWindow(normalBingSnapshot, [])
+      window.loadURL.mockReturnValue(new Promise<undefined>(() => {}))
+      mocks.acquireSearchWindow.mockResolvedValueOnce(window)
+      const result = processWebSearch({ query: 'Time Machine', snippetsOnly: true })
+      await vi.advanceTimersByTimeAsync(23000)
+      expect(await result).toMatchObject({ success: false, error: 'Timeout loading search page' })
+      expect(mocks.releaseSearchWindow).toHaveBeenCalledWith(window)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('stops and releases the search window on run cancellation', async () => {
+    const controller = new AbortController()
+    const window = createSearchWindow(normalBingSnapshot, [])
+    let started!: () => void
+    const ready = new Promise<void>(resolve => { started = resolve })
+    window.loadURL.mockImplementation(() => {
+      started()
+      return new Promise<undefined>(() => {})
+    })
+    mocks.acquireSearchWindow.mockResolvedValueOnce(window)
+    const search = processWebSearch({ query: 'Time Machine' }, { signal: controller.signal })
+    await ready
+    controller.abort(new Error('Run stopped'))
+    expect(await search).toMatchObject({ success: false, error: 'Run stopped' })
+    await vi.waitFor(() => expect(mocks.releaseSearchWindow).toHaveBeenCalledWith(window))
+    expect(window.webContents.stop).toHaveBeenCalled()
+  })
+
   const timeMachineQueries = [
     'Time Machine 备份磁盘 必须比 内置硬盘 大吗 要求 官方',
     'Time Machine backup disk must be at least as large as startup disk Apple requirement'
@@ -569,6 +747,27 @@ describe('withTimeout', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('does not start a task with an already cancelled parent', async () => {
+    const controller = new AbortController()
+    controller.abort(new Error('cancelled'))
+    const factory = vi.fn()
+    await expect(_withTimeout(factory, 1000, 'timeout', controller.signal)).rejects.toThrow('cancelled')
+    expect(factory).not.toHaveBeenCalled()
+  })
+
+  it('cancels a pending task immediately when its parent is aborted', async () => {
+    const controller = new AbortController()
+    let child!: AbortSignal
+    const task = _withTimeout(signal => {
+      child = signal
+      return new Promise(() => {})
+    }, 1000, 'timeout', controller.signal)
+    await Promise.resolve()
+    controller.abort(new Error('cancelled'))
+    await expect(task).rejects.toThrow('cancelled')
+    expect(child.aborted).toBe(true)
   })
 
   it('resolves with the factory result when it settles before the timeout', async () => {

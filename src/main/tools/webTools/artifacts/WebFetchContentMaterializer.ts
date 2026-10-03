@@ -1,6 +1,6 @@
-import { readFile } from 'fs/promises'
+import { open, readFile } from 'fs/promises'
 import { lookup as lookupMimeType } from 'mime-types'
-import { extractCleanContent } from '../extract/ContentExtractor'
+import { assertUsableWebContent, extractCleanContent } from '../extract/ContentExtractor'
 import { postClean, type CleanMode } from '../extract/postClean'
 import type { DownloadedHttpResponse } from '../http/HttpFetcher'
 import type { WebFetchArtifact } from '@tools/webTools/index.d'
@@ -162,7 +162,16 @@ export class WebFetchContentMaterializer {
       relativePath: response.tempRelativePath
     }
     const sizeBytes = await this.artifactService.completedSize(spool)
-    const bytes = new Uint8Array(await readFile(spool.absolutePath, { signal }))
+    // Binary artifacts need only a MIME sniff; avoid rereading the complete download.
+    const handle = await open(spool.absolutePath, 'r')
+    let sample: Uint8Array
+    try {
+      const buffer = Buffer.alloc(Math.min(sizeBytes, 4096))
+      const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0)
+      sample = buffer.subarray(0, bytesRead)
+    } finally {
+      await handle.close()
+    }
     throwIfAborted(signal)
     const title = fallbackTitle(response.finalUrl)
     const effectiveResponse = {
@@ -170,11 +179,18 @@ export class WebFetchContentMaterializer {
       contentType: resolveEffectiveContentType(response)
     }
 
+    const textual = looksTextual(sample, effectiveResponse.contentType)
+    const bytes = textual
+      ? new Uint8Array(await readFile(spool.absolutePath, { signal }))
+      : sample
+    throwIfAborted(signal)
+
     if (
       sizeBytes <= WEB_FETCH_ARTIFACT_THRESHOLD_BYTES
-      && looksTextual(bytes, effectiveResponse.contentType)
+      && textual
     ) {
       const extracted = extractText(bytes, effectiveResponse.contentType, mode, title)
+      assertUsableWebContent(extracted.text, extracted.title, response.finalUrl)
       if (JSON.stringify(extracted.text).length <= inlineMaxCharacters
         && Buffer.byteLength(extracted.text, 'utf8') <= WEB_FETCH_INLINE_MAX_BYTES) {
         await this.artifactService.cleanupSpool(spool)
@@ -203,9 +219,10 @@ export class WebFetchContentMaterializer {
       )
     }
 
-    if (looksTextual(bytes, effectiveResponse.contentType)) {
+    if (textual) {
       throwIfAborted(signal)
       const extracted = extractText(bytes, effectiveResponse.contentType, 'full', title)
+      assertUsableWebContent(extracted.text, extracted.title, response.finalUrl)
       return this.saveResult(
         effectiveResponse,
         spool,

@@ -1,3 +1,4 @@
+import type { EmbeddedToolExecutionContext } from '@shared/tools/registry'
 import type { BrowserWindow } from 'electron'
 import { mainWindow } from '@main/main-window'
 import type { WebSearchResponse, WebSearchResultV2, WebFetchResponse } from '@tools/webTools/index.d'
@@ -9,9 +10,11 @@ import {
   type SearchEngineId,
   type SearchResultItem
 } from './search-engine'
+import { selectSearchResults } from './search-engine/selectResults'
+import { resolveGoogleResultUrls } from './search-engine/google'
 import { waitForCondition } from './util/waitForCondition'
 import { Semaphore } from './util/Semaphore'
-import { extractCleanContent } from './extract/ContentExtractor'
+import { assertUsableWebContent, extractCleanContent } from './extract/ContentExtractor'
 import type { CleanMode } from './extract/postClean'
 import { downloadViaHttp } from './http/HttpFetcher'
 import {
@@ -133,6 +136,7 @@ export async function applySearchAggregateInlineBudget(
       const errorValue = error as { code?: string, message?: string } | undefined
       result.success = false
       result.content = ''
+      result.contentStatus = 'failed'
       result.error = errorValue?.code
         || errorValue?.message
         || 'WEB_SEARCH_ARTIFACT_BUDGET_EXCEEDED'
@@ -275,22 +279,35 @@ function shouldPreferDirectHttpFetch(url: string): boolean {
 function withTimeout<T>(
   taskFactory: (signal: AbortSignal) => Promise<T>,
   timeoutMs: number,
-  timeoutMessage: string
+  timeoutMessage: string,
+  parentSignal?: AbortSignal
 ): Promise<T> {
+  if (parentSignal?.aborted) return Promise.reject(parentSignal.reason)
   const controller = new AbortController()
-  let timer: NodeJS.Timeout | null = null
-
-  const timeoutPromise = new Promise<T>((_, reject) => {
+  let timer: NodeJS.Timeout | undefined
+  let onAbort: (() => void) | undefined
+  const interrupted = new Promise<T>((_, reject) => {
+    onAbort = (): void => {
+      const error = parentSignal?.reason ?? new Error('Operation aborted')
+      reject(error)
+      controller.abort(error)
+    }
+    parentSignal?.addEventListener('abort', onAbort, { once: true })
     timer = setTimeout(() => {
-      controller.abort()
-      reject(new Error(timeoutMessage))
+      const error = new Error(timeoutMessage)
+      reject(error)
+      controller.abort(error)
     }, timeoutMs)
   })
-
-  return Promise.race([taskFactory(controller.signal), timeoutPromise]).finally(() => {
-    if (timer) {
-      clearTimeout(timer)
-    }
+  return Promise.race([
+    Promise.resolve().then(() => {
+      controller.signal.throwIfAborted()
+      return taskFactory(controller.signal)
+    }),
+    interrupted
+  ]).finally(() => {
+    if (timer) clearTimeout(timer)
+    if (onAbort) parentSignal?.removeEventListener('abort', onAbort)
   })
 }
 
@@ -565,7 +582,10 @@ function assessSearchResultQuality(
   }
 }
 
-async function waitForManualGoogleVerification(window: BrowserWindow): Promise<PageSnapshot> {
+async function waitForManualGoogleVerification(
+  window: BrowserWindow,
+  signal?: AbortSignal
+): Promise<PageSnapshot> {
   logger.warn('search_verification.manual_required')
   window.show()
   window.focus()
@@ -575,9 +595,11 @@ async function waitForManualGoogleVerification(window: BrowserWindow): Promise<P
       const snapshot = await capturePageSnapshot(window)
       const kind = classifyGoogleSearchPage(snapshot)
       return kind === 'result'
-    }, 120000, 1000)
+    }, 120000, 1000, signal)
 
-    const snapshot = await capturePageSnapshot(window)
+    const snapshot = await withTimeout(
+      () => capturePageSnapshot(window), EXTRACT_TIMEOUT, 'Timeout capturing verified page', signal
+    )
     logger.info('search_verification.completed', {
       currentUrl: snapshot.currentUrl,
       title: snapshot.title,
@@ -656,11 +678,13 @@ async function fetchPageContentViaRender(
   context: WebFetchContext,
   signal?: AbortSignal
 ): Promise<MaterializedWebContent> {
+  signal?.throwIfAborted()
   // 外层 signal（如 item-level 超时）触发时停止渲染窗口加载，让 loadURL / 抽取
   // 尽快 reject，finally 中的 permit 归还也随之提前。
   const onAbort = (): void => {
     if (contentWindow && !contentWindow.isDestroyed()) {
       contentWindow.webContents.stop()
+      contentWindow.destroy()
     }
   }
   if (signal) {
@@ -680,9 +704,11 @@ async function fetchPageContentViaRender(
           return contentWindow.loadURL(url, { userAgent })
         },
         LOAD_URL_TIMEOUT,
-        `Timeout loading page: ${url}`
+        `Timeout loading page: ${url}`,
+        signal
       )
     } catch (error: any) {
+      signal?.throwIfAborted()
       logger.warn('web_fetch.load_url_failed_fallback_http', {
         url,
         message: error?.message || String(error)
@@ -727,13 +753,13 @@ async function fetchPageContentViaRender(
       // 会永久 pending（webContents.stop() 停网络加载但停不了卡死的 JS 事件循环），
       // 若不加界，本函数永不 settle → 上层 finally 的 releaseContentWindow 永不执行
       // → contentSem permit 泄漏 → 数个卡死页面后整个渲染路径永久阻塞。withTimeout
-      // 的 race 让外层 await 在超时后及时返回（底层 executeJavaScript 仍在后台卡着，
-      // 但已无碍：控制流走到下面的 catch/上层 finally，permit 得以归还）。
+      // 超时时销毁窗口，避免卡住的 JS 被带入下一次借用；finally 仍归还 permit。
       pageData = await withTimeout(
         (timeoutSignal) => {
           timeoutSignal.addEventListener('abort', () => {
             if (contentWindow && !contentWindow.isDestroyed()) {
               contentWindow.webContents.stop()
+              contentWindow.destroy()
             }
           })
           return contentWindow.webContents.executeJavaScript(`
@@ -745,10 +771,12 @@ async function fetchPageContentViaRender(
           `)
         },
         EXTRACT_TIMEOUT,
-        `Timeout extracting page: ${url}`
+        `Timeout extracting page: ${url}`,
+        signal
       )
     } catch (error: any) {
-      const currentUrl = contentWindow.webContents.getURL() || url
+      signal?.throwIfAborted()
+      const currentUrl = contentWindow.isDestroyed() ? url : contentWindow.webContents.getURL() || url
       logger.warn('web_fetch.extract_js_failed_fallback_http', {
         url: currentUrl,
         message: error?.message || String(error)
@@ -757,6 +785,7 @@ async function fetchPageContentViaRender(
     }
 
     const { title, text } = extractCleanContent(pageData.html, mode, pageData.title)
+    assertUsableWebContent(text, pageData.title || title, pageData.finalUrl)
     return await context.materializer.materializeExtractedText({
       pageTitle: pageData.title || title,
       finalUrl: pageData.finalUrl,
@@ -789,7 +818,8 @@ async function fetchPageContentProgressive(
     const direct = await withTimeout(
       (timeoutSignal) => fetchPageContentViaHttp(url, mode, context, timeoutSignal),
       DIRECT_HTTP_TIMEOUT,
-      `Timeout direct-fetching page: ${url}`
+      `Timeout direct-fetching page: ${url}`,
+      signal
     )
     if (direct.artifact) {
       return direct
@@ -824,7 +854,8 @@ async function fetchPageContentProgressive(
   const windowPool = getWindowPool()
   let contentWindow: BrowserWindow | null = null
   try {
-    contentWindow = await windowPool.acquireContentWindow()
+    contentWindow = await windowPool.acquireContentWindow(signal)
+    signal?.throwIfAborted()
     return await fetchPageContentViaRender(url, contentWindow, mode, context, signal)
   } finally {
     // 无条件归还（即便窗口已崩溃/销毁），否则信号量 permit 泄漏、容量永久减少。
@@ -838,7 +869,7 @@ async function fetchPageContentProgressive(
 /**
  * Web Search - 执行网页搜索
  */
-const processWebSearch = async ({
+const executeWebSearch = async ({
   engine,
   fetchCounts,
   param,
@@ -847,12 +878,20 @@ const processWebSearch = async ({
   interactive,
   _fallbackDepth,
   chat_uuid
-}: WebSearchProcessArgs): Promise<WebSearchResponse> => {
+}: WebSearchProcessArgs, signal: AbortSignal): Promise<WebSearchResponse> => {
   const searchStartTime = Date.now()
   const windowPool = getWindowPool()
   let searchWindow: BrowserWindow | null = null
+  const onAbort = (): void => {
+    if (searchWindow && !searchWindow.isDestroyed()) {
+      searchWindow.webContents.stop()
+      searchWindow.destroy()
+    }
+  }
+  signal.addEventListener('abort', onAbort, { once: true })
 
   try {
+    signal.throwIfAborted()
     const rawQuery = param ?? query ?? ''
     const trimmedQuery = typeof rawQuery === 'string' ? rawQuery.trim() : String(rawQuery).trim()
     if (!trimmedQuery) {
@@ -875,7 +914,8 @@ const processWebSearch = async ({
 
     // Acquire a search window from the pool
     const windowCreateStart = Date.now()
-    searchWindow = await windowPool.acquireSearchWindow()
+    searchWindow = await windowPool.acquireSearchWindow(signal)
+    signal.throwIfAborted()
     const windowCreateTime = Date.now() - windowCreateStart
     logger.info('web_search.search_window_acquired', {
       engine: searchEngine.displayName,
@@ -886,7 +926,15 @@ const processWebSearch = async ({
 
     // Load search page
     const pageLoadStart = Date.now()
-    const pageSnapshot = await loadSearchPage(searchWindow, searchUrl, searchEngine.id)
+    const pageSnapshot = await withTimeout(
+      loadSignal => {
+        loadSignal.addEventListener('abort', onAbort, { once: true })
+        return loadSearchPage(searchWindow!, searchUrl, searchEngine.id)
+      },
+      LOAD_URL_TIMEOUT + EXTRACT_TIMEOUT,
+      'Timeout loading search page',
+      signal
+    )
     const pageLoadTime = Date.now() - pageLoadStart
     logger.info('web_search.page_loaded', {
       engine: searchEngine.displayName,
@@ -937,7 +985,12 @@ const processWebSearch = async ({
           Boolean(interactive) && !!mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()
 
         if (canPrompt) {
-          const verifiedSnapshot = await waitForManualGoogleVerification(searchWindow)
+          const verifiedSnapshot = await withTimeout(
+            verificationSignal => waitForManualGoogleVerification(searchWindow!, verificationSignal),
+            120000,
+            'Timeout verifying search page',
+            signal
+          )
           logger.info('web_search.page_snapshot_after_verification', {
             engine: searchEngine.displayName,
             currentUrl: verifiedSnapshot.currentUrl,
@@ -953,7 +1006,7 @@ const processWebSearch = async ({
           })
           await windowPool.releaseSearchWindow(searchWindow)
           searchWindow = null
-          return await processWebSearch({
+          return await executeWebSearch({
             engine: 'bing',
             fetchCounts,
             param: trimmedQuery,
@@ -962,7 +1015,7 @@ const processWebSearch = async ({
             interactive,
             _fallbackDepth: (_fallbackDepth ?? 0) + 1,
             chat_uuid
-          })
+          }, signal)
         } else {
           logger.warn('web_search.anti_bot_no_fallback', {
             engine: searchEngine.displayName,
@@ -982,7 +1035,7 @@ const processWebSearch = async ({
     await waitForCondition(async () => {
       if (!searchWindow) return false
       return await searchWindow.webContents.executeJavaScript(searchEngine.waitForResultsScript)
-    }, 15000, 500)
+    }, 15000, 500, signal)
     const waitTime = Date.now() - waitStart
     logger.info('web_search.results_ready', {
       engine: searchEngine.displayName,
@@ -991,15 +1044,26 @@ const processWebSearch = async ({
 
     // Extract links, titles, and snippets from search results
     const extractStart = Date.now()
-    const searchItems: SearchResultItem[] = await searchWindow.webContents.executeJavaScript(
-      searchEngine.buildExtractResultsScript(resolvedFetchCounts)
+    let searchItems: SearchResultItem[] = await withTimeout(
+      extractSignal => {
+        extractSignal.addEventListener('abort', onAbort, { once: true })
+        return searchWindow!.webContents.executeJavaScript(
+          searchEngine.buildExtractResultsScript(Math.min(resolvedFetchCounts * 2, MAX_FETCH_COUNTS))
+        )
+      },
+      EXTRACT_TIMEOUT,
+      'Timeout extracting search results',
+      signal
     )
+    if (searchEngine.id === 'google') searchItems = await resolveGoogleResultUrls(searchItems, signal)
     const extractTime = Date.now() - extractStart
     logger.info('web_search.results_extracted', {
       engine: searchEngine.displayName,
       count: searchItems.length,
       durationMs: extractTime
     })
+
+    searchItems = selectSearchResults(searchItems, resolvedQuery, resolvedFetchCounts)
 
     const quality = assessSearchResultQuality(
       searchEngine.id,
@@ -1059,7 +1123,8 @@ const processWebSearch = async ({
           title: item.title,
           snippet: item.snippet,
           // No need to use snippet as content fallback, assistant will mis-understand content and snippet
-          content: ''
+          content: '',
+          contentStatus: 'not_requested'
         }))
       }
     }
@@ -1089,18 +1154,20 @@ const processWebSearch = async ({
           title: item.title,
           snippet: item.snippet,
           content: '',
+          contentStatus: 'failed',
           error: undefined
         }
 
         try {
           // 先过并发闸门（覆盖 direct + render 全程），try/finally 确保 timeout/throw
           // 都释放 permit，不泄漏。
-          await scrapeSem.acquire()
+          await scrapeSem.acquire(signal)
           try {
             const { pageTitle, finalUrl, extractedText, artifact } = await withTimeout(
-              (signal) => fetchPageContentProgressive(item.link, 'lite', itemContext, signal),
+              (itemSignal) => fetchPageContentProgressive(item.link, 'lite', itemContext, itemSignal),
               SCRAPE_ITEM_TIMEOUT,
-              `Timeout scraping page: ${item.link}`
+              `Timeout scraping page: ${item.link}`,
+              signal
             )
 
             resultItem.link = finalUrl
@@ -1108,6 +1175,7 @@ const processWebSearch = async ({
             resultItem.content = extractedText
             resultItem.artifact = artifact
             resultItem.success = true
+            resultItem.contentStatus = 'fetched'
           } finally {
             scrapeSem.release()
           }
@@ -1133,6 +1201,7 @@ const processWebSearch = async ({
           // SCRAPE_ITEM_TIMEOUT「超时后 snippet 仍返回」的落点，而非「整条 item 无用」。
           resultItem.success = false
           resultItem.error = err?.message || 'Failed to fetch page'
+          resultItem.contentStatus = resultItem.error === 'WEB_FETCH_BLOCKED_PAGE' ? 'blocked' : 'failed'
           return resultItem
         } finally {
           searchArtifactBudget.complete(index)
@@ -1140,16 +1209,18 @@ const processWebSearch = async ({
       })
     )
 
+    signal.throwIfAborted()
     await applySearchAggregateInlineBudget(scrapedResults, async (result, resultIndex) => {
       const orderedMaterializer = new WebFetchContentMaterializer(
         fetchContext.artifactService,
-        (sizeBytes) => searchArtifactBudget.reserve(resultIndex, sizeBytes)
+        (sizeBytes) => searchArtifactBudget.reserve(resultIndex, sizeBytes, signal)
       )
       return orderedMaterializer.materializeExtractedText({
         pageTitle: result.title,
         finalUrl: result.link,
         extractedText: result.content,
-        inlineMaxCharacters: 0
+        inlineMaxCharacters: 0,
+        signal
       })
     })
 
@@ -1180,16 +1251,36 @@ const processWebSearch = async ({
       error: error?.message || 'Search operation failed'
     }
   } finally {
+    signal.removeEventListener('abort', onAbort)
     if (searchWindow) {
       await windowPool.releaseSearchWindow(searchWindow)
     }
   }
 }
 
+const processWebSearch = async (
+  args: WebSearchProcessArgs,
+  context?: EmbeddedToolExecutionContext
+): Promise<WebSearchResponse> => {
+  try {
+    return await withTimeout(
+      signal => executeWebSearch(args, signal),
+      args.interactive ? 180000 : 60000,
+      'Timeout searching web',
+      context?.signal
+    )
+  } catch (error) {
+    return { success: false, results: [], error: error instanceof Error ? error.message : String(error) }
+  }
+}
+
 /**
  * Web Fetch - 获取指定 URL 的页面内容
  */
-const processWebFetch = async ({ url, cleanMode, chat_uuid }: WebFetchProcessArgs): Promise<WebFetchResponse> => {
+const processWebFetch = async (
+  { url, cleanMode, chat_uuid }: WebFetchProcessArgs,
+  context?: EmbeddedToolExecutionContext
+): Promise<WebFetchResponse> => {
   const fetchStartTime = Date.now()
 
   try {
@@ -1206,7 +1297,8 @@ const processWebFetch = async ({ url, cleanMode, chat_uuid }: WebFetchProcessArg
     const { pageTitle, finalUrl, extractedText, artifact } = await withTimeout(
       (signal) => fetchPageContentProgressive(url, mode, fetchContext, signal),
       WEB_FETCH_TIMEOUT,
-      `Timeout fetching page: ${url}`
+      `Timeout fetching page: ${url}`,
+      context?.signal
     )
 
     const totalTime = Date.now() - fetchStartTime
