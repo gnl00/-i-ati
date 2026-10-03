@@ -10,6 +10,7 @@ export interface ToolExecutionResult {
   name: string
   content: any
   modelContent?: string
+  modelContentKind?: 'text'
   cost: number
   error?: Error
   failure?: ToolFailure

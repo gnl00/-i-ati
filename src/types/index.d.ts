@@ -503,6 +503,7 @@ declare interface ChatMessage extends BaseChatMessage {
   composerText?: string
   textAttachments?: TextAttachment[]
   toolResultModelContent?: string
+  toolResultModelContentKind?: 'text'
   model?: string
   modelRef?: { accountId: string; modelId: string }
   typewriterCompleted?: boolean,

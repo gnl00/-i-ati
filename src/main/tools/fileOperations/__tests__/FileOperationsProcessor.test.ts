@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'fs/promises'
+import { lstat, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'fs/promises'
 import { dirname, join } from 'path'
 import { tmpdir } from 'os'
+import { createHash } from 'node:crypto'
+import type { EditArgs, WriteArgs } from '@shared/tools/fileOperations/index.d'
+import { withFileOperation } from '@main/services/filesystem/FileMutationService'
 
 const { getPathMock, getWorkspacePathByUuidMock, runRipgrepSearchMock, runRipgrepFileListMock } = vi.hoisted(() => ({
   getPathMock: vi.fn(),
@@ -29,6 +32,7 @@ vi.mock('../RipgrepRunner', () => ({
 }))
 
 import {
+  formatReadResultForModel,
   processEdit,
   processEditFile,
   processGlob,
@@ -41,6 +45,10 @@ import {
   processTree,
   processWrite
 } from '../FileOperationsProcessor'
+
+function fileVersion(content: string | Buffer): string {
+  return `sha256:${createHash('sha256').update(content).digest('hex')}`
+}
 
 describe('FileOperationsProcessor.read_text_file', () => {
   let userDataDir: string
@@ -81,6 +89,7 @@ describe('FileOperationsProcessor.read_text_file', () => {
     expect(result.returned_start_line).toBe(2)
     expect(result.returned_end_line).toBe(4)
     expect(result.truncated).toBe(false)
+    expect(result.file_version).toBe(fileVersion('a\nb\nc\nd\ne'))
   })
 
   it('reads a centered window around a target line', async () => {
@@ -187,6 +196,9 @@ describe('FileOperationsProcessor.read_text_file', () => {
       })
       expect(result.success).toBe(true)
       expect(result.content!.length).toBeLessThanOrEqual(32_000)
+      expect(formatReadResultForModel(result).length).toBeLessThanOrEqual(32_000)
+      expect(result.content).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/u)
+      expect(result.file_version).toBe(fileVersion(expected))
       reconstructed += result.content
       calls++
       if (!result.truncated) break
@@ -197,6 +209,110 @@ describe('FileOperationsProcessor.read_text_file', () => {
     expect(calls).toBeGreaterThan(1)
     expect(reconstructed).toBe(expected)
   })
+
+  it('keeps data image text available in the bounded model result', async () => {
+    const filePath = join(
+      userDataDir,
+      'workspaces',
+      'chat-data-image',
+      'sample.txt',
+    )
+    await mkdir(dirname(filePath), { recursive: true })
+    const content = 'data:image/png;base64,AA=='
+    await writeFile(filePath, content)
+    const result = await processReadTextFile({
+      chat_uuid: 'chat-data-image',
+      file_path: 'sample.txt',
+    })
+    expect(result.content).toBe(content)
+    expect(formatReadResultForModel(result)).toContain(content)
+  })
+
+  it.each([
+    ['', 'none', false, ''],
+    ['one line', 'none', false, 'one line'],
+    ['one\ntwo\n', 'lf', false, 'one\ntwo\n'],
+    ['\uFEFFone\r\ntwo\r\n', 'crlf', true, 'one\ntwo\n'],
+    ['one\r\ntwo\nthree\r', 'mixed', false, 'one\r\ntwo\nthree\r'],
+  ])(
+    'reports the raw-byte version and text view for %j',
+    async (raw, lineEnding, bom, content) => {
+      const filePath = join(
+        userDataDir,
+        'workspaces',
+        'chat-text-view',
+        'sample.txt',
+      )
+      await mkdir(dirname(filePath), { recursive: true })
+      await writeFile(filePath, raw)
+      const result = await processReadTextFile({
+        chat_uuid: 'chat-text-view',
+        file_path: 'sample.txt',
+      })
+      expect(result).toMatchObject({
+        success: true,
+        content,
+        line_ending: lineEnding,
+        bom,
+        file_version: fileVersion(raw),
+      })
+    },
+  )
+
+  it.each([
+    ['invalid UTF-8', Buffer.from([0xc3, 0x28]), 'FILE_ENCODING_UNSUPPORTED'],
+    ['NUL content', Buffer.from('before\0after'), 'FILE_BINARY_UNSUPPORTED'],
+  ])(
+    'rejects %s rather than returning a lossy text view',
+    async (_kind, bytes, expectedCode) => {
+      const filePath = join(
+        userDataDir,
+        'workspaces',
+        'chat-invalid-text',
+        'sample.txt',
+      )
+      await mkdir(dirname(filePath), { recursive: true })
+      await writeFile(filePath, bytes)
+      const result = await processReadTextFile({
+        chat_uuid: 'chat-invalid-text',
+        file_path: 'sample.txt',
+      })
+      expect(result.success).toBe(false)
+      expect(result.failure?.code).toBe(expectedCode)
+      expect(result.content).toBeUndefined()
+      await expect(readFile(filePath)).resolves.toEqual(bytes)
+    },
+  )
+
+  it.each([
+    { start_line: 0 },
+    { start_line: 1.5 },
+    { start_line: 3 },
+    { start_column: 0 },
+    { start_column: 4 },
+    { start_column: 2 },
+    { start_line: 2, end_line: 1 },
+    { window_size: 1.5 },
+  ])(
+    'rejects invalid or surrogate-splitting read coordinates %j',
+    async (range) => {
+      const filePath = join(
+        userDataDir,
+        'workspaces',
+        'chat-range',
+        'sample.txt',
+      )
+      await mkdir(dirname(filePath), { recursive: true })
+      await writeFile(filePath, '🙂\nsecond')
+      const result = await processReadTextFile({
+        chat_uuid: 'chat-range',
+        file_path: 'sample.txt',
+        ...range,
+      })
+      expect(result.failure?.code).toBe('READ_RANGE_INVALID')
+      expect(result.content).toBeUndefined()
+    },
+  )
 
   it('keeps the selected end-line metadata when the read window ends with a blank line', async () => {
     const filePath = join(userDataDir, 'workspaces', 'chat-trailing-line', 'sample.txt')
@@ -526,15 +642,16 @@ describe('FileOperationsProcessor.read_text_file', () => {
   })
 })
 
-describe('FileOperationsProcessor.edit_file', () => {
+describe('FileOperationsProcessor versioned mutations', () => {
   let userDataDir: string
+  let workspaceRoot: string
+  const chatUuid = 'chat-edit'
 
   beforeEach(async () => {
     userDataDir = await mkdtemp(join(tmpdir(), 'ati-edit-tool-'))
-    getPathMock.mockImplementation((key: string) => {
-      if (key === 'userData') return userDataDir
-      return userDataDir
-    })
+    workspaceRoot = join(userDataDir, 'workspaces', chatUuid)
+    await mkdir(workspaceRoot, { recursive: true })
+    getPathMock.mockReturnValue(userDataDir)
     getWorkspacePathByUuidMock.mockReset()
     getWorkspacePathByUuidMock.mockReturnValue(undefined)
   })
@@ -544,159 +661,564 @@ describe('FileOperationsProcessor.edit_file', () => {
     vi.clearAllMocks()
   })
 
-  it('replaces a unique exact match', async () => {
-    const filePath = join(userDataDir, 'workspaces', 'chat-edit-1', 'sample.md')
-    await mkdir(dirname(filePath), { recursive: true })
-    await writeFile(filePath, ['alpha', 'target line', 'omega'].join('\n'), 'utf-8')
+  async function seed(content: string | Buffer): Promise<string> {
+    await writeFile(join(workspaceRoot, 'sample.txt'), content)
+    return fileVersion(content)
+  }
 
-    const result = await processEditFile({
-      chat_uuid: 'chat-edit-1',
-      file_path: 'sample.md',
-      search: 'target line',
-      replace: 'updated line'
+  it('shares versions through an internal symlink and edits its target while retaining the link', async () => {
+    await seed('original')
+    const aliasPath = join(workspaceRoot, 'alias.txt')
+    await symlink(join(workspaceRoot, 'sample.txt'), aliasPath)
+    const aliasRead = await processRead({ chat_uuid: chatUuid, file_path: 'alias.txt' })
+    const targetRead = await processRead({ chat_uuid: chatUuid, file_path: 'sample.txt' })
+    expect(aliasRead).toMatchObject({ success: true, content: 'original', file_version: targetRead.file_version })
+    const edited = await processEdit({
+      chat_uuid: chatUuid,
+      file_path: 'alias.txt',
+      expected_version: aliasRead.file_version!,
+      edits: [{ search: 'original', replace: 'changed' }]
     })
-
-    expect(result.success).toBe(true)
-    expect(result.status).toBe('replaced')
-    expect(result.replacements).toBe(1)
-    expect(result.diagnostics?.matches?.[0]).toMatchObject({
-      line: 2,
-      column: 1,
-      preview: 'target line'
-    })
-    await expect(readFile(filePath, 'utf-8')).resolves.toBe(['alpha', 'updated line', 'omega'].join('\n'))
+    expect(edited.success).toBe(true)
+    expect((await lstat(aliasPath)).isSymbolicLink()).toBe(true)
+    await expect(readFile(join(workspaceRoot, 'sample.txt'), 'utf-8')).resolves.toBe('changed')
+    const aliasAfter = await processRead({ chat_uuid: chatUuid, file_path: 'alias.txt' })
+    const targetAfter = await processRead({ chat_uuid: chatUuid, file_path: 'sample.txt' })
+    expect(aliasAfter.file_version).toBe(edited.file_version)
+    expect(targetAfter.file_version).toBe(edited.file_version)
+    expect(aliasAfter.content).toBe(targetAfter.content)
   })
 
-  it('returns unicode diagnostics when no exact match is found', async () => {
-    const filePath = join(userDataDir, 'workspaces', 'chat-edit-2', 'sample.md')
-    await mkdir(dirname(filePath), { recursive: true })
-    await writeFile(filePath, '# Agent Genesis － 生存系统\n', 'utf-8')
-
-    const result = await processEditFile({
-      chat_uuid: 'chat-edit-2',
-      file_path: 'sample.md',
-      search: '# Agent Genesis — 生存系统',
-      replace: '# Agent Genesis - 生存系统'
+  it('rejects a replacement prefix that would introduce a second BOM', async () => {
+    const raw = Buffer.from('\uFEFForiginal')
+    const version = await seed(raw)
+    const result = await processEdit({
+      chat_uuid: chatUuid,
+      file_path: 'sample.txt',
+      expected_version: version,
+      edits: [{ search: 'original', replace: '\uFEFFnew' }]
     })
+    expect(result.failure?.code).toBe('FILE_TEXT_INVALID')
+    await expect(readFile(join(workspaceRoot, 'sample.txt'))).resolves.toEqual(raw)
+  })
 
-    expect(result.success).toBe(false)
-    expect(result.status).toBe('no_match')
-    expect(result.replacements).toBe(0)
+  it.each([
+    { operation: 'edit', invalid: { dry_run: 'false' }, code: 'FILE_ARGUMENTS_INVALID' },
+    { operation: 'write', invalid: { create_dirs: 'false' }, code: 'FILE_ARGUMENTS_INVALID' },
+    { operation: 'edit', invalid: { max_diagnostics: 1.5 }, code: 'EDIT_INPUT_INVALID' }
+  ])('rejects invalid $operation controls $invalid before changing files or creating directories', async ({ operation, invalid, code }) => {
+    const version = await seed('original')
+    const result = operation === 'edit'
+      ? await processEdit({
+          chat_uuid: chatUuid,
+          file_path: 'sample.txt',
+          expected_version: version,
+          edits: [{ search: 'original', replace: 'changed' }],
+          ...invalid
+        } as unknown as EditArgs)
+      : await processWrite({
+          chat_uuid: chatUuid,
+          file_path: 'new/file.txt',
+          expected_version: null,
+          content: 'changed',
+          ...invalid
+        } as unknown as WriteArgs)
+    expect(result.failure?.code).toBe(code)
+    await expect(readFile(join(workspaceRoot, 'sample.txt'), 'utf-8')).resolves.toBe('original')
+    await expect(lstat(join(workspaceRoot, 'new'))).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('replaces unique blocks against the same original file and returns the published version', async () => {
+    const version = await seed('alpha\ntarget line\nomega')
+    const result = await processEditFile({
+      chat_uuid: chatUuid,
+      file_path: 'sample.txt',
+      expected_version: version,
+      edits: [
+        { search: 'alpha', replace: 'target line' },
+        { search: 'target line', replace: 'updated line' },
+      ],
+    })
+    expect(result).toMatchObject({
+      success: true,
+      status: 'replaced',
+      replacements: 2,
+    })
+    const published = 'target line\nupdated line\nomega'
+    expect(result.file_version).toBe(fileVersion(published))
+    await expect(
+      readFile(join(workspaceRoot, 'sample.txt'), 'utf-8'),
+    ).resolves.toBe(published)
+
+    const next = await processEditFile({
+      chat_uuid: chatUuid,
+      file_path: 'sample.txt',
+      expected_version: result.file_version!,
+      edits: [{ search: 'omega', replace: 'done' }],
+    })
+    expect(next.success).toBe(true)
+    await expect(
+      readFile(join(workspaceRoot, 'sample.txt'), 'utf-8'),
+    ).resolves.toBe('target line\nupdated line\ndone')
+  })
+
+  it('keeps Unicode similarity diagnostics advisory when literal text does not match', async () => {
+    const raw = '# Agent Genesis － 生存系统\n'
+    const version = await seed(raw)
+    const result = await processEditFile({
+      chat_uuid: chatUuid,
+      file_path: 'sample.txt',
+      expected_version: version,
+      edits: [
+        {
+          search: '# Agent Genesis — 生存系统',
+          replace: '# Agent Genesis - 生存系统',
+        },
+      ],
+    })
+    expect(result).toMatchObject({
+      success: false,
+      status: 'no_match',
+      replacements: 0,
+      block_index: 0,
+    })
+    expect(result.failure?.code).toBe('EDIT_NO_MATCH')
     expect(result.diagnostics?.nearest_matches?.[0]).toMatchObject({
       line: 1,
-      normalized_match: 'dash_equivalent'
+      normalized_match: 'dash_equivalent',
     })
-    expect(result.diagnostics?.nearest_matches?.[0].differences).toContainEqual({
-      index: 16,
-      expected: '—',
-      expected_codepoint: 'U+2014',
-      actual: '－',
-      actual_codepoint: 'U+FF0D'
-    })
-    await expect(readFile(filePath, 'utf-8')).resolves.toBe('# Agent Genesis － 生存系统\n')
+    expect(result.diagnostics?.nearest_matches?.[0].differences).toContainEqual(
+      {
+        index: 16,
+        expected: '—',
+        expected_codepoint: 'U+2014',
+        actual: '－',
+        actual_codepoint: 'U+FF0D',
+      },
+    )
+    await expect(
+      readFile(join(workspaceRoot, 'sample.txt'), 'utf-8'),
+    ).resolves.toBe(raw)
   })
 
-  it('blocks ambiguous single replacements and reports match locations', async () => {
-    const filePath = join(userDataDir, 'workspaces', 'chat-edit-3', 'sample.txt')
-    await mkdir(dirname(filePath), { recursive: true })
-    await writeFile(filePath, ['token', 'middle', 'token'].join('\n'), 'utf-8')
-
+  it('rejects an ambiguous block and reports original match locations', async () => {
+    const raw = 'token\nmiddle\ntoken'
+    const version = await seed(raw)
     const result = await processEditFile({
-      chat_uuid: 'chat-edit-3',
+      chat_uuid: chatUuid,
       file_path: 'sample.txt',
-      search: 'token',
-      replace: 'value'
+      expected_version: version,
+      edits: [{ search: 'token', replace: 'value' }],
     })
-
-    expect(result.success).toBe(false)
-    expect(result.status).toBe('multiple_matches')
+    expect(result).toMatchObject({
+      success: false,
+      status: 'multiple_matches',
+      replacements: 0,
+    })
+    expect(result.failure?.code).toBe('EDIT_MULTIPLE_MATCHES')
     expect(result.diagnostics?.matches).toEqual([
       { line: 1, column: 1, preview: 'token' },
-      { line: 3, column: 1, preview: 'token' }
+      { line: 3, column: 1, preview: 'token' },
     ])
-    await expect(readFile(filePath, 'utf-8')).resolves.toBe(['token', 'middle', 'token'].join('\n'))
+    await expect(
+      readFile(join(workspaceRoot, 'sample.txt'), 'utf-8'),
+    ).resolves.toBe(raw)
   })
 
-  it('keeps all=true for intentional bulk replacement', async () => {
-    const filePath = join(userDataDir, 'workspaces', 'chat-edit-4', 'sample.txt')
-    await mkdir(dirname(filePath), { recursive: true })
-    await writeFile(filePath, ['token', 'middle', 'token'].join('\n'), 'utf-8')
+  it.each([
+    { search: 'missing', replace: 'new', status: 'no_match' },
+    { search: 'token', replace: 'new', status: 'multiple_matches' },
+  ])(
+    'keeps all bytes when a later block fails with $status',
+    async ({ search, replace, status }) => {
+      const raw = 'unique\ntoken\ntoken'
+      const version = await seed(raw)
+      const result = await processEditFile({
+        chat_uuid: chatUuid,
+        file_path: 'sample.txt',
+        expected_version: version,
+        edits: [
+          { search: 'unique', replace: 'changed' },
+          { search, replace },
+        ],
+      })
+      expect(result).toMatchObject({
+        success: false,
+        status,
+        replacements: 0,
+        block_index: 1,
+      })
+      await expect(
+        readFile(join(workspaceRoot, 'sample.txt'), 'utf-8'),
+      ).resolves.toBe(raw)
+    },
+  )
 
+  it.each([
+    [
+      { search: 'abc', replace: 'x' },
+      { search: 'bcde', replace: 'y' },
+    ],
+    [
+      { search: 'abcde', replace: 'x' },
+      { search: 'bcd', replace: 'y' },
+    ],
+  ])(
+    'rejects overlapping or nested replacement blocks before publishing',
+    async (first, second) => {
+      const version = await seed('abcdef')
+      const result = await processEditFile({
+        chat_uuid: chatUuid,
+        file_path: 'sample.txt',
+        expected_version: version,
+        edits: [first, second],
+      })
+      expect(result).toMatchObject({
+        success: false,
+        status: 'overlapping_edits',
+        replacements: 0,
+      })
+      expect(result.failure?.code).toBe('EDIT_OVERLAPPING_BLOCKS')
+      await expect(
+        readFile(join(workspaceRoot, 'sample.txt'), 'utf-8'),
+      ).resolves.toBe('abcdef')
+    },
+  )
+
+  it('rejects overlapping occurrences inside one literal search', async () => {
+    const version = await seed('aaa')
     const result = await processEditFile({
-      chat_uuid: 'chat-edit-4',
+      chat_uuid: chatUuid,
       file_path: 'sample.txt',
-      search: 'token',
-      replace: 'value',
-      all: true,
-      expected_replacements: 2
+      expected_version: version,
+      edits: [{ search: 'aa', replace: 'x' }],
     })
-
-    expect(result.success).toBe(true)
-    expect(result.status).toBe('replaced')
-    expect(result.replacements).toBe(2)
-    await expect(readFile(filePath, 'utf-8')).resolves.toBe(['value', 'middle', 'value'].join('\n'))
+    expect(result).toMatchObject({
+      success: false,
+      status: 'multiple_matches',
+    })
+    await expect(
+      readFile(join(workspaceRoot, 'sample.txt'), 'utf-8'),
+    ).resolves.toBe('aaa')
   })
 
-  it('reports dry run matches without writing the file', async () => {
-    const filePath = join(userDataDir, 'workspaces', 'chat-edit-5', 'sample.txt')
-    await mkdir(dirname(filePath), { recursive: true })
-    await writeFile(filePath, 'alpha beta', 'utf-8')
-
+  it('validates a dry run and keeps the existing version and bytes', async () => {
+    const version = await seed('alpha beta')
     const result = await processEditFile({
-      chat_uuid: 'chat-edit-5',
+      chat_uuid: chatUuid,
       file_path: 'sample.txt',
-      search: 'beta',
-      replace: 'gamma',
-      dry_run: true
+      expected_version: version,
+      edits: [{ search: 'beta', replace: 'gamma' }],
+      dry_run: true,
     })
-
-    expect(result.success).toBe(true)
-    expect(result.status).toBe('dry_run')
-    expect(result.replacements).toBe(1)
-    await expect(readFile(filePath, 'utf-8')).resolves.toBe('alpha beta')
+    expect(result).toMatchObject({
+      success: true,
+      status: 'dry_run',
+      replacements: 1,
+      file_version: version,
+    })
+    await expect(
+      readFile(join(workspaceRoot, 'sample.txt'), 'utf-8'),
+    ).resolves.toBe('alpha beta')
   })
 
-  it('limits matching to an explicit line range', async () => {
-    const filePath = join(userDataDir, 'workspaces', 'chat-edit-6', 'sample.txt')
-    await mkdir(dirname(filePath), { recursive: true })
-    await writeFile(filePath, ['token', 'middle token', 'token'].join('\n'), 'utf-8')
-
+  it('rejects a stale version even when the old target text still exists', async () => {
+    const version = await seed('alpha\ntarget\nomega')
+    await writeFile(
+      join(workspaceRoot, 'sample.txt'),
+      'external alpha\ntarget\nomega',
+    )
     const result = await processEditFile({
-      chat_uuid: 'chat-edit-6',
+      chat_uuid: chatUuid,
       file_path: 'sample.txt',
-      search: 'token',
-      replace: 'value',
-      start_line: 2,
-      end_line: 2
+      expected_version: version,
+      edits: [{ search: 'target', replace: 'changed' }],
     })
-
-    expect(result.success).toBe(true)
-    expect(result.replacements).toBe(1)
-    expect(result.diagnostics?.matches).toEqual([
-      { line: 2, column: 8, preview: 'middle token' }
-    ])
-    await expect(readFile(filePath, 'utf-8')).resolves.toBe(['token', 'middle value', 'token'].join('\n'))
-  })
-
-  it('blocks writes when expected_replacements does not match', async () => {
-    const filePath = join(userDataDir, 'workspaces', 'chat-edit-7', 'sample.txt')
-    await mkdir(dirname(filePath), { recursive: true })
-    await writeFile(filePath, ['token', 'token'].join('\n'), 'utf-8')
-
-    const result = await processEditFile({
-      chat_uuid: 'chat-edit-7',
-      file_path: 'sample.txt',
-      search: 'token',
-      replace: 'value',
-      all: true,
-      expected_replacements: 1
-    })
-
     expect(result.success).toBe(false)
-    expect(result.status).toBe('match_count_mismatch')
-    expect(result.diagnostics?.matches).toHaveLength(2)
-    await expect(readFile(filePath, 'utf-8')).resolves.toBe(['token', 'token'].join('\n'))
+    expect(result.failure?.code).toBe('FILE_STALE_VERSION')
+    await expect(
+      readFile(join(workspaceRoot, 'sample.txt'), 'utf-8'),
+    ).resolves.toBe('external alpha\ntarget\nomega')
   })
+
+  it('allows exactly one of two parallel disjoint edits based on the same version', async () => {
+    const version = await seed('left\nright')
+    const results = await Promise.all([
+      processEditFile({
+        chat_uuid: chatUuid,
+        file_path: 'sample.txt',
+        expected_version: version,
+        edits: [{ search: 'left', replace: 'LEFT' }],
+      }),
+      processEditFile({
+        chat_uuid: chatUuid,
+        file_path: 'sample.txt',
+        expected_version: version,
+        edits: [{ search: 'right', replace: 'RIGHT' }],
+      }),
+    ])
+    expect(results.filter((result) => result.success)).toHaveLength(1)
+    expect(
+      results.filter((result) => result.failure?.code === 'FILE_STALE_VERSION'),
+    ).toHaveLength(1)
+    const actual = await readFile(join(workspaceRoot, 'sample.txt'), 'utf-8')
+    expect(['LEFT\nright', 'left\nRIGHT']).toContain(actual)
+  })
+
+  it('cancels a queued embedded edit without releasing later processor work early', async () => {
+    const version = await seed('original')
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const active = withFileOperation(async () => gate)
+    const controller = new AbortController()
+    const cancelled = processEdit(
+      {
+        chat_uuid: chatUuid,
+        file_path: 'sample.txt',
+        expected_version: version,
+        edits: [{ search: 'original', replace: 'cancelled' }],
+      },
+      { signal: controller.signal },
+    )
+    let completed = false
+    const following = processWrite({
+      chat_uuid: chatUuid,
+      file_path: 'sample.txt',
+      content: 'following',
+      expected_version: version,
+    }).then((result) => {
+      completed = true
+      return result
+    })
+    try {
+      controller.abort()
+      expect((await cancelled).failure).toMatchObject({
+        code: 'TOOL_CANCELLED',
+        termination: 'cancelled',
+        recovery: { action: 'stop' },
+      })
+      expect(completed).toBe(false)
+      await expect(
+        readFile(join(workspaceRoot, 'sample.txt'), 'utf-8'),
+      ).resolves.toBe('original')
+    } finally {
+      release()
+      await active
+    }
+    expect((await following).success).toBe(true)
+    await expect(
+      readFile(join(workspaceRoot, 'sample.txt'), 'utf-8'),
+    ).resolves.toBe('following')
+  })
+
+  it('orders a directory move, an edit, and a read using the resulting path', async () => {
+    await mkdir(join(workspaceRoot, 'before'))
+    await writeFile(join(workspaceRoot, 'before', 'sample.txt'), 'original')
+    const [moved, edited, read] = await Promise.all([
+      processMv({
+        chat_uuid: chatUuid,
+        source_path: 'before',
+        destination_path: 'after',
+      }),
+      processEdit({
+        chat_uuid: chatUuid,
+        file_path: 'after/sample.txt',
+        expected_version: fileVersion('original'),
+        edits: [{ search: 'original', replace: 'changed' }],
+      }),
+      processRead({ chat_uuid: chatUuid, file_path: 'after/sample.txt' }),
+    ])
+    expect(moved.success).toBe(true)
+    expect(edited.success).toBe(true)
+    expect(read).toMatchObject({
+      success: true,
+      content: 'changed',
+      file_version: fileVersion('changed'),
+    })
+    await expect(
+      readFile(join(workspaceRoot, 'before', 'sample.txt')),
+    ).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('preserves BOM and CRLF while matching the same LF text returned by Read', async () => {
+    await seed('\uFEFFone\r\ntarget\r\nend\r\n')
+    const read = await processReadTextFile({
+      chat_uuid: chatUuid,
+      file_path: 'sample.txt',
+    })
+    expect(read.content).toBe('one\ntarget\nend\n')
+    const result = await processEditFile({
+      chat_uuid: chatUuid,
+      file_path: 'sample.txt',
+      expected_version: read.file_version!,
+      edits: [{ search: 'one\ntarget', replace: 'one\nchanged\nadded' }],
+    })
+    expect(result.success).toBe(true)
+    const bytes = Buffer.from('\uFEFFone\r\nchanged\r\nadded\r\nend\r\n')
+    await expect(readFile(join(workspaceRoot, 'sample.txt'))).resolves.toEqual(
+      bytes,
+    )
+    expect(result.file_version).toBe(fileVersion(bytes))
+  })
+
+  it('preserves mixed endings outside the exact replaced bytes', async () => {
+    const raw = 'one\r\ntarget\nend\r'
+    const version = await seed(raw)
+    const result = await processEditFile({
+      chat_uuid: chatUuid,
+      file_path: 'sample.txt',
+      expected_version: version,
+      edits: [{ search: 'target', replace: 'changed' }],
+    })
+    expect(result.success).toBe(true)
+    await expect(
+      readFile(join(workspaceRoot, 'sample.txt'), 'utf-8'),
+    ).resolves.toBe('one\r\nchanged\nend\r')
+  })
+
+  it.each([
+    [
+      'invalid UTF-8',
+      Buffer.from([0x61, 0xc3, 0x28]),
+      'FILE_ENCODING_UNSUPPORTED',
+    ],
+    ['NUL content', Buffer.from('alpha\0beta'), 'FILE_BINARY_UNSUPPORTED'],
+  ])(
+    'rejects editing %s without changing the file',
+    async (_kind, raw, expectedCode) => {
+      const version = await seed(raw)
+      const result = await processEditFile({
+        chat_uuid: chatUuid,
+        file_path: 'sample.txt',
+        expected_version: version,
+        edits: [{ search: 'a', replace: 'A' }],
+      })
+      expect(result.failure?.code).toBe(expectedCode)
+      await expect(
+        readFile(join(workspaceRoot, 'sample.txt')),
+      ).resolves.toEqual(raw)
+    },
+  )
+
+  it.each(['\0', '\ud800', '\udfff'])(
+    'rejects invalid replacement text %j without lossy encoding',
+    async (replace) => {
+      const version = await seed('original')
+      const result = await processEditFile({
+        chat_uuid: chatUuid,
+        file_path: 'sample.txt',
+        expected_version: version,
+        edits: [{ search: 'original', replace }],
+      })
+      expect(result.success).toBe(false)
+      await expect(
+        readFile(join(workspaceRoot, 'sample.txt'), 'utf-8'),
+      ).resolves.toBe('original')
+    },
+  )
+
+  it('requires the new batch contract and rejects retired matching controls', async () => {
+    const version = await seed('original')
+    for (const retired of [
+      { search: 'original', replace: 'changed' },
+      { regex: true },
+      { all: true },
+      { expected_replacements: 1 },
+      { start_line: 1 },
+      { end_line: 1 },
+    ]) {
+      const args = {
+        chat_uuid: chatUuid,
+        file_path: 'sample.txt',
+        expected_version: version,
+        edits: [{ search: 'original', replace: 'changed' }],
+        ...retired,
+      }
+      const result = await processEditFile(args)
+      expect(result.success).toBe(false)
+      expect(result.failure?.code).toBe('EDIT_INPUT_INVALID')
+    }
+    await expect(
+      readFile(join(workspaceRoot, 'sample.txt'), 'utf-8'),
+    ).resolves.toBe('original')
+  })
+
+  it('creates only when absent and requires the observed version for overwrites', async () => {
+    const created = await processWrite({
+      chat_uuid: chatUuid,
+      file_path: 'sample.txt',
+      content: 'first',
+      expected_version: null,
+    })
+    expect(created).toMatchObject({
+      success: true,
+      file_version: fileVersion('first'),
+    })
+    const blindCreate = await processWrite({
+      chat_uuid: chatUuid,
+      file_path: 'sample.txt',
+      content: 'clobbered',
+      expected_version: null,
+    })
+    expect(blindCreate.failure?.code).toBe('FILE_ALREADY_EXISTS')
+    const overwritten = await processWrite({
+      chat_uuid: chatUuid,
+      file_path: 'sample.txt',
+      content: 'second',
+      expected_version: created.file_version!,
+    })
+    expect(overwritten).toMatchObject({
+      success: true,
+      file_version: fileVersion('second'),
+    })
+    const stale = await processWrite({
+      chat_uuid: chatUuid,
+      file_path: 'sample.txt',
+      content: 'stale',
+      expected_version: created.file_version!,
+    })
+    expect(stale.failure?.code).toBe('FILE_STALE_VERSION')
+    await expect(
+      readFile(join(workspaceRoot, 'sample.txt'), 'utf-8'),
+    ).resolves.toBe('second')
+  })
+
+  it('requires an explicit version on both mutation entry points', async () => {
+    await seed('original')
+    const edit = await processEdit({
+      chat_uuid: chatUuid,
+      file_path: 'sample.txt',
+      edits: [{ search: 'original', replace: 'changed' }],
+    } as unknown as EditArgs)
+    const write = await processWrite({
+      chat_uuid: chatUuid,
+      file_path: 'sample.txt',
+      content: 'changed',
+    } as unknown as WriteArgs)
+    expect(edit.failure?.code).toBe('FILE_VERSION_REQUIRED')
+    expect(write.failure?.code).toBe('FILE_VERSION_REQUIRED')
+    await expect(
+      readFile(join(workspaceRoot, 'sample.txt'), 'utf-8'),
+    ).resolves.toBe('original')
+  })
+
+  it.each(['\0', '\ud800', '\udfff'])(
+    'rejects invalid write content %j before creating a file',
+    async (content) => {
+      const result = await processWrite({
+        chat_uuid: chatUuid,
+        file_path: 'sample.txt',
+        content,
+        expected_version: null,
+      })
+      expect(result.success).toBe(false)
+      await expect(
+        readFile(join(workspaceRoot, 'sample.txt')),
+      ).rejects.toMatchObject({ code: 'ENOENT' })
+    },
+  )
 })
 
 describe('FileOperationsProcessor workspace confinement', () => {
@@ -826,15 +1348,15 @@ describe('FileOperationsProcessor workspace confinement', () => {
 
   it('normalizes embedded mutation response paths', async () => {
     const writeResult = await processWrite({
-      chat_uuid: 'safe-chat', file_path: 'nested\\draft.txt', content: 'draft'
+      chat_uuid: 'safe-chat', file_path: 'nested\\draft.txt', content: 'draft', expected_version: null
     })
     expect(writeResult).toMatchObject({ success: true, file_path: 'nested/draft.txt' })
 
     const editResult = await processEdit({
       chat_uuid: 'safe-chat',
       file_path: 'nested\\draft.txt',
-      search: 'draft',
-      replace: 'ready'
+      expected_version: writeResult.file_version!,
+      edits: [{ search: 'draft', replace: 'ready' }]
     })
     expect(editResult).toMatchObject({ success: true, file_path: 'nested/draft.txt' })
 
@@ -859,10 +1381,11 @@ describe('FileOperationsProcessor workspace confinement', () => {
     await symlink(outsideFile, join(workspaceRoot, 'external-file'))
 
     const writeResult = await processWrite({
-      chat_uuid: 'safe-chat', file_path: 'external/new.txt', content: 'changed'
+      chat_uuid: 'safe-chat', file_path: 'external/new.txt', content: 'changed', expected_version: null
     })
     const editResult = await processEdit({
-      chat_uuid: 'safe-chat', file_path: 'external-file', search: 'original', replace: 'changed'
+      chat_uuid: 'safe-chat', file_path: 'external-file', expected_version: fileVersion('original'),
+      edits: [{ search: 'original', replace: 'changed' }]
     })
     const moveResult = await processMv({
       chat_uuid: 'safe-chat', source_path: 'source.txt', destination_path: 'external-file', overwrite: true
@@ -886,6 +1409,7 @@ describe('FileOperationsProcessor workspace confinement', () => {
       chat_uuid: 'safe-chat',
       file_path: 'safe.txt',
       content: 'workspace changed',
+      expected_version: fileVersion('workspace original'),
       backup: true
     })
 

@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir, copyFile, readdir, stat, lstat, rename } from 'fs/promises'
+import { readFile, mkdir, readdir, stat, lstat, rename } from 'fs/promises'
 import { dirname, join, basename, isAbsolute, relative, resolve } from 'path'
 import { existsSync, lstatSync, accessSync, constants } from 'fs'
 import { createLogger } from '@main/logging/LogService'
@@ -72,6 +72,15 @@ import {
   type ToolFailure
 } from '@shared/tools/toolFailure'
 
+import type { EmbeddedToolExecutionContext } from '@shared/tools/registry'
+import {
+  FileOperationError,
+  withFileOperation,
+  readTextFileSnapshot,
+  encodeTextFileSnapshot,
+  publishFile
+} from '@main/services/filesystem/FileMutationService'
+
 const logger = createLogger('FileOperationsProcessor')
 const DEFAULT_READ_WINDOW_SIZE = 500
 const MAX_READ_WINDOW_SIZE = 1500
@@ -107,6 +116,27 @@ function fileErrorMessage(error: unknown, fallback: string): string {
 }
 
 function failureForFileError(error: unknown, defaults: FileFailureDefaults): ToolFailure {
+  if ((error as { name?: string })?.name === 'AbortError') {
+    return createToolFailure({
+      category: 'operation', code: 'TOOL_CANCELLED',
+      message: 'The file operation was cancelled before publication.',
+      recovery: { action: 'stop', message: 'Preserve the current workspace state.' },
+      termination: 'cancelled'
+    })
+  }
+  if (error instanceof FileOperationError) {
+    const inputError = ['FILE_VERSION_REQUIRED', 'FILE_VERSION_INVALID', 'FILE_TEXT_INVALID',
+      'EDIT_INPUT_INVALID', 'READ_RANGE_INVALID', 'FILE_ARGUMENTS_INVALID'].includes(error.code)
+    return createToolFailure({
+      category: inputError ? 'input' : 'operation',
+      code: error.code,
+      message: error.message,
+      recovery: {
+        action: inputError ? 'correct_input' : 'check_state',
+        message: inputError ? 'Correct the file operation arguments.' : 'Read the current file and reconsider the operation.'
+      }
+    })
+  }
   if (error instanceof WorkspacePathError) {
     const pathFailure: Record<WorkspacePathError['code'], {
       category: ToolFailure['category']
@@ -394,138 +424,129 @@ async function runWithConcurrency<T>(
  * Read Text File Processor
  * 读取文本文件内容，支持指定行范围
  */
+export function formatReadResultForModel(result: ReadTextFileResponse): string {
+  if (!result.success) return JSON.stringify(result)
+  const nextRead = result.next_start_line !== undefined
+    ? JSON.stringify({ file_path: result.file_path, start_line: result.next_start_line, start_column: result.next_start_column })
+    : 'none'
+  return [
+    '[file_text]',
+    `file_path: ${JSON.stringify(result.file_path)}`,
+    `file_version: ${result.file_version}`,
+    `line_ending: ${result.line_ending}`,
+    `bom: ${result.bom}`,
+    `lines: ${result.lines}`,
+    `returned_range: ${result.returned_start_line}:${result.returned_start_column}-${result.returned_end_line}:${result.returned_end_column}`,
+    `next_read: ${nextRead}`,
+    '[content]',
+    result.content ?? ''
+  ].join('\n')
+}
+
 export async function processReadTextFile(
   args: ReadTextFileArgs,
-  contract: FileToolPathContract = 'renderer-ipc'
+  contract: FileToolPathContract = 'renderer-ipc',
+  signal?: AbortSignal
 ): Promise<ReadTextFileResponse> {
   try {
-    const {
-      file_path,
-      chat_uuid,
-      encoding = 'utf-8',
-      start_line,
-      start_column,
-      end_line,
-      around_line,
-      window_size
-    } = args
-    const resolvedPath = resolveFilePath(file_path, chat_uuid, 'existing', contract)
-    const absolutePath = resolvedPath.absolutePath
-    logger.debug('read_text_file.exists_check', { absolutePath, exists: existsSync(absolutePath) })
-
-    if (!existsSync(absolutePath)) {
-      logger.warn('read_text_file.not_found', { absolutePath, filePath: file_path })
+    return await withFileOperation(async () => {
+      const { file_path, chat_uuid, start_line, start_column, end_line, around_line, window_size } = args
+      if ('encoding' in args) {
+        throw new FileOperationError('FILE_ENCODING_UNSUPPORTED', 'Read accepts UTF-8 text only; remove encoding.')
+      }
+      for (const value of [start_line, start_column, end_line, around_line, window_size]) {
+        if (value !== undefined && (!Number.isSafeInteger(value) || value < 1)) {
+          throw new FileOperationError('READ_RANGE_INVALID', 'Read coordinates and window_size must be positive integers.')
+        }
+      }
+      if (start_column !== undefined && start_line === undefined) {
+        throw new FileOperationError('READ_RANGE_INVALID', 'start_column requires start_line.')
+      }
+      if (start_line !== undefined && end_line !== undefined && end_line < start_line) {
+        throw new FileOperationError('READ_RANGE_INVALID', 'end_line must not precede start_line.')
+      }
+      const resolvedPath = resolveFilePath(file_path, chat_uuid, 'existing', contract)
+      if (!existsSync(resolvedPath.canonicalPath)) {
+        return { success: false, error: `File not found: ${file_path}`, failure: fileNotFoundFailure('The requested file does not exist.') }
+      }
+      const snapshot = await readTextFileSnapshot(resolvedPath.canonicalPath)
+      signal?.throwIfAborted()
+      const content = snapshot.text
+      const lines = content.split('\n')
+      const totalLines = lines.length
+      if (start_line !== undefined && start_line > totalLines) {
+        throw new FileOperationError('READ_RANGE_INVALID', 'start_line is outside the file.')
+      }
+      const { startIndex, endIndex } = resolveReadWindow(totalLines, start_line, end_line, around_line, window_size)
+      const normalizedStartColumn = start_column ?? 1
+      const firstLine = lines[startIndex] ?? ''
+      const offset = normalizedStartColumn - 1
+      if (offset > firstLine.length || (offset > 0 && /[\uD800-\uDBFF]/.test(firstLine[offset - 1]) && /[\uDC00-\uDFFF]/.test(firstLine[offset] ?? ''))) {
+        throw new FileOperationError('READ_RANGE_INVALID', 'start_column must be inside the line at a Unicode boundary.')
+      }
+      const windowLines = lines.slice(startIndex, endIndex)
+      if (windowLines.length > 0) windowLines[0] = windowLines[0].slice(offset)
+      const fullWindowContent = windowLines.join('\n')
+      const base: ReadTextFileResponse = {
+        success: true,
+        file_path: displayResolvedPath(resolvedPath, file_path, contract),
+        file_version: snapshot.version, line_ending: snapshot.lineEnding, bom: snapshot.hasBom,
+        lines: totalLines, returned_start_line: startIndex + 1, returned_start_column: normalizedStartColumn
+      }
+      // Reserve the complete formatted header, including the longest possible coordinates.
+      const maximumCoordinate = content.length + 1
+      const headerBudget = formatReadResultForModel({
+        ...base, content: '', returned_end_line: totalLines, returned_end_column: maximumCoordinate,
+        next_start_line: totalLines + 1, next_start_column: maximumCoordinate
+      }).length
+      const pageBudget = READ_RESULT_MAX_CHARACTERS - headerBudget
+      if (pageBudget < 1) throw new FileOperationError('READ_RANGE_INVALID', 'The file path exceeds the Read result budget.')
+      let characterEnd = Math.min(fullWindowContent.length, pageBudget)
+      if (characterEnd < fullWindowContent.length && /[\uD800-\uDBFF]/.test(fullWindowContent[characterEnd - 1] ?? '') && /[\uDC00-\uDFFF]/.test(fullWindowContent[characterEnd] ?? '')) characterEnd--
+      const resultContent = fullWindowContent.slice(0, characterEnd)
+      const characterLimited = characterEnd < fullWindowContent.length
+      let nextLine = startIndex + 1
+      let nextColumn = normalizedStartColumn
+      let returnedEndLine = nextLine
+      let returnedEndColumn = nextColumn - 1
+      for (let characterIndex = 0; characterIndex < resultContent.length; characterIndex++) {
+        const character = resultContent[characterIndex]
+        returnedEndLine = nextLine
+        returnedEndColumn = nextColumn
+        if (character === '\n') {
+          returnedEndColumn--
+          nextLine++
+          nextColumn = 1
+        } else nextColumn++
+      }
+      const requestedEnd = end_line === undefined ? totalLines : Math.min(end_line, totalLines)
+      const lineLimited = endIndex < requestedEnd
+      if (!characterLimited && lineLimited) {
+        nextLine = endIndex + 1
+        nextColumn = 1
+      }
+      if (!characterLimited && resultContent.endsWith('\n')) {
+        returnedEndLine = endIndex
+        returnedEndColumn = 0
+      }
+      const truncated = characterLimited || lineLimited
       return {
-        success: false,
-        error: `File not found: ${file_path}`,
-        failure: fileNotFoundFailure('The requested file does not exist.')
+        ...base, content: resultContent, returned_end_line: returnedEndLine, returned_end_column: returnedEndColumn,
+        next_start_line: truncated ? nextLine : undefined,
+        next_start_column: truncated ? nextColumn : undefined, truncated
       }
-    }
-
-    const content = await readFile(absolutePath, encoding as BufferEncoding)
-    const lines = content.split('\n')
-    const totalLines = lines.length
-    const { startIndex, endIndex, truncated } = resolveReadWindow(
-      totalLines,
-      start_line,
-      end_line,
-      around_line,
-      window_size
-    )
-    const normalizedStartColumn = start_line !== undefined
-      ? Math.max(1, Math.floor(start_column ?? 1))
-      : 1
-    const windowLines = lines.slice(startIndex, endIndex)
-    if (windowLines.length > 0) {
-      windowLines[0] = windowLines[0].slice(normalizedStartColumn - 1)
-    }
-    const fullWindowContent = windowLines.join('\n')
-    const characterLimited = fullWindowContent.length > READ_RESULT_MAX_CHARACTERS
-    let characterEnd = Math.min(fullWindowContent.length, READ_RESULT_MAX_CHARACTERS)
-    const lastCodeUnit = fullWindowContent.charCodeAt(characterEnd - 1)
-    const nextCodeUnit = fullWindowContent.charCodeAt(characterEnd)
-    if (
-      characterEnd < fullWindowContent.length
-      && lastCodeUnit >= 0xD800
-      && lastCodeUnit <= 0xDBFF
-      && nextCodeUnit >= 0xDC00
-      && nextCodeUnit <= 0xDFFF
-    ) {
-      characterEnd--
-    }
-    const resultContent = fullWindowContent.slice(0, characterEnd)
-    const returnedStartLine = startIndex + 1
-    let returnedEndLine = returnedStartLine
-    let returnedEndColumn = normalizedStartColumn - 1
-    let nextStartLine = returnedStartLine
-    let nextStartColumn = normalizedStartColumn
-    for (let characterIndex = 0; characterIndex < resultContent.length; characterIndex++) {
-      const character = resultContent[characterIndex]
-      if (character === '\n') {
-        returnedEndLine = nextStartLine
-        returnedEndColumn = nextStartColumn - 1
-        nextStartLine++
-        nextStartColumn = 1
-      } else {
-        returnedEndLine = nextStartLine
-        returnedEndColumn = nextStartColumn
-        nextStartColumn++
-      }
-    }
-    const hasLineContinuation = truncated && !characterLimited
-    if (!characterLimited && resultContent.endsWith('\n')) {
-      returnedEndLine = endIndex
-      returnedEndColumn = 0
-    }
-    if (hasLineContinuation) {
-      nextStartLine = endIndex + 1
-      nextStartColumn = 1
-    }
-    const resultTruncated = truncated || characterLimited
-
-    logger.info('read_text_file.success', {
-      filePath: file_path,
-      totalLines,
-      returnedStartLine,
-      returnedEndLine,
-      truncated: resultTruncated
-    })
-    if (characterLimited) {
-      logger.info('read_text_file.character_limit_applied', {
-        filePath: displayResolvedPath(resolvedPath, file_path, contract),
-        returnedCharacters: resultContent.length,
-        nextStartLine,
-        nextStartColumn
-      })
-    }
-    return {
-      success: true,
-      file_path: displayResolvedPath(resolvedPath, file_path, contract),
-      content: resultContent,
-      lines: totalLines,
-      returned_start_line: returnedStartLine,
-      returned_end_line: returnedEndLine,
-      returned_start_column: normalizedStartColumn,
-      returned_end_column: returnedEndColumn,
-      next_start_line: resultTruncated ? nextStartLine : undefined,
-      next_start_column: resultTruncated ? nextStartColumn : undefined,
-      truncated: resultTruncated
-    }
+    }, signal)
   } catch (error: unknown) {
     logger.error('read_text_file.failed', error)
     return {
-      success: false,
-      error: fileErrorMessage(error, 'Failed to read file'),
-      failure: failureForFileError(error, {
-        code: 'FILE_READ_FAILED',
-        message: 'The file could not be read.'
-      })
+      success: false, error: fileErrorMessage(error, 'Failed to read file'),
+      failure: failureForFileError(error, { code: 'FILE_READ_FAILED', message: 'The file could not be read.' })
     }
   }
 }
 
-export async function processRead(args: ReadArgs): Promise<ReadResponse> {
-  return processReadTextFile(args, 'embedded')
+export async function processRead(args: ReadArgs, context?: EmbeddedToolExecutionContext): Promise<ReadResponse> {
+  return processReadTextFile(args, 'embedded', context?.signal)
 }
 
 // ============ Write Operations ============
@@ -534,74 +555,69 @@ export async function processRead(args: ReadArgs): Promise<ReadResponse> {
  * Write File Processor
  * 写入文件内容，支持自动创建目录和备份
  */
+function validateExpectedVersion(version: unknown, creating: boolean): void {
+  if (version === undefined) throw new FileOperationError('FILE_VERSION_REQUIRED', 'expected_version is required. Read the file first, or use null to create a new file.')
+  if (creating && version === null) return
+  if (typeof version !== 'string' || !/^sha256:[a-f0-9]{64}$/.test(version)) {
+    throw new FileOperationError('FILE_VERSION_INVALID', 'expected_version must be the file_version returned by Read.')
+  }
+}
+
+function validateOptionalBoolean(value: unknown): void {
+  if (value !== undefined && typeof value !== 'boolean') {
+    throw new FileOperationError('FILE_ARGUMENTS_INVALID', 'File operation flags must be booleans.')
+  }
+}
+
+function validateText(text: string): void {
+  encodeTextFileSnapshot({ hasBom: false, lineEnding: 'none' }, text)
+}
+
 export async function processWriteFile(
   args: WriteFileArgs,
-  contract: FileToolPathContract = 'renderer-ipc'
+  contract: FileToolPathContract = 'renderer-ipc',
+  signal?: AbortSignal
 ): Promise<WriteFileResponse> {
   try {
-    const { file_path, chat_uuid, content, encoding = 'utf-8', create_dirs = true, backup = false } = args
-    if (typeof content !== 'string') {
-      return {
-        success: false,
-        error: 'content must be a string',
-        failure: createToolFailure({
-          category: 'input',
-          code: 'FILE_CONTENT_INVALID',
-          message: 'content must be a string; an empty string creates an empty file.',
-          recovery: { action: 'correct_input', message: 'Supply the text to write in content.' }
-        })
+    return await withFileOperation(async () => {
+      const { file_path, chat_uuid, content, expected_version, create_dirs = true, backup = false } = args
+      if (typeof content !== 'string') {
+        return {
+          success: false, error: 'content must be a string',
+          failure: createToolFailure({ category: 'input', code: 'FILE_CONTENT_INVALID', message: 'content must be a string; an empty string creates an empty file.', recovery: { action: 'correct_input', message: 'Supply the text to write in content.' } })
+        }
       }
-    }
-    const resolvedPath = resolveFilePath(file_path, chat_uuid, 'creatable', contract)
-    const absolutePath = resolvedPath.absolutePath
-    logger.info('write_file.start', { filePath: file_path, absolutePath, backup, createDirs: create_dirs })
-
-    // 如果需要备份且文件存在，先备份
-    if (backup && existsSync(absolutePath)) {
-      const backupPath = resolveFilePath(
-        `${file_path}.backup`,
-        chat_uuid,
-        'destination',
-        contract
-      ).absolutePath
-      await copyFile(absolutePath, backupPath)
-      logger.info('write_file.backup_created', { backupPath })
-    }
-
-    // 如果需要创建目录
-    if (create_dirs) {
-      const dir = dirname(absolutePath)
-      if (!existsSync(dir)) {
-        await mkdir(dir, { recursive: true })
-        logger.info('write_file.directory_created', { directory: dir })
+      if ('encoding' in args) throw new FileOperationError('FILE_ENCODING_UNSUPPORTED', 'Write accepts UTF-8 text only; remove encoding.')
+      validateOptionalBoolean(create_dirs)
+      validateOptionalBoolean(backup)
+      validateExpectedVersion(expected_version, true)
+      validateText(content)
+      const resolvedPath = resolveFilePath(file_path, chat_uuid, 'creatable', contract)
+      const path = resolvedPath.canonicalPath
+      const existing = existsSync(path) ? await readTextFileSnapshot(path) : undefined
+      if (expected_version === null && existing) throw new FileOperationError('FILE_ALREADY_EXISTS', 'The file already exists. Read it before replacing it.')
+      if (expected_version !== null && !existing) throw new FileOperationError('FILE_STALE_VERSION', 'The file no longer exists. Reconsider the operation.')
+      if (existing && existing.version !== expected_version) throw new FileOperationError('FILE_STALE_VERSION', 'The file changed since it was read. Read it again before editing.')
+      const bytes = encodeTextFileSnapshot(existing ?? { hasBom: false, lineEnding: 'none' }, content)
+      if (create_dirs) await mkdir(dirname(path), { recursive: true })
+      if (backup && existing) {
+        const backupPath = resolveFilePath(`${file_path}.backup`, chat_uuid, 'destination', contract).canonicalPath
+        await publishFile({ path: backupPath, bytes: existing.bytes, expectedVersion: null, signal })
       }
-    }
-
-    // 写入文件
-    await writeFile(absolutePath, content, encoding as BufferEncoding)
-    const bytesWritten = Buffer.byteLength(content, encoding as BufferEncoding)
-
-    logger.info('write_file.success', { filePath: file_path, bytesWritten })
-    return {
-      success: true,
-      file_path: displayResolvedPath(resolvedPath, file_path, contract),
-      bytes_written: bytesWritten
-    }
+      const published = await publishFile({ path, bytes, expectedVersion: expected_version, signal })
+      return { success: true, file_path: displayResolvedPath(resolvedPath, file_path, contract), bytes_written: published.bytesWritten, file_version: published.version }
+    }, signal)
   } catch (error: unknown) {
     logger.error('write_file.failed', error)
     return {
-      success: false,
-      error: fileErrorMessage(error, 'Failed to write file'),
-      failure: failureForFileError(error, {
-        code: 'FILE_WRITE_FAILED',
-        message: 'The file could not be written.'
-      })
+      success: false, error: fileErrorMessage(error, 'Failed to write file'),
+      failure: failureForFileError(error, { code: 'FILE_WRITE_FAILED', message: 'The file could not be written.' })
     }
   }
 }
 
-export async function processWrite(args: WriteArgs): Promise<WriteResponse> {
-  return processWriteFile(args, 'embedded')
+export async function processWrite(args: WriteArgs, context?: EmbeddedToolExecutionContext): Promise<WriteResponse> {
+  return processWriteFile(args, 'embedded', context?.signal)
 }
 
 interface TextEditMatch {
@@ -627,14 +643,6 @@ function clampDiagnosticsLimit(maxDiagnostics?: number): number {
   return Math.min(Math.floor(maxDiagnostics), MAX_EDIT_DIAGNOSTICS_LIMIT)
 }
 
-function normalizeOptionalLine(line?: number): number | undefined {
-  if (!Number.isFinite(line) || line === undefined) {
-    return undefined
-  }
-
-  return Math.max(1, Math.floor(line))
-}
-
 function createLineStarts(content: string): number[] {
   const starts = [0]
 
@@ -645,21 +653,6 @@ function createLineStarts(content: string): number[] {
   }
 
   return starts
-}
-
-function resolveEditRange(content: string, startLine?: number, endLine?: number): TextEditRange {
-  const lineStarts = createLineStarts(content)
-  const totalLines = lineStarts.length
-  const normalizedStartLine = normalizeOptionalLine(startLine) ?? 1
-  const normalizedEndLine = normalizeOptionalLine(endLine) ?? totalLines
-  const boundedStartLine = Math.min(normalizedStartLine, totalLines)
-  const boundedEndLine = Math.min(Math.max(normalizedEndLine, boundedStartLine), totalLines)
-  const startIndex = lineStarts[boundedStartLine - 1] ?? content.length
-  const endIndex = boundedEndLine >= totalLines
-    ? content.length
-    : lineStarts[boundedEndLine]
-
-  return { startIndex, endIndex }
 }
 
 function lineColumnForIndex(content: string, index: number, lineStarts = createLineStarts(content)): { line: number, column: number } {
@@ -712,7 +705,7 @@ function collectStringMatches(content: string, search: string, range: TextEditRa
       matches.push({ index, length: search.length })
     }
 
-    const nextIndex = index + search.length
+    const nextIndex = index + 1
     if (nextIndex >= range.endIndex) {
       break
     }
@@ -721,41 +714,6 @@ function collectStringMatches(content: string, search: string, range: TextEditRa
   }
 
   return matches
-}
-
-function collectRegexMatches(content: string, search: string, range: TextEditRange): TextEditMatch[] {
-  const matches: TextEditMatch[] = []
-  const pattern = new RegExp(search, 'g')
-  let match = pattern.exec(content)
-
-  while (match) {
-    const matchLength = match[0].length
-    if (match.index >= range.startIndex && match.index + matchLength <= range.endIndex) {
-      matches.push({ index: match.index, length: matchLength })
-    }
-
-    if (matchLength === 0) {
-      pattern.lastIndex++
-    }
-
-    match = pattern.exec(content)
-  }
-
-  return matches
-}
-
-function applyTextMatches(content: string, matches: TextEditMatch[], replace: string): string {
-  let nextContent = ''
-  let lastIndex = 0
-
-  for (const match of matches) {
-    nextContent += content.slice(lastIndex, match.index)
-    nextContent += replace
-    lastIndex = match.index + match.length
-  }
-
-  nextContent += content.slice(lastIndex)
-  return nextContent
 }
 
 function createMatchLocations(content: string, matches: TextEditMatch[], limit: number): EditMatchLocation[] {
@@ -947,186 +905,102 @@ function findNearestMatches(content: string, search: string, range: TextEditRang
 
 /**
  * Edit File Processor
- * 编辑文件内容，支持字符串替换和正则替换
+ * Apply prevalidated, non-overlapping exact replacements to one file snapshot.
  */
 export async function processEditFile(
   args: EditFileArgs,
-  contract: FileToolPathContract = 'renderer-ipc'
+  contract: FileToolPathContract = 'renderer-ipc',
+  signal?: AbortSignal
 ): Promise<EditFileResponse> {
   try {
-    const {
-      file_path,
-      chat_uuid,
-      search,
-      replace,
-      regex = false,
-      all = false,
-      dry_run = false,
-      expected_replacements,
-      start_line,
-      end_line,
-      max_diagnostics
-    } = args
-    const resolvedPath = resolveFilePath(file_path, chat_uuid, 'existing', contract)
-    const absolutePath = resolvedPath.absolutePath
-    const responseFilePath = displayResolvedPath(resolvedPath, file_path, contract)
-    logger.info('edit_file.start', {
-      filePath: file_path,
-      absolutePath,
-      regex,
-      replaceAll: all,
-      dryRun: dry_run
-    })
-
-    if (!existsSync(absolutePath)) {
-      return {
-        success: false,
-        error: `File not found: ${file_path}`,
-        failure: fileNotFoundFailure('The requested file does not exist.')
+    return await withFileOperation(async () => {
+      const { file_path, chat_uuid, expected_version, edits, dry_run = false, max_diagnostics } = args
+      if (['search', 'replace', 'regex', 'all', 'expected_replacements', 'start_line', 'end_line'].some(key => key in args)) {
+        throw new FileOperationError('EDIT_INPUT_INVALID', 'Edit requires edits[] with exact text blocks; legacy matching options are unsupported.')
       }
-    }
-
-    if (!regex && search.length === 0) {
-      return {
-        success: false,
-        error: 'Search text must not be empty',
-        failure: createToolFailure({
-          category: 'input',
-          code: 'EDIT_SEARCH_EMPTY',
-          message: 'The edit search text must not be empty.',
-          recovery: {
-            action: 'correct_input',
-            message: 'Provide the exact text or a regular expression to replace.'
-          }
-        })
+      validateOptionalBoolean(dry_run)
+      if (max_diagnostics !== undefined && (!Number.isSafeInteger(max_diagnostics) || max_diagnostics < 1)) {
+        throw new FileOperationError('EDIT_INPUT_INVALID', 'max_diagnostics must be a positive integer.')
       }
-    }
-
-    const content = await readFile(absolutePath, 'utf-8')
-    const diagnosticsLimit = clampDiagnosticsLimit(max_diagnostics)
-    const editRange = resolveEditRange(content, start_line, end_line)
-    const matches = regex
-      ? collectRegexMatches(content, search, editRange)
-      : collectStringMatches(content, search, editRange)
-    const expectedCount = Number.isFinite(expected_replacements)
-      ? Math.max(0, Math.floor(expected_replacements as number))
-      : undefined
-    const matchLocations = createMatchLocations(content, matches, diagnosticsLimit)
-
-    if (expectedCount !== undefined && matches.length !== expectedCount) {
-      logger.info('edit_file.match_count_mismatch', {
-        filePath: file_path,
-        matches: matches.length,
-        expected: expectedCount
-      })
-      return {
-        success: false,
-        file_path: responseFilePath,
-        status: 'match_count_mismatch',
-        replacements: 0,
-        failure: createToolFailure({
-          category: 'operation',
-          code: 'EDIT_MATCH_COUNT_MISMATCH',
-          message: 'The number of matching ranges differs from the expected replacement count.',
-          recovery: {
-            action: 'change_strategy',
-            message: 'Adjust the search range or expected replacement count, then submit the edit again.'
+      validateExpectedVersion(expected_version, false)
+      if (!Array.isArray(edits) || edits.length === 0 || edits.some(block => !block || typeof block.search !== 'string' || !block.search.length || typeof block.replace !== 'string' || block.search === block.replace || Object.keys(block).some(key => key !== 'search' && key !== 'replace'))) {
+        throw new FileOperationError('EDIT_INPUT_INVALID', 'Supply non-empty edits[] with non-empty search text and a different replacement.')
+      }
+      for (const block of edits) { validateText(block.search); validateText(block.replace) }
+      const resolvedPath = resolveFilePath(file_path, chat_uuid, 'existing', contract)
+      const path = resolvedPath.canonicalPath
+      const responseFilePath = displayResolvedPath(resolvedPath, file_path, contract)
+      if (!existsSync(path)) return { success: false, error: `File not found: ${file_path}`, failure: fileNotFoundFailure('The requested file does not exist.') }
+      const snapshot = await readTextFileSnapshot(path)
+      if (snapshot.version !== expected_version) throw new FileOperationError('FILE_STALE_VERSION', 'The file changed since it was read. Read it again before editing.')
+      if (snapshot.lineEnding === 'crlf' && edits.some(block => block.search.includes('\r') || block.replace.includes('\r'))) {
+        throw new FileOperationError('EDIT_INPUT_INVALID', 'Use LF line endings in edit blocks, matching the Read view of this CRLF file.')
+      }
+      const content = snapshot.text
+      const range = { startIndex: 0, endIndex: content.length }
+      const diagnosticsLimit = clampDiagnosticsLimit(max_diagnostics)
+      const changes: (TextEditMatch & { replacement: string; blockIndex: number })[] = []
+      for (const [blockIndex, block] of edits.entries()) {
+        const matches = collectStringMatches(content, block.search, range)
+        if (matches.length !== 1) {
+          const noMatch = matches.length === 0
+          return {
+            success: false, file_path: responseFilePath, file_version: snapshot.version,
+            status: noMatch ? 'no_match' : 'multiple_matches', replacements: 0, block_index: blockIndex,
+            failure: createToolFailure({
+              category: 'operation', code: noMatch ? 'EDIT_NO_MATCH' : 'EDIT_MULTIPLE_MATCHES',
+              message: noMatch ? 'The requested edit text was not found.' : 'The requested edit text matched multiple locations.',
+              recovery: { action: 'change_strategy', message: 'Read the file and supply an exact block with enough context for a unique match.' }
+            }),
+            diagnostics: {
+              message: noMatch ? 'No exact match found.' : `Found ${matches.length} matches. Include more surrounding context.`,
+              matches: noMatch ? undefined : createMatchLocations(content, matches, diagnosticsLimit),
+              nearest_matches: noMatch ? findNearestMatches(content, block.search, range, diagnosticsLimit) : undefined
+            }
           }
-        }),
-        diagnostics: {
-          message: `Expected ${expectedCount} replacement(s), found ${matches.length}.`,
-          matches: matchLocations,
-          nearest_matches: matches.length === 0
-            ? findNearestMatches(content, search, editRange, diagnosticsLimit)
-            : undefined
+        }
+        changes.push({ ...matches[0], replacement: block.replace, blockIndex })
+      }
+      changes.sort((a, b) => a.index - b.index)
+      for (let index = 1; index < changes.length; index++) {
+        if (changes[index].index < changes[index - 1].index + changes[index - 1].length) {
+          return {
+            success: false, file_path: responseFilePath, file_version: snapshot.version,
+            status: 'overlapping_edits', replacements: 0, block_index: changes[index].blockIndex,
+            failure: createToolFailure({ category: 'input', code: 'EDIT_OVERLAPPING_BLOCKS', message: 'Edit blocks must not overlap in the original file.', recovery: { action: 'correct_input', message: 'Combine overlapping edits into one exact text block.' } })
+          }
         }
       }
-    }
-
-    if (matches.length === 0) {
-      logger.info('edit_file.no_matches', { filePath: file_path })
+      let nextContent = ''
+      let lastIndex = 0
+      for (const change of changes) {
+        nextContent += content.slice(lastIndex, change.index) + change.replacement
+        lastIndex = change.index + change.length
+      }
+      nextContent += content.slice(lastIndex)
+      const bytes = encodeTextFileSnapshot(snapshot, nextContent)
+      signal?.throwIfAborted()
+      const published = dry_run ? undefined : await publishFile({ path, bytes, expectedVersion: expected_version, signal })
       return {
-        success: false,
-        file_path: responseFilePath,
-        status: 'no_match',
-        replacements: 0,
-        failure: createToolFailure({
-          category: 'operation',
-          code: 'EDIT_NO_MATCH',
-          message: 'The requested edit text was not found.',
-          recovery: {
-            action: 'change_strategy',
-            message: 'Re-read the file and use an exact current text match.'
-          }
-        }),
+        success: true, file_path: responseFilePath, file_version: published?.version ?? snapshot.version,
+        status: dry_run ? 'dry_run' : 'replaced', replacements: changes.length,
         diagnostics: {
-          message: 'No exact match found.',
-          nearest_matches: findNearestMatches(content, search, editRange, diagnosticsLimit)
+          message: dry_run ? `Dry run found ${changes.length} replacement(s).` : `Applied ${changes.length} replacement(s).`,
+          matches: createMatchLocations(content, changes, diagnosticsLimit)
         }
       }
-    }
-
-    if (!all && matches.length > 1) {
-      logger.info('edit_file.multiple_matches', { filePath: file_path, matches: matches.length })
-      return {
-        success: false,
-        file_path: responseFilePath,
-        status: 'multiple_matches',
-        replacements: 0,
-        failure: createToolFailure({
-          category: 'operation',
-          code: 'EDIT_MULTIPLE_MATCHES',
-          message: 'The requested edit text matched multiple locations.',
-          recovery: {
-            action: 'change_strategy',
-            message: 'Narrow the search text or explicitly enable all replacements.'
-          }
-        }),
-        diagnostics: {
-          message: `Found ${matches.length} matches. Use all=true for bulk replacement or narrow the search text.`,
-          matches: matchLocations
-        }
-      }
-    }
-
-    const matchesToReplace = all ? matches : matches.slice(0, 1)
-    const replacements = matchesToReplace.length
-    const newContent = applyTextMatches(content, matchesToReplace, replace)
-
-    if (!dry_run) {
-      await writeFile(absolutePath, newContent, 'utf-8')
-      logger.info('edit_file.replacements_applied', { filePath: file_path, replacements })
-    } else {
-      logger.info('edit_file.dry_run', { filePath: file_path, replacements })
-    }
-
-    return {
-      success: true,
-      file_path: responseFilePath,
-      status: dry_run ? 'dry_run' : 'replaced',
-      replacements,
-      diagnostics: {
-        message: dry_run
-          ? `Dry run found ${replacements} replacement(s).`
-          : `Applied ${replacements} replacement(s).`,
-        matches: matchLocations
-      }
-    }
+    }, signal)
   } catch (error: unknown) {
     logger.error('edit_file.failed', error)
     return {
-      success: false,
-      error: fileErrorMessage(error, 'Failed to edit file'),
-      failure: failureForFileError(error, {
-        code: 'FILE_EDIT_FAILED',
-        message: 'The file could not be edited.'
-      })
+      success: false, error: fileErrorMessage(error, 'Failed to edit file'),
+      failure: failureForFileError(error, { code: 'FILE_EDIT_FAILED', message: 'The file could not be edited.' })
     }
   }
 }
 
-export async function processEdit(args: EditArgs): Promise<EditResponse> {
-  return processEditFile(args, 'embedded')
+export async function processEdit(args: EditArgs, context?: EmbeddedToolExecutionContext): Promise<EditResponse> {
+  return processEditFile(args, 'embedded', context?.signal)
 }
 
 // ============ Search Operations ============
@@ -1979,25 +1853,29 @@ export async function processListAllowedDirectories(args: ListAllowedDirectories
  */
 export async function processCreateDirectory(
   args: CreateDirectoryArgs,
-  contract: FileToolPathContract = 'renderer-ipc'
+  contract: FileToolPathContract = 'renderer-ipc',
+  signal?: AbortSignal
 ): Promise<CreateDirectoryResponse> {
   try {
-    const { directory_path, chat_uuid, recursive = true } = args
-    const resolvedPath = resolveFilePath(directory_path, chat_uuid, 'creatable', contract)
-    const absolutePath = resolvedPath.absolutePath
-    const responseDirectoryPath = displayResolvedPath(resolvedPath, directory_path, contract)
-    logger.info('create_directory.start', { directoryPath: directory_path, absolutePath, recursive })
+    return await withFileOperation(async () => {
+      const { directory_path, chat_uuid, recursive = true } = args
+      validateOptionalBoolean(recursive)
+      const resolvedPath = resolveFilePath(directory_path, chat_uuid, 'creatable', contract)
+      const absolutePath = resolvedPath.absolutePath
+      const responseDirectoryPath = displayResolvedPath(resolvedPath, directory_path, contract)
+      logger.info('create_directory.start', { directoryPath: directory_path, absolutePath, recursive })
 
-    if (existsSync(absolutePath)) {
-      logger.info('create_directory.already_exists', { directoryPath: directory_path })
-      return { success: true, directory_path: responseDirectoryPath, created: false }
-    }
+      if (existsSync(absolutePath)) {
+        logger.info('create_directory.already_exists', { directoryPath: directory_path })
+        return { success: true, directory_path: responseDirectoryPath, created: false }
+      }
 
-    await mkdir(absolutePath, { recursive })
+      await mkdir(absolutePath, { recursive })
 
-    logger.info('create_directory.success', { directoryPath: directory_path })
+      logger.info('create_directory.success', { directoryPath: directory_path })
 
-    return { success: true, directory_path: responseDirectoryPath, created: true }
+      return { success: true, directory_path: responseDirectoryPath, created: true }
+    }, signal)
   } catch (error: unknown) {
     logger.error('create_directory.failed', error)
     return {
@@ -2011,8 +1889,8 @@ export async function processCreateDirectory(
   }
 }
 
-export async function processMkdir(args: MkdirArgs): Promise<MkdirResponse> {
-  return processCreateDirectory(args, 'embedded')
+export async function processMkdir(args: MkdirArgs, context?: EmbeddedToolExecutionContext): Promise<MkdirResponse> {
+  return processCreateDirectory(args, 'embedded', context?.signal)
 }
 
 /**
@@ -2021,53 +1899,57 @@ export async function processMkdir(args: MkdirArgs): Promise<MkdirResponse> {
  */
 export async function processMoveFile(
   args: MoveFileArgs,
-  contract: FileToolPathContract = 'renderer-ipc'
+  contract: FileToolPathContract = 'renderer-ipc',
+  signal?: AbortSignal
 ): Promise<MoveFileResponse> {
   try {
-    const { source_path, destination_path, chat_uuid, overwrite = false } = args
-    const resolvedSource = resolveFilePath(source_path, chat_uuid, 'source', contract)
-    const resolvedDestination = resolveFilePath(destination_path, chat_uuid, 'destination', contract)
-    const absoluteSourcePath = resolvedSource.absolutePath
-    const absoluteDestPath = resolvedDestination.absolutePath
-    logger.info('move_file.start', {
-      sourcePath: source_path,
-      destinationPath: destination_path,
-      absoluteSourcePath,
-      absoluteDestPath,
-      overwrite
-    })
+    return await withFileOperation(async () => {
+      const { source_path, destination_path, chat_uuid, overwrite = false } = args
+      validateOptionalBoolean(overwrite)
+      const resolvedSource = resolveFilePath(source_path, chat_uuid, 'source', contract)
+      const resolvedDestination = resolveFilePath(destination_path, chat_uuid, 'destination', contract)
+      const absoluteSourcePath = resolvedSource.absolutePath
+      const absoluteDestPath = resolvedDestination.absolutePath
+      logger.info('move_file.start', {
+        sourcePath: source_path,
+        destinationPath: destination_path,
+        absoluteSourcePath,
+        absoluteDestPath,
+        overwrite
+      })
 
-    if (!existsSync(absoluteSourcePath)) {
-      return {
-        success: false,
-        error: `Source file not found: ${source_path}`,
-        failure: fileNotFoundFailure('The move source does not exist.', 'MOVE_SOURCE_NOT_FOUND')
+      if (!existsSync(absoluteSourcePath)) {
+        return {
+          success: false,
+          error: `Source file not found: ${source_path}`,
+          failure: fileNotFoundFailure('The move source does not exist.', 'MOVE_SOURCE_NOT_FOUND')
+        }
       }
-    }
 
-    if (existsSync(absoluteDestPath) && !overwrite) {
-      return {
-        success: false,
-        error: `Destination already exists: ${destination_path}`,
-        failure: createToolFailure({
-          category: 'operation',
-          code: 'MOVE_DESTINATION_EXISTS',
-          message: 'The move destination already exists.',
-          recovery: {
-            action: 'change_strategy',
-            message: 'Choose another destination or enable overwrite intentionally.'
-          }
-        })
+      if (existsSync(absoluteDestPath) && !overwrite) {
+        return {
+          success: false,
+          error: `Destination already exists: ${destination_path}`,
+          failure: createToolFailure({
+            category: 'operation',
+            code: 'MOVE_DESTINATION_EXISTS',
+            message: 'The move destination already exists.',
+            recovery: {
+              action: 'change_strategy',
+              message: 'Choose another destination or enable overwrite intentionally.'
+            }
+          })
+        }
       }
-    }
 
-    await rename(absoluteSourcePath, absoluteDestPath)
-    logger.info('move_file.success', { sourcePath: source_path, destinationPath: destination_path })
-    return {
-      success: true,
-      source_path: displayResolvedPath(resolvedSource, source_path, contract),
-      destination_path: displayResolvedPath(resolvedDestination, destination_path, contract)
-    }
+      await rename(absoluteSourcePath, absoluteDestPath)
+      logger.info('move_file.success', { sourcePath: source_path, destinationPath: destination_path })
+      return {
+        success: true,
+        source_path: displayResolvedPath(resolvedSource, source_path, contract),
+        destination_path: displayResolvedPath(resolvedDestination, destination_path, contract)
+      }
+    }, signal)
   } catch (error: unknown) {
     logger.error('move_file.failed', error)
     return {
@@ -2081,6 +1963,6 @@ export async function processMoveFile(
   }
 }
 
-export async function processMv(args: MvArgs): Promise<MvResponse> {
-  return processMoveFile(args, 'embedded')
+export async function processMv(args: MvArgs, context?: EmbeddedToolExecutionContext): Promise<MvResponse> {
+  return processMoveFile(args, 'embedded', context?.signal)
 }

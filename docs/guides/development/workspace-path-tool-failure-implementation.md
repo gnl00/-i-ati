@@ -92,6 +92,12 @@ grep 无匹配按文件工具既有成功空结果处理。任意 shell 的非�
 - 参数校验：空命令返回 `input / COMMAND_INVALID_INPUT`；缺失或非字符串
   写入内容返回 `input / FILE_CONTENT_INVALID`，在创建目录和备份前结束。
   空字符串内容作为合法写入保留。
+- 文本修改的显式版本契约：Read 返回完整原始字节的 `file_version`；Write 必须
+  提供 `expected_version`（`null` 仅创建），Edit 使用 `expected_version` 与
+  `edits[{search,replace}]` 的严格唯一批量替换。未提供版本、stale、创建冲突、
+  无效 UTF-8、NUL、歧义和重叠分别返回稳定失败码。regex/all/count/edit-range
+  控制已经删除。成功发布返回新版本，dry run 返回当前版本。见
+  [ADR-0039](../../decisions/0039-versioned-workspace-text-mutations.md)。
 - 运行时传递：`ToolResultContentProjector`、结果规范化测试、
   `ContextManager.prepare()`、聊天渲染结果与事件状态；补充真实
   `FileOperationsProcessor -> ToolExecutor -> Dispatcher -> transcript ->

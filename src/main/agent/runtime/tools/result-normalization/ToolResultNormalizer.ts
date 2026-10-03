@@ -166,7 +166,7 @@ export class DefaultToolResultNormalizer implements ToolResultNormalizer {
       result.modelContent !== undefined &&
       result.modelContent.length > this.maxInlineCharacters
     ) {
-      result = { ...result, modelContent: undefined }
+      result = { ...result, modelContent: undefined, modelContentKind: undefined }
     }
     const formatted = formatToolResultForModel(result)
     // Inspect the selected view, including base64 fields inside tool-owned JSON.
@@ -187,7 +187,7 @@ export class DefaultToolResultNormalizer implements ToolResultNormalizer {
         }
       }
     }
-    const images = collectImages(selectedContent)
+    const images = result.modelContentKind === 'text' ? [] : collectImages(selectedContent)
     if (formatted.length <= this.maxInlineCharacters && images.length === 0) {
       return result.modelContent !== undefined ? result : { ...result, modelContent: formatted }
     }

@@ -49,6 +49,27 @@ surface and belongs in the same review as the host change that needs it.
 Composition roots under `orchestration/` and `services/subagent/` still import
 `agent/runtime/*` directly, because assembling the runtime is their job.
 
+## Workspace text-file operations
+
+`services/filesystem/FileMutationService.ts` owns UTF-8/BOM/line-ending snapshots,
+raw-byte SHA-256 content versions, one process-wide operation queue, and guarded
+single-file publication. `tools/fileOperations/FileOperationsProcessor.ts` owns
+workspace resolution, bounded Read windows, exact batch Edit matching,
+diagnostics, and tool failure mapping. Read, Edit, Write, Mkdir, and Mv enter the
+queue before resolving their paths, including renderer IPC and embedded calls.
+The queue stays occupied until started filesystem I/O settles.
+
+The explicit `expected_version` contract has no session observation registry.
+A successful Read returns the complete raw-file version; existing-file mutations
+require it, creation requires `null`, and successful publication returns the next
+version. All Edit blocks refer to the same original text view and validate
+before publication. Read's final model formatter includes the version and exact
+continuation coordinates within a 32,000-character ceiling. Chat persists and
+restores the prepared model view together with its text kind, preserving literal
+source text during normalization in later turns. See
+[ADR-0039](../decisions/0039-versioned-workspace-text-mutations.md) for text views,
+permission/link semantics, cancellation, and the remaining external-writer race.
+
 ## Application lifecycle
 
 `src/main/index.ts` performs two explicit actions:

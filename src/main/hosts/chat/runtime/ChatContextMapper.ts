@@ -125,7 +125,8 @@ export const mapChatContext = (input: ChatContextMapperInput): ContextRecord[] =
       toolName: seed.name || matchedToolCall?.function.name || 'tool',
       status: 'success',
       content: projectToolResultContentForHistoryImport(seed.content),
-      modelContent: seed.toolResultModelContent
+      modelContent: seed.toolResultModelContent,
+      modelContentKind: seed.toolResultModelContentKind
     }
     records.push(toolRecord)
   }

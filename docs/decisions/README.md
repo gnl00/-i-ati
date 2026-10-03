@@ -56,3 +56,5 @@ Use sequential names such as `0001-chat-runtime-host-boundary.md`.
 - [0037: Image display and host delivery](0037-image-display-and-host-delivery.md) - Accepted
 
 - [0038: Pasted text attachment transport](0038-pasted-text-attachment-transport.md) - Accepted
+
+- [0039: Versioned workspace text mutations](0039-versioned-workspace-text-mutations.md) - Accepted

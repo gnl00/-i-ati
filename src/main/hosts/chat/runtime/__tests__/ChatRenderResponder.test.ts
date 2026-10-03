@@ -806,7 +806,8 @@ describe('ChatRenderResponder', () => {
       toolCallIndex: 0,
       toolName: 'web_fetch',
       content: 'raw result',
-      modelContent: 'stable preview'
+      modelContent: 'stable preview',
+      modelContentKind: 'text' as const
     }
 
     await responder.handle({
@@ -818,6 +819,7 @@ describe('ChatRenderResponder', () => {
     expect(persistedContents).toEqual(['raw result'])
     expect(messageEntities.at(-1)?.body.content).toBe('raw result')
     expect(messageEntities.at(-1)?.body.toolResultModelContent).toBe('stable preview')
+    expect(messageEntities.at(-1)?.body.toolResultModelContentKind).toBe('text')
     expect(result.content).toBe('raw result')
     expect(emitter.emit).toHaveBeenCalledWith(
       RUN_TOOL_EVENTS.TOOL_EXECUTION_COMPLETED,

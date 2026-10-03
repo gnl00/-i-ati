@@ -51,13 +51,13 @@ describe('DefaultToolExecutorDispatcher', () => {
     const dispatcher = new DefaultToolExecutorDispatcher({
       runtimeClock: { now: (): number => 123 },
       executeToolCalls: async (): Promise<ToolExecutionResult[]> => [{ id: 'c', index: 0, name: 'exec',
-        content: { stdout: 'raw' }, modelContent: 'tail', cost: 1, status: 'success' }]
+        content: { stdout: 'raw' }, modelContent: 'tail', modelContentKind: 'text', cost: 1, status: 'success' }]
     })
     const outcome = await dispatcher.dispatch({ batchId: 'b', stepId: 's', createdAt: 1,
       calls: [{ toolCallId: 'c', stepId: 's', index: 0, name: 'exec', arguments: '{}',
         confirmationPolicy: { mode: 'not_required' }, status: 'pending' }] })
     expect(outcome).toMatchObject({ status: 'completed', results: [
-      { content: { stdout: 'raw' }, modelContent: 'tail' }
+      { content: { stdout: 'raw' }, modelContent: 'tail', modelContentKind: 'text' }
     ] })
   })
 

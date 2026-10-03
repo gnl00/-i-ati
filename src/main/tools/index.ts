@@ -8,6 +8,7 @@ import {
 import { embeddedToolMetadata } from '@tools/metadata'
 import {
   processRead,
+  formatReadResultForModel,
   processWrite,
   processEdit,
   processGrep,
@@ -76,7 +77,13 @@ export const toolHandlers: Record<
   search_tools: (args) => embeddedToolsRegistry.searchTools(args),
   web_search: processWebSearch,
   web_fetch: processWebFetch,
-  read: processRead,
+  read: async (args, context) => {
+    const result = await processRead(args, context)
+    if (result.success) {
+      context?.setModelContent?.(formatReadResultForModel(result), { kind: 'text' })
+    }
+    return result
+  },
   write: processWrite,
   edit: processEdit,
   grep: processGrep,

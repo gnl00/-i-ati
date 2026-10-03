@@ -3,6 +3,7 @@ import { assessCommandFilesystemScope } from '@main/tools/command/filesystemScop
 import { assessExecuteCommandReview } from '@main/tools/command/risk'
 import {
   embeddedToolsRegistry,
+  type EmbeddedToolExecutionContext,
   type EmbeddedToolOutputChunk
 } from '@tools/registry'
 import { embeddedToolMetadata, type EmbeddedToolMetadata } from '@tools/metadata'
@@ -369,12 +370,16 @@ export class ToolExecutor implements IToolExecutor {
 
       executionStartTime ??= Date.now()
       let modelContent: string | undefined
+      let modelContentKind: 'text' | undefined
       const content = await this.executeTool(
         call,
         runtimeArgs,
         toolId,
         metadataConfirmationApproved,
-        (content): void => { modelContent = content }
+        (content, options): void => {
+          modelContent = content
+          modelContentKind = options?.kind
+        }
       )
 
       const result: ToolExecutionResult = {
@@ -383,6 +388,7 @@ export class ToolExecutor implements IToolExecutor {
         name: toolName,
         content,
         ...(modelContent !== undefined ? { modelContent } : {}),
+        ...(modelContentKind !== undefined ? { modelContentKind } : {}),
         cost: Date.now() - executionStartTime,
         status: 'success',
         ...(
@@ -421,7 +427,7 @@ export class ToolExecutor implements IToolExecutor {
     runtimeArgs?: any,
     resolvedToolCallId?: string,
     metadataConfirmationApproved = false,
-    setModelContent?: (content: string) => void
+    setModelContent?: EmbeddedToolExecutionContext['setModelContent']
   ): Promise<any> {
     const toolName = call.function
     const toolCallId = resolvedToolCallId ?? call.id ?? `call_${uuidv4()}`

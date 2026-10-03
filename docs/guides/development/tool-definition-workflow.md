@@ -89,3 +89,29 @@ delivery failed; do not resend the full message. Each delivered chunk has a
 source-chat reply receipt. Ordinary inbound bindings are unchanged. Replies to recorded
 pushes select their source chat for that run. See
 [ADR 0032](../../decisions/0032-telegram-delivery-source-routing.md).
+
+## Workspace text-file tools
+
+`read`, `write`, and `edit` share the UTF-8 text and explicit content-version
+contract in [ADR-0039](../../decisions/0039-versioned-workspace-text-mutations.md).
+A read returns a complete raw-byte SHA-256 `file_version` even when its text
+window is partial. Supply that version as `expected_version` for edits and
+existing-file writes. A write with `expected_version: null` creates only when
+absent; it cannot overwrite a competing creator. Successful mutations return
+the published bytes' next `file_version`.
+
+Edit uses `edits: [{ search, replace }, ...]`. Each search is a strict unique
+literal region of the same original file, and all regions must be non-overlapping.
+The tool validates every block before publishing. `dry_run` validates without
+writing, and `max_diagnostics` bounds advisory failure diagnostics. Retired
+regex/all/count/edit-range controls do not carry into the new input contract.
+
+Read/Edit share BOM and line-ending views. Invalid UTF-8, NUL, and malformed
+surrogate input fail explicitly. The read formatter includes metadata and
+continuation in its 32,000-character model ceiling, so callers should follow
+`next_start_line`/`next_start_column` rather than calculating offsets from a
+separately truncated result. Stable result normalization must preserve the
+formatter's version and continuation text verbatim; direct image results retain
+their own image transport. Persist the model-view text kind with the view and
+restore both when rebuilding Chat history, so literal image data in a Read result
+remains source text across turns.

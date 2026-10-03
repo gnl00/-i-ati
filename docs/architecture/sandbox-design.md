@@ -277,6 +277,24 @@ handler 执行前使用当前 runtime chat UUID 覆盖工具参数中的 `chat_u
 文件系统细节。详细契约见
 [ADR-0008](../decisions/0008-workspace-path-confinement.md)。
 
+Read/Edit/Write 的文本契约使用完整原始字节的 `sha256:<hex>` 内容版本。
+Read 返回 `file_version`；Edit 必须携带 `expected_version`，并在同一原文件上
+预验证 `edits[{search,replace}]` 的严格唯一匹配与非重叠性。Write 的
+`expected_version: null` 表示只创建；覆盖已有文件必须携带已观察版本。
+成功发布返回新的 `file_version`，stale failure 要求重读而不自动重试。
+Read 和 Edit 共用 UTF-8/BOM/换行视图：纯 CRLF 展示及匹配为 LF，Edit 写回
+恢复 CRLF；mixed 保留区别。最终模型 Read 文本包含续读坐标与版本，并限制在
+32,000 UTF-16 code units 内。详情见
+[ADR-0039](../decisions/0039-versioned-workspace-text-mutations.md)。
+
+Read、Edit、Write、Mkdir 和 Mv 通过 main-process global queue 串行执行。
+文本发布在 sibling exclusive `0600` staging 文件中准备完整内容并原子发布，
+拒绝已有 hard-linked 目标。内部 symlink 的 canonical target 接收修改，symlink
+本身保留。POSIX 支持目标的 owner/group 与普通 mode 得到保留；foreign owner
+或特殊 mode 被拒绝，ACL、xattr 和 Windows DACL 未复制，仍需原生平台验证。
+queue 不涵盖 Bash、外部编辑器或其他进程。发布前内容复核与 rename 之间仍存在外部竞争窗口，原子发布保证
+内容可见性的完整性，跨进程全局 CAS 和多文件事务仍无保证。
+
 resolver intent 用于记录操作语义，目标存在性与文件类型由各 processor 检查。
 路径检查与文件系统操作之间存在系统调用窗口。resolver 提供 pathname confinement。
 TOCTOU、hard-link inode provenance、bind mount、文件系统别名和特权 mount 变化仍是

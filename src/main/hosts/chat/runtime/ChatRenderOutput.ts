@@ -168,6 +168,7 @@ export class ChatRenderOutput {
       toolCallId: result.toolCallId,
       content: rawContent,
       toolResultModelContent: result.modelContent,
+      toolResultModelContentKind: result.modelContentKind,
       segments: []
     }
 

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ToolExecutor } from '../ToolExecutor'
 import { processEmotionReport } from '@main/tools/emotion/EmotionToolsProcessor'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
+import type { EmbeddedToolExecutionContext } from '@shared/tools/registry'
 
 const {
   handlerMock,
@@ -57,7 +58,7 @@ vi.mock('@main/tools/command/risk', () => ({
 describe('ToolExecutor runtime context', () => {
   it('transports the tool-owned model view separately from raw content', async () => {
     handlerMock.mockImplementationOnce(async (_args: unknown, context?: unknown) => {
-      (context as { setModelContent: (content: string) => void }).setModelContent('tail diagnostics')
+      (context as EmbeddedToolExecutionContext).setModelContent?.('tail diagnostics', { kind: 'text' })
       return { ok: true, args: _args, stdout: 'complete captured output' }
     })
     const results = await new ToolExecutor({ chatUuid: 'chat-runtime' }).execute([
@@ -69,7 +70,8 @@ describe('ToolExecutor runtime context', () => {
     ])
     expect(results[0]).toMatchObject({
       content: { stdout: 'complete captured output' },
-      modelContent: 'tail diagnostics'
+      modelContent: 'tail diagnostics',
+      modelContentKind: 'text'
     })
   })
 

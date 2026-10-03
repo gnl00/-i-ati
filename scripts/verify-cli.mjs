@@ -169,6 +169,7 @@ const server = createServer(async (request, response) => {
     sendToolCall(response, 'write', {
       file_path: `${activeRunName}.txt`,
       content: 'written by the deterministic provider',
+      expected_version: null,
       tool_call_reason: 'Create the acceptance fixture in the workspace.'
     })
     return
@@ -178,6 +179,7 @@ const server = createServer(async (request, response) => {
     sendReasoningToolCall(response, 'write', {
       file_path: `${activeRunName}.txt`,
       content: 'written by the deterministic reasoning provider',
+      expected_version: null,
       tool_call_reason: 'Create the reasoning acceptance fixture in the workspace.'
     })
     return

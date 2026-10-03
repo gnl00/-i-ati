@@ -8,6 +8,27 @@ import {
 import type { ToolDefinition } from '../registry'
 
 describe('tool definitions', () => {
+  it('requires file versions for guarded writes and literal batch edits', () => {
+    const definitions = tools as ToolDefinition[]
+    const read = definitions.find(tool => tool.function.name === 'read')!.function.parameters
+    const write = definitions.find(tool => tool.function.name === 'write')!.function.parameters
+    const edit = definitions.find(tool => tool.function.name === 'edit')!.function.parameters
+
+    expect(read.properties).not.toHaveProperty('encoding')
+    expect(write.properties).not.toHaveProperty('encoding')
+    expect(write.required).toContain('expected_version')
+    expect(write.properties.expected_version.type).toEqual(['string', 'null'])
+    expect(edit.required).toEqual(expect.arrayContaining(['file_path', 'expected_version', 'edits']))
+    expect(edit.properties.edits).toMatchObject({
+      type: 'array',
+      minItems: 1,
+      items: { required: ['search', 'replace'], additionalProperties: false }
+    })
+    for (const parameter of ['search', 'replace', 'regex', 'all', 'expected_replacements', 'start_line', 'end_line']) {
+      expect(edit.properties).not.toHaveProperty(parameter)
+    }
+  })
+
   it('exposes tg_gateway_tool with the required lifecycle action and shared reason', () => {
     const tool = (tools as ToolDefinition[]).find(tool => tool.function.name === 'tg_gateway_tool')
     expect(tool?.function.parameters.required).toEqual(['action', TOOL_CALL_REASON_PARAMETER_NAME])

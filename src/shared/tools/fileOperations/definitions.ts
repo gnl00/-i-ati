@@ -5,18 +5,13 @@ export const fileOperationsTools = [
     type: 'function',
     function: {
       name: 'read',
-      description: 'Read the contents of a text file from the local filesystem. Use this after locating the target file or line range. When scanning a file sequentially, use window_size=300 and continue with next_start_line and next_start_column from each truncated result.',
+      description: 'Read a UTF-8 text file and its file_version for guarded edits or writes. The text view excludes a UTF-8 BOM and displays pure CRLF files with LF line endings; mixed line endings remain exact. When scanning sequentially, use window_size=300 and continue with next_start_line and next_start_column from each truncated result.',
       parameters: {
         type: 'object',
         properties: {
           file_path: {
             type: 'string',
             description: 'Workspace path to the file to read. Accepts a relative path or a native absolute path inside the workspace. Use "." for the workspace root.'
-          },
-          encoding: {
-            type: 'string',
-            description: 'The file encoding (default: utf-8).',
-            default: 'utf-8'
           },
           start_line: {
             type: 'number',
@@ -36,7 +31,7 @@ export const fileOperationsTools = [
           },
           window_size: {
             type: 'number',
-            description: 'Optional: Maximum number of lines to return, including explicit ranges. Defaults to 500 without an explicit range; explicit ranges default to the maximum of 1500. All reads are capped at 32000 characters. Use next_start_line and next_start_column to continue truncated reads.'
+            description: 'Optional: Maximum number of lines to return, including explicit ranges. Defaults to 500 without an explicit range; explicit ranges default to the maximum of 1500. The complete model-visible result is capped at 32000 characters. Use next_start_line and next_start_column to continue truncated reads.'
           }
         },
         required: ['file_path'],
@@ -48,7 +43,7 @@ export const fileOperationsTools = [
     type: 'function',
     function: {
       name: 'write',
-      description: 'Write content to a file on the local filesystem. Can create parent directories and back up existing files.',
+      description: 'Write UTF-8 text to a workspace file. Existing files require the file_version from read as expected_version; use expected_version=null only to create a missing file. Can create parent directories and back up existing files.',
       parameters: {
         type: 'object',
         properties: {
@@ -60,10 +55,9 @@ export const fileOperationsTools = [
             type: 'string',
             description: 'The content to write to the file.'
           },
-          encoding: {
-            type: 'string',
-            description: 'The file encoding (default: utf-8).',
-            default: 'utf-8'
+          expected_version: {
+            type: ['string', 'null'],
+            description: 'The exact file_version returned by read for an existing file, or null to require that the file does not exist.'
           },
           create_dirs: {
             type: 'boolean',
@@ -76,7 +70,7 @@ export const fileOperationsTools = [
             default: false
           }
         },
-        required: ['file_path', 'content'],
+        required: ['file_path', 'content', 'expected_version'],
         $schema: 'http://json-schema.org/draft-07/schema#'
       }
     }
@@ -85,7 +79,7 @@ export const fileOperationsTools = [
     type: 'function',
     function: {
       name: 'edit',
-      description: 'Edit a file by replacing exactly one matched text block by default. Use all=true for intentional bulk replacement. Returns diagnostics when no match or multiple matches are found.',
+      description: 'Apply literal text edits to a UTF-8 file at the expected_version returned by read. Every search must match exactly once in the same original text view and matched blocks must not overlap. All blocks are validated before one write. Returns diagnostics for missing, ambiguous, or overlapping blocks.',
       parameters: {
         type: 'object',
         properties: {
@@ -93,47 +87,42 @@ export const fileOperationsTools = [
             type: 'string',
             description: 'Workspace path to the file to edit. Accepts a relative path or a native absolute path inside the workspace.'
           },
-          search: {
+          expected_version: {
             type: 'string',
-            description: 'The text or pattern to search for.'
+            description: 'The exact file_version returned by read. Re-read the file if its version has changed.'
           },
-          replace: {
-            type: 'string',
-            description: 'The text to replace the matched content with.'
-          },
-          regex: {
-            type: 'boolean',
-            description: 'Whether to use regex for searching (default: false).',
-            default: false
-          },
-          all: {
-            type: 'boolean',
-            description: 'Whether to replace all occurrences. Default false requires exactly one match.',
-            default: false
+          edits: {
+            type: 'array',
+            minItems: 1,
+            description: 'Independent edits matched against the same original Read text view. Include enough context for each search to be unique. For pure CRLF files, use LF line endings in search and replace; mixed line endings remain exact.',
+            items: {
+              type: 'object',
+              properties: {
+                search: {
+                  type: 'string',
+                  minLength: 1,
+                  description: 'The exact non-empty text block to replace. No regex or automatic normalization.'
+                },
+                replace: {
+                  type: 'string',
+                  description: 'The literal replacement text, without a UTF-8 BOM.'
+                }
+              },
+              required: ['search', 'replace'],
+              additionalProperties: false
+            }
           },
           dry_run: {
             type: 'boolean',
             description: 'When true, report matches and diagnostics without writing the file.',
             default: false
           },
-          expected_replacements: {
-            type: 'number',
-            description: 'Optional exact replacement count guard. The edit is applied only when the match count equals this value.'
-          },
-          start_line: {
-            type: 'number',
-            description: 'Optional 1-indexed line where matching should start.'
-          },
-          end_line: {
-            type: 'number',
-            description: 'Optional 1-indexed line where matching should end, inclusive.'
-          },
           max_diagnostics: {
             type: 'number',
             description: 'Maximum number of diagnostic matches or nearest candidates to return. Defaults to 5.'
           }
         },
-        required: ['file_path', 'search', 'replace'],
+        required: ['file_path', 'expected_version', 'edits'],
         $schema: 'http://json-schema.org/draft-07/schema#'
       }
     }

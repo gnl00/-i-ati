@@ -24,6 +24,25 @@ const fact = (content: unknown): ToolResultFact => ({
 const readPath = (modelContent: string): string => modelContent.match(/raw_result: ([^\n]+)/)![1]
 
 describe('DefaultToolResultNormalizer', () => {
+  it('preserves literal image data in a bounded text view without producing artifacts', () => {
+    const root = workspace()
+    const png =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lK3vWQAAAABJRU5ErkJggg=='
+    const modelContent = `file_version=sha256:test\nconst image = "data:image/png;base64,${png}"\n${'\\'.repeat(29_000)}`
+    const content = { content: modelContent, file_version: 'sha256:test' }
+    const input: ToolResultFact = {
+      ...fact(content),
+      modelContent,
+      modelContentKind: 'text'
+    }
+    const normalizer = new DefaultToolResultNormalizer({ workspaceRoot: root })
+
+    expect(JSON.stringify(content).length).toBeGreaterThan(32_000)
+    expect(normalizer.normalize(input)).toBe(input)
+    expect(normalizer.normalize(input).content).toBe(content)
+    expect(readdirSync(root)).toEqual([])
+  })
+
   it.each([true, false])(
     'extracts images from a custom JSON view and preserves its tail selection (data URL=%s)',
     (dataUrl) => {
@@ -84,9 +103,10 @@ describe('DefaultToolResultNormalizer', () => {
     const normalizer = new DefaultToolResultNormalizer({ workspaceRoot: workspace() })
     const custom = { ...fact('raw log'), modelContent: 'tail log' }
     expect(normalizer.normalize(custom)).toBe(custom)
-    expect(normalizer.normalize({ ...custom, modelContent: 'x'.repeat(32_001) })).toMatchObject({
+    expect(normalizer.normalize({ ...custom, modelContent: 'x'.repeat(32_001), modelContentKind: 'text' })).toMatchObject({
       content: 'raw log',
-      modelContent: 'raw log'
+      modelContent: 'raw log',
+      modelContentKind: undefined
     })
   })
 

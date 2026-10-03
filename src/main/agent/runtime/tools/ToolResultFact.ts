@@ -20,6 +20,7 @@ export interface ToolResultError {
 
 export interface ToolResultFactBase {
   modelContent?: string
+  modelContentKind?: 'text'
   stepId: string
   toolCallId: string
   toolCallIndex: number

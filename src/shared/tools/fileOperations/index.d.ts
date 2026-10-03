@@ -10,10 +10,11 @@ export interface ToolFailureResponse {
 }
 
 // ============ Read Text File ============
+export type FileLineEnding = 'lf' | 'crlf' | 'mixed' | 'none'
+
 export interface ReadTextFileArgs {
   file_path: string
   chat_uuid?: string
-  encoding?: string
   start_line?: number
   start_column?: number
   end_line?: number
@@ -24,6 +25,9 @@ export interface ReadTextFileArgs {
 export interface ReadTextFileResponse extends ToolFailureResponse {
   success: boolean
   file_path?: string
+  file_version?: string
+  line_ending?: FileLineEnding
+  bom?: boolean
   content?: string
   lines?: number
   returned_start_line?: number
@@ -41,7 +45,7 @@ export interface WriteFileArgs {
   file_path: string
   chat_uuid?: string
   content: string
-  encoding?: string
+  expected_version: string | null
   create_dirs?: boolean
   backup?: boolean
 }
@@ -50,21 +54,22 @@ export interface WriteFileResponse extends ToolFailureResponse {
   success: boolean
   file_path?: string
   bytes_written?: number
+  file_version?: string
   error?: string
 }
 
 // ============ Edit File ============
+export interface EditTextBlock {
+  search: string
+  replace: string
+}
+
 export interface EditFileArgs {
   file_path: string
   chat_uuid?: string
-  search: string
-  replace: string
-  regex?: boolean
-  all?: boolean
+  expected_version: string
+  edits: EditTextBlock[]
   dry_run?: boolean
-  expected_replacements?: number
-  start_line?: number
-  end_line?: number
   max_diagnostics?: number
 }
 
@@ -100,7 +105,9 @@ export interface EditDiagnostics {
 export interface EditFileResponse extends ToolFailureResponse {
   success: boolean
   file_path?: string
-  status?: 'replaced' | 'dry_run' | 'no_match' | 'multiple_matches' | 'match_count_mismatch'
+  file_version?: string
+  status?: 'replaced' | 'dry_run' | 'no_match' | 'multiple_matches' | 'overlapping_edits'
+  block_index?: number
   replacements?: number
   diagnostics?: EditDiagnostics
   error?: string

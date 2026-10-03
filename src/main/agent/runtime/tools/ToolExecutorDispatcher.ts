@@ -127,7 +127,10 @@ const toToolResultFact = (
             modelContent: formatToolResultForModel({
               content: result.modelContent,
               failure: result.failure
-            })
+            }),
+            ...(result.modelContentKind !== undefined
+              ? { modelContentKind: result.modelContentKind }
+              : {})
           }
         : {}),
       failure: result.failure

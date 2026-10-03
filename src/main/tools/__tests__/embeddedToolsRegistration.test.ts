@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import tools from '@tools/definitions'
-import type { ToolDefinition } from '@tools/registry'
+import type { EmbeddedToolExecutionContext, ToolDefinition } from '@tools/registry'
 
 vi.mock('electron', () => ({
   app: {
@@ -27,6 +27,41 @@ vi.mock('@main/main-window', () => ({
 }))
 
 describe('main embedded tool handlers', () => {
+  it('publishes successful Read text as a literal model view and preserves raw results', async () => {
+    const files = await import('../fileOperations/FileOperationsProcessor')
+    const { toolHandlers } = await import('../index')
+    const result = {
+      success: true,
+      file_path: 'sample.ts',
+      file_version: `sha256:${'a'.repeat(64)}`,
+      content: 'const image = "data:image/png;base64,literal"',
+      line_ending: 'none' as const,
+      bom: false,
+      returned_start_line: 1,
+      returned_end_line: 1,
+      returned_start_column: 1,
+      returned_end_column: 46,
+      lines: 1,
+      truncated: false
+    }
+    const read = vi.spyOn(files, 'processRead').mockResolvedValueOnce(result)
+    const setModelContent = vi.fn()
+    const context: EmbeddedToolExecutionContext = { setModelContent }
+    const args = { file_path: 'sample.ts' }
+    try {
+      await expect(toolHandlers.read(args, context)).resolves.toBe(result)
+      expect(read).toHaveBeenCalledWith(args, context)
+      expect(setModelContent).toHaveBeenCalledWith(files.formatReadResultForModel(result), { kind: 'text' })
+
+      setModelContent.mockClear()
+      read.mockResolvedValueOnce({ success: false, error: 'File not found' })
+      await expect(toolHandlers.read(args, context)).resolves.toMatchObject({ success: false })
+      expect(setModelContent).not.toHaveBeenCalled()
+    } finally {
+      read.mockRestore()
+    }
+  })
+
   it('routes tg_gateway_tool to the Telegram lifecycle processor', async () => {
     const { toolHandlers } = await import('../index')
     const { processTelegramGateway } = await import('../telegram/TelegramToolsProcessor')
