@@ -1,3 +1,4 @@
+import { expandTextAttachments } from '@shared/chat/textAttachments'
 import { extractContentFromSegments } from '@main/services/messages/MessageSegmentContent'
 import type { ConversationStore } from '@main/agent/contracts'
 import { chatDb } from '@main/db/chat'
@@ -28,14 +29,18 @@ const buildUserMessage = (
   textCtx: string,
   mediaCtx: ClipbordImg[] | string[],
   source?: string,
-  host?: ChatMessageHostMeta
+  host?: ChatMessageHostMeta,
+  textAttachments?: TextAttachment[]
 ): ChatMessage => {
+  const composerText = textCtx.trim()
+  textCtx = expandTextAttachments(composerText, textAttachments)
   const createdAt = Date.now()
   let messageBody: ChatMessage = {
     role: 'user',
     content: '',
     segments: [],
     createdAt,
+    ...(textAttachments?.length ? { composerText, textAttachments } : {}),
     ...(source ? { source } : {}),
     ...(host ? { host } : {})
   }
@@ -89,7 +94,7 @@ export class ChatStepStore implements ConversationStore {
     input: HostRunInputState
   ): MessageEntity {
     const entity: MessageEntity = {
-      body: buildUserMessage(input.textCtx, input.mediaCtx, input.source, input.host),
+      body: buildUserMessage(input.textCtx, input.mediaCtx, input.source, input.host, input.textAttachments),
       chatId: chatEntity.id,
       chatUuid: chatEntity.uuid
     }
@@ -100,12 +105,12 @@ export class ChatStepStore implements ConversationStore {
   }
 
   persistSteeringUserMessage(
-    input: { text: string; imageUrls: string[] },
+    input: { text: string; imageUrls: string[]; textAttachments?: TextAttachment[] },
     chatId?: number,
     chatUuid?: string
   ): MessageEntity {
     const entity: MessageEntity = {
-      body: buildUserMessage(input.text, input.imageUrls),
+      body: buildUserMessage(input.text, input.imageUrls, undefined, undefined, input.textAttachments),
       chatId,
       chatUuid
     }

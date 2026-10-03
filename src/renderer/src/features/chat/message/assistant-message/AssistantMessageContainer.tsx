@@ -218,7 +218,9 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
       return
     }
 
-    void handleChatSubmit(payload.text, payload.images, {})
+    void handleChatSubmit(payload.text, payload.images, {
+      ...(payload.textAttachments?.length ? { textAttachments: payload.textAttachments } : {})
+    })
   }, [handleChatSubmit, isRunBusy, messages, selectedModelRef])
 
   const handleCopy = useCallback((): CopyActionResult | Promise<CopyActionResult> => {

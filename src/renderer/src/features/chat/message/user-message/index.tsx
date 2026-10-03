@@ -11,6 +11,7 @@ import { useEnterTransition } from '../typewriter/use-enter-transition'
 import { loadKatexStyles } from '@renderer/shared/lib/styleLoaders'
 import { useMessageScroller } from '@renderer/shared/components/ui/message-scroller'
 import { ChevronDown, ChevronUp, Send } from 'lucide-react'
+import { TextAttachmentList } from '../../input/TextAttachmentList'
 import { UserMessageImages } from './user-message-images'
 
 export interface UserMessageProps {
@@ -216,7 +217,7 @@ export const UserMessage = memo(function UserMessage({
   onCopyClick
 }: UserMessageProps): React.ReactElement | null {
   const telegramAttachmentCount = m.host?.attachments?.length ?? 0
-  const textContent = useMemo(() => typeof m.content === 'string' ? m.content : m.content.map(part => part.text ?? '').filter(Boolean).join('\n\n'), [m.content])
+  const textContent = useMemo(() => m.composerText ?? (typeof m.content === 'string' ? m.content : m.content.map(part => part.text ?? '').filter(Boolean).join('\n\n')), [m.content, m.composerText])
   const imageUrls = useMemo(() => typeof m.content === 'string' ? [] : m.content.flatMap(part => part.image_url?.url ? [part.image_url.url] : []), [m.content])
   const contentSignature = textContent
   const [isExpanded, setIsExpanded] = useState(false)
@@ -238,7 +239,7 @@ export const UserMessage = memo(function UserMessage({
     }
   }
 
-  if (!textContent.trim() && imageUrls.length === 0) return null
+  if (!textContent.trim() && imageUrls.length === 0 && !m.textAttachments?.length) return null
   const shouldAnimateMarkdownEnter = isLatest || isPending
 
   return (
@@ -260,6 +261,8 @@ export const UserMessage = memo(function UserMessage({
           </span>
         </div>
       )}
+
+      {m.textAttachments?.length ? <div className="mb-2 w-full max-w-[85%]"><TextAttachmentList attachments={m.textAttachments} /></div> : null}
 
       {imageUrls.length > 0 && (
         <UserMessageImages key={imageUrls.join('\n')} urls={imageUrls} isPending={isPending} />

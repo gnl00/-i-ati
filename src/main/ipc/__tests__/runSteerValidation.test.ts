@@ -60,3 +60,12 @@ describe('validateRunSteerRequest', () => {
     })
   })
 })
+
+it('accepts attachment-only steering and includes expanded contents in size limits', () => {
+  const attachment = { id: 'paste-1', filename: 'pasted-text-1.txt', text: '你好' }
+  const valid = validateRunSteerRequest(request({ text: '', textAttachments: [attachment] }))
+  expect(valid.valid).toBe(true)
+  if (valid.valid) expect(valid.payloadBytes).toBeGreaterThan(6)
+  expect(validateRunSteerRequest(request({ textAttachments: [{ ...attachment, text: 'a'.repeat(RUN_STEERING_LIMITS.maxTextChars) }] }))).toEqual({ valid: false, reason: 'payload_too_large' })
+  expect(validateRunSteerRequest(request({ textAttachments: [{ ...attachment, text: null }] }))).toEqual({ valid: false, reason: 'invalid_request' })
+})

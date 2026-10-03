@@ -2,6 +2,7 @@ import type { RunModelContext, RunSpec } from '@main/agent/contracts'
 
 export type HostRunInputState = {
   textCtx: string
+  textAttachments?: TextAttachment[]
   mediaCtx: ClipbordImg[] | string[]
   source?: string
   host?: ChatMessageHostMeta

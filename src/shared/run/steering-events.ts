@@ -1,3 +1,5 @@
+import { expandTextAttachments } from '../chat/textAttachments'
+
 export const RUN_STEERING_EVENTS = {
   STEERING_CONSUMED: 'run.steering.consumed',
   STEERING_RETURNED: 'run.steering.returned'
@@ -19,9 +21,9 @@ const steeringPayloadTextEncoder = new TextEncoder()
 export type RunSteerImage = string | null
 
 export function measureRunSteerPayloadBytes(
-  input: Pick<RunSteerRequest, 'text' | 'images'>
+  input: Pick<RunSteerRequest, 'text' | 'images' | 'textAttachments'>
 ): number {
-  let payloadBytes = steeringPayloadTextEncoder.encode(input.text).byteLength
+  let payloadBytes = steeringPayloadTextEncoder.encode(expandTextAttachments(input.text, input.textAttachments)).byteLength
   for (const image of input.images) {
     if (typeof image === 'string') {
       payloadBytes += steeringPayloadTextEncoder.encode(image).byteLength
@@ -44,6 +46,7 @@ export type RunSteerRequest = {
   chatUuid: string
   queueItemId: string
   text: string
+  textAttachments?: TextAttachment[]
   images: RunSteerImage[]
 }
 

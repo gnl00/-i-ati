@@ -1,3 +1,4 @@
+import { expandTextAttachments } from '@shared/chat/textAttachments'
 import { buildContextMessages } from './request/buildContextMessages'
 import {
   getEffectiveThinkingLevel,
@@ -63,11 +64,11 @@ export class RunRequestFactory {
       await Promise.all([
         this.loadedSkillsContextProvider.build(environment.chat.id),
         this.userInfoPromptProvider.buildContext(),
-        this.knowledgebaseContextProvider.build(input.textCtx),
+        this.knowledgebaseContextProvider.build(expandTextAttachments(input.textCtx, input.textAttachments)),
         this.awakeContextProvider.build({
           chat: environment.chat,
           workspacePath: environment.workspacePath,
-          currentQuery: input.textCtx,
+          currentQuery: expandTextAttachments(input.textCtx, input.textAttachments),
           compressionSummary
         })
       ])

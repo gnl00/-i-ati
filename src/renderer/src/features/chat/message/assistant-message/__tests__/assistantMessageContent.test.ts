@@ -68,3 +68,8 @@ describe('assistantMessageContent', () => {
     expect(latest?.content).toBe('normal')
   })
 })
+
+it('regenerates from original composer text and attachments without double expansion', () => {
+  const textAttachments = [{ id: 'paste-1', filename: 'pasted-text-1.txt', text: 'original text' }]
+  expect(extractAssistantRegeneratePayload({ role: 'user', content: 'expanded API content', composerText: '', textAttachments, segments: [] })).toEqual({ text: '', images: [], textAttachments })
+})

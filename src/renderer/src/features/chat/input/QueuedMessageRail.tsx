@@ -25,6 +25,8 @@ function getQueuedMessagePreview(message: QueuedChatMessage): string {
     return normalizedText
   }
 
+  if (message.textAttachments?.length) return message.textAttachments.map(item => item.filename).join(', ')
+
   const imageCount = message.images.filter(Boolean).length
   return imageCount === 1 ? '1 image queued' : `${imageCount} images queued`
 }

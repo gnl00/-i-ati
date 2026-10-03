@@ -492,7 +492,16 @@ declare type MessageUiStatePatch = {
   typewriterCompleted?: boolean
 }
 
+declare interface TextAttachment {
+  id: string
+  filename: string
+  text: string
+}
+
 declare interface ChatMessage extends BaseChatMessage {
+  /** Original composer text; content retains the complete API-visible text. */
+  composerText?: string
+  textAttachments?: TextAttachment[]
   toolResultModelContent?: string
   model?: string
   modelRef?: { accountId: string; modelId: string }

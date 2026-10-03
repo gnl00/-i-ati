@@ -12,6 +12,7 @@ const ABORT_FALLBACK_TIMEOUT_MS = 3000
 const PENDING_CHAT_RUN_KEY = '__pending_chat__'
 
 export type ChatRunSubmitOptions = {
+  textAttachments?: TextAttachment[]
   tools?: any[]
   stream?: boolean
   options?: IUnifiedRequest['options']
@@ -183,11 +184,13 @@ export default function useChatRun() {
 
     const hasPendingUserContent = textCtx.trim().length > 0
       || mediaCtx.some(media => Boolean(media))
+      || Boolean(options.textAttachments?.length)
     if (hasPendingUserContent) {
       state.setPendingUserMessage({
         submissionId,
         chatUuid: state.currentChatUuid ?? null,
         text: textCtx,
+        ...(options.textAttachments?.length ? { textAttachments: options.textAttachments } : {}),
         mediaCtx,
         createdAt: Date.now()
       })
@@ -207,6 +210,7 @@ export default function useChatRun() {
         submissionId,
         input: {
           textCtx,
+          ...(options.textAttachments?.length ? { textAttachments: options.textAttachments } : {}),
           mediaCtx,
           tools: collectRunTools(state, options),
           options: options.options,
@@ -344,6 +348,7 @@ export default function useChatRun() {
     queueItemId: string
     text: string
     images: ClipbordImg[]
+    textAttachments?: TextAttachment[]
   }): Promise<RunSteerResult> => {
     const images = payload.images.filter((image): image is RunSteerImage => (
       typeof image === 'string' || image === null
@@ -364,6 +369,7 @@ export default function useChatRun() {
       chatUuid,
       queueItemId: payload.queueItemId,
       text: payload.text,
+      ...(payload.textAttachments?.length ? { textAttachments: payload.textAttachments } : {}),
       images
     })
   }

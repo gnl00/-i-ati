@@ -1,3 +1,5 @@
+import { shouldAttachPastedText } from '@shared/chat/textAttachments'
+import { TextAttachmentList } from './TextAttachmentList'
 import ChatImageGallery from '@renderer/features/chat/shell/ChatImageGallery'
 import useChatRun, { getActiveChatRunIdentity } from '@renderer/features/chat/runtime/useChatRun'
 import { useSlashCommands } from '@renderer/features/chat/input/useSlashCommands'
@@ -173,7 +175,26 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     useChatInputQueueStore.getState().setPaused(queueScope, paused)
   }, [queueScope])
 
-  const [inputContent, setInputContent] = useState<string>('')
+  const [inputContent, setInputContentState] = useState<string>('')
+  const inputValueRef = useRef('')
+  const [textAttachments, setTextAttachments] = useState<TextAttachment[]>([])
+  const pastePositions = useRef(new Map<string, number>())
+  const pasteNumber = useRef(0)
+  const setInputContent = useCallback((value: string) => {
+    const previous = inputValueRef.current
+    let prefix = 0
+    while (prefix < value.length && prefix < previous.length && value[prefix] === previous[prefix]) prefix++
+    let suffix = 0
+    while (suffix < value.length - prefix && suffix < previous.length - prefix && value[value.length - suffix - 1] === previous[previous.length - suffix - 1]) suffix++
+    const oldEnd = previous.length - suffix
+    for (const [id, position] of pastePositions.current) {
+      pastePositions.current.set(id, position > oldEnd ? position + value.length - previous.length : position >= prefix ? value.length - suffix : position)
+    }
+    inputValueRef.current = value
+    setInputContentState(value)
+  }, [])
+  const latestDraft = useRef({ inputContent, textAttachments, imageSrcBase64List })
+  latestDraft.current = { inputContent, textAttachments, imageSrcBase64List }
   const [isDragging, setIsDragging] = useState<boolean>(false)
   const [workspacePathToSelect, setWorkspacePathToSelect] = useState<string | null>(null)
   const [modelMenuCollisionBoundary, setModelMenuCollisionBoundary] = useState<HTMLElement | null>(null)
@@ -315,6 +336,9 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     if (!currentChatUuid) {
       useChatInputQueueStore.getState().clear(queueScope)
     }
+    setInputContent('')
+    setTextAttachments([])
+    pastePositions.current.clear()
     startNewChatBase()
     editUserInstructionDraft('')
   }, [currentChatUuid, editUserInstructionDraft, queueScope, startNewChatBase])
@@ -324,16 +348,22 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     cancel: cancelChatSubmit,
     steer: steerChatRun
   } = useChatRun()
-  const handleChatSubmitCallback = useCallback((text, img, options) => {
-    handleChatSubmit(text, img, options)
-  }, [handleChatSubmit])
+  const handleChatSubmitCallback = useCallback((text, img, options) => handleChatSubmit(text, img, options), [handleChatSubmit])
   const submitMessage = useCallback((payload: QueuedChatMessagePayload) => {
     onMessagesUpdate?.()
     const thinking = toUnifiedRequestThinkingOption(effectiveThinkingLevel)
-    handleChatSubmitCallback(payload.text, payload.images, {
+    const promise = handleChatSubmitCallback(payload.text, payload.images, {
+      ...(payload.textAttachments?.length ? { textAttachments: payload.textAttachments } : {}),
       options: thinking ? { thinking } : undefined
     })
-  }, [effectiveThinkingLevel, handleChatSubmitCallback, onMessagesUpdate])
+    const identity = getActiveChatRunIdentity(currentChatUuid)
+    const scope = { chatUuid: identity?.chatUuid ?? currentChatUuid, submissionId: identity?.submissionId ?? null }
+    useChatInputQueueStore.getState().setSubmittedDraft(scope, payload)
+    return Promise.resolve(promise).catch(() => {
+      useChatInputQueueStore.getState().failSubmittedDraft(scope)
+      toast.error('Failed to send message. Your content has been preserved')
+    })
+  }, [effectiveThinkingLevel, handleChatSubmitCallback, onMessagesUpdate, currentChatUuid])
 
   const enqueueMessage = useCallback((payload: QueuedChatMessagePayload) => {
     if (queuedMessages.length >= RUN_STEERING_LIMITS.maxPendingItems) {
@@ -346,6 +376,8 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
       status: 'queued'
     }])
     setInputContent('')
+    setTextAttachments([])
+    pastePositions.current.clear()
     setImageSrcBase64List([])
 
     requestAnimationFrame(() => {
@@ -369,13 +401,13 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     isWelcomePopoverOpen ||
     isWelcomeInteractionHeld ||
     inputContent.trim().length > 0 ||
-    imageSrcBase64List.length > 0
+    imageSrcBase64List.length > 0 || textAttachments.length > 0
   )
 
   const onSubmitClick = useCallback((_event?: React.MouseEvent | React.KeyboardEvent, overrideText?: string) => {
     const rawInput = overrideText ?? inputContent
     const trimmedInput = rawInput.trim()
-    if (!trimmedInput) {
+    if (!trimmedInput && !textAttachments.length && !imageSrcBase64List.length) {
       return
     }
     if (hasPendingUserQuestion) {
@@ -392,17 +424,21 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
 
     const payload = {
       text: trimmedInput,
-      images: imageSrcBase64List
+      images: imageSrcBase64List,
+      ...(textAttachments.length ? { textAttachments } : {})
     }
 
     if (editingQueue) {
       const editingItem = queueOwner.editingMessage
       const editedPayload = {
         text: trimmedInput,
-        images: imageSrcBase64List
+        images: imageSrcBase64List,
+        ...(textAttachments.length ? { textAttachments } : {})
       }
 
       setInputContent('')
+      setTextAttachments([])
+      pastePositions.current.clear()
       setImageSrcBase64List([])
 
       if (shouldQueueSubmission) {
@@ -428,6 +464,8 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     useChatStore.getState().forceCompleteTypewriter?.()
     submitMessage(payload)
     setInputContent('')
+    setTextAttachments([])
+    pastePositions.current.clear()
     setImageSrcBase64List([])
 
     requestAnimationFrame(() => {
@@ -439,6 +477,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     })
   }, [
     inputContent,
+    textAttachments,
     imageSrcBase64List,
     selectedModelRef,
     ensureSelectedModelRef,
@@ -478,7 +517,8 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
       const result = await steerChatRun({
         queueItemId: first.id,
         text: first.text,
-        images: first.images
+        images: first.images,
+        ...(first.textAttachments?.length ? { textAttachments: first.textAttachments } : {})
       })
       if (result.accepted) {
         return
@@ -574,17 +614,38 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
 
     previousQueueKeyRef.current = queueKey
     queueFlushingRef.current = false
+    // First-submission recovery keeps any draft entered while the IPC request was pending.
+    if (queueOwner.failedDraft) return
     setInputContent('')
+    setTextAttachments([])
+    pastePositions.current.clear()
     setImageSrcBase64List([])
   }, [queueKey, setImageSrcBase64List])
 
   useEffect(() => {
+    if (!queueOwner.failedDraft) return
+    const payload = useChatInputQueueStore.getState().takeFailedDraft(queueScope)
+    if (!payload) return
+    const draft = latestDraft.current
+    const isSubmittedDraft = draft.inputContent.trim() === payload.text
+      && draft.textAttachments === payload.textAttachments
+      && draft.imageSrcBase64List === payload.images
+    if (isSubmittedDraft || (!draft.inputContent && !draft.textAttachments.length && !draft.imageSrcBase64List.length)) {
+      setInputContent(payload.text)
+      setTextAttachments(payload.textAttachments ?? [])
+      setImageSrcBase64List(payload.images)
+    } else {
+      setQueuedMessages(items => [{ ...payload, id: uuidv4(), status: 'queued' }, ...items])
+    }
+  }, [queueOwner.failedDraft, queueScope, setImageSrcBase64List, setQueuedMessages])
+  useEffect(() => {
     const editingMessage = queueOwner.editingMessage
-    if (!editingMessage) {
+    if (!editingMessage || queueOwner.failedDraft) {
       return
     }
 
     setInputContent(editingMessage.text)
+    setTextAttachments(editingMessage.textAttachments ?? [])
     setImageSrcBase64List(editingMessage.images)
     requestAnimationFrame(() => {
       textareaRef.current?.focus()
@@ -600,17 +661,29 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     ) {
       return
     }
+    if (inputContent.trim() || textAttachments.length || imageSrcBase64List.length) {
+      if (queuedMessages.length >= RUN_STEERING_LIMITS.maxPendingItems) {
+        toast.warning('Queue is full. Send or clear your draft before editing')
+        return
+      }
+      setQueuedMessages(items => [...items, {
+        id: uuidv4(), status: 'queued', text: inputContent,
+        images: imageSrcBase64List,
+        ...(textAttachments.length ? { textAttachments } : {})
+      }])
+    }
     const first = useChatInputQueueStore.getState().beginEditing(queueScope)
     if (!first) {
       return
     }
     setInputContent(first.text || '')
+    setTextAttachments(first.textAttachments ?? [])
     setImageSrcBase64List(first.images || [])
     requestAnimationFrame(() => {
       textareaRef.current?.focus()
       caretOverlayRef.current?.updateCaret()
     })
-  }, [editingQueue, queueScope, queuedMessages, setImageSrcBase64List])
+  }, [editingQueue, queueScope, queuedMessages, setImageSrcBase64List, inputContent, textAttachments, imageSrcBase64List, setQueuedMessages])
 
   const removeFirstQueuedMessage = useCallback(() => {
     setQueuedMessages(prev => {
@@ -628,7 +701,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
 
     // Delegate command detection to the hook
     handleCommandInputChange(value)
-  }, [handleCommandInputChange])
+  }, [handleCommandInputChange, setInputContent])
 
   const onTextAreaKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && (e.nativeEvent.isComposing || isComposingRef.current)) {
@@ -657,7 +730,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
         toast.info('Answer the pending question to continue')
         return
       }
-      if (!inputContent.trim()) {
+      if (!inputContent.trim() && !textAttachments.length && !imageSrcBase64List.length) {
         toast.error('Input text content is required')
         return
       }
@@ -689,6 +762,8 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     handleCommandKeyDown,
     onSubmitClick,
     inputContent,
+    textAttachments,
+    imageSrcBase64List,
     selectedModelRef,
     ensureSelectedModelRef,
     queuedMessages.length,
@@ -705,7 +780,45 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     isComposingRef.current = false
   }, [])
 
+  const removeTextAttachment = useCallback((id: string) => {
+    setTextAttachments(items => items.filter(item => item.id !== id))
+    pastePositions.current.delete(id)
+    requestAnimationFrame(() => textareaRef.current?.focus())
+  }, [])
+
+  const restoreTextAttachment = useCallback((attachment: TextAttachment) => {
+    const position = Math.min(pastePositions.current.get(attachment.id) ?? textareaRef.current?.selectionStart ?? inputContent.length, inputContent.length)
+    const text = inputContent.slice(0, position) + attachment.text + inputContent.slice(position)
+    setInputContent(text)
+    handleCommandInputChange(text)
+    removeTextAttachment(attachment.id)
+    requestAnimationFrame(() => {
+      textareaRef.current?.setSelectionRange(position + attachment.text.length, position + attachment.text.length)
+      caretOverlayRef.current?.updateCaret()
+    })
+  }, [inputContent, handleCommandInputChange, removeTextAttachment])
+
   const onTextAreaPaste = useCallback((event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const pastedText = event.clipboardData.getData('text/plain')
+    if (shouldAttachPastedText(pastedText)) {
+      event.preventDefault()
+      const textarea = event.currentTarget
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const id = uuidv4()
+      const text = inputContent.slice(0, start) + inputContent.slice(end)
+      pasteNumber.current = Math.max(pasteNumber.current, ...textAttachments.map(item => Number(item.filename.match(/\d+/)?.[0] ?? 0))) + 1
+      const filename = `pasted-text-${pasteNumber.current}.txt`
+      setTextAttachments(items => [...items, { id, filename, text: pastedText }])
+      setInputContent(text)
+      pastePositions.current.set(id, start)
+      handleCommandInputChange(text)
+      requestAnimationFrame(() => {
+        textareaRef.current?.focus()
+        textareaRef.current?.setSelectionRange(start, start)
+        caretOverlayRef.current?.updateCaret()
+      })
+    }
     const items = (event.clipboardData || (event as any).originalEvent.clipboardData).items
     let blob: File | null = null
 
@@ -723,7 +836,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
         setImageSrcBase64List([...imageSrcBase64List, reader.result as string])
       }
     }
-  }, [imageSrcBase64List, setImageSrcBase64List])
+  }, [imageSrcBase64List, setImageSrcBase64List, inputContent, textAttachments, handleCommandInputChange, setInputContent])
 
   const onTextAreaBlur = useCallback(() => {
     // Delegate blur handling to the hook
@@ -839,6 +952,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
           onDrop={onDrop}
           topAccessory={queuedMessageRail}
           mediaGallery={imageSrcBase64List.length !== 0 ? <ChatImageGallery /> : null}
+          textAttachmentGallery={textAttachments.length ? <TextAttachmentList attachments={textAttachments} onRemove={removeTextAttachment} onRestore={restoreTextAttachment} /> : null}
           bodyOverlay={(
             <CustomCaretOverlay
               ref={caretOverlayRef}
@@ -883,7 +997,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
               onSubmit={onSubmitClick}
               onCancel={cancelChatSubmit}
               workspacePathToSelect={workspacePathToSelect}
-              submitDisabled={!inputContent.trim() || hasPendingUserQuestion}
+              submitDisabled={(!inputContent.trim() && !textAttachments.length && !imageSrcBase64List.length) || hasPendingUserQuestion}
             />
           )}
         />
@@ -940,6 +1054,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
               onDrop={onDrop}
               topAccessory={queuedMessageRail}
               mediaGallery={imageSrcBase64List.length !== 0 ? <ChatImageGallery /> : null}
+          textAttachmentGallery={textAttachments.length ? <TextAttachmentList attachments={textAttachments} onRemove={removeTextAttachment} onRestore={restoreTextAttachment} /> : null}
               dropIndicator={isDragging ? (
                 <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center bg-background/18 backdrop-blur-[2px]">
                   <div className="rounded-2xl border border-border/60 bg-background/90 px-5 py-3 text-sm font-medium text-muted-foreground shadow-lg backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200">
@@ -976,7 +1091,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
                   onSubmit={onSubmitClick}
                   onCancel={cancelChatSubmit}
                   workspacePathToSelect={workspacePathToSelect}
-                  submitDisabled={!inputContent.trim() || hasPendingUserQuestion}
+                  submitDisabled={(!inputContent.trim() && !textAttachments.length && !imageSrcBase64List.length) || hasPendingUserQuestion}
                 />
               )}
             />

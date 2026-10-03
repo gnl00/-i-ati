@@ -1,3 +1,4 @@
+import { expandTextAttachments } from '@shared/chat/textAttachments'
 import {
   type AgentContentPart,
   type HostRunRequest
@@ -64,7 +65,7 @@ export class DefaultMainAgentHostRequestBuilder implements MainAgentHostRequestB
       submittedAt,
       userContent: toAgentContentParts(
         prepared.runSpec.modelContext.model.type,
-        runInput.input.textCtx,
+        expandTextAttachments(runInput.input.textCtx, runInput.input.textAttachments),
         runInput.input.mediaCtx
       ),
       metadata: {

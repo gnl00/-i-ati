@@ -17,6 +17,7 @@ export type PendingUserMessageState = {
   submissionId: string
   chatUuid: string | null
   text: string
+  textAttachments?: TextAttachment[]
   mediaCtx: ClipbordImg[] | string[]
   createdAt: number
 }

@@ -11,10 +11,11 @@ export type QueuedChatMessage = {
   id: string
   status: 'queued' | 'inserting'
   text: string
+  textAttachments?: TextAttachment[]
   images: ClipbordImg[]
 }
 
-export type QueuedChatMessagePayload = Pick<QueuedChatMessage, 'text' | 'images'>
+export type QueuedChatMessagePayload = Pick<QueuedChatMessage, 'text' | 'images' | 'textAttachments'>
 
 export function isSubmissionBlocked(
   runPhase: RunPhase,
@@ -45,6 +46,9 @@ export function mergeQueuedMessages(items: QueuedChatMessage[]): QueuedChatMessa
 
   return {
     text,
-    images
+    images,
+    ...(items.some(item => item.textAttachments?.length)
+      ? { textAttachments: items.flatMap(item => item.textAttachments ?? []) }
+      : {})
   }
 }

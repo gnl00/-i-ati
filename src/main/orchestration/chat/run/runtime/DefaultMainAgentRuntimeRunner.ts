@@ -1,3 +1,4 @@
+import { expandTextAttachments } from '@shared/chat/textAttachments'
 import { isAbsolute } from 'node:path'
 import { resolveWorkspaceRoot } from '@main/services/filesystem/WorkspacePathResolver'
 import { HostOutputDispatcher } from '@main/hosts/shared/output/HostOutputDispatcher'
@@ -154,10 +155,11 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
                 return {
                   queueItemId: message.queueItemId,
                   text: message.text,
+                  ...(message.textAttachments?.length ? { textAttachments: message.textAttachments } : {}),
                   imageUrls,
                   content: toAgentContentParts(
                     input.prepared.runSpec.modelContext.model.type,
-                    message.text,
+                    expandTextAttachments(message.text, message.textAttachments),
                     imageUrls
                   )
                 }

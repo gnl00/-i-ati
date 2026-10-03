@@ -1,3 +1,4 @@
+import { expandTextAttachments } from '@shared/chat/textAttachments'
 import { ChatStepStore } from '../persistence'
 import { normalizeMediaUrls } from '../persistence/ChatStepStore'
 import { VisionObservationService } from '../vision'
@@ -30,7 +31,7 @@ export class StepBootstrapService {
       ? await this.visionObservationService.observe({
         chat: environment.chat,
         userMessage: userMessageEntity,
-        textCtx: input.input.textCtx,
+        textCtx: expandTextAttachments(input.input.textCtx, input.input.textAttachments),
         mediaCtx: input.input.mediaCtx,
         source: input.input.source,
         host: input.input.host

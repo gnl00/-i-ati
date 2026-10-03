@@ -744,3 +744,20 @@ describe('ChatStepStore.finalizeAssistantMessage', () => {
     expect(updateChatMock).not.toHaveBeenCalled()
   })
 })
+
+it('persists API-visible attachment contents and restores original composer metadata', () => {
+  saveMessageMock.mockReturnValue(102)
+  const textAttachments = [{ id: 'paste-1', filename: 'pasted-text-1.txt', text: '  code\r\n你好\n' }]
+  const message = new ChatStepStore().createUserMessage(
+    { id: 1, uuid: 'chat-1', messages: [] } as unknown as ChatEntity,
+    { id: 'model', label: 'Model', type: 'llm' },
+    { textCtx: '', mediaCtx: [], textAttachments }
+  )
+  expect(message.body.composerText).toBe('')
+  expect(message.body.textAttachments).toEqual(textAttachments)
+  expect(message.body.content).toContain(textAttachments[0].text)
+  expect(JSON.parse(JSON.stringify(message)).body.textAttachments).toEqual(textAttachments)
+  const steering = new ChatStepStore().persistSteeringUserMessage({ text: 'review', imageUrls: [], textAttachments }, 1, 'chat-1')
+  expect(steering.body.composerText).toBe('review')
+  expect(steering.body.content).toContain(textAttachments[0].text)
+})

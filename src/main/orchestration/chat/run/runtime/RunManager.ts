@@ -141,6 +141,7 @@ export class RunManager {
     return run.steer({
       queueItemId: input.queueItemId,
       text: input.text,
+      ...(input.textAttachments?.length ? { textAttachments: input.textAttachments } : {}),
       images: input.images
     })
   }

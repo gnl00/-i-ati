@@ -1,3 +1,4 @@
+import { isTextAttachmentList } from '@shared/chat/textAttachments'
 import { ipcMain } from 'electron'
 import { chatDb } from '@main/db/chat'
 import { createLogger } from '@main/logging/LogService'
@@ -85,6 +86,7 @@ function validateRunStartRequest(data: unknown): data is MainAgentRunInput {
     && isNonEmptyString(modelRef?.modelId)
     && typeof input?.textCtx === 'string'
     && Array.isArray(input.mediaCtx)
+    && isTextAttachmentList(input.textAttachments)
     && (request.chatId === undefined || Number.isSafeInteger(request.chatId))
     && (request.chatUuid === undefined || isNonEmptyString(request.chatUuid))
 }

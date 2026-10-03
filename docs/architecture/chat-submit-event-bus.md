@@ -63,3 +63,32 @@ run.accepted
   - `src/shared/run/events.ts`
 - Renderer projection:
   - `src/renderer/src/features/chat/runtime/useChatRun.ts`
+
+## Pasted text attachments
+
+Desktop input optionally carries `textAttachments` (`id`, `filename`, `text`) through
+submission, pending-message rendering, queued messages and steering. The generated
+filename is `pasted-text-N.txt`; Main validates attachment shape at both IPC entry points.
+`src/shared/chat/textAttachments.ts` contains the thresholds and deterministic text expansion.
+
+Main's ChatStepStore persists complete expanded text in the existing message `content`,
+plus `composerText` and `textAttachments` for the compact UI and regeneration. This is
+an intentional request snapshot: history import, compression and request budgeting keep
+seeing the full text through their existing content paths. Renderer regeneration submits
+the original composer metadata, so attachments expand exactly once. No schema migration,
+provider upload, local path or remote file ID is introduced.
+
+The host request builder and steering runtime use the same expansion for fresh user input.
+Every adapter receives ordinary text. The conversion improves composer interaction; it does
+not reduce context usage. Existing ContextManager budget errors remain explicit and no
+attachment contents are silently truncated.
+
+ChatInputQueueStore retains a submitted draft by run identity, adopts it when a new chat
+becomes ready, and exposes it for recovery on `run.failed`. This survives the Welcome to
+Chat composer remount. A blank composer recovers the draft; new edits remain in place and
+the failed payload goes into the paused queue. Completion or cancellation clears the
+submitted snapshot. Immediate IPC failure uses the same recovery path. Returning a
+rejected first submission to the pending composer preserves its current draft and
+any queue item being edited, including edits made while the request was pending.
+
+See [ADR-0038](../decisions/0038-pasted-text-attachment-transport.md).

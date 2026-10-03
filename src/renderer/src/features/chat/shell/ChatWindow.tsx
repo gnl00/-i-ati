@@ -161,6 +161,10 @@ const ChatWindow: React.FC = () => {
       body: {
         role: 'user',
         content,
+        ...(pendingUserMessage.textAttachments?.length ? {
+          composerText: pendingUserMessage.text,
+          textAttachments: pendingUserMessage.textAttachments
+        } : {}),
         segments: [],
         createdAt: pendingUserMessage.createdAt,
       },

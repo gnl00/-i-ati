@@ -14,6 +14,7 @@ interface SharedPromptSurfaceProps {
   disabled?: boolean
   isDragging?: boolean
   mediaGallery?: React.ReactNode
+  textAttachmentGallery?: React.ReactNode
   topAccessory?: React.ReactNode
   dropIndicator?: React.ReactNode
   bodyOverlay?: React.ReactNode
@@ -44,6 +45,7 @@ const SharedPromptSurface = React.forwardRef<HTMLTextAreaElement, SharedPromptSu
   disabled = false,
   isDragging = false,
   mediaGallery,
+  textAttachmentGallery,
   topAccessory,
   dropIndicator,
   bodyOverlay,
@@ -104,6 +106,8 @@ const SharedPromptSurface = React.forwardRef<HTMLTextAreaElement, SharedPromptSu
             {mediaGallery}
           </div>
         )}
+
+        {textAttachmentGallery && <div className="mx-4 mt-2 max-h-60 overflow-auto">{textAttachmentGallery}</div>}
 
         {dropIndicator}
 

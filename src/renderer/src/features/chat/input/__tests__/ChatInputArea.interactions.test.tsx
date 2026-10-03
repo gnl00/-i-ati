@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act } from 'react';
+import { act, createRef } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import type { ModelOption } from '@renderer/shared/config/modelTypes';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -16,7 +16,7 @@ const mocks = vi.hoisted(() => {
     chatList: [],
     permissionApprovalMode: 'manual',
     setImageSrcBase64List: noop,
-    ensureSelectedModelRef: noop,
+    ensureSelectedModelRef: vi.fn(),
     setSelectedThinkingLevel: noop,
     setSelectedModelRef: noop,
     setPermissionApprovalMode: noop,
@@ -33,6 +33,8 @@ const mocks = vi.hoisted(() => {
       definition: { id: 'test', displayName: 'Test provider', adapterPluginId: 'test-adapter' },
       model: { id: 'test-model', label: 'Test model', type: 'llm' }
     }] as ModelOption[],
+    identity: vi.fn(),
+    submit: vi.fn(),
     selectDirectory: vi.fn().mockResolvedValue({ success: false }),
   };
 });
@@ -59,11 +61,11 @@ vi.mock('@renderer/features/settings', () => ({
 }));
 vi.mock('@renderer/features/chat/runtime/useChatRun', () => ({
   default: (): object => ({
-    onSubmit: mocks.noop,
+    onSubmit: mocks.submit,
     cancel: mocks.noop,
     steer: mocks.noop,
   }),
-  getActiveChatRunIdentity: (): null => null,
+  getActiveChatRunIdentity: mocks.identity,
 }));
 vi.mock('../useSlashCommands', () => ({
   useSlashCommands: (): object => ({
@@ -71,6 +73,7 @@ vi.mock('../useSlashCommands', () => ({
     filteredCommands: [],
     handleInputChange: mocks.noop,
     handleBlur: mocks.noop,
+    handleKeyDown: () => false,
   }),
 }));
 vi.mock('@renderer/infrastructure/ipc', () => ({
@@ -79,7 +82,8 @@ vi.mock('@renderer/infrastructure/ipc', () => ({
 vi.mock('../../common/CustomCaretOverlay', () => ({
   CustomCaretOverlay: (): null => null,
 }));
-import ChatInputArea from '../ChatInputArea';
+import ChatInputArea, { type ChatInputAreaHandle } from '../ChatInputArea';
+import { resetChatInputQueueStoreForTests, useChatInputQueueStore } from '../chatInputQueueStore';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -88,9 +92,12 @@ describe('Welcome composer interaction boundaries', () => {
   let root: Root;
   const onFocus = vi.fn();
   const parentClick = vi.fn();
+  const inputRef = createRef<ChatInputAreaHandle>();
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    mocks.identity.mockReturnValue(null);
+    resetChatInputQueueStoreForTests();
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
@@ -98,6 +105,7 @@ describe('Welcome composer interaction boundaries', () => {
       root.render(
         <div onClick={parentClick}>
           <ChatInputArea
+            ref={inputRef}
             welcomeVisualMode
             onWelcomeFocusStateChange={onFocus}
           />
@@ -110,6 +118,94 @@ describe('Welcome composer interaction boundaries', () => {
     container.remove();
     vi.restoreAllMocks();
   });
+
+  function paste(text: string): Event {
+    const event = new Event('paste', { bubbles: true, cancelable: true })
+    Object.defineProperty(event, 'clipboardData', { value: { getData: () => text, items: [] } })
+    return event
+  }
+
+  it('keeps short pastes native and converts large text into a previewable attachment', async () => {
+    const textarea = container.querySelector('textarea')!
+    const short = paste('short text')
+    await act(async () => textarea.dispatchEvent(short))
+    expect(short.defaultPrevented).toBe(false)
+    const text = '  日志\r\n'.repeat(1600)
+    const large = paste(text)
+    await act(async () => textarea.dispatchEvent(large))
+    expect(large.defaultPrevented).toBe(true)
+    expect(textarea.value).toBe('')
+    expect(container.querySelector('pre')?.textContent).toBe(text)
+    expect(container.querySelector('#inputArea')?.getAttribute('data-expanded')).toBe('true')
+    const restore = container.querySelector<HTMLButtonElement>('[aria-label="Paste pasted-text-1.txt as text"]')!
+    await act(async () => restore.click())
+    expect(textarea.value).toBe(text)
+    expect(container.querySelector('[aria-label="Text attachments"]')).toBeNull()
+  })
+
+  it('restores a converted paste at its original selection after subsequent edits', async () => {
+    await act(async () => inputRef.current?.fillInput('left SELECT right'))
+    const textarea = container.querySelector('textarea')!
+    textarea.setSelectionRange(5, 11)
+    const text = 'x'.repeat(8000)
+    await act(async () => textarea.dispatchEvent(paste(text)))
+    expect(textarea.value).toBe('left  right')
+    await act(async () => inputRef.current?.fillInput('prefix ' + textarea.value))
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Paste pasted-text-1.txt as text"]')!.click())
+    expect(textarea.value).toBe('prefix left ' + text + ' right')
+  })
+
+  it('keeps consecutive paste contents separate and removes only the selected attachment', async () => {
+    const textarea = container.querySelector('textarea')!
+    await act(async () => textarea.dispatchEvent(paste('first '.repeat(1400))))
+    await act(async () => textarea.dispatchEvent(paste('second '.repeat(1200))))
+    expect(container.querySelectorAll('details')).toHaveLength(2)
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Remove pasted-text-1.txt"]')!.click())
+    expect(container.querySelectorAll('details')).toHaveLength(1)
+    expect(container.querySelector('pre')?.textContent).toBe('second '.repeat(1200))
+  })
+
+  it('allows attachment-only sending and preserves its original text on submission failure', async () => {
+    mocks.state.ensureSelectedModelRef.mockReturnValue({ accountId: 'a', modelId: 'm' })
+    const textarea = container.querySelector('textarea')!
+    const text = 'x'.repeat(8000)
+    await act(async () => textarea.dispatchEvent(paste(text)))
+    mocks.submit.mockRejectedValueOnce(new Error('send failed'))
+    await act(async () => textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })))
+    expect(mocks.submit).toHaveBeenCalledWith('', [], expect.objectContaining({ textAttachments: [expect.objectContaining({ text })] }))
+    expect(container.querySelector('pre')?.textContent).toBe(text)
+    mocks.state.ensureSelectedModelRef.mockReset()
+  })
+
+  it.each([false, true])('preserves new content after first submission rejection (editing queue: %s)', async editing => {
+    mocks.state.ensureSelectedModelRef.mockReturnValue({ accountId: 'a', modelId: 'm' })
+    let reject!: (error: Error) => void
+    mocks.submit.mockImplementationOnce(() => {
+      mocks.identity.mockReturnValue({ chatUuid: null, submissionId: 's-rejected' })
+      return new Promise((_resolve, rejectPromise) => { reject = rejectPromise })
+    })
+    await act(async () => inputRef.current?.fillInput('first'))
+    const textarea = container.querySelector('textarea')!
+    await act(async () => textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })))
+    if (editing) {
+      await act(async () => {
+        const scope = { chatUuid: null, submissionId: 's-rejected' }
+        useChatInputQueueStore.getState().setMessages(scope, [{ id: 'edit-1', status: 'queued', text: 'queued original', images: [] }])
+        useChatInputQueueStore.getState().beginEditing(scope)
+      })
+    }
+    await act(async () => inputRef.current?.fillInput('new draft with edits'))
+    const attachment = 'x'.repeat(8000)
+    await act(async () => textarea.dispatchEvent(paste(attachment)))
+    await act(async () => {
+      mocks.identity.mockReturnValue(null)
+      reject(new Error('rejected'))
+    })
+    expect(textarea.value).toBe('new draft with edits')
+    expect(container.querySelector('pre')?.textContent).toBe(attachment)
+    expect(useChatInputQueueStore.getState().owners['pending']?.messages.map(item => item.text)).toContain('first')
+    mocks.state.ensureSelectedModelRef.mockReset()
+  })
 
   it('activates Welcome feedback only for textarea focus while toolbar focus keeps the panel expanded', async () => {
     const textarea = container.querySelector('textarea')!;

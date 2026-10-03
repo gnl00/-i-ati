@@ -83,3 +83,12 @@ describe('chat input queue policy', () => {
     expect(mergeQueuedMessages([])).toBeNull()
   })
 })
+
+it('merges text attachments without losing contents or their order', () => {
+  const first = { id: 'paste-1', filename: 'pasted-text-1.txt', text: 'first\n' }
+  const second = { id: 'paste-2', filename: 'pasted-text-2.txt', text: '  second' }
+  expect(mergeQueuedMessages([
+    { ...queuedMessage('q1', ''), textAttachments: [first] },
+    { ...queuedMessage('q2', 'review'), textAttachments: [second] }
+  ])).toEqual({ text: 'review', images: [], textAttachments: [first, second] })
+})

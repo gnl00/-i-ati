@@ -624,6 +624,28 @@ describe('ChatPreparationPipeline', () => {
     ).toEqual(['first preview', 'second preview'])
   })
 
+  it('keeps attachment text in persisted history, model context and vision requests', async () => {
+    const textAttachments = [{ id: 'paste-1', filename: 'pasted-text-1.txt', text: '  log\r\n你好\n' }]
+    const observe = vi.fn(async (): Promise<MessageEntity> => ({
+      id: 202, chatId: 1, chatUuid: 'chat-1',
+      body: { role: 'user', source: MESSAGE_SOURCE.VISION_OBSERVATION, content: 'observation', segments: [] }
+    }))
+    const service = new ChatPreparationPipeline(
+      new RunEnvironmentService(),
+      new StepBootstrapService(undefined, { observe } as unknown as ConstructorParameters<typeof StepBootstrapService>[1])
+    )
+    const emitter = { emit: vi.fn(), setChatMeta: vi.fn() } as unknown as Parameters<ChatPreparationPipeline['prepare']>[1]
+    const prepared = await service.prepare({
+      ...input, input: { ...input.input, textCtx: '', mediaCtx: ['data:image/png;base64,abc'], textAttachments }
+    }, emitter)
+    expect(observe).toHaveBeenCalledWith(expect.objectContaining({ textCtx: expect.stringContaining(textAttachments[0].text) }))
+    const currentUser = prepared.runSpec.contextMessages.find(message => message.textAttachments?.length)
+    expect(currentUser?.composerText).toBe('')
+    expect(currentUser?.textAttachments).toEqual(textAttachments)
+    expect(JSON.stringify(currentUser?.content)).toContain('Attached text file: pasted-text-1.txt')
+    expect(currentUser && Array.isArray(currentUser.content) && currentUser.content.find(part => part.type === 'text')?.text).toContain(textAttachments[0].text)
+  })
+
   it('adds hidden vision observation after visible image user message', async () => {
     const visionObservation = {
       id: 202,

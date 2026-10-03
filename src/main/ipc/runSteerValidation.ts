@@ -1,3 +1,4 @@
+import { expandTextAttachments, isTextAttachmentList } from '@shared/chat/textAttachments'
 import {
   RUN_STEERING_LIMITS,
   type RunSteerRequest,
@@ -36,18 +37,20 @@ export function validateRunSteerRequest(input: unknown): RunSteerValidationResul
     || !isValidIdentifier(candidate.queueItemId)
     || typeof candidate.text !== 'string'
     || !Array.isArray(candidate.images)
+    || !isTextAttachmentList(candidate.textAttachments)
   ) {
     return { valid: false, reason: 'invalid_request' }
   }
 
+  const expandedText = expandTextAttachments(candidate.text, candidate.textAttachments as TextAttachment[] | undefined)
   if (
-    candidate.text.length > RUN_STEERING_LIMITS.maxTextChars
+    expandedText.length > RUN_STEERING_LIMITS.maxTextChars
     || candidate.images.length > RUN_STEERING_LIMITS.maxImagesPerItem
   ) {
     return { valid: false, reason: 'payload_too_large' }
   }
 
-  let payloadBytes = byteLength(candidate.text)
+  let payloadBytes = byteLength(expandedText)
   let hasImageContent = false
   for (const image of candidate.images) {
     let imageBytes = 0
@@ -70,7 +73,7 @@ export function validateRunSteerRequest(input: unknown): RunSteerValidationResul
     payloadBytes += imageBytes
   }
 
-  if (candidate.text.trim().length === 0 && !hasImageContent) {
+  if (expandedText.trim().length === 0 && !hasImageContent) {
     return { valid: false, reason: 'invalid_request' }
   }
   if (payloadBytes > RUN_STEERING_LIMITS.maxItemBytes) {

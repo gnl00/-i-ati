@@ -214,7 +214,7 @@ export class ChatRenderOutput {
     return true
   }
 
-  consumeSteeringMessage(input: { text: string; imageUrls: string[] }): MessageEntity {
+  consumeSteeringMessage(input: { text: string; imageUrls: string[]; textAttachments?: TextAttachment[] }): MessageEntity {
     if (this.assistantDraft.id != null) {
       this.assistantDraft.body = {
         ...this.assistantDraft.body,

@@ -28,6 +28,7 @@ export const invokeRunStart = (data: {
   submissionId: string
   input: {
     textCtx: string
+    textAttachments?: TextAttachment[]
     mediaCtx: ClipbordImg[] | string[]
     tools?: unknown[]
     options?: IUnifiedRequest['options']

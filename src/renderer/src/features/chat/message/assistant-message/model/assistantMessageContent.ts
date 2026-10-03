@@ -2,7 +2,14 @@ import { HIDDEN_MESSAGE_SOURCES } from '@shared/messages/messageSources'
 
 export function extractAssistantRegeneratePayload(
   message: ChatMessage
-): { text: string; images: ClipbordImg[] } | null {
+): { text: string; images: ClipbordImg[]; textAttachments?: TextAttachment[] } | null {
+  if (message.textAttachments?.length) {
+    return {
+      text: message.composerText ?? '',
+      images: typeof message.content === 'string' ? [] : message.content.flatMap(part => part.image_url?.url ? [part.image_url.url] : []),
+      textAttachments: message.textAttachments
+    }
+  }
   if (typeof message.content === 'string') {
     const text = message.content.trim()
     return text ? { text, images: [] } : null

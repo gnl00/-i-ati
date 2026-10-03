@@ -3,6 +3,7 @@ import type { AgentContentPart } from '../context/ContextContentPart'
 export interface AgentSteeringMessage {
   queueItemId: string
   text: string
+  textAttachments?: TextAttachment[]
   imageUrls: string[]
   content: AgentContentPart[]
 }

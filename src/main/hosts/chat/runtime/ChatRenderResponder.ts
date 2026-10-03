@@ -1,3 +1,4 @@
+import { expandTextAttachments } from '@shared/chat/textAttachments'
 import { RUN_LIFECYCLE_EVENTS } from '@shared/run/lifecycle-events'
 import { RUN_TOOL_EVENTS } from '@shared/run/tool-events'
 import type { ToolResultFact } from '@main/agent/contracts/HostRuntimeContracts'
@@ -211,6 +212,7 @@ export class ChatRenderResponder implements HostRenderEventSink {
       case 'host.steering.consumed': {
         const userMessage = this.output.consumeSteeringMessage({
           text: event.message.text,
+          ...(event.message.textAttachments?.length ? { textAttachments: event.message.textAttachments } : {}),
           imageUrls: event.message.imageUrls
         })
         await this.observeSteeringImages(event.message, userMessage)
@@ -238,7 +240,7 @@ export class ChatRenderResponder implements HostRenderEventSink {
       const observation = await this.visionObservationService.observe({
         chat: this.steeringObservation.chat,
         userMessage,
-        textCtx: message.text,
+        textCtx: expandTextAttachments(message.text, message.textAttachments),
         mediaCtx: message.imageUrls,
         signal: this.signal
       })

@@ -247,3 +247,53 @@ describe('chat input queue owner', () => {
     expect(useChatInputQueueStore.getState().owners[key]).toBeUndefined()
   })
 })
+
+it('recovers failed attachments after a pending submission is adopted by a new chat', () => {
+  resetChatInputQueueStoreForTests()
+  const pending = { chatUuid: null, submissionId: 's-1' }
+  const chat = { chatUuid: 'chat-new', submissionId: 's-1' }
+  const payload = { text: '', images: [], textAttachments: [{ id: 'paste-1', filename: 'pasted-text-1.txt', text: 'original\r\n' }] }
+  const store = useChatInputQueueStore.getState()
+  store.setSubmittedDraft(pending, payload)
+  store.routeRunEvent(runAcceptedEvent('s-1', 'chat-new'), 'chat-new')
+  store.routeRunEvent({ type: 'run.failed', submissionId: 's-1', chatUuid: 'chat-new', sequence: 2, timestamp: 2, payload: { error: { message: 'failed' } } } as RunEvent, 'chat-new')
+  const owner = useChatInputQueueStore.getState().owners[getChatInputQueueKey(chat)]
+  expect(owner.paused).toBe(true)
+  expect(owner.submittedDraft).toBeUndefined()
+  expect(store.takeFailedDraft(chat)).toEqual(payload)
+  expect(store.takeFailedDraft(chat)).toBeUndefined()
+})
+
+it.each(['run.completed', 'run.aborted'] as const)('releases submitted attachment snapshots on %s', type => {
+  resetChatInputQueueStoreForTests()
+  const scope = { chatUuid: 'chat-1', submissionId: 's-1' }
+  const store = useChatInputQueueStore.getState()
+  store.setSubmittedDraft(scope, { text: 'hello', images: [], textAttachments: [{ id: 'paste-1', filename: 'pasted-text-1.txt', text: 'original' }] })
+  store.routeRunEvent({ type, submissionId: 's-1', chatUuid: 'chat-1', sequence: 2, timestamp: 2, payload: {} } as RunEvent, 'chat-1')
+  expect(useChatInputQueueStore.getState().owners[getChatInputQueueKey(scope)]).toBeUndefined()
+})
+
+it('returns an immediately rejected first submission to the pending composer', () => {
+  resetChatInputQueueStoreForTests()
+  const scope = { chatUuid: null, submissionId: 's-rejected' }
+  const payload = { text: '', images: [], textAttachments: [{ id: 'paste-1', filename: 'pasted-text-1.txt', text: 'original' }] }
+  const store = useChatInputQueueStore.getState()
+  store.setSubmittedDraft(scope, payload)
+  store.failSubmittedDraft(scope)
+  expect(useChatInputQueueStore.getState().owners[getChatInputQueueKey(scope)]).toBeUndefined()
+  expect(store.takeFailedDraft({ chatUuid: null, submissionId: null })).toEqual(payload)
+})
+
+
+it('preserves an edited queued attachment when the first submission is rejected', () => {
+  resetChatInputQueueStoreForTests()
+  const scope = { chatUuid: null, submissionId: 's-rejected' }
+  const pending = { chatUuid: null, submissionId: null }
+  const store = useChatInputQueueStore.getState()
+  const editing = { ...queuedMessage('editing'), textAttachments: [{ id: 'paste-2', filename: 'pasted-text-2.txt', text: 'queued original' }] }
+  store.setSubmittedDraft(scope, { text: 'first', images: [] })
+  store.setMessages(scope, [editing])
+  store.beginEditing(scope)
+  store.failSubmittedDraft(scope)
+  expect(useChatInputQueueStore.getState().owners[getChatInputQueueKey(pending)]?.editingMessage).toEqual(editing)
+})

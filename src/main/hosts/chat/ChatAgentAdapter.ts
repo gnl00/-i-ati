@@ -1,3 +1,4 @@
+import { expandTextAttachments } from '@shared/chat/textAttachments'
 import type { RunResult, StepResult } from '@main/agent/contracts'
 import { ChatFinalizeService } from './finalize/ChatFinalizeService'
 import { ChatEventMapper, ChatStepRuntimeContextMapper, type ChatStepRuntimeContext } from './mapping'
@@ -80,7 +81,7 @@ export class ChatAgentAdapter {
     )
     const finalizedChat = this.finalizeService.finalizeChatEntity(
       chatContext.chat,
-      input.input.textCtx,
+      expandTextAttachments(input.input.textCtx, input.input.textAttachments),
       input.modelRef,
       input.chatModelRef
     )
@@ -99,7 +100,7 @@ export class ChatAgentAdapter {
         submissionId: input.submissionId,
         chatEntity: finalizedChat,
         messageBuffer: [...chatContext.messageEntities, updatedAssistantMessage],
-        content: input.input.textCtx,
+        content: expandTextAttachments(input.input.textCtx, input.input.textAttachments),
         modelContext: runSpec.modelContext,
         usage
       }

@@ -19,6 +19,8 @@ export type ChatInputQueueOwner = ChatInputQueueScope & {
   messages: QueuedChatMessage[]
   paused: boolean
   editingMessage: QueuedChatMessage | null
+  submittedDraft?: QueuedChatMessagePayload
+  failedDraft?: QueuedChatMessagePayload
 }
 
 type ChatInputQueueState = {
@@ -34,6 +36,9 @@ type ChatInputQueueState = {
     replacement?: QueuedChatMessage
   ) => void
   clear: (scope: ChatInputQueueScope) => void
+  setSubmittedDraft: (scope: ChatInputQueueScope, payload: QueuedChatMessagePayload) => void
+  failSubmittedDraft: (scope: ChatInputQueueScope) => void
+  takeFailedDraft: (scope: ChatInputQueueScope) => QueuedChatMessagePayload | undefined
   routeRunEvent: (event: RunEvent, resolvedChatUuid: string | null) => void
 }
 
@@ -83,6 +88,8 @@ function isEmptyOwner(owner: ChatInputQueueOwner): boolean {
   return owner.messages.length === 0
     && !owner.paused
     && !owner.editingMessage
+    && !owner.submittedDraft
+    && !owner.failedDraft
 }
 
 function updateOwner(
@@ -100,6 +107,32 @@ function updateOwner(
   }
 
   return { ...owners, [key]: owner }
+}
+
+function returnFailedDraft(
+  owners: Record<string, ChatInputQueueOwner>,
+  key: string,
+  owner: ChatInputQueueOwner
+): Record<string, ChatInputQueueOwner> {
+  const { submittedDraft, ...rest } = owner
+  if (!submittedDraft) return owners
+  if (owner.chatUuid || key === PENDING_QUEUE_KEY) {
+    return updateOwner(owners, key, { ...rest, failedDraft: submittedDraft, paused: true })
+  }
+  // A rejected first submission loses its active run identity. Recover under the pending composer.
+  const pending = owners[PENDING_QUEUE_KEY] ?? createOwner({ chatUuid: null, submissionId: null })
+  const next = { ...owners }
+  delete next[key]
+  return updateOwner(next, PENDING_QUEUE_KEY, {
+    ...pending,
+    messages: mergeMessages(pending.messages, [
+      ...owner.messages,
+      ...(pending.editingMessage && owner.editingMessage ? [owner.editingMessage] : [])
+    ]),
+    editingMessage: pending.editingMessage ?? owner.editingMessage,
+    failedDraft: submittedDraft,
+    paused: true
+  })
 }
 
 function getOwner(
@@ -146,7 +179,9 @@ function adoptSubmissionOwner(
       submissionOwner?.messages ?? []
     ),
     editingMessage: chatOwner?.editingMessage ?? submissionOwner?.editingMessage ?? null,
-    paused: Boolean(chatOwner?.paused || submissionOwner?.paused)
+    paused: Boolean(chatOwner?.paused || submissionOwner?.paused),
+    ...((chatOwner?.submittedDraft ?? submissionOwner?.submittedDraft) ? { submittedDraft: chatOwner?.submittedDraft ?? submissionOwner?.submittedDraft } : {}),
+    ...((chatOwner?.failedDraft ?? submissionOwner?.failedDraft) ? { failedDraft: chatOwner?.failedDraft ?? submissionOwner?.failedDraft } : {})
   }
   const nextOwners = { ...owners, [chatKey]: nextOwner }
   delete nextOwners[submissionKey]
@@ -246,11 +281,48 @@ export const useChatInputQueueStore = create<ChatInputQueueState>((set, get) => 
     })
   },
 
+  setSubmittedDraft: (scope, payload): void => {
+    set(state => ({ owners: { ...state.owners, [getChatInputQueueKey(scope)]: { ...getOwner(state.owners, scope), ...scope, submittedDraft: payload } } }))
+  },
+
+  failSubmittedDraft: (scope): void => {
+    set(state => {
+      const key = getChatInputQueueKey(scope)
+      const owner = state.owners[key]
+      if (!owner?.submittedDraft) return state
+      return { owners: returnFailedDraft(state.owners, key, owner) }
+    })
+  },
+
+  takeFailedDraft: (scope): QueuedChatMessagePayload | undefined => {
+    const key = getChatInputQueueKey(scope)
+    const owner = get().owners[key]
+    if (!owner?.failedDraft) return undefined
+    const { failedDraft, ...rest } = owner
+    set(state => ({ owners: updateOwner(state.owners, key, rest) }))
+    return failedDraft
+  },
+
   routeRunEvent: (event, resolvedChatUuid): void => {
     set(state => {
       let owners = state.owners
       if (resolvedChatUuid) {
         owners = adoptSubmissionOwner(owners, event.submissionId, resolvedChatUuid)
+      }
+
+      if (event.type === 'run.failed' || event.type === 'run.completed' || event.type === 'run.aborted') {
+        const key = findEventOwnerKey(owners, event.submissionId, resolvedChatUuid)
+        const owner = key ? owners[key] : undefined
+        if (key && owner?.submittedDraft) {
+          if (event.type === 'run.failed') {
+            owners = returnFailedDraft(owners, key, owner)
+          } else {
+            const rest = { ...owner }
+            delete rest.submittedDraft
+            owners = updateOwner(owners, key, rest)
+          }
+        }
+        return owners === state.owners ? state : { owners }
       }
 
       if (
