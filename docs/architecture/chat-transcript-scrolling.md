@@ -42,7 +42,11 @@ become items; standalone tool records remain model context and do not create emp
 transcript gaps. User items set `scrollAnchor=true`. Pending-to-committed assistant
 rows retain their stable React identity.
 
-History items use `content-visibility:auto` and intrinsic size. The current user,
+All message bodies mount immediately; history does not replace fixed-height
+loading placeholders when scrolling into view. History items retain
+`content-visibility:auto` and intrinsic size for browser rendering optimization.
+React mounting and effects still run for the whole transcript, so long-history
+opening cost requires Electron acceptance alongside first upward scroll stability. The current user,
 current assistant, pending assistant and explicit search target use real layout
 visibility. ResizeObserver recalculates sizes when content expands or wraps.
 

@@ -106,7 +106,7 @@ const createMessage = (id: number, role: 'user' | 'assistant'): MessageEntity =>
   },
 })
 
-describe('ChatTranscriptScroller demand-mounted bodies', () => {
+describe('ChatTranscriptScroller mounted bodies', () => {
   let container: HTMLDivElement
   let root: Root
 
@@ -204,111 +204,32 @@ describe('ChatTranscriptScroller demand-mounted bodies', () => {
     expect(container.textContent).toContain('Pending preview')
   })
 
-  it('keeps every shell registered while bounding initial message body mounts', async () => {
-    const messages = [
-      createMessage(1, 'user'),
-      createMessage(2, 'assistant'),
-      createMessage(3, 'user'),
-      createMessage(4, 'assistant'),
-      createMessage(5, 'user'),
-      createMessage(6, 'assistant'),
-    ]
-
+  it('mounts every historical body without waiting for visibility', async () => {
+    const messages = Array.from({ length: 6 }, (_, index) =>
+      createMessage(index + 1, index % 2 === 0 ? 'user' : 'assistant'),
+    )
     await renderScroller({ displayMessages: messages })
-
     expect(container.querySelectorAll('[data-testid="message-scroller-item"]')).toHaveLength(6)
-    expect(container.querySelectorAll('[data-testid="chat-message"]')).toHaveLength(2)
-    expect(container.querySelectorAll('[data-testid="message-body-placeholder"]')).toHaveLength(4)
-    const placeholder = container.querySelector<HTMLElement>('[data-testid="message-body-placeholder"]')
-    expect(placeholder?.getAttribute('role')).toBe('status')
-    expect(placeholder?.getAttribute('aria-label')).toBe('Message content loading')
-    expect(placeholder?.style.minHeight).toBe('10rem')
-  })
+    expect(container.querySelectorAll('[data-testid="chat-message"]')).toHaveLength(6)
+    expect(container.querySelector('[data-testid="message-body-placeholder"]')).toBeNull()
 
-  it('mounts visible bodies and retains them after visibility moves away', async () => {
-    const messages = Array.from({ length: 6 }, (_, index) =>
-      createMessage(index + 1, index % 2 === 0 ? 'user' : 'assistant'),
-    )
-
-    await renderScroller({ displayMessages: messages })
+    const historicalBody = container.querySelector('[data-message-id="3"] [data-testid="chat-message"]')
     scrollerMocks.visibility = { currentAnchorId: null, visibleMessageIds: ['3'] }
     await renderScroller({ displayMessages: messages })
-
-    expect(container.querySelectorAll('[data-testid="chat-message"]')).toHaveLength(3)
-
-    scrollerMocks.visibility = { currentAnchorId: null, visibleMessageIds: [] }
-    await renderScroller({ displayMessages: messages })
-
-    expect(container.querySelectorAll('[data-testid="chat-message"]')).toHaveLength(3)
+    expect(container.querySelector('[data-message-id="3"] [data-testid="chat-message"]')).toBe(historicalBody)
   })
 
-  it('force-mounts the latest user and assistant beside the tail bodies', async () => {
-    const scheduleMarker = createMessage(6, 'user')
-    scheduleMarker.body.source = 'schedule'
-    const messages = [
-      createMessage(1, 'user'),
-      createMessage(2, 'assistant'),
-      createMessage(3, 'user'),
-      createMessage(4, 'assistant'),
-      createMessage(5, 'user'),
-      scheduleMarker,
-    ]
-
-    await renderScroller({
-      displayMessages: messages,
-      latestUserIndex: 4,
-      lastAssistantIndex: 3,
-    })
-
-    expect(container.querySelectorAll('[data-testid="chat-message"]')).toHaveLength(3)
-    expect(
-      [...container.querySelectorAll<HTMLElement>('[data-testid="message-scroller-item"]')]
-        .filter(item => item.querySelector('[data-testid="chat-message"]'))
-        .map(item => item.dataset.messageId),
-    ).toEqual(['4', '5', '6'])
-  })
-
-  it('force-mounts a search target before jumping and retains it after the hint clears', async () => {
+  it('keeps search navigation and mounts the next conversation bodies immediately', async () => {
     const messages = Array.from({ length: 6 }, (_, index) =>
       createMessage(index + 1, index % 2 === 0 ? 'user' : 'assistant'),
     )
-
-    await renderScroller({
-      displayMessages: messages,
-      scrollHint: { type: 'search-result', chatUuid: 'chat-a', messageId: 3 },
-    })
-
-    expect(container.querySelectorAll('[data-testid="chat-message"]')).toHaveLength(3)
+    await renderScroller({ displayMessages: messages,
+      scrollHint: { type: 'search-result', chatUuid: 'chat-a', messageId: 3 } })
     expect(scrollerMocks.scrollToMessage).toHaveBeenCalledWith('3', {
-      align: 'start',
-      behavior: 'auto',
-      scrollMargin: 56,
+      align: 'start', behavior: 'auto', scrollMargin: 56,
     })
-
-    await renderScroller({ displayMessages: messages })
-
-    expect(container.querySelectorAll('[data-testid="chat-message"]')).toHaveLength(3)
-  })
-
-  it('resets retained bodies when the conversation identity changes', async () => {
-    const messages = Array.from({ length: 6 }, (_, index) =>
-      createMessage(index + 1, index % 2 === 0 ? 'user' : 'assistant'),
-    )
-
-    await renderScroller({ displayMessages: messages })
-    scrollerMocks.visibility = { currentAnchorId: null, visibleMessageIds: ['3'] }
-    await renderScroller({ displayMessages: messages })
-    expect(container.querySelectorAll('[data-testid="chat-message"]')).toHaveLength(3)
-
-    scrollerMocks.visibility = { currentAnchorId: null, visibleMessageIds: [] }
     await renderScroller({ chatUuid: 'chat-b', displayMessages: messages })
-
-    expect(container.querySelectorAll('[data-testid="chat-message"]')).toHaveLength(2)
-    expect(
-      [...container.querySelectorAll<HTMLElement>('[data-testid="message-scroller-item"]')]
-        .find(item => item.dataset.messageId === '3')
-        ?.querySelector('[data-testid="message-body-placeholder"]'),
-    ).not.toBeNull()
+    expect(container.querySelectorAll('[data-testid="chat-message"]')).toHaveLength(6)
   })
 
   it('keeps the pending assistant shell identity through commitment', async () => {

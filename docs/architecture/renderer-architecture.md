@@ -47,11 +47,12 @@ conversation, and passes top-occlusion and anchor metadata to the scroller.
 Message row components own message content and operations while the shared UI
 wrappers own layout primitives and the self-managed jump button. Feature code
 keeps message identity stable across pending-to-committed assistant updates;
-historical rows retain every registry shell while their bodies mount on demand
-from `useMessageScrollerVisibility`. Latest/pending rows, the final two items,
-and an explicit search target mount immediately. Visited bodies remain mounted
-within the current conversation to preserve disclosure state; memory therefore
-follows visited history. The registry continues to own visibility and scrolling.
+historical bodies mount immediately alongside their registry shells. Browser
+`content-visibility:auto` and intrinsic sizing retain offscreen rendering
+optimization without replacing fixed-height placeholders as history enters the
+viewport. Local disclosure state remains mounted throughout the conversation.
+The registry continues to own scrolling; transcript mounting no longer subscribes
+to visibility updates.
 
 `ChatSheet` owns selection request tokens and transient `sheetStore.chatLoading`
 feedback. The coordinator owns a transient selection epoch, invalidated by

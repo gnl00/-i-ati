@@ -103,7 +103,7 @@ describe('ChatTranscriptScroller with the installed message scroller', () => {
     }
   }
 
-  it('uses the primitive fallback visibility path to mount a visible historical body', async () => {
+  it('keeps historical bodies mounted through primitive scroll updates without IntersectionObserver', async () => {
     const messages = Array.from({ length: 6 }, (_, index) =>
       createMessage(index + 1, index % 2 === 0 ? 'user' : 'assistant'),
     )
@@ -127,7 +127,7 @@ describe('ChatTranscriptScroller with the installed message scroller', () => {
     })
 
     expect(container.querySelectorAll('[data-slot="message-scroller-item"]')).toHaveLength(6)
-    expect(container.querySelectorAll('[data-testid="chat-message"]')).toHaveLength(2)
+    expect(container.querySelectorAll('[data-testid="chat-message"]')).toHaveLength(6)
 
     const viewport = container.querySelector<HTMLElement>('[data-slot="message-scroller-viewport"]')
     expect(viewport).not.toBeNull()
@@ -166,7 +166,7 @@ describe('ChatTranscriptScroller with the installed message scroller', () => {
     })
     await flushAnimationFrames()
 
-    expect(container.querySelectorAll('[data-testid="chat-message"]')).toHaveLength(3)
+    expect(container.querySelectorAll('[data-testid="chat-message"]')).toHaveLength(6)
     expect(
       [...container.querySelectorAll<HTMLElement>('[data-slot="message-scroller-item"]')]
         .find(item => item.dataset.messageId === '3')

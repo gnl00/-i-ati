@@ -33,7 +33,7 @@ ChatSheet selection
   -> transient loading feedback -> ChatWindow retained surface
   -> workspace check -> hydrateChat -> current transcript
                                       -> ChatTranscriptScroller registry
-                                         -> visible/visited message bodies
+                                         -> immediately mounted message bodies
                                             -> Markdown and measurements
 ```
 
@@ -69,7 +69,16 @@ Owned implementation: `src/renderer/src/features/chat/shell/ChatSheet.tsx`, `src
 
 Tests: parent open/close does not commit the memoized title-list body; list/selected ID changes do update it; callback reads latest selected chat; successful/failing selection resets loading; A-to-B rapid selection keeps B authoritative; New Chat during hydration remains new; stale completion cannot clear a newer load; same-chat search still scrolls correctly. Keep existing subscription and hover regression tests.
 
-## 5. Package C: demand-mounted bodies and deferred measurement
+## 5. Package C: historical demand mounting and retained deferred measurement
+
+Update (2026-10-02): body demand mounting in steps 1–5 below has been removed.
+All transcript bodies now mount immediately; `content-visibility:auto` remains
+on history items. This removes the fixed 10rem placeholder-to-body replacement
+when scrolling upward. Deferred user-message measurement remains in place.
+The earlier timings and mounting counts in this guide describe the previous
+implementation. First-scroll stability and long-history opening cost for the
+new policy remain unverified in Electron because native automation could not
+reliably interact with or refresh the development window.
 
 Owner: Luna Max C.
 
