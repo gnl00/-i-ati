@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => {
   const lifecycleHandlers = new Map<string, (...args: any[]) => void>()
+  const powerHandlers = new Map<string, () => void>()
   const order: string[] = []
   const mark = (name: string) => vi.fn(() => {
     order.push(name)
@@ -9,6 +10,13 @@ const mocks = vi.hoisted(() => {
 
   return {
     lifecycleHandlers,
+    powerHandlers,
+    powerMonitorOn: vi.fn((event: string, handler: () => void) => {
+      powerHandlers.set(event, handler)
+    }),
+    powerMonitorRemoveListener: vi.fn((event: string, handler: () => void) => {
+      if (powerHandlers.get(event) === handler) powerHandlers.delete(event)
+    }),
     order,
     whenReady: vi.fn(() => Promise.resolve()),
     quit: vi.fn(),
@@ -28,6 +36,7 @@ const mocks = vi.hoisted(() => {
     setupIpc: mark('ipc.initialize'),
     registerProtocol: mark('protocol.initialize'),
     schedulerStart: mark('scheduler.start'),
+    schedulerWake: vi.fn(),
     smartSchedulerStart: mark('smart-scheduler.start'),
     unregisterShortcuts: vi.fn(),
     disconnectMcp: vi.fn(),
@@ -59,6 +68,10 @@ vi.mock('electron', () => ({
   },
   ipcMain: {
     on: vi.fn()
+  },
+  powerMonitor: {
+    on: mocks.powerMonitorOn,
+    removeListener: mocks.powerMonitorRemoveListener
   }
 }))
 
@@ -88,7 +101,7 @@ vi.mock('@main/tools', () => ({ initializeMainEmbeddedTools: mocks.initializeToo
 vi.mock('@main/main-ipc', () => ({ mainIPCSetup: mocks.setupIpc }))
 vi.mock('@main/services/images/ImageAssetService', () => ({ imageAssetService: { registerProtocol: vi.fn() } }))
 vi.mock('@main/services/emotion/EmotionAssetService', () => ({ emotionAssetService: { registerProtocol: mocks.registerProtocol } }))
-vi.mock('@main/services/scheduler/SchedulerService', () => ({ schedulerService: { start: mocks.schedulerStart, stop: mocks.schedulerStop } }))
+vi.mock('@main/services/scheduler/SchedulerService', () => ({ schedulerService: { start: mocks.schedulerStart, stop: mocks.schedulerStop, wake: mocks.schedulerWake } }))
 vi.mock('@main/services/smartMessages', () => ({ smartMessageSchedulerService: { start: mocks.smartSchedulerStart, stop: mocks.smartSchedulerStop } }))
 vi.mock('@main/services/models/ModelsDevCacheService', () => ({ modelsDevCacheService: { ensureFreshSnapshot: vi.fn(() => Promise.resolve()) } }))
 vi.mock('@main/services/telegram', () => ({ telegramGatewayService: { start: mocks.telegramStart, stop: mocks.telegramStop } }))
@@ -110,6 +123,7 @@ import { MainApplication } from '../MainApplication'
 describe('MainApplication', () => {
   beforeEach(() => {
     mocks.lifecycleHandlers.clear()
+    mocks.powerHandlers.clear()
     mocks.order.length = 0
     vi.clearAllMocks()
     mocks.whenReady.mockImplementation(() => Promise.resolve())
@@ -167,6 +181,27 @@ describe('MainApplication', () => {
     expect(mocks.schedulerStop).toHaveBeenCalledOnce()
     expect(mocks.smartSchedulerStop).toHaveBeenCalledOnce()
     expect(mocks.telegramStop).toHaveBeenCalledOnce()
+  })
+
+  it('wakes the scheduler on resume after startup and removes the listener on shutdown', async () => {
+    const application = new MainApplication()
+    application.registerLifecycle()
+    application.registerLifecycle()
+    expect(mocks.powerMonitorOn).not.toHaveBeenCalled()
+
+    await vi.waitFor(() => expect(mocks.createWindow).toHaveBeenCalledOnce())
+    expect(mocks.powerMonitorOn).toHaveBeenCalledOnce()
+    const resume = mocks.powerHandlers.get('resume')
+    expect(resume).toBeTypeOf('function')
+    resume?.()
+    expect(mocks.schedulerWake).toHaveBeenCalledOnce()
+
+    mocks.lifecycleHandlers.get('before-quit')?.()
+    mocks.lifecycleHandlers.get('before-quit')?.()
+    expect(mocks.powerMonitorRemoveListener).toHaveBeenCalledExactlyOnceWith('resume', resume)
+    expect(mocks.powerHandlers.has('resume')).toBe(false)
+    mocks.powerHandlers.get('resume')?.()
+    expect(mocks.schedulerWake).toHaveBeenCalledOnce()
   })
 
   it('restores an existing window and recreates a missing window on activation', async () => {

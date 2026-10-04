@@ -38,7 +38,7 @@ export function registerScheduledTaskHandlers(): void {
         throw new Error(`Cannot cancel task in status: ${task.status}`)
       }
 
-      if (args.status === 'dismissed' && !['completed', 'failed', 'cancelled'].includes(task.status)) {
+      if (args.status === 'dismissed' && !['completed', 'failed', 'cancelled', 'skipped'].includes(task.status)) {
         throw new Error(`Cannot dismiss task in status: ${task.status}`)
       }
 

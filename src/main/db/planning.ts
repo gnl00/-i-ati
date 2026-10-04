@@ -30,6 +30,7 @@ export const planningDb = {
   createExecutionChatAndBindAttempt: (runId: string, attempt: number, submissionId: string, chat: ChatEntity, now: number): ScheduledExecutionChatBinding => DatabaseService.createExecutionChatAndBindAttempt(runId, attempt, submissionId, chat, now),
   deferScheduledTaskRun: (runId: string, nextAttemptAt: number, now: number): void => DatabaseService.deferScheduledTaskRun(runId, nextAttemptAt, now),
   completeScheduledTaskRun: (runId: string, resultMessageId: number | null, nextRun: ScheduledTaskRunRow | null, now: number): void => DatabaseService.completeScheduledTaskRun(runId, resultMessageId, nextRun, now),
+  skipScheduledTaskRun: (runId: string, reason: string, nextRun: ScheduledTaskRunRow | null, now: number): void => DatabaseService.skipScheduledTaskRun(runId, reason, nextRun, now),
   failScheduledTaskRun: (runId: string, error: string, retryAt: number | null, nextRun: ScheduledTaskRunRow | null, now: number): void => DatabaseService.failScheduledTaskRun(runId, error, retryAt, nextRun, now),
   cancelScheduledTask: (taskId: string, reason: string, now: number): { submissionId: string | null } => DatabaseService.cancelScheduledTask(taskId, reason, now),
   dismissScheduledTask: (taskId: string, now: number): void => DatabaseService.dismissScheduledTask(taskId, now),

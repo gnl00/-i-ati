@@ -4,6 +4,9 @@
 **Date:** 2026-07-22<br>
 **Related architecture:** [Scheduled task architecture](../architecture/scheduled-tasks.md)
 
+The offline run-once policy below is superseded by
+[ADR-0041: Scheduled task misfire window](0041-scheduled-misfire-window.md).
+
 ## Context
 
 Scheduled tasks originally stored one execution state directly on the plan

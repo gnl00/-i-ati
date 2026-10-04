@@ -87,6 +87,7 @@ export class PlanningService {
   }
   deferScheduledTaskRun(runId: string, nextAttemptAt: number, now: number): void { this.requireScheduledTaskRepository().defer(runId, nextAttemptAt, now) }
   completeScheduledTaskRun(runId: string, resultMessageId: number | null, nextRun: ScheduledTaskRunRow | null, now: number): void { this.requireScheduledTaskRepository().complete(runId, resultMessageId, nextRun, now) }
+  skipScheduledTaskRun(runId: string, reason: string, nextRun: ScheduledTaskRunRow | null, now: number): void { this.requireScheduledTaskRepository().skip(runId, reason, nextRun, now) }
   failScheduledTaskRun(runId: string, error: string, retryAt: number | null, nextRun: ScheduledTaskRunRow | null, now: number): void { this.requireScheduledTaskRepository().fail(runId, error, retryAt, nextRun, now) }
   cancelScheduledTask(taskId: string, reason: string, now: number): { submissionId: string | null } { return this.requireScheduledTaskRepository().cancel(taskId, reason, now) }
   dismissScheduledTask(taskId: string, now: number): void { this.requireScheduledTaskRepository().dismiss(taskId, now) }

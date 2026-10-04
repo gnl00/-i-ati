@@ -1,4 +1,4 @@
-import { CronExpressionParser, type CronExpression } from 'cron-parser'
+import { CronDate, CronExpressionParser, type CronExpression } from 'cron-parser'
 
 const UNSUPPORTED_TOKENS = /[A-Za-z#?]/
 
@@ -9,6 +9,21 @@ export class CronScheduleCalculator {
 
   next(expression: string, timezone: string, after: number): number {
     return this.parse(expression, timezone, after).next().getTime()
+  }
+
+  latest(expression: string, timezone: string, at: number): number {
+    const reverse = this.parse(expression, timezone, at + 1)
+    const start = new CronDate(at, timezone)
+    const end = new CronDate(at, timezone)
+    start.setStartOfDay()
+    end.setEndOfDay()
+    if (start.getUTCOffset() === end.getUTCOffset()) return reverse.prev().getTime()
+
+    // Reverse parsing differs at DST gaps/folds; replay only this local day forward.
+    let latest = this.parse(expression, timezone, start.getTime()).prev().getTime()
+    const forward = this.parse(expression, timezone, start.getTime() - 1)
+    for (let next = forward.next().getTime(); next <= at; next = forward.next().getTime()) latest = next
+    return latest
   }
 
   private parse(expression: string, timezone: string, currentDate: number): CronExpression {

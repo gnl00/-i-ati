@@ -131,6 +131,67 @@ describe('ChatScheduleBoard', () => {
     await update({ ...task(), goal: 'New next task', run_at: 50 })
     expect(container.textContent).toContain('New next task')
   })
+  it('shows skipped one-time tasks in history with their reason and allows dismissal', async () => {
+    const skipped = {
+      ...task('skipped'),
+      id: 'skipped',
+      goal: 'Expired reminder',
+      last_run_status: 'skipped' as const,
+      last_error: 'Scheduled occurrence exceeded the 15 minute grace window'
+    }
+    ipc.invokeDbScheduledTasksList.mockResolvedValue([task(), skipped])
+    ipc.invokeDbScheduledTaskUpdateStatus.mockResolvedValue({
+      ...skipped,
+      status: 'dismissed'
+    })
+    await act(async () => root.render(<ChatScheduleBoard />))
+    const filter = (label: string): HTMLButtonElement =>
+      Array.from(container.querySelectorAll('button')).find(
+        (button) => button.textContent?.startsWith(label)
+      )!
+    expect(filter('History').textContent).toBe('History1')
+    await act(async () => filter('Active').click())
+    expect(container.textContent).not.toContain('Expired reminder')
+    await act(async () => filter('History').click())
+    expect(container.querySelector('[aria-label="Expired reminder (Skipped)"]')).toBeTruthy()
+    const state = Array.from(container.querySelectorAll('dt')).find(
+      (item) => item.textContent === 'State'
+    )!.nextElementSibling!
+    expect(state.textContent).toContain('Skipped')
+    expect(state.textContent).toContain(skipped.last_error)
+    expect(state.querySelector('button')?.getAttribute('aria-label')).toBe(`Skipped run: ${skipped.last_error}`)
+    expect(container.textContent).not.toContain('Last run failed')
+    expect(container.querySelector('[aria-label="Cancel task"]')).toBeNull()
+    await act(async () =>
+      container.querySelector<HTMLButtonElement>('[aria-label="Dismiss task"]')!.click()
+    )
+    expect(ipc.invokeDbScheduledTaskUpdateStatus).toHaveBeenCalledWith({
+      id: skipped.id,
+      status: 'dismissed',
+      lastError: skipped.last_error
+    })
+    expect(container.textContent).toContain('No task history')
+  })
+  it('keeps recurring tasks active and labels a skipped last run with its reason', async () => {
+    ipc.invokeDbScheduledTasksList.mockResolvedValue([{
+      ...task(),
+      schedule_type: 'cron',
+      cron_expression: '0 9 * * *',
+      last_run_status: 'skipped',
+      last_error: 'Older occurrences were folded into the latest occurrence'
+    }])
+    await act(async () => root.render(<ChatScheduleBoard />))
+    const state = Array.from(container.querySelectorAll('dt')).find(
+      (item) => item.textContent === 'State'
+    )!.nextElementSibling!
+    expect(state.textContent).toContain('Pending')
+    expect(state.querySelector('button')?.textContent).toBe('Last run skipped')
+    expect(state.querySelector('button')?.getAttribute('aria-label')).toBe(
+      'Skipped run: Older occurrences were folded into the latest occurrence'
+    )
+    expect(container.textContent).not.toContain('Last run failed')
+    expect(container.querySelector('[aria-label="Cancel task"]')).toBeTruthy()
+  })
   it('keeps an empty summary accessible for viewing task history', async () => {
     ipc.invokeDbScheduledTasksList.mockResolvedValue([task('completed')])
     await act(async () => root.render(<NextTaskSummary />))

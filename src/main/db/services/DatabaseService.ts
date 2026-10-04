@@ -400,6 +400,7 @@ class DatabaseService {
   }
   public deferScheduledTaskRun(runId: string, nextAttemptAt: number, now: number): void { this.requirePlanningService().deferScheduledTaskRun(runId, nextAttemptAt, now) }
   public completeScheduledTaskRun(runId: string, resultMessageId: number | null, nextRun: ScheduledTaskRunRow | null, now: number): void { this.requirePlanningService().completeScheduledTaskRun(runId, resultMessageId, nextRun, now) }
+  public skipScheduledTaskRun(runId: string, reason: string, nextRun: ScheduledTaskRunRow | null, now: number): void { this.requirePlanningService().skipScheduledTaskRun(runId, reason, nextRun, now) }
   public failScheduledTaskRun(runId: string, error: string, retryAt: number | null, nextRun: ScheduledTaskRunRow | null, now: number): void { this.requirePlanningService().failScheduledTaskRun(runId, error, retryAt, nextRun, now) }
   public cancelScheduledTask(taskId: string, reason: string, now: number): { submissionId: string | null } { return this.requirePlanningService().cancelScheduledTask(taskId, reason, now) }
   public dismissScheduledTask(taskId: string, now: number): void { this.requirePlanningService().dismissScheduledTask(taskId, now) }

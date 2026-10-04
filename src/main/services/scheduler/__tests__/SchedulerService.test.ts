@@ -67,6 +67,17 @@ vi.mock('@main/db/planning', () => ({ planningDb: {
     task.last_error = error
   }),
   getScheduledTaskById: vi.fn((id: string) => tasks.find(item => item.id === id)),
+  getScheduledTasks: vi.fn(() => tasks),
+  getActiveScheduledTaskRun: vi.fn((taskId: string) => runs.find(item => item.task_id === taskId && ['pending', 'running'].includes(item.status))),
+  skipScheduledTaskRun: vi.fn((id: string, reason: string, nextRun: ScheduledTaskRunRow | null) => {
+    const run = runs.find(item => item.id === id)!
+    if (run.status !== 'pending') return
+    run.status = 'skipped'; run.last_error = reason; run.finished_at = Date.now()
+    const task = tasks.find(item => item.id === run.task_id)!
+    task.run_count += 1; task.last_run_at = run.scheduled_for; task.last_run_status = 'skipped'
+    task.last_error = reason; task.status = nextRun ? 'pending' : 'skipped'
+    if (nextRun) { task.run_at = nextRun.next_attempt_at; runs.push(nextRun) }
+  }),
   getScheduledTaskRuns: vi.fn((taskId: string) => runs.filter(item => item.task_id === taskId)),
   getScheduledTasksByStatus: vi.fn((status: string, limit: number) => tasks.filter(item => item.status === status).sort((a, b) => a.run_at - b.run_at).slice(0, limit)),
   listRunningScheduledTaskRuns: vi.fn(() => []),
@@ -83,7 +94,7 @@ function addTask(overrides: Partial<ScheduledTaskRow> = {}): ScheduledTaskRow {
   const now = Date.now()
   const task: ScheduledTaskRow = {
     id: `task-${tasks.length + 1}`, chat_uuid: 'chat-1', plan_id: null, goal: 'run', schedule_type: 'once',
-    cron_expression: null, run_at: now - 1000, timezone: null, status: 'pending', payload: null,
+    cron_expression: null, run_at: overrides.schedule_type === 'cron' ? now : now - 1000, timezone: null, status: 'pending', payload: null,
     max_attempts: 3, last_run_at: null, last_run_status: null, run_count: 0, last_error: null,
     result_message_id: null, created_at: now, updated_at: now, ...overrides
   }
@@ -194,6 +205,143 @@ describe('SchedulerService', () => {
     expect(task.status).toBe('pending')
     expect(runs.filter(run => run.status === 'pending')).toHaveLength(1)
     expect(new Date(task.run_at).toISOString()).toBe('2026-07-22T01:00:00.000Z')
+  })
+
+  it('skips an expired one-time occurrence before allocating a chat', async () => {
+    const task = addTask({ run_at: Date.now() - 15 * 60_000 - 1 })
+    await (new SchedulerService() as unknown as { tick(): Promise<void> }).tick()
+
+    expect(task.status).toBe('skipped')
+    expect(runs[0]).toMatchObject({ status: 'skipped', attempt_count: 0, execution_chat_uuid: null })
+    expect(mocks.createExecutionChat).not.toHaveBeenCalled()
+    expect(mocks.execute).not.toHaveBeenCalled()
+    expect(mocks.notifyTerminalRunFailure).not.toHaveBeenCalled()
+    expect(mocks.emit).toHaveBeenCalledWith(SCHEDULE_EVENTS.RUN_FINISHED, expect.objectContaining({
+      run: expect.objectContaining({ status: 'skipped' })
+    }))
+  })
+
+  it('executes an occurrence exactly at the grace boundary', async () => {
+    const task = addTask({ run_at: Date.now() - 15 * 60_000 })
+    await (new SchedulerService() as unknown as { tick(): Promise<void> }).tick()
+    expect(task.status).toBe('completed')
+    expect(mocks.execute).toHaveBeenCalledOnce()
+  })
+
+  it('reconciles a long-offline cron to the latest due occurrence at startup', async () => {
+    const task = addTask({ schedule_type: 'cron', cron_expression: '0 0 * * *', timezone: 'UTC', run_at: Date.parse('2026-07-20T00:00:00Z') })
+    const scheduler = new SchedulerService()
+    scheduler.start()
+    await vi.advanceTimersByTimeAsync(0)
+    scheduler.stop()
+
+    expect(runs[0]).toMatchObject({ status: 'skipped', attempt_count: 0 })
+    const completed = runs.filter(run => run.status === 'completed')
+    expect(completed).toHaveLength(1)
+    expect(completed[0].scheduled_for).toBe(Date.now())
+    expect(mocks.execute).toHaveBeenCalledOnce()
+    expect(new Date(task.run_at).toISOString()).toBe('2026-07-23T00:00:00.000Z')
+  })
+
+  it('advances cron to the future when even its latest due occurrence has expired', async () => {
+    vi.setSystemTime('2026-07-22T00:16:00Z')
+    const task = addTask({ schedule_type: 'cron', cron_expression: '0 0 * * *', timezone: 'UTC', run_at: Date.parse('2026-07-20T00:00:00Z') })
+    await (new SchedulerService() as unknown as { tick(): Promise<void> }).tick()
+
+    expect(runs[0].status).toBe('skipped')
+    expect(runs.filter(run => run.status === 'pending')).toHaveLength(1)
+    expect(new Date(task.run_at).toISOString()).toBe('2026-07-23T00:00:00.000Z')
+    expect(mocks.createExecutionChat).not.toHaveBeenCalled()
+    expect(mocks.execute).not.toHaveBeenCalled()
+  })
+
+  it('folds minute cron occurrences to one recent run without enumerating missed slots', async () => {
+    vi.setSystemTime('2026-07-22T00:10:30Z')
+    const task = addTask({ schedule_type: 'cron', cron_expression: '* * * * *', timezone: 'UTC', run_at: Date.parse('2026-07-22T00:00:00Z') })
+    await (new SchedulerService() as unknown as { tick(): Promise<void> }).tick()
+
+    expect(runs).toHaveLength(3)
+    expect(runs[0].status).toBe('skipped')
+    expect(runs.find(run => run.status === 'completed')?.scheduled_for).toBe(Date.parse('2026-07-22T00:10:00Z'))
+    expect(new Date(task.run_at).toISOString()).toBe('2026-07-22T00:11:00.000Z')
+    expect(mocks.execute).toHaveBeenCalledOnce()
+  })
+
+  it('preserves an on-time retry even when its original cron occurrence is old', async () => {
+    const task = addTask({ schedule_type: 'cron', cron_expression: '* * * * *', timezone: 'UTC', run_at: Date.now() - 60 * 60_000 })
+    runs[0].attempt_count = 2
+    runs[0].next_attempt_at = Date.now() - 1000
+    task.run_at = runs[0].next_attempt_at
+    await (new SchedulerService() as unknown as { tick(): Promise<void> }).tick()
+
+    expect(runs[0]).toMatchObject({ status: 'completed', attempt_count: 3 })
+    expect(planningDb.skipScheduledTaskRun).not.toHaveBeenCalled()
+    expect(mocks.execute).toHaveBeenCalledOnce()
+  })
+
+  it('skips an overdue retry and preserves its prior execution chat association', async () => {
+    vi.setSystemTime('2026-07-22T00:16:00Z')
+    const task = addTask({ schedule_type: 'cron', cron_expression: '0 0 * * *', timezone: 'UTC', run_at: Date.now() - 60 * 60_000 })
+    runs[0].attempt_count = 1
+    runs[0].execution_chat_uuid = 'prior-attempt-chat'
+    runs[0].next_attempt_at = Date.now() - 15 * 60_000 - 1
+    task.run_at = runs[0].next_attempt_at
+    await (new SchedulerService() as unknown as { tick(): Promise<void> }).tick()
+
+    expect(runs[0]).toMatchObject({ status: 'skipped', attempt_count: 1, execution_chat_uuid: 'prior-attempt-chat' })
+    expect(new Date(task.run_at).toISOString()).toBe('2026-07-23T00:00:00.000Z')
+    expect(mocks.createExecutionChat).not.toHaveBeenCalled()
+    expect(mocks.execute).not.toHaveBeenCalled()
+  })
+
+  it('folds an expired cron retry to a newer occurrence within grace', async () => {
+    const task = addTask({ schedule_type: 'cron', cron_expression: '0 0 * * *', timezone: 'UTC', run_at: Date.parse('2026-07-21T00:00:00Z') })
+    runs[0].attempt_count = 1
+    runs[0].next_attempt_at = Date.now() - 15 * 60_000 - 1
+    runs[0].execution_chat_uuid = 'prior-attempt-chat'
+    task.run_at = runs[0].next_attempt_at
+    await (new SchedulerService() as unknown as { tick(): Promise<void> }).tick()
+
+    expect(runs[0]).toMatchObject({ status: 'skipped', attempt_count: 1, execution_chat_uuid: 'prior-attempt-chat' })
+    expect(runs.find(run => run.status === 'completed')?.scheduled_for).toBe(Date.now())
+    expect(mocks.execute).toHaveBeenCalledOnce()
+  })
+
+  it('retains a recent spring-forward cron occurrence after long downtime', async () => {
+    vi.setSystemTime('2026-03-08T07:35:00Z')
+    addTask({ schedule_type: 'cron', cron_expression: '30 2 * * *', timezone: 'America/New_York', run_at: Date.parse('2026-03-06T07:30:00Z') })
+    await (new SchedulerService() as unknown as { tick(): Promise<void> }).tick()
+
+    expect(runs[0].status).toBe('skipped')
+    expect(runs.find(run => run.status === 'completed')?.scheduled_for).toBe(Date.parse('2026-03-08T07:30:00Z'))
+    expect(mocks.execute).toHaveBeenCalledOnce()
+  })
+
+  it('checks lateness again before claiming the next serial execution', async () => {
+    const first = addTask({ run_at: Date.now() })
+    const second = addTask({ run_at: Date.now() })
+    mocks.execute.mockImplementationOnce(async () => {
+      vi.setSystemTime(Date.now() + 16 * 60_000)
+      return { userMessageId: 41, assistantMessageId: 42 }
+    })
+    await (new SchedulerService() as unknown as { tick(): Promise<void> }).tick()
+
+    expect(first.status).toBe('completed')
+    expect(second.status).toBe('skipped')
+    expect(mocks.execute).toHaveBeenCalledOnce()
+    expect(mocks.createExecutionChat).toHaveBeenCalledOnce()
+  })
+
+  it('isolates an invalid persisted cron while reconciling other due tasks', async () => {
+    const invalid = addTask({ schedule_type: 'cron', cron_expression: 'invalid', timezone: 'UTC' })
+    const valid = addTask()
+    await (new SchedulerService() as unknown as { tick(): Promise<void> }).tick()
+
+    expect(invalid.status).toBe('failed')
+    expect(valid.status).toBe('completed')
+    expect(runs[0]).toMatchObject({ status: 'failed', attempt_count: 0 })
+    expect(mocks.createExecutionChat).toHaveBeenCalledOnce()
+    expect(mocks.execute).toHaveBeenCalledOnce()
   })
 
   it('creates a fresh execution chat for each recurring occurrence', async () => {

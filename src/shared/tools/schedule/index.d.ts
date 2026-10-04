@@ -7,10 +7,11 @@ export type ScheduleTaskStatus =
   | 'running'
   | 'completed'
   | 'failed'
+  | 'skipped'
   | 'cancelled'
   | 'dismissed'
 
-export type ScheduleRunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+export type ScheduleRunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped' | 'cancelled'
 
 export interface ScheduleTask {
   id: string

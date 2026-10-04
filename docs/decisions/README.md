@@ -60,3 +60,5 @@ Use sequential names such as `0001-chat-runtime-host-boundary.md`.
 - [0039: Versioned workspace text mutations](0039-versioned-workspace-text-mutations.md) - Accepted
 
 - [0040: Independent subagent system prompt](0040-independent-subagent-system-prompt.md) - Accepted
+
+- [0041: Scheduled task misfire window](0041-scheduled-misfire-window.md) - Accepted

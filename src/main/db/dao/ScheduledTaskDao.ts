@@ -5,6 +5,8 @@ import type {
   ScheduleType
 } from '@shared/tools/schedule'
 
+export const SCHEDULE_MISFIRE_GRACE_MS = 15 * 60_000
+
 export interface ScheduledTaskRow {
   id: string
   chat_uuid: string
@@ -129,11 +131,11 @@ export class ScheduledTaskDao {
     return this.db.transaction(() => {
       const candidates = this.db.prepare(`SELECT r.id FROM scheduled_task_runs r
         JOIN scheduled_tasks t ON t.id = r.task_id
-        WHERE r.status = 'pending' AND r.next_attempt_at <= ? AND t.status = 'pending'
-        ORDER BY r.next_attempt_at ASC LIMIT ?`).all(now, limit) as Array<{ id: string }>
+        WHERE r.status = 'pending' AND r.next_attempt_at <= ? AND r.next_attempt_at >= ? AND t.status = 'pending'
+        ORDER BY r.next_attempt_at ASC LIMIT ?`).all(now, now - SCHEDULE_MISFIRE_GRACE_MS, limit) as Array<{ id: string }>
       const claimed: ClaimedScheduledRun[] = []
       for (const candidate of candidates) {
-        const result = this.db.prepare("UPDATE scheduled_task_runs SET status='running', updated_at=? WHERE id=? AND status='pending' AND next_attempt_at<=?").run(now, candidate.id, now)
+        const result = this.db.prepare("UPDATE scheduled_task_runs SET status='running', updated_at=? WHERE id=? AND status='pending' AND next_attempt_at<=? AND next_attempt_at>=?").run(now, candidate.id, now, now - SCHEDULE_MISFIRE_GRACE_MS)
         if (result.changes !== 1) continue
         const run = this.getRunById(candidate.id)
         if (!run) continue
@@ -186,13 +188,21 @@ export class ScheduledTaskDao {
     this.finishRun(runId, 'completed', null, resultMessageId, nextRun, now)
   }
 
+  skipRun(runId: string, reason: string, nextRun: ScheduledTaskRunRow | null, now: number): void {
+    this.db.transaction(() => {
+      const run = this.getRunById(runId)
+      if (run?.status !== 'pending' || this.getById(run.task_id)?.status !== 'pending') return
+      this.finishRunInTransaction(run, 'skipped', reason, null, nextRun, now)
+    })()
+  }
+
   failRun(runId: string, error: string, retryAt: number | null, nextRun: ScheduledTaskRunRow | null, now: number): void {
     this.db.transaction(() => {
       const run = this.getRunById(runId)
       if (!run) return
       if (retryAt !== null) {
         this.db.prepare("UPDATE scheduled_task_runs SET status='pending', next_attempt_at=?, submission_id=NULL, last_error=?, updated_at=? WHERE id=?").run(retryAt, error, now, runId)
-        this.db.prepare("UPDATE scheduled_tasks SET status='pending', run_at=?, last_error=?, updated_at=? WHERE id=?").run(retryAt, error, now, run.task_id)
+        this.db.prepare("UPDATE scheduled_tasks SET status='pending', run_at=?, last_run_at=?, last_run_status='failed', last_error=?, updated_at=? WHERE id=?").run(retryAt, run.scheduled_for, error, now, run.task_id)
         return
       }
       this.finishRunInTransaction(run, 'failed', error, null, nextRun, now)
@@ -246,14 +256,14 @@ export class ScheduledTaskDao {
     )`).run(row)
   }
 
-  private finishRun(runId: string, status: 'completed' | 'failed', error: string | null, resultMessageId: number | null, nextRun: ScheduledTaskRunRow | null, now: number): void {
+  private finishRun(runId: string, status: 'completed' | 'failed' | 'skipped', error: string | null, resultMessageId: number | null, nextRun: ScheduledTaskRunRow | null, now: number): void {
     this.db.transaction(() => {
       const run = this.getRunById(runId)
       if (run) this.finishRunInTransaction(run, status, error, resultMessageId, nextRun, now)
     })()
   }
 
-  private finishRunInTransaction(run: ScheduledTaskRunRow, status: 'completed' | 'failed', error: string | null, resultMessageId: number | null, nextRun: ScheduledTaskRunRow | null, now: number): void {
+  private finishRunInTransaction(run: ScheduledTaskRunRow, status: 'completed' | 'failed' | 'skipped', error: string | null, resultMessageId: number | null, nextRun: ScheduledTaskRunRow | null, now: number): void {
     this.db.prepare(`UPDATE scheduled_task_runs SET status=?, finished_at=?, last_error=?,
       result_message_id=?, updated_at=? WHERE id=?`).run(status, now, error, resultMessageId, now, run.id)
     const task = this.getById(run.task_id)
@@ -268,8 +278,8 @@ export class ScheduledTaskDao {
   }
 
   private trimHistory(taskId: string): void {
-    this.db.prepare(`DELETE FROM scheduled_task_runs WHERE task_id=? AND status IN ('completed','failed','cancelled')
-      AND id NOT IN (SELECT id FROM scheduled_task_runs WHERE task_id=? AND status IN ('completed','failed','cancelled') ORDER BY finished_at DESC LIMIT 100)
+    this.db.prepare(`DELETE FROM scheduled_task_runs WHERE task_id=? AND status IN ('completed','failed','cancelled','skipped')
+      AND id NOT IN (SELECT id FROM scheduled_task_runs WHERE task_id=? AND status IN ('completed','failed','cancelled','skipped') ORDER BY finished_at DESC LIMIT 100)
     `).run(taskId, taskId)
   }
 }

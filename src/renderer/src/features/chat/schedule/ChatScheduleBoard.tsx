@@ -76,6 +76,11 @@ const STATUS = {
     Icon: CheckCircle2,
     color: 'text-emerald-600 dark:text-emerald-300'
   },
+  skipped: {
+    label: 'Skipped',
+    Icon: Clock3,
+    color: 'text-slate-400 dark:text-(--app-text-muted)'
+  },
   failed: {
     label: 'Failed',
     Icon: XCircle,
@@ -89,7 +94,8 @@ const priority: Record<VisibleStatus, number> = {
   running: 0,
   pending: 1,
   failed: 2,
-  completed: 3
+  completed: 3,
+  skipped: 3
 }
 const isVisible = (
   task: ScheduleTask
@@ -209,6 +215,7 @@ export default function ChatScheduleBoard(): React.ReactElement {
     task: ScheduleTask & { status: VisibleStatus }
   ): React.ReactElement => {
     const meta = STATUS[task.status]
+    const skipped = task.status === 'skipped' || task.last_run_status === 'skipped'
     const cancel = task.status === 'pending' || task.status === 'running'
     const confirming = confirmingId === task.id && cancel
     const pending = pendingIds.has(task.id)
@@ -243,11 +250,18 @@ export default function ChatScheduleBoard(): React.ReactElement {
                   <TooltipTrigger asChild>
                     <button
                       type="button"
-                      aria-label={`Execution error: ${task.last_error}`}
-                      className="inline-flex min-w-0 items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-rose-600 bg-rose-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-(--app-accent) dark:bg-rose-400/10 dark:text-rose-400"
+                      aria-label={`${skipped ? 'Skipped run' : 'Execution error'}: ${task.last_error}`}
+                      className={cn(
+                        'inline-flex min-w-0 items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-(--app-accent)',
+                        skipped
+                          ? 'text-slate-500 bg-(--app-surface-inset) dark:text-(--app-text-secondary)'
+                          : 'text-rose-600 bg-rose-50 dark:bg-rose-400/10 dark:text-rose-400'
+                      )}
                     >
                       <span className="truncate">
-                        {task.status === 'failed' ? task.last_error : 'Last run failed'}
+                        {task.status === 'failed' || task.status === 'skipped'
+                          ? task.last_error
+                          : skipped ? 'Last run skipped' : 'Last run failed'}
                       </span>
                     </button>
                   </TooltipTrigger>
@@ -393,7 +407,7 @@ export default function ChatScheduleBoard(): React.ReactElement {
               <button
                 key={task.id}
                 type="button"
-                aria-label={task.status === 'completed' ? `${task.goal} (Completed)` : task.goal}
+                aria-label={task.status === 'completed' || task.status === 'skipped' ? `${task.goal} (${STATUS[task.status].label})` : task.goal}
                 aria-pressed={selectedTask.id === task.id}
                 aria-controls="selected-task-details"
                 onClick={() => {
@@ -409,7 +423,7 @@ export default function ChatScheduleBoard(): React.ReactElement {
                   <span
                     className={cn(
                       'block wrap-break-word text-[13px] leading-5',
-                      task.status === 'completed'
+                      task.status === 'completed' || task.status === 'skipped'
                         ? 'font-normal text-slate-500 dark:text-(--app-text-secondary)'
                         : 'font-medium'
                     )}
@@ -422,7 +436,7 @@ export default function ChatScheduleBoard(): React.ReactElement {
                       dateTime={new Date(task.run_at).toISOString()}
                       className={cn(
                         'rounded px-1.5 py-0.5 font-medium tabular-nums',
-                        task.status === 'completed'
+                        task.status === 'completed' || task.status === 'skipped'
                           ? 'bg-(--app-surface-inset)/40 text-slate-400 dark:text-(--app-text-muted)'
                           : 'bg-(--app-surface-inset) text-slate-500 dark:text-(--app-text-secondary)'
                       )}
@@ -446,13 +460,20 @@ export default function ChatScheduleBoard(): React.ReactElement {
                     </span>
                   )}
                 </span>
-                {task.status === 'completed' ? (
+                {task.status === 'completed' || task.status === 'skipped' ? (
                   <>
-                    <span className="sr-only">Completed</span>
-                    <CheckCircle2
-                      aria-hidden="true"
-                      className="size-3.5 shrink-0 text-slate-400 dark:text-(--app-text-muted)"
-                    />
+                    <span className="sr-only">{STATUS[task.status].label}</span>
+                    {task.status === 'skipped' ? (
+                      <Clock3
+                        aria-hidden="true"
+                        className="size-3.5 shrink-0 text-slate-400 dark:text-(--app-text-muted)"
+                      />
+                    ) : (
+                      <CheckCircle2
+                        aria-hidden="true"
+                        className="size-3.5 shrink-0 text-slate-400 dark:text-(--app-text-muted)"
+                      />
+                    )}
                   </>
                 ) : (
                   <ChevronRight className="size-3 shrink-0 text-slate-400 dark:text-(--app-text-muted)" />

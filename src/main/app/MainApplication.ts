@@ -1,6 +1,6 @@
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { mcpRuntimeService } from '@main/services/mcpRuntime'
-import { BrowserWindow, app, globalShortcut, ipcMain } from 'electron'
+import { BrowserWindow, app, globalShortcut, ipcMain, powerMonitor } from 'electron'
 import { destroyWindowPool, getWindowPool } from '@main/tools/webTools/BrowserWindowPool'
 import { cleanupDevServers } from '@main/tools/devServer/DevServerProcessor'
 import { initializeMainEmbeddedTools } from '@main/tools'
@@ -34,6 +34,7 @@ export class MainApplication {
   private rendererSummaryScheduled = false
   private cleanupDone = false
   private lifecycleRegistered = false
+  private readonly handleResume = (): void => schedulerService.wake()
 
   registerLifecycle(): void {
     if (this.lifecycleRegistered) return
@@ -105,6 +106,7 @@ export class MainApplication {
     this.startupTracer.mark('ipc.init.end')
 
     schedulerService.start()
+    powerMonitor.on('resume', this.handleResume)
     smartMessageSchedulerService.start()
     void modelsDevCacheService.ensureFreshSnapshot().catch((error) => {
       console.error('[App#TASK] Failed to initialize models.dev cache:', error)
@@ -134,6 +136,7 @@ export class MainApplication {
   private stop(): void {
     if (this.cleanupDone) return
     this.cleanupDone = true
+    powerMonitor.removeListener('resume', this.handleResume)
     globalShortcut.unregisterAll()
     mcpRuntimeService.disconnectAll()
     destroyWindowPool()

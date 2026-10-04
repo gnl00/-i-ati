@@ -4,8 +4,10 @@ import {
   DB_SCHEDULED_TASK_UPDATE_STATUS
 } from '@shared/constants'
 
-const { getScheduledTasksMock, ipcMainHandleMock } = vi.hoisted(() => ({
+const { getScheduledTasksMock, getScheduledTaskMock, dismissTaskMock, ipcMainHandleMock } = vi.hoisted(() => ({
   getScheduledTasksMock: vi.fn(),
+  getScheduledTaskMock: vi.fn(),
+  dismissTaskMock: vi.fn(),
   ipcMainHandleMock: vi.fn()
 }))
 
@@ -23,7 +25,7 @@ vi.mock('@main/db/DatabaseService', () => ({
 
 vi.mock('@main/db/planning', () => ({
   planningDb: {
-    getScheduledTaskById: vi.fn(),
+    getScheduledTaskById: getScheduledTaskMock,
     getScheduledTasks: getScheduledTasksMock,
     updateScheduledTaskStatus: vi.fn()
   }
@@ -47,7 +49,7 @@ vi.mock('@main/services/scheduler/event-emitter', () => ({
 vi.mock('@main/services/scheduler/SchedulerService', () => ({
   schedulerService: {
     cancelTask: vi.fn(),
-    dismissTask: vi.fn()
+    dismissTask: dismissTaskMock
   }
 }))
 
@@ -55,6 +57,8 @@ describe('registerScheduledTaskHandlers', () => {
   beforeEach(() => {
     ipcMainHandleMock.mockReset()
     getScheduledTasksMock.mockReset()
+    getScheduledTaskMock.mockReset()
+    dismissTaskMock.mockReset()
   })
 
   it('registers scheduled task handlers', async () => {
@@ -80,5 +84,27 @@ describe('registerScheduledTaskHandlers', () => {
 
     await expect(handler()).resolves.toBe(tasks)
     expect(getScheduledTasksMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('dismisses a skipped one-time task', async () => {
+    const task = { id: 'task-1', chat_uuid: 'chat-1', status: 'skipped' }
+    const dismissed = { ...task, status: 'dismissed' }
+    getScheduledTaskMock.mockReturnValueOnce(task).mockReturnValueOnce(dismissed)
+    const { registerScheduledTaskHandlers } = await import('../scheduled-tasks')
+    registerScheduledTaskHandlers()
+    const handler = ipcMainHandleMock.mock.calls.find(([channel]) => channel === DB_SCHEDULED_TASK_UPDATE_STATUS)?.[1]
+
+    await expect(handler(undefined, { id: task.id, status: 'dismissed' })).resolves.toBe(dismissed)
+    expect(dismissTaskMock).toHaveBeenCalledWith(task.id)
+  })
+
+  it('rejects dismissing an active task', async () => {
+    getScheduledTaskMock.mockReturnValue({ id: 'task-1', status: 'pending' })
+    const { registerScheduledTaskHandlers } = await import('../scheduled-tasks')
+    registerScheduledTaskHandlers()
+    const handler = ipcMainHandleMock.mock.calls.find(([channel]) => channel === DB_SCHEDULED_TASK_UPDATE_STATUS)?.[1]
+
+    await expect(handler(undefined, { id: 'task-1', status: 'dismissed' })).rejects.toThrow('Cannot dismiss task in status: pending')
+    expect(dismissTaskMock).not.toHaveBeenCalled()
   })
 })

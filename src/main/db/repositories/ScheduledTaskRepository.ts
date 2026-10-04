@@ -66,6 +66,7 @@ export class ScheduledTaskRepository {
   }
   defer(runId: string, nextAttemptAt: number, now: number): void { this.dao().deferRun(runId, nextAttemptAt, now) }
   complete(runId: string, resultMessageId: number | null, nextRun: ScheduledTaskRunRow | null, now: number): void { this.dao().completeRun(runId, resultMessageId, nextRun, now) }
+  skip(runId: string, reason: string, nextRun: ScheduledTaskRunRow | null, now: number): void { this.dao().skipRun(runId, reason, nextRun, now) }
   fail(runId: string, error: string, retryAt: number | null, nextRun: ScheduledTaskRunRow | null, now: number): void { this.dao().failRun(runId, error, retryAt, nextRun, now) }
   cancel(taskId: string, reason: string, now: number): { submissionId: string | null } { return this.dao().cancelTask(taskId, reason, now) }
   dismiss(taskId: string, now: number): void { this.dao().dismissTask(taskId, now) }

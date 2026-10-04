@@ -10,6 +10,7 @@ import { notifyTerminalRunFailure } from '@main/notifications/AgentNotificationS
 import { ScheduleEventEmitter } from './event-emitter'
 import { cronScheduleCalculator } from './CronScheduleCalculator'
 import { createScheduledExecutionChat } from './ScheduledExecutionChat'
+import { SCHEDULE_MISFIRE_GRACE_MS } from '@main/db/dao/ScheduledTaskDao'
 import type { ClaimedScheduledRun, ScheduledTaskRow, ScheduledTaskRunRow } from '@main/db/dao/ScheduledTaskDao'
 
 type ScheduledTaskPayload = { prompt?: string; modelRef?: ModelRef }
@@ -117,13 +118,57 @@ export class SchedulerService {
     if (this.isTicking) return
     this.isTicking = true
     try {
-      const runs = planningDb.claimDueScheduledTaskRuns(Date.now(), 5)
-      this.logger.debug('tick.claimed_due_tasks', { count: runs.length })
-      for (const item of runs) await this.runTask(item)
+      for (let index = 0; index < 5; index += 1) {
+        const now = Date.now()
+        this.reconcilePendingRuns(now)
+        const item = planningDb.claimDueScheduledTaskRuns(now, 1)[0]
+        if (!item) break
+        await this.runTask(item)
+      }
     } catch (error) {
       this.logger.error('tick.failed', error)
     } finally {
       this.isTicking = false
+    }
+  }
+
+  private reconcilePendingRuns(now: number): void {
+    const cutoff = now - SCHEDULE_MISFIRE_GRACE_MS
+    for (const task of planningDb.getScheduledTasks()) {
+      if (task.status !== 'pending' || task.run_at > now) continue
+      const run = planningDb.getActiveScheduledTaskRun(task.id)
+      if (!run || run.status !== 'pending' || run.next_attempt_at > now) continue
+
+      let nextRun: ScheduledTaskRunRow | null = null
+      let reason: string
+      if (task.schedule_type === 'cron' && (run.attempt_count === 0 || run.next_attempt_at < cutoff) && task.cron_expression && task.timezone) {
+        let latest: number
+        try {
+          latest = cronScheduleCalculator.latest(task.cron_expression, task.timezone, now)
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          planningDb.failScheduledTaskRun(run.id, message, null, null, now)
+          this.emitRunFinished(task.id, run.id)
+          this.emitScheduleUpdated(task.id)
+          this.logger.error('cron.reconcile_failed', { taskId: task.id, runId: run.id, error: message })
+          continue
+        }
+        if (latest > run.scheduled_for) {
+          nextRun = latest >= cutoff ? this.buildRun(task, latest) : this.buildNextRunOrNull(task, now)
+          reason = latest >= cutoff ? 'Superseded by a newer cron occurrence' : 'Missed scheduled time by more than 15 minutes'
+        } else if (run.next_attempt_at < cutoff) {
+          nextRun = this.buildNextRunOrNull(task, now)
+          reason = 'Missed scheduled time by more than 15 minutes'
+        } else continue
+      } else if (run.next_attempt_at < cutoff) {
+        nextRun = task.schedule_type === 'cron' ? this.buildNextRunOrNull(task, now) : null
+        reason = run.attempt_count > 0 ? 'Missed retry by more than 15 minutes' : 'Missed scheduled time by more than 15 minutes'
+      } else continue
+
+      planningDb.skipScheduledTaskRun(run.id, reason, nextRun, now)
+      this.emitRunFinished(task.id, run.id)
+      this.emitScheduleUpdated(task.id)
+      this.logger.info('task.skipped', { taskId: task.id, runId: run.id, reason, nextRunAt: nextRun?.scheduled_for })
     }
   }
 
@@ -262,6 +307,10 @@ export class SchedulerService {
   private buildNextRun(task: ScheduledTaskRow, after: number): ScheduledTaskRunRow {
     if (!task.cron_expression || !task.timezone) throw new Error(`Cron schedule is incomplete: ${task.id}`)
     const scheduledFor = cronScheduleCalculator.next(task.cron_expression, task.timezone, after)
+    return this.buildRun(task, scheduledFor)
+  }
+
+  private buildRun(task: ScheduledTaskRow, scheduledFor: number): ScheduledTaskRunRow {
     const now = Date.now()
     return {
       id: uuidv4(), task_id: task.id, scheduled_for: scheduledFor, next_attempt_at: scheduledFor,
