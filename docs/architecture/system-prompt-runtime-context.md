@@ -8,7 +8,7 @@ attached to the current user request during protocol materialization.
 
 ## Current Implementation
 
-Static prompt source:
+Main chat static prompt source:
 
 - `src/shared/prompts/index.ts`
 - `systemPrompt()` provides the minimal identity, operating, state, tool, and
@@ -17,6 +17,13 @@ Static prompt source:
   and emotion policy modules.
 - [ADR 0012](../decisions/0012-minimal-system-prompt-kernel.md) defines module
   ownership and character budgets.
+
+Background subagents use the independent
+[`buildSubagentSystemPrompt(role)`](../../src/shared/prompts/subagent.ts).
+It owns delegated execution and result delivery rules without inheriting the
+main chat's Soul, profile, emotion, skills catalog, or global state policies.
+See [Subagent runtime](subagent-mvp.md#worker-提示词职责) and
+[ADR 0040](../decisions/0040-independent-subagent-system-prompt.md).
 
 Runtime context providers:
 
@@ -100,6 +107,12 @@ Relevant tests:
 - `src/shared/prompts/__tests__/index.test.ts`
   - Asserts stable semantic anchors, moved-content boundaries, and character
     budgets.
+- `src/shared/prompts/__tests__/subagent.test.ts`
+  - Asserts delegated execution rules, role guidance, excluded main-chat
+    policies, and the worker prompt character budget.
+- `src/main/services/subagent/__tests__/subagent-runtime-factory.test.ts`
+  - Asserts the independent prompt reaches the runner with task constraints,
+    role permissions, and the existing context modes.
 - `src/main/hosts/chat/preparation/request/__tests__/SystemEnvironmentContextProvider.test.ts`
   - Asserts the provider emits `<system-environment>` with the expected payload
     and `MESSAGE_SOURCE.SYSTEM_ENVIRONMENT_CONTEXT`.

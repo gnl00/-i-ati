@@ -1,9 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
+import { buildSubagentSystemPrompt } from '@shared/prompts/subagent'
+import type { AppConfigStore } from '@main/hosts/chat/config/AppConfigStore'
+import type { ChatModelContextResolver } from '@main/hosts/chat/config/ChatModelContextResolver'
+import type { SubagentRuntimeRunner } from '../runtime/SubagentRuntimeRunner'
 
 vi.mock('electron', () => ({
   app: {
-    isReady: () => false,
-    getPath: () => '/tmp'
+    isReady: (): boolean => false,
+    getPath: (): string => '/tmp'
   },
   BrowserWindow: class {},
   shell: {
@@ -34,7 +38,7 @@ vi.mock('@main/db/chat', () => ({
 }))
 
 describe('SubagentRuntimeFactory', () => {
-  it('delegates to runtime runner', async () => {
+  it('delegates the independent worker prompt, model, workspace, and task to the runtime runner', async () => {
     const { SubagentRuntimeFactory } = await import('../subagent-runtime-factory')
     const appConfigStore = {
       requireConfig: vi.fn(() => ({}))
@@ -60,11 +64,8 @@ describe('SubagentRuntimeFactory', () => {
     const modelContextResolver = {
       resolveOrThrow: vi.fn(() => modelContext)
     }
-    const systemPromptComposer = {
-      compose: vi.fn(async () => ['base system prompt'])
-    }
     const runtimeRunner = {
-      run: vi.fn(async () => ({
+      run: vi.fn<SubagentRuntimeRunner['run']>(async () => ({
         summary: 'runtime summary',
         artifacts: {
           tools_used: ['read'],
@@ -74,10 +75,9 @@ describe('SubagentRuntimeFactory', () => {
     }
 
     const factory = new SubagentRuntimeFactory(
-      appConfigStore as any,
-      modelContextResolver as any,
-      systemPromptComposer as any,
-      runtimeRunner as any
+      appConfigStore as unknown as AppConfigStore,
+      modelContextResolver as unknown as ChatModelContextResolver,
+      runtimeRunner
     )
 
     const result = await factory.run({
@@ -101,9 +101,71 @@ describe('SubagentRuntimeFactory', () => {
         modelContext,
         allowedTools: expect.any(Array),
         userMessage: expect.stringContaining('Inspect the runtime path'),
-        systemPrompt: expect.stringContaining('base system prompt')
+        systemPrompt: buildSubagentSystemPrompt('researcher'),
+        workspacePath: process.cwd()
       })
     )
+    const preparedContext = runtimeRunner.run.mock.calls[0][1]
+    expect(preparedContext.userMessage).toContain('# File Hints')
+    expect(preparedContext.userMessage).toContain('src/main/services/subagent/subagent-runtime-factory.ts')
+    expect(preparedContext.allowedTools).toContain('read')
+    expect(preparedContext.allowedTools).not.toContain('write')
+    expect(preparedContext.allowedTools).not.toContain('subagent')
+  })
+
+  it('keeps explicit task constraints and custom roles in minimal mode without reading parent state', async () => {
+    const { SubagentRuntimeFactory } = await import('../subagent-runtime-factory')
+    const contextReader = {
+      getWorkContext: vi.fn(),
+      listRecentActivity: vi.fn()
+    }
+    const runtimeRunner = {
+      run: vi.fn<SubagentRuntimeRunner['run']>(async () => ({
+        summary: 'inspected',
+        artifacts: { tools_used: [], files_touched: [] }
+      }))
+    }
+    const factory = new SubagentRuntimeFactory(
+      { requireConfig: () => ({}) } as unknown as AppConfigStore,
+      {
+        resolveOrThrow: () => ({
+          providerDefinition: {},
+          account: {},
+          model: {}
+        })
+      } as unknown as ChatModelContextResolver,
+      runtimeRunner,
+      contextReader
+    )
+    const input = {
+      subagentId: 'sub-minimal',
+      task: 'Inspect the parser. Do not edit files.',
+      role: 'parser specialist',
+      contextMode: 'minimal' as const,
+      chatUuid: 'chat-1',
+      files: ['src/parser.ts'],
+      parentSubmissionId: 'parent-1',
+      permissionApprovalMode: 'manual' as const,
+      modelRef: { accountId: 'acc-1', modelId: 'model-1' }
+    }
+
+    await factory.run(input)
+
+    expect(contextReader.getWorkContext).not.toHaveBeenCalled()
+    expect(contextReader.listRecentActivity).not.toHaveBeenCalled()
+    expect(runtimeRunner.run).toHaveBeenCalledWith(
+      input,
+      expect.objectContaining({
+        systemPrompt: buildSubagentSystemPrompt(input.role),
+        userMessage: expect.stringContaining(input.task),
+        workspacePath: '/workspace'
+      })
+    )
+    const preparedContext = runtimeRunner.run.mock.calls[0][1]
+    expect(preparedContext.userMessage).toContain('src/parser.ts')
+    expect(preparedContext.userMessage).not.toContain('# Recent Chat Context')
+    expect(preparedContext.userMessage).not.toContain('# Work Context')
+    expect(preparedContext.userMessage).not.toContain('# Recent Activity Journal')
   })
 
   it('reads current chat context through the subagent context seam', async () => {
@@ -113,13 +175,21 @@ describe('SubagentRuntimeFactory', () => {
       listRecentActivity: vi.fn(async () => [{ title: 'Moved contract', details: 'Hosts use agent contract' }])
     }
     const runtimeRunner = {
-      run: vi.fn(async () => ({ summary: 'done', artifacts: { tools_used: [], files_touched: [] } }))
+      run: vi.fn<SubagentRuntimeRunner['run']>(async () => ({
+        summary: 'done',
+        artifacts: { tools_used: [], files_touched: [] }
+      }))
     }
     const factory = new SubagentRuntimeFactory(
-      { requireConfig: () => ({}) } as any,
-      { resolveOrThrow: () => ({ providerDefinition: {}, account: {}, model: {} }) } as any,
-      { compose: async () => [] } as any,
-      runtimeRunner as any,
+      { requireConfig: () => ({}) } as unknown as AppConfigStore,
+      {
+        resolveOrThrow: () => ({
+          providerDefinition: {},
+          account: {},
+          model: {}
+        })
+      } as unknown as ChatModelContextResolver,
+      runtimeRunner,
       contextReader
     )
 
@@ -141,47 +211,53 @@ describe('SubagentRuntimeFactory', () => {
         userMessage: expect.stringContaining('Current goal: tighten boundaries')
       })
     )
-    const preparedContext = (runtimeRunner.run as any).mock.calls[0][1]
+    const preparedContext = runtimeRunner.run.mock.calls[0][1]
     expect(preparedContext.userMessage).toContain('Moved contract: Hosts use agent contract')
+    expect(preparedContext.systemPrompt).toBe(buildSubagentSystemPrompt('reviewer'))
+    expect(preparedContext.workspacePath).toBe('/workspace')
   })
 
   it.each([
     {
       name: 'missing work context',
-      getWorkContext: () => undefined,
-      listRecentActivity: async () => [],
+      getWorkContext: (): undefined => undefined,
+      listRecentActivity: async (): Promise<[]> => [],
       expectedWorkContext: '## Current Goal'
     },
     {
       name: 'work context read failure',
-      getWorkContext: () => {
+      getWorkContext: (): never => {
         throw new Error('database unavailable')
       },
-      listRecentActivity: async () => [],
+      listRecentActivity: async (): Promise<[]> => [],
       expectedWorkContext: '## Current Goal'
     },
     {
       name: 'activity journal read failure',
-      getWorkContext: () => 'Current goal: keep running',
-      listRecentActivity: async () => {
+      getWorkContext: (): string => 'Current goal: keep running',
+      listRecentActivity: async (): Promise<never> => {
         throw new Error('journal unavailable')
       },
       expectedWorkContext: 'Current goal: keep running'
     }
-  ])('continues the subagent run after $name', async ({
-    getWorkContext,
-    listRecentActivity,
-    expectedWorkContext
-  }) => {
+  ])('continues the subagent run after $name', async ({ getWorkContext, listRecentActivity, expectedWorkContext }) => {
     const { SubagentRuntimeFactory } = await import('../subagent-runtime-factory')
     const runtimeRunner = {
-      run: vi.fn(async () => ({ summary: 'continued', artifacts: { tools_used: [], files_touched: [] } }))
+      run: vi.fn<SubagentRuntimeRunner['run']>(async () => ({
+        summary: 'continued',
+        artifacts: { tools_used: [], files_touched: [] }
+      }))
     }
     const factory = new SubagentRuntimeFactory(
-      { requireConfig: () => ({}) } as any,
-      { resolveOrThrow: () => ({ providerDefinition: {}, account: {}, model: {} }) } as any,
-      { compose: async () => [] } as any,
-      runtimeRunner as any,
+      { requireConfig: () => ({}) } as unknown as AppConfigStore,
+      {
+        resolveOrThrow: () => ({
+          providerDefinition: {},
+          account: {},
+          model: {}
+        })
+      } as unknown as ChatModelContextResolver,
+      runtimeRunner,
       { getWorkContext, listRecentActivity }
     )
 
@@ -197,7 +273,7 @@ describe('SubagentRuntimeFactory', () => {
 
     expect(result.summary).toBe('continued')
     expect(runtimeRunner.run).toHaveBeenCalledOnce()
-    const preparedContext = (runtimeRunner.run as any).mock.calls[0][1]
+    const preparedContext = runtimeRunner.run.mock.calls[0][1]
     expect(preparedContext.userMessage).toContain(expectedWorkContext)
   })
 })

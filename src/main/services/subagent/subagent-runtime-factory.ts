@@ -2,33 +2,21 @@ import { chatDb } from '@main/db/chat'
 import { extractContentFromSegments } from '@main/services/messages/MessageSegmentContent'
 import { AppConfigStore } from '@main/hosts/chat/config/AppConfigStore'
 import { ChatModelContextResolver } from '@main/hosts/chat/config/ChatModelContextResolver'
-import { SystemPromptComposer } from '@main/hosts/chat/preparation/request/SystemPromptComposer'
+import { buildSubagentSystemPrompt } from '@shared/prompts/subagent'
 import { WORK_CONTEXT_TEMPLATE } from '@main/services/workContext/WorkContextService'
 import { resolveAllowedEmbeddedToolsForAgent } from '@tools/permissions'
-import type { BuiltInSubagentRole } from '@tools/subagent/index.d'
 import type { SubagentExecutionResult, SubagentSpawnInput } from './types'
 import {
   DefaultSubagentRuntimeRunner,
   type PreparedSubagentRunContext,
   type SubagentRuntimeRunner
 } from './runtime/SubagentRuntimeRunner'
-import {
-  DefaultSubagentContextReader,
-  type SubagentContextReader
-} from './SubagentContextReader'
-
-const ROLE_PROMPTS: Record<BuiltInSubagentRole, string> = {
-  general: 'Act as a focused subagent. Execute the assigned task and return a concise, useful summary.',
-  researcher: 'Act as a research-oriented subagent. Prioritize finding relevant facts, code locations, and concrete evidence.',
-  coder: 'Act as a coding subagent. Prefer concrete implementation progress and precise file-level outcomes.',
-  reviewer: 'Act as a review subagent. Prioritize bugs, risks, behavioral regressions, and missing coverage.'
-}
+import { DefaultSubagentContextReader, type SubagentContextReader } from './SubagentContextReader'
 
 export class SubagentRuntimeFactory {
   constructor(
     private readonly appConfigStore = new AppConfigStore(),
     private readonly modelContextResolver = new ChatModelContextResolver(),
-    private readonly systemPromptComposer = new SystemPromptComposer(),
     private readonly runtimeRunner: SubagentRuntimeRunner = new DefaultSubagentRuntimeRunner(),
     private readonly contextReader: SubagentContextReader = new DefaultSubagentContextReader()
   ) {}
@@ -38,29 +26,17 @@ export class SubagentRuntimeFactory {
     const modelContext = this.modelContextResolver.resolveOrThrow(config, input.modelRef)
     const chat = input.chatUuid ? chatDb.getChatByUuid(input.chatUuid) : undefined
     const workspacePath = input.chatUuid
-      ? (chatDb.getWorkspacePathByUuid(input.chatUuid) || chat?.workspacePath || process.cwd())
+      ? chatDb.getWorkspacePathByUuid(input.chatUuid) || chat?.workspacePath || process.cwd()
       : process.cwd()
 
-    const composedSystemPrompts = await this.systemPromptComposer.compose(chat?.id)
-
-    const systemPrompt = [
-      ...composedSystemPrompts,
-      [
-        '<subagent_mode>',
-        'You are running as a background subagent for the main agent.',
-        'Focus only on the assigned task and do not chat conversationally.',
-        ROLE_PROMPTS[input.role as BuiltInSubagentRole] || `Act as a ${input.role} subagent. Execute the assigned task and return a concise, useful summary.`,
-        'Use only the tools you are given.',
-        'When you finish, return a concise summary with the key outcome, findings, and files touched when relevant.',
-        '</subagent_mode>'
-      ].join('\n')
-    ].join('\n\n')
+    const systemPrompt = buildSubagentSystemPrompt(input.role)
 
     const userMessage = await this.buildUserTaskMessage(input)
-    const allowedTools = resolveAllowedEmbeddedToolsForAgent({
-      kind: 'subagent',
-      role: input.role
-    }) || []
+    const allowedTools =
+      resolveAllowedEmbeddedToolsForAgent({
+        kind: 'subagent',
+        role: input.role
+      }) || []
 
     const preparedContext: PreparedSubagentRunContext = {
       modelContext,
@@ -74,16 +50,10 @@ export class SubagentRuntimeFactory {
   }
 
   private async buildUserTaskMessage(input: SubagentSpawnInput): Promise<string> {
-    const sections: string[] = [
-      '# Subagent Task',
-      input.task.trim()
-    ]
+    const sections: string[] = ['# Subagent Task', input.task.trim()]
 
     if (input.files.length > 0) {
-      sections.push(
-        '# File Hints',
-        input.files.map(file => `- ${file}`).join('\n')
-      )
+      sections.push('# File Hints', input.files.map((file) => `- ${file}`).join('\n'))
     }
 
     if (input.contextMode === 'current_chat_summary' && input.chatUuid) {
@@ -99,9 +69,7 @@ export class SubagentRuntimeFactory {
       if (activityJournal.length > 0) {
         sections.push(
           '# Recent Activity Journal',
-          activityJournal
-            .map(entry => `- ${entry.title}${entry.details ? `: ${entry.details}` : ''}`)
-            .join('\n')
+          activityJournal.map((entry) => `- ${entry.title}${entry.details ? `: ${entry.details}` : ''}`).join('\n')
         )
       }
     }
