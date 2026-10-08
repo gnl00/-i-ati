@@ -11,9 +11,6 @@ vi.mock('../renderers/AssistantTextSegmentList', () => ({
     <div data-testid="answer">{items.map(item => item.segment.content).join('')}</div>
   )
 }))
-vi.mock('../renderers/AssistantTextSegmentContent', () => ({
-  AssistantTextSegmentContent: ({ segment }: { segment: TextSegment }): ReactElement => <p>{segment.content}</p>
-}))
 vi.mock('../renderers/AssistantSupportSegmentList', () => ({
   AssistantSupportSegmentList: (): ReactElement => <div>Tool and reasoning details</div>
 }))
@@ -31,13 +28,18 @@ describe('whole-turn work presentation', () => {
     await act(async () => root.unmount())
     container.remove()
   })
-  const render = async (status: ChatMessage['workStatus'], toolStatus = 'completed', error = false): Promise<void> => {
+  const render = async (status: ChatMessage['workStatus'], toolStatus = 'completed', error = false, trailingSupport = false, closingText = true): Promise<void> => {
     const message: ChatMessage = {
       role: 'assistant', content: 'Result', segments: [
         { type: 'text', segmentId: 'intro', content: 'Let me check.', timestamp: 1 },
         { type: 'reasoning', segmentId: 'thought', content: 'Check source.', timestamp: 2 },
         { type: 'toolCall', segmentId: 'tool', toolCallId: 'call', toolCallIndex: 0, name: 'read', timestamp: 3, isError: false, content: { toolName: 'read', status: toolStatus } },
         { type: 'text', segmentId: 'answer', content: 'Result', timestamp: 4 },
+        ...(trailingSupport ? [
+          { type: 'toolCall' as const, segmentId: 'emotion', toolCallId: 'emotion-call', toolCallIndex: 1, name: 'emotion_report', timestamp: 5, isError: false, content: { toolName: 'emotion_report', status: 'success' } },
+          { type: 'reasoning' as const, segmentId: 'closing-thought', content: 'The answer is already given.', timestamp: 6 },
+          ...(closingText ? [{ type: 'text' as const, segmentId: 'closing', content: 'Closing note.', timestamp: 7 }] : [])
+        ] : []),
         ...(error ? [{ type: 'error' as const, segmentId: 'error', content: 'Failed', error: { name: 'Error', message: 'Failed', timestamp: 5 } }] : [])
       ]
     }
@@ -49,17 +51,36 @@ describe('whole-turn work presentation', () => {
     }} />))
   }
 
-  it('keeps commentary inside one stable expanded group until the answer finishes', async () => {
+  it('keeps all text outside one stable work group through completion', async () => {
     await render('running')
     const group = container.querySelector('[data-testid="assistant-completed-work-group"]')!
     const trigger = group.querySelector('button')!
     expect(trigger.getAttribute('aria-expanded')).toBe('true')
-    expect(group.textContent).toContain('Let me check.')
+    expect(group.textContent).not.toContain('Let me check.')
     expect(group.textContent).not.toContain('Result')
-    expect(container.querySelector('[data-testid="answer"]')?.textContent).toBe('Result')
+    expect(container.querySelector('[data-testid="answer"]')?.textContent).toBe('Let me check.Result')
     await render('completed')
     expect(container.querySelector('[data-testid="assistant-completed-work-group"]')).toBe(group)
     expect(trigger.getAttribute('aria-expanded')).toBe('false')
+    expect(container.querySelector('[data-testid="answer"]')?.textContent).toBe('Let me check.Result')
+  })
+
+  it('preserves earlier answer text when tools and reasoning arrive after it', async () => {
+    await render('running')
+    const group = container.querySelector('[data-testid="assistant-completed-work-group"]')!
+    await render('running', 'completed', false, true)
+    expect(container.querySelector('[data-testid="assistant-completed-work-group"]')).toBe(group)
+    expect(container.querySelector('[data-testid="answer"]')?.textContent).toBe('Let me check.ResultClosing note.')
+    await render('completed', 'completed', false, true)
+    expect(group.querySelector('button')?.getAttribute('aria-expanded')).toBe('false')
+    expect(container.querySelector('[data-testid="answer"]')?.textContent).toBe('Let me check.ResultClosing note.')
+    expect(group.textContent).not.toContain('Result')
+  })
+
+  it('allows completion with visible text followed by support and no closing text', async () => {
+    await render('completed', 'completed', false, true, false)
+    expect(container.querySelector('[data-testid="answer"]')?.textContent).toBe('Let me check.Result')
+    expect(container.querySelector('button')?.getAttribute('aria-expanded')).toBe('false')
   })
 
   it.each(['failed', 'aborted', 'incomplete'] as const)('preserves %s work for inspection', async status => {

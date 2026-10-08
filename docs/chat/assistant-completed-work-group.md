@@ -1,18 +1,20 @@
 # Assistant whole-turn work group
 
-Updated: 2026-09-30.
+Updated: 2026-10-08.
 
 ## Presentation contract
 
 A single assistant message owns one stable work disclosure from its first visible
-support segment. Reasoning, tools and intermediate text remain in transcript order
-inside that disclosure. Text following the last support segment stays outside as
-the current answer. If execution resumes, that earlier text joins the process.
+support segment. Reasoning, tools and errors remain in transcript order
+inside that disclosure. All text segments stay outside in their original text
+order, including progress commentary. Later tools or reasoning never move earlier
+text into the disclosure. Ordinary text has no reliable commentary/answer marker,
+so the renderer preserves its visibility instead of inferring intent from position.
 Ordinary text arrivals never close a work window or create another disclosure.
 
 The disclosure is expanded during the run, including answer streaming and tool
 execution. It automatically collapses only after normal whole-loop completion.
-The final answer remains outside. Failed, aborted, incomplete and pending-tool
+All text remains outside. Failed, aborted, incomplete and pending-tool
 states stay expanded. A user's explicit open/closed choice survives updates;
 focusing a control inside the process pins it open so completion cannot hide focus.
 A newly failed, aborted or incomplete outcome reopens previously collapsed work.
@@ -58,14 +60,17 @@ continuation is outside this presentation change.
 
 - `assistantSupportGrouping.ts` only merges adjacent reasoning and groups adjacent
   tools; ordinary text remains an ordering boundary, never a completion signal.
-- `AssistantMessageBody.tsx` places intermediate text and support in one work panel.
+- `AssistantMessageBody.tsx` keeps all text outside one support-only work panel.
 - `AssistantCompletedWorkGroup.tsx` owns expansion, focus preservation and timing.
 - Existing incremental projection, reasoning playback, tool inspector and scroller
   remain responsible for their original concerns.
 
 Tests cover terminal metadata, provider finish reasons, one stable group, answer
-streaming, pending/error states, manual expansion and focused controls. Verify the
+streaming, text followed by tools/reasoning and closing text, pending/error states,
+manual expansion and focused controls. Verify the
 Electron surface in Light/Dark at normal and compact widths, including completion,
-reopen, failure and viewport anchoring. Run both typechecks, affected ESLint,
-architecture checks, documentation path checks and full coverage for this shared
-render lifecycle change.
+reopen, failure and viewport anchoring. For renderer-only text visibility changes,
+run the assistant-message suites, web typecheck and affected ESLint. Run the
+applicable architecture and documentation path checks when imports or paths change.
+Changes to shared terminal metadata or render lifecycles also require both
+typechecks and full coverage.
