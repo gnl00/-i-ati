@@ -218,6 +218,11 @@
   scrollbar-width: thin;
 }
 
+.shared-prompt-surface[data-variant='chat'] .shared-prompt-textarea {
+  height: var(--chat-input-height, auto);
+  max-height: min(var(--chat-input-height, min(240px, 25dvh)), max(96px, 60dvh));
+}
+
 .shared-prompt-surface:not([data-variant='chat'])[data-expanded='false'] .shared-prompt-textarea {
   min-height: 48px;
   height: 48px;

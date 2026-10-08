@@ -180,7 +180,7 @@ Light 使用 `#f0f2f4` 底色和 `#343a41` 文字，Dark 使用 `#2e3135` 底色
 - 提交、流式输出和取消期间，composer 玻璃层及其父层保持整体 opacity 为 1，避免背景采样边界改变；运行状态通过 Stop 按钮和进度条表达，控件弱化仅作用于具体控件。
 - 单次文本粘贴达到 8,000 字符，或至少 2,000 字符且达到 100 行时，生成 `pasted-text-N.txt` 文本附件。附件在正文上方独立占位，使用现有 Chat surface、细边界与 12px 名称、10px 元数据；纯文本预览即时展开，内部最大 160px 滚动。附件区最大 240px 内部滚动，名称截断且完整名称可访问，显示 UTF-8 字节数与行数。操作为 `Paste as text`、`Download`、`Remove`，恢复正文时回到粘贴锚点与输入焦点；只含附件时允许发送。历史消息沿用同一附件展示，保留原始换行，内容以纯文本显示。
 - 已激活 skills 在 Chat 与 Welcome composer 内使用独立 `Skills` 插槽，位于队列条下方、附件和正文上方，插槽使用 16px 水平内边距。标签使用中性 hover surface、细边界、6px 圆角、24px 高度和 11px 等宽名称；超长名称在 160px 内截断，保留完整 title 和可访问文本。默认显示前 3 个，`+N` 展开其余项，`Show less` 收起；技能区域换行并在 96px 高度内滚动。显示当前会话的持久化激活状态，发送正文后保留，切换会话重置展开状态；有激活技能时 Welcome 保持展开。每个标签末端使用始终可见的独立 × 停用按钮，保留完整名称的 `Deactivate <name>` 提示与键盘焦点样式；只点击 × 执行停用。运行、技能更新、阻塞后处理、未答问题或队列编辑期间禁用停用。停用完成后刷新当前会话的持久化激活状态，失败时保留标签并提示；展开与停用保持正文、附件、焦点和选区。
-- 输入正文使用透明背景，外层 surface 负责材质、边界和 focus 层级。Chat 与展开后的 Welcome composer 正文从 96px 起随内容增长，上限为 `min(240px, 25dvh)`，超出后正文内部滚动；底部 action row 保持可见，Chat 底部锚定并向上增长。附件在正文上方独立占位，删除与清空即时回缩，逐行增长不添加高度过渡。
+- 输入正文使用透明背景，外层 surface 负责材质、边界和 focus 层级。Chat 与展开后的 Welcome composer 正文从 96px 起随内容增长，上限为 `min(240px, 25dvh)`，超出后正文内部滚动；底部 action row 保持可见，Chat 底部锚定并向上增长。附件在正文上方独立占位，删除与清空即时回缩，逐行增长不添加高度过渡。Chat 顶部保留拖动条；手动调整后正文使用固定高度（96px 至 60dvh），随窗口缩小受 60dvh 约束；双击拖动条或按 Enter / Home 恢复自动高度，方向键每次调整 24px。手动高度仅保留在当前挂载的 Chat 输入区，不持久化；Welcome 保持自动高度。
 - Model selector、approval mode、Workspace 和 Send 共享高度、圆角、间距与暗色 material。
 - 输入、搜索和内部编辑区使用 `--app-surface-inset`，形成向内的空间关系。
 - placeholder 使用 muted text，focus 通过 border、ring 和 surface 变化表达。Composer 使用 textarea 原生 placeholder，共享正文的字号、行高和内边距；textarea 与自绘光标位于同一个文字区域，附件增删只移动该区域，避免独立定位偏差。

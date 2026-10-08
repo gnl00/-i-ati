@@ -208,6 +208,11 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
   // Textarea ref
   const rootRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [manualInputHeight, setManualInputHeight] = useState<number | null>(null)
+  const inputResizeDrag = useRef<{ pointerId: number; y: number; height: number } | null>(null)
+  const resizeInput = (height: number): void => {
+    setManualInputHeight(Math.max(96, Math.min(height, window.innerHeight * 0.6)))
+  }
 
   // Custom Caret Ref
   const caretOverlayRef = useRef<CustomCaretRef>(null)
@@ -1147,8 +1152,53 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     <div
       ref={rootRef}
       id='inputArea'
-      className="w-full rounded-md bg-transparent"
+      className="relative w-full rounded-md bg-transparent"
+      style={{ '--chat-input-height': manualInputHeight === null ? undefined : `${manualInputHeight}px` } as React.CSSProperties}
     >
+      <div
+        role="separator"
+        aria-label="Resize input area"
+        aria-orientation="horizontal"
+        aria-valuemin={96}
+        aria-valuemax={Math.max(96, Math.round(window.innerHeight * 0.6))}
+        aria-valuenow={manualInputHeight ?? 96}
+        tabIndex={0}
+        title="Drag to resize. Double-click or press Enter to restore automatic height."
+        className="group absolute inset-x-2 -top-1 z-20 flex h-3 cursor-row-resize touch-none items-center justify-center rounded-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+        onPointerDown={event => {
+          if (event.button !== 0 || inputResizeDrag.current) return
+          event.preventDefault()
+          event.currentTarget.setPointerCapture(event.pointerId)
+          inputResizeDrag.current = {
+            pointerId: event.pointerId,
+            y: event.clientY,
+            height: textareaRef.current?.getBoundingClientRect().height ?? 96
+          }
+        }}
+        onPointerMove={event => {
+          const drag = inputResizeDrag.current
+          if (drag?.pointerId === event.pointerId) resizeInput(drag.height + drag.y - event.clientY)
+        }}
+        onPointerUp={event => {
+          if (inputResizeDrag.current?.pointerId !== event.pointerId) return
+          inputResizeDrag.current = null
+          event.currentTarget.releasePointerCapture(event.pointerId)
+        }}
+        onPointerCancel={() => { inputResizeDrag.current = null }}
+        onLostPointerCapture={() => { inputResizeDrag.current = null }}
+        onDoubleClick={() => setManualInputHeight(null)}
+        onKeyDown={event => {
+          if (event.key === 'Enter' || event.key === 'Home') {
+            event.preventDefault()
+            setManualInputHeight(null)
+          } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+            event.preventDefault()
+            resizeInput((textareaRef.current?.getBoundingClientRect().height ?? 96) + (event.key === 'ArrowUp' ? 24 : -24))
+          }
+        }}
+      >
+        <span className="h-0.5 w-10 rounded-full bg-border opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" />
+      </div>
       <div
         id="inputAreaContent"
         className="relative flex flex-col overflow-hidden bg-transparent px-2 py-1"

@@ -162,6 +162,43 @@ describe('Welcome composer interaction boundaries', () => {
     ));
   }
 
+  it('resizes Chat from its current automatic height and restores automatic sizing', async () => {
+    await renderComposer(false);
+    const frame = container.querySelector<HTMLElement>('#inputArea')!;
+    const textarea = container.querySelector('textarea')!;
+    const handle = container.querySelector<HTMLElement>('[aria-label="Resize input area"]')!;
+    expect(handle).not.toBeNull();
+    expect(frame.style.getPropertyValue('--chat-input-height')).toBe('');
+    vi.spyOn(textarea, 'getBoundingClientRect').mockReturnValue({ height: 120 } as DOMRect);
+    handle.setPointerCapture = vi.fn();
+    handle.releasePointerCapture = vi.fn();
+    const pointer = (type: string, clientY: number, pointerId = 1): Event => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      Object.assign(event, { clientY, pointerId, button: 0 });
+      return event;
+    };
+    await act(async () => handle.dispatchEvent(pointer('pointerdown', 300)));
+    await act(async () => handle.dispatchEvent(pointer('pointermove', 200, 2)));
+    expect(frame.style.getPropertyValue('--chat-input-height')).toBe('');
+    await act(async () => handle.dispatchEvent(pointer('pointermove', 200)));
+    expect(frame.style.getPropertyValue('--chat-input-height')).toBe('220px');
+    await act(async () => handle.dispatchEvent(pointer('pointermove', 2000)));
+    expect(frame.style.getPropertyValue('--chat-input-height')).toBe('96px');
+    await act(async () => handle.dispatchEvent(pointer('pointermove', -2000)));
+    expect(frame.style.getPropertyValue('--chat-input-height')).toBe(`${Math.max(96, window.innerHeight * 0.6)}px`);
+    await act(async () => handle.dispatchEvent(pointer('pointerup', -2000)));
+    await act(async () => handle.dispatchEvent(pointer('pointermove', 200)));
+    expect(frame.style.getPropertyValue('--chat-input-height')).toBe(`${Math.max(96, window.innerHeight * 0.6)}px`);
+    await act(async () => handle.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })));
+    expect(frame.style.getPropertyValue('--chat-input-height')).toBe('');
+    await act(async () => handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true })));
+    expect(frame.style.getPropertyValue('--chat-input-height')).toBe('144px');
+    await act(async () => handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })));
+    expect(frame.style.getPropertyValue('--chat-input-height')).toBe('');
+    await renderComposer(true);
+    expect(container.querySelector('[aria-label="Resize input area"]')).toBeNull();
+  });
+
   it('keeps an empty Welcome expanded after blur while skills remain active', async () => {
     mocks.activeSkills = ['pdf'];
     await renderComposer();
