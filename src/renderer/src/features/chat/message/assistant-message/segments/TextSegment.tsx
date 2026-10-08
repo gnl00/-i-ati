@@ -41,7 +41,7 @@ export const TextSegment: React.FC<TextSegmentProps> = memo(({
 
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }], remarkPreserveLineBreaks]}
+      remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: false }], remarkPreserveLineBreaks]}
       rehypePlugins={[rehypeRaw, rehypeKatex]}
       skipHtml={false}
       remarkRehypeOptions={{ passThrough: ['link'] }}

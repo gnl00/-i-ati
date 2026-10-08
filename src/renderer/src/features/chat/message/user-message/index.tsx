@@ -187,7 +187,7 @@ const AnimatedMarkdown: React.FC<{
 
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }], remarkPreserveLineBreaks]}
+      remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: false }], remarkPreserveLineBreaks]}
       rehypePlugins={[rehypeKatex]}
       skipHtml={false}
       className={cn(

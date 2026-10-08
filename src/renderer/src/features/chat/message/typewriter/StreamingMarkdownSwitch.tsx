@@ -58,7 +58,7 @@ export const StreamingMarkdownSwitch: React.FC<{
     return (
       <div className={proseBoxClassName}>
         <ReactMarkdown
-          remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: true }], remarkPreserveLineBreaks]}
+          remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: false }], remarkPreserveLineBreaks]}
           rehypePlugins={[rehypeRaw, rehypeKatex]}
           skipHtml={false}
           remarkRehypeOptions={{ passThrough: ['link'] }}
