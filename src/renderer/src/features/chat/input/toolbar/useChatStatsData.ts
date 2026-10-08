@@ -53,7 +53,8 @@ function collectActiveCompressedMessageIds(
 
 export function useChatStatsData(
   chatId: number | null,
-  compressionSummaryRevision: number
+  compressionSummaryRevision: number,
+  chatSkillsRevision = 0
 ): ChatStatsPersistenceData {
   const skillsRequestSequenceRef = React.useRef(0)
   const summariesRequestSequenceRef = React.useRef(0)
@@ -100,7 +101,7 @@ export function useChatStatsData(
           loading: false
         }))
       })
-  }, [chatId])
+  }, [chatId, chatSkillsRevision])
 
   React.useEffect(() => {
     const requestSequence = summariesRequestSequenceRef.current + 1

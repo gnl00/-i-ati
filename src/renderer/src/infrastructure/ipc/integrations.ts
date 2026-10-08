@@ -12,7 +12,9 @@ import {
   SKILL_GET_ACTION,
   SKILL_IMPORT_ACTION,
   SKILL_LIST_ACTION,
+  SKILL_LOAD_ACTION,
   SKILL_REVEAL_ACTION,
+  SKILL_UNLOAD_ACTION,
   TELEGRAM_GATEWAY_START,
   TELEGRAM_GATEWAY_STATUS,
   TELEGRAM_GATEWAY_STOP,
@@ -32,6 +34,18 @@ export const invokeWebFetchIPC = (args: { url: string; cleanMode?: 'lite' | 'ful
   invokeIpc(WEB_FETCH_ACTION, args)
 export const invokeSkillList = (): Promise<SkillMetadata[]> => invokeIpc(SKILL_LIST_ACTION)
 export const invokeSkillGetContent = (name: string): Promise<string> => invokeIpc(SKILL_GET_ACTION, { name })
+export const invokeSkillLoad = (name: string, chatUuid: string): Promise<{
+  success: boolean
+  name?: string
+  loaded?: boolean
+  contextInjected?: boolean
+  message?: string
+}> => invokeIpc(SKILL_LOAD_ACTION, { name, chat_uuid: chatUuid })
+export const invokeSkillUnload = (name: string, chatUuid: string): Promise<{
+  success: boolean
+  removed: boolean
+  message?: string
+}> => invokeIpc(SKILL_UNLOAD_ACTION, { name, chat_uuid: chatUuid })
 export const invokeImportSkills = (folderPath: string): Promise<{
   installed: SkillMetadata[]
   renamed: Array<{ from: string; to: string }>

@@ -139,10 +139,20 @@ const SkillSummary: React.FC<{ name: string; text: string }> = ({
 }
 
 const SkillsManager: React.FC = () => {
-  const { currentChatId } = useChatStore()
+  const { currentChatId, currentChatUuid, chatSkillsRevisionByChatUuid } = useChatStore()
+  const chatSkillsRevision = currentChatUuid
+    ? (chatSkillsRevisionByChatUuid[currentChatUuid] ?? 0)
+    : 0
+  const currentChatIdRef = useRef(currentChatId)
+  currentChatIdRef.current = currentChatId
+  const activeSkillsRequestSequenceRef = useRef(0)
   const { appConfig, setAppConfig } = useAppConfigStore()
   const [skills, setSkills] = useState<SkillMetadata[]>([])
-  const [activeSkills, setActiveSkills] = useState<string[]>([])
+  const [activeSkillsState, setActiveSkillsState] = useState<{
+    chatId: number | null
+    names: string[]
+  }>({ chatId: null, names: [] })
+  const activeSkills = activeSkillsState.chatId === currentChatId ? activeSkillsState.names : []
   const [folders, setFolders] = useState<string[]>([])
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false)
   const [searchQuery, setSearchQuery] = useState<string>('')
@@ -182,14 +192,22 @@ const SkillsManager: React.FC = () => {
   }
 
   const refreshActiveSkills = async (): Promise<void> => {
-    if (!currentChatId) {
-      setActiveSkills([])
+    const chatId = currentChatIdRef.current
+    const requestSequence = ++activeSkillsRequestSequenceRef.current
+    if (!chatId) {
+      setActiveSkillsState({ chatId: null, names: [] })
       return
     }
     try {
-      const result = await getChatSkills(currentChatId)
-      setActiveSkills(result)
+      const result = await getChatSkills(chatId)
+      if (activeSkillsRequestSequenceRef.current !== requestSequence || currentChatIdRef.current !== chatId) {
+        return
+      }
+      setActiveSkillsState({ chatId, names: result })
     } catch (error) {
+      if (activeSkillsRequestSequenceRef.current !== requestSequence || currentChatIdRef.current !== chatId) {
+        return
+      }
       console.error('[SkillsManager] Failed to load active skills:', error)
       toast.error('Failed to load active skills')
     }
@@ -199,8 +217,11 @@ const SkillsManager: React.FC = () => {
     refreshSkills()
   }, [])
   useEffect(() => {
-    refreshActiveSkills()
-  }, [currentChatId])
+    void refreshActiveSkills()
+    return (): void => {
+      activeSkillsRequestSequenceRef.current += 1
+    }
+  }, [currentChatId, chatSkillsRevision])
   useEffect(() => {
     setFolders(appConfig.skills?.folders || [])
   }, [appConfig.skills?.folders])

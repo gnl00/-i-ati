@@ -62,6 +62,7 @@ describe('chat per-chat state buffers', () => {
       lastRunOutcome: 'idle',
       runUiByChatUuid: {},
       compressionSummaryRevisionByChatUuid: {},
+      chatSkillsRevisionByChatUuid: {},
       scrollHint: { type: 'none' },
       toolLiveOutputs: {}
     })
@@ -242,6 +243,20 @@ describe('chat per-chat state buffers', () => {
       'chat-1': 2,
       'chat-2': 1
     })
+  })
+
+  it('invalidates active skills for the target chat without changing another chat revision', () => {
+    const actions = useChatStore.getState()
+
+    actions.bumpChatSkillsRevision('chat-1')
+    actions.bumpChatSkillsRevision('chat-1')
+    actions.bumpChatSkillsRevision('chat-2')
+
+    expect(useChatStore.getState().chatSkillsRevisionByChatUuid).toEqual({
+      'chat-1': 2,
+      'chat-2': 1
+    })
+    expect(useChatStore.getState().currentChatUuid).toBe('chat-2')
   })
 
   it('updates and deletes messages from a background chat buffer', async () => {

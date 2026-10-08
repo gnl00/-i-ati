@@ -179,6 +179,7 @@ Light 使用 `#f0f2f4` 底色和 `#343a41` 文字，Dark 使用 `#2e3135` 底色
 - Chat 与 Welcome composer 共用磨砂材质：浅色乳白背景约 75% 不透明，深色 graphite raised 背景约 80% 不透明，使用 `backdrop-filter: blur(20px)`、细边框与轻阴影；正文和操作控件保持清晰，Chat 消息视口延伸至窗口底部，composer 覆盖其上；消息列表底部留白随 composer 实际高度更新，滚动到底时最后一条消息完整露出，跳至最新按钮保持在 composer 上方。输入区底部 4px 留白使用 `--chat-canvas` 遮底，避免消息从窗口底边清晰露出。
 - 提交、流式输出和取消期间，composer 玻璃层及其父层保持整体 opacity 为 1，避免背景采样边界改变；运行状态通过 Stop 按钮和进度条表达，控件弱化仅作用于具体控件。
 - 单次文本粘贴达到 8,000 字符，或至少 2,000 字符且达到 100 行时，生成 `pasted-text-N.txt` 文本附件。附件在正文上方独立占位，使用现有 Chat surface、细边界与 12px 名称、10px 元数据；纯文本预览即时展开，内部最大 160px 滚动。附件区最大 240px 内部滚动，名称截断且完整名称可访问，显示 UTF-8 字节数与行数。操作为 `Paste as text`、`Download`、`Remove`，恢复正文时回到粘贴锚点与输入焦点；只含附件时允许发送。历史消息沿用同一附件展示，保留原始换行，内容以纯文本显示。
+- 已激活 skills 在 Chat 与 Welcome composer 内使用独立 `Skills` 插槽，位于队列条下方、附件和正文上方，插槽使用 16px 水平内边距。标签使用中性 hover surface、细边界、6px 圆角、24px 高度和 11px 等宽名称；超长名称在 160px 内截断，保留完整 title 和可访问文本。默认显示前 3 个，`+N` 展开其余项，`Show less` 收起；技能区域换行并在 96px 高度内滚动。显示当前会话的持久化激活状态，发送正文后保留，切换会话重置展开状态；有激活技能时 Welcome 保持展开。每个标签末端使用始终可见的独立 × 停用按钮，保留完整名称的 `Deactivate <name>` 提示与键盘焦点样式；只点击 × 执行停用。运行、技能更新、阻塞后处理、未答问题或队列编辑期间禁用停用。停用完成后刷新当前会话的持久化激活状态，失败时保留标签并提示；展开与停用保持正文、附件、焦点和选区。
 - 输入正文使用透明背景，外层 surface 负责材质、边界和 focus 层级。Chat 与展开后的 Welcome composer 正文从 96px 起随内容增长，上限为 `min(240px, 25dvh)`，超出后正文内部滚动；底部 action row 保持可见，Chat 底部锚定并向上增长。附件在正文上方独立占位，删除与清空即时回缩，逐行增长不添加高度过渡。
 - Model selector、approval mode、Workspace 和 Send 共享高度、圆角、间距与暗色 material。
 - 输入、搜索和内部编辑区使用 `--app-surface-inset`，形成向内的空间关系。
@@ -189,7 +190,8 @@ Light 使用 `#f0f2f4` 底色和 `#343a41` 文字，Dark 使用 `#2e3135` 底色
 
 - trigger 使用 raised surface、8px 至 10px 圆角和 standard border。
 - popover 使用 10px 圆角、raised surface、standard border 和受控阴影。
-- Chat 与 Welcome 的 slash command 面板与 textarea 等宽并左对齐，在其上方保持 10px 间隔。面板使用 10px 圆角、raised surface、standard border 和轻阴影；命令行最小 40px 高，标题为 13px semibold，说明与等宽命令为 11px secondary text。选中与 hover 使用中性 surface-hover，当前行右侧显示裸 Enter 提示并保留固定槽位。面板容器小于 520px 时隐藏说明，完整说明保留在可访问名称中；命令保持完整可见，标题可截断。键盘打开、筛选和切换立即呈现，不使用弹簧缩放。
+- Chat 与 Welcome 的 slash command 面板与 textarea 等宽并左对齐，在其上方保持 10px 间隔。面板使用 10px 圆角、raised surface、standard border 和轻阴影；通过 Portal 挂到 `document.body`，浅色使用 88% 乳白底与 24px backdrop blur，模糊背后正文并保持命令文字清晰，深色使用 graphite raised 实底且关闭 backdrop blur。命令行最小 40px 高，标题为 13px semibold，说明与等宽命令为 11px secondary text。选中与 hover 使用中性 surface-hover，当前行右侧显示裸 Enter 提示并保留固定槽位。面板容器小于 520px 时隐藏说明，完整说明保留在可访问名称中；命令保持完整可见，标题可截断。键盘打开、筛选和切换立即呈现，不使用弹簧缩放。
+- `/sk:` 复用 slash command 面板列出可用 skills，已激活项显示轻量 `Active` 文字。候选列表高度上限为 `min(320px, 40dvh)`，超出后内部滚动，键盘选中项保持可见；加载、失败与无匹配状态在相同面板内用 secondary text 呈现。完整技能名称精确匹配；非精确名称先通过方向键或点击选择，Enter 提示只出现在可实际执行的选中项。
 - search 区使用 inset surface，provider header 使用安静的 sticky 分组样式。
 - hover 与键盘 current state 使用 `--app-surface-hover`，selected state 同时显示 check 或明确图标。
 - Chat 模型 selector 的 thinking 子菜单使用 184px 宽度、10px 圆角与 32px 选项高度，直接从档位列表开始；当前模型档位使用轻背景与右侧裸勾，其他模型的默认档位使用 `Default` 标记。模型列表使用能力图标，不显示具体档位；入口与子菜单中的 `xhigh` 展示为 `Extra high`。档位选择一次确认模型与档位，并关闭菜单。

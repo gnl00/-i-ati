@@ -1,5 +1,5 @@
 import { cn } from '@renderer/shared/lib/utils';
-import React, { useLayoutEffect, useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { SlashCommand } from './useSlashCommands';
 
@@ -8,7 +8,8 @@ interface CommandPaletteProps {
   commands: SlashCommand[];
   selectedIndex: number;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
-  onCommandClick: (command: SlashCommand) => void | Promise<void>;
+  onCommandClick: (command: SlashCommand) => void | boolean | Promise<void | boolean>;
+  emptyMessage?: string;
 }
 
 const CommandPalette: React.FC<CommandPaletteProps> = ({
@@ -17,7 +18,9 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
   selectedIndex,
   textareaRef,
   onCommandClick,
+  emptyMessage,
 }) => {
+  const selectedCommandRef = useRef<HTMLButtonElement>(null);
   const [anchor, setAnchor] = useState<{
     top: number;
     left: number;
@@ -44,7 +47,13 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
     };
   }, [isOpen, textareaRef]);
 
-  if (!isOpen || !anchor || commands.length === 0) return null;
+  useLayoutEffect(() => {
+    if (isOpen) {
+      selectedCommandRef.current?.scrollIntoView?.({ block: 'nearest' });
+    }
+  }, [isOpen, selectedIndex, commands]);
+
+  if (!isOpen || !anchor || (commands.length === 0 && !emptyMessage)) return null;
 
   return createPortal(
     <div
@@ -52,13 +61,19 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
       style={{ ...anchor, transform: 'translateY(-100%)' }}
     >
       <div
-        className="@container overflow-hidden rounded-[10px] border border-(--app-border-standard) bg-(--app-surface-raised) p-1 shadow-[0_8px_24px_rgb(0_0_0/0.08)] dark:shadow-[0_8px_24px_rgb(0_0_0/0.2)]"
+        className="@container max-h-[min(320px,40dvh)] overflow-y-auto rounded-[10px] border border-(--app-border-standard) bg-(--app-surface-raised) p-1 shadow-[0_8px_24px_rgb(0_0_0/0.08)] backdrop-blur-[24px] dark:shadow-[0_8px_24px_rgb(0_0_0/0.2)] dark:backdrop-blur-none"
         role="group"
         aria-label="Slash commands"
       >
+        {commands.length === 0 && (
+          <div role="status" className="min-h-10 px-3 py-2.5 text-[11px] text-(--app-text-secondary)">
+            {emptyMessage}
+          </div>
+        )}
         {commands.map((command, index) => (
           <button
             key={command.cmd}
+            ref={index === selectedIndex ? selectedCommandRef : undefined}
             type="button"
             className={cn(
               'flex min-h-10 w-full items-center gap-4 rounded-md px-3 py-2 text-left text-(--app-text-primary) focus-visible:outline-2 focus-visible:outline-(--app-accent) active:scale-[0.99]',
@@ -66,7 +81,7 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
                 ? 'bg-(--app-surface-hover)'
                 : 'hover:bg-(--app-surface-hover)',
             )}
-            aria-label={`${command.label}: ${command.description} (${command.cmd})`}
+            aria-label={`${command.label}: ${command.description} (${command.cmd})${command.active ? ', Active' : ''}`}
             aria-current={index === selectedIndex ? 'true' : undefined}
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => void onCommandClick(command)}
@@ -83,6 +98,9 @@ const CommandPalette: React.FC<CommandPaletteProps> = ({
             >
               {command.description}
             </span>
+            {command.active && (
+              <span className="shrink-0 text-[11px] text-(--app-text-secondary)">Active</span>
+            )}
             <span className="shrink-0 font-mono text-[11px] text-(--app-text-secondary)">
               {command.cmd}
             </span>

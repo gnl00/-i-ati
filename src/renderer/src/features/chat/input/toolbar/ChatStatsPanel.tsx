@@ -36,11 +36,16 @@ const ChatStatsPanel: React.FC<ChatStatsPanelProps> = ({
       ? (state.compressionSummaryRevisionByChatUuid[currentChatUuid] ?? 0)
       : 0
   ))
+  const chatSkillsRevision = useChatStore(state => (
+    currentChatUuid
+      ? (state.chatSkillsRevisionByChatUuid[currentChatUuid] ?? 0)
+      : 0
+  ))
   const appConfig = useAppConfigStore(state => state.appConfig)
   const mainModelRef = useAppConfigStore(state => state.mainModel)
   const resolveModelRef = useAppConfigStore(state => state.resolveModelRef)
   const providersRevision = useAppConfigStore(state => state.providersRevision)
-  const persistedStats = useChatStatsData(currentChatId, compressionSummaryRevision)
+  const persistedStats = useChatStatsData(currentChatId, compressionSummaryRevision, chatSkillsRevision)
 
   const activeModel = React.useMemo(
     () => resolveModelRef(selectedModelRef ?? mainModelRef)?.model,

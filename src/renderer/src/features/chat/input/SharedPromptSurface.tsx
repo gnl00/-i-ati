@@ -16,6 +16,7 @@ interface SharedPromptSurfaceProps {
   mediaGallery?: React.ReactNode
   textAttachmentGallery?: React.ReactNode
   topAccessory?: React.ReactNode
+  skillSlot?: React.ReactNode
   dropIndicator?: React.ReactNode
   bodyOverlay?: React.ReactNode
   leftActions?: React.ReactNode
@@ -47,6 +48,7 @@ const SharedPromptSurface = React.forwardRef<HTMLTextAreaElement, SharedPromptSu
   mediaGallery,
   textAttachmentGallery,
   topAccessory,
+  skillSlot,
   dropIndicator,
   bodyOverlay,
   leftActions,
@@ -101,6 +103,8 @@ const SharedPromptSurface = React.forwardRef<HTMLTextAreaElement, SharedPromptSu
           bodyClassName
         )}
       >
+        {skillSlot}
+
         {mediaGallery && (
           <div className="shared-prompt-gallery">
             {mediaGallery}

@@ -6,6 +6,11 @@ import SkillsManager from '../skills/SkillsManager'
 import { toast } from 'sonner'
 
 const mocks = vi.hoisted(() => ({
+  chatState: {
+    currentChatId: 1 as number | null,
+    currentChatUuid: 'chat-1' as string | null,
+    chatSkillsRevisionByChatUuid: {} as Record<string, number>
+  },
   appConfig: { skills: { folders: ['/team/skills'] } },
   list: vi.fn(),
   active: vi.fn(),
@@ -19,7 +24,7 @@ vi.mock('@renderer/infrastructure/persistence/ChatSkillRepository', () => ({
   getChatSkills: mocks.active
 }))
 vi.mock('@renderer/features/chat', () => ({
-  useChatStore: (): { currentChatId: number } => ({ currentChatId: 1 })
+  useChatStore: (): typeof mocks.chatState => mocks.chatState
 }))
 vi.mock('@renderer/infrastructure/config/appConfig', () => ({
   useAppConfigStore: (): {
@@ -66,6 +71,10 @@ const click = async (label: string): Promise<void> => {
 }
 beforeEach(() => {
   vi.clearAllMocks()
+  mocks.chatState.currentChatId = 1
+  mocks.chatState.currentChatUuid = 'chat-1'
+  mocks.chatState.chatSkillsRevisionByChatUuid = {}
+  mocks.active.mockReset()
   mocks.list.mockResolvedValue(skills)
   mocks.active.mockResolvedValue(['code-review'])
   mocks.open.mockResolvedValue({ success: true })
@@ -100,6 +109,37 @@ it('keeps details collapsed, shows current-chat state, and filters hidden metada
   expect(container.textContent).not.toContain('Workspace guide.')
   expect(container.textContent).toContain('Local repositories.')
   expect(container.querySelector('details')?.open).toBe(false)
+})
+
+it('refreshes active skills after a same-chat activation revision', async () => {
+  mocks.active.mockResolvedValueOnce([]).mockResolvedValueOnce(['guide'])
+  await render()
+  expect(container.querySelector('[title="Active in the current chat"]')).toBeNull()
+
+  mocks.chatState.chatSkillsRevisionByChatUuid['chat-1'] = 1
+  await render()
+
+  expect(mocks.active).toHaveBeenCalledTimes(2)
+  const activeBadge = container.querySelector('[title="Active in the current chat"]')
+  expect(activeBadge?.closest('.group')?.textContent).toContain('guide')
+})
+
+it('ignores active-skill reads that finish after switching chats', async () => {
+  let resolveFirstSkills: (value: string[]) => void = () => undefined
+  mocks.active
+    .mockReturnValueOnce(new Promise<string[]>(resolve => { resolveFirstSkills = resolve }))
+    .mockResolvedValueOnce(['guide'])
+  await render()
+  mocks.chatState.currentChatId = 2
+  mocks.chatState.currentChatUuid = 'chat-2'
+  await render()
+  await act(async () => resolveFirstSkills(['code-review']))
+
+  expect(mocks.active).toHaveBeenNthCalledWith(1, 1)
+  expect(mocks.active).toHaveBeenNthCalledWith(2, 2)
+  const activeBadges = container.querySelectorAll('[title="Active in the current chat"]')
+  expect(activeBadges).toHaveLength(1)
+  expect(activeBadges[0].closest('.group')?.textContent).toContain('guide')
 })
 it('offers accessible expansion only for truncated descriptions', async () => {
   vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(

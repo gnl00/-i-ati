@@ -35,6 +35,7 @@ const latestStore = {
   resetPostRunJobsForChat: vi.fn(),
   setLastRunOutcomeForChat: vi.fn(),
   invalidateCompressionSummariesForChat: vi.fn(),
+  bumpChatSkillsRevision: vi.fn(),
   clearPendingUserMessage: vi.fn(),
   appendToolLiveOutput: vi.fn(),
   clearToolLiveOutput: vi.fn(),
@@ -183,9 +184,70 @@ describe('handleChatRunEvent', () => {
     latestStore.resetPostRunJobsForChat.mockReset()
     latestStore.setLastRunOutcomeForChat.mockReset()
     latestStore.invalidateCompressionSummariesForChat.mockReset()
+    latestStore.bumpChatSkillsRevision.mockReset()
     latestStore.clearPendingUserMessage.mockReset()
     scheduleAssistantStreamingPerfRecentSessionFlush.mockReset()
     rendererLoggerError.mockReset()
+  })
+
+  it.each(['load_skill', 'unload_skill'])('invalidates the owning chat skills after an attached %s result', async name => {
+    await handleChatRunEvent(createInput(), {
+      submissionId: 'submission-1',
+      chatUuid: 'background-chat',
+      timestamp: 1,
+      sequence: 1,
+      type: CHAT_RENDER_EVENTS.TOOL_RESULT_ATTACHED,
+      payload: {
+        toolCallId: 'skill-tool',
+        message: {
+          chatUuid: 'background-chat',
+          body: { role: 'tool', name, content: '{"success":true}', segments: [] }
+        }
+      }
+    })
+
+    expect(latestStore.bumpChatSkillsRevision).toHaveBeenCalledExactlyOnceWith('background-chat')
+    expect(latestStore.currentChatUuid).toBe('chat-live')
+  })
+
+  it('resolves skills result ownership from the persisted tool message when the envelope has no chat UUID', async () => {
+    await handleChatRunEvent(createInput(), {
+      submissionId: 'submission-1',
+      timestamp: 1,
+      sequence: 1,
+      type: CHAT_RENDER_EVENTS.TOOL_RESULT_ATTACHED,
+      payload: {
+        toolCallId: 'skill-tool',
+        message: {
+          chatUuid: 'message-chat',
+          body: { role: 'tool', name: 'load_skill', content: 'unparsed result', segments: [] }
+        }
+      }
+    })
+
+    expect(latestStore.bumpChatSkillsRevision).toHaveBeenCalledExactlyOnceWith('message-chat')
+  })
+
+  it.each([
+    { role: 'tool' as const, name: 'read_skill_file', chatUuid: 'chat-1' },
+    { role: 'assistant' as const, name: 'load_skill', chatUuid: 'chat-1' },
+    { role: 'tool' as const, name: 'load_skill', chatUuid: undefined }
+  ])('keeps skill revisions unchanged for non-mutation or unscoped tool results ($role/$name/$chatUuid)', async ({ role, name, chatUuid }) => {
+    const input = createInput()
+    input.runChatUuidRef.current = null
+    await handleChatRunEvent(input, {
+      submissionId: 'submission-1',
+      chatUuid,
+      timestamp: 1,
+      sequence: 1,
+      type: CHAT_RENDER_EVENTS.TOOL_RESULT_ATTACHED,
+      payload: {
+        toolCallId: 'tool-1',
+        message: { chatUuid, body: { role, name, content: '{}', segments: [] } }
+      }
+    })
+
+    expect(latestStore.bumpChatSkillsRevision).not.toHaveBeenCalled()
   })
 
   it('routes steering events through the active run subscription while the composer is absent', async () => {

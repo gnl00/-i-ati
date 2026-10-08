@@ -25,6 +25,9 @@ const chatState = vi.hoisted(() => ({
   },
   compressionSummaryRevisionByChatUuid: {
     'chat-1': 0
+  },
+  chatSkillsRevisionByChatUuid: {
+    'chat-1': 0
   }
 }))
 

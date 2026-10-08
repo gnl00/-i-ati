@@ -25,13 +25,15 @@ type Snapshot = ReturnType<typeof useChatStatsData>
 function Probe({
   chatId,
   revision,
+  skillsRevision = 0,
   onSnapshot
 }: {
   chatId: number | null
   revision: number
+  skillsRevision?: number
   onSnapshot: (snapshot: Snapshot) => void
 }): React.JSX.Element | null {
-  onSnapshot(useChatStatsData(chatId, revision))
+  onSnapshot(useChatStatsData(chatId, revision, skillsRevision))
   return null
 }
 
@@ -106,15 +108,38 @@ describe('useChatStatsData', () => {
     expect(snapshots.at(-1)?.activeSkills).toEqual([])
   })
 
+  it('reloads skills in the same chat and ignores a response from an older revision', async () => {
+    const snapshots: Snapshot[] = []
+    let resolveOlderSkills: (value: string[]) => void = () => undefined
+    persistenceMocks.getChatSkills
+      .mockReturnValueOnce(new Promise<string[]>(resolve => { resolveOlderSkills = resolve }))
+      .mockResolvedValueOnce(['pdf'])
+    persistenceMocks.getCompressedSummariesByChatId.mockResolvedValue([])
+
+    await act(async () => {
+      root.render(<Probe chatId={1} revision={0} onSnapshot={snapshot => snapshots.push(snapshot)} />)
+    })
+    await act(async () => {
+      root.render(<Probe chatId={1} revision={0} skillsRevision={1} onSnapshot={snapshot => snapshots.push(snapshot)} />)
+    })
+    expect(snapshots.at(-1)?.activeSkills).toEqual(['pdf'])
+    expect(persistenceMocks.getChatSkills).toHaveBeenCalledTimes(2)
+    expect(persistenceMocks.getCompressedSummariesByChatId).toHaveBeenCalledTimes(1)
+
+    await act(async () => resolveOlderSkills(['outdated']))
+    expect(snapshots.at(-1)?.activeSkills).toEqual(['pdf'])
+  })
+
   it('ignores a late persistence response from the previous chat', async () => {
     const snapshots: Snapshot[] = []
     let resolveFirstSummaries: (value: CompressedSummaryEntity[]) => void = () => undefined
+    let resolveFirstSkills: (value: string[]) => void = () => undefined
     const firstSummaries = new Promise<CompressedSummaryEntity[]>(resolve => {
       resolveFirstSummaries = resolve
     })
 
     persistenceMocks.getChatSkills
-      .mockImplementationOnce(() => new Promise<string[]>(() => undefined))
+      .mockReturnValueOnce(new Promise<string[]>(resolve => { resolveFirstSkills = resolve }))
       .mockResolvedValueOnce(['chat-2-skill'])
     persistenceMocks.getCompressedSummariesByChatId
       .mockReturnValueOnce(firstSummaries)
@@ -137,10 +162,12 @@ describe('useChatStatsData', () => {
       messageIds: [11]
     }] as CompressedSummaryEntity[])
     await act(async () => {
+      resolveFirstSkills(['chat-1-skill'])
       await Promise.resolve()
     })
 
     expect(snapshots.at(-1)?.chatId).toBe(2)
+    expect(snapshots.at(-1)?.activeSkills).toEqual(['chat-2-skill'])
     expect(snapshots.at(-1)?.activeCompressedMessageIds).toEqual(new Set([22]))
   })
 })

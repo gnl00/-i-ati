@@ -5,6 +5,7 @@ import {
   MCP_DISCONNECT,
   OPEN_EXTERNAL,
   RUN_CANCEL,
+  SKILL_UNLOAD_ACTION,
   WIN_FULLSCREEN_STATE_GET
 } from '@shared/constants'
 import {
@@ -13,6 +14,7 @@ import {
   invokeMcpDisconnect,
   invokeOpenExternal,
   invokeRunCancel,
+  invokeSkillUnload,
   invokeWindowFullScreenState
 } from '..'
 
@@ -32,6 +34,13 @@ describe('renderer IPC domain contracts', () => {
 
     await expect(invokeMcpDisconnect(request)).resolves.toEqual({ success: true })
     expect(ipcRenderer.invoke).toHaveBeenCalledWith(MCP_DISCONNECT, request)
+  })
+
+  it('deactivates one skill in the specified chat through the existing integrations handler', async () => {
+    const result = { success: true, removed: true, message: 'Skill removed.' }
+    ipcRenderer.invoke.mockResolvedValue(result)
+    await expect(invokeSkillUnload('pdf', 'chat-a')).resolves.toEqual(result)
+    expect(ipcRenderer.invoke).toHaveBeenCalledExactlyOnceWith(SKILL_UNLOAD_ACTION, { name: 'pdf', chat_uuid: 'chat-a' })
   })
 
   it('uses the persistence channel and identifier for chat lookup', async () => {

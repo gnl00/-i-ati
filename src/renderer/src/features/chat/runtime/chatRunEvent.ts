@@ -55,6 +55,7 @@ function resolveRunEventChatUuid(input: BindChatRunEventsInput, event: RunEvent)
       return event.payload.messages[0]?.chatUuid ?? input.runChatUuidRef.current
     case CHAT_RENDER_EVENTS.MESSAGE_CREATED:
     case CHAT_RENDER_EVENTS.MESSAGE_UPDATED:
+    case CHAT_RENDER_EVENTS.TOOL_RESULT_ATTACHED:
       return event.payload.message.chatUuid ?? input.runChatUuidRef.current
     case CHAT_RENDER_EVENTS.PREVIEW_UPDATED:
       return event.payload.message.chatUuid ?? input.runChatUuidRef.current
@@ -310,6 +311,13 @@ export async function handleChatRunEvent(
         chatUuid
       )
       return
+    case CHAT_RENDER_EVENTS.TOOL_RESULT_ATTACHED: {
+      const { body } = event.payload.message
+      if (chatUuid && body.role === 'tool' && (body.name === 'load_skill' || body.name === 'unload_skill')) {
+        getLatestChatStore().bumpChatSkillsRevision(chatUuid)
+      }
+      return
+    }
     case CHAT_HOST_EVENTS.CHAT_READY:
       handleChatReady(input, chatStore, event, hadRunChatUuidBeforeEvent)
       return

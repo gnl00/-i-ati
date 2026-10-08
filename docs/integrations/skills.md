@@ -1,6 +1,6 @@
 # Skills
 
-This app supports Agent Skills as file-based capability packages. Skills can come from built-in app resources or the Electron app data directory, appear in the system prompt as available capabilities, and can be activated on demand through the `load_skill` tool. Activated skill documents are injected into model context as hidden user messages sourced from the current chat's `chat_skills` rows.
+This app supports Agent Skills as file-based capability packages. Skills can come from built-in app resources or the Electron app data directory, appear in the system prompt as available capabilities, and can be activated on demand through the `load_skill` tool or a standalone `/sk:<name>` chat command. Active skill names and paths are injected into model context as hidden user messages sourced from the current chat's `chat_skills` rows. The assistant reads the full `SKILL.md` before applying the skill.
 
 ## File Format
 
@@ -141,7 +141,32 @@ Renderer settings helpers live in [src/renderer/src/features/settings/skills/Ski
 - filters available skills by name, description, compatibility, and allowed tools
 - deletes installed skills
 
-The current UI displays active status. Chat activation and deactivation are handled by the model-facing `load_skill` and `unload_skill` tools or by DB helpers.
+The current UI displays active status. Chat activation is available through the standalone command below, the model-facing `load_skill` tool, or DB helpers. Deactivation is available through the composer skill chips, `unload_skill`, and DB helpers.
+
+### Manual chat activation
+
+Type `/sk:` in Chat or Welcome to list available skills in the existing slash-command panel. Each candidate shows the installed skill name, description, and `Active` status when it is already loaded for the selected chat.
+
+- Submit an exact standalone command such as `/sk:pdf` with Enter or Send, or click a candidate. For a partial name, use the arrow keys to select a candidate before pressing Enter. An unselected unknown name reports an error instead of activating a different skill.
+- The command changes chat state and gives local feedback. It does not create a user message or start a model request. The next task receives the usual compact loaded-skills context; the assistant still reads the full skill document with `read_skill_file`.
+- Names use the canonical `SkillMetadata.name` from the available catalog. `/sk:pdf` requires an available skill named `pdf`; it is not an alias for `pdf-processing`.
+- Activation is available while the chat is idle, without pending blocking post-run jobs or an unanswered model question. Finish an in-progress queued-message edit before activating a skill.
+- Welcome creates and selects an empty `NewChat` after validating the skill. It ensures the default workspace directory and preserves the selected model, chat instruction, and approval mode. The chat and activated skill remain available in history even before the first task is sent.
+- Successful activation clears the submitted command while retaining attachments and any draft edited during activation. Failures retain the input. Navigation during an asynchronous activation cannot select its old chat or clear the new chat's draft.
+- Repeated activation is idempotent. Manual and assistant activation share the same persistent per-chat skill set, and assistant `unload_skill` retains its existing behavior.
+- A message containing additional task text, such as `/sk:pdf process this file`, follows the ordinary message path. The first version handles independent activation commands.
+
+[useSkillActivation](../../src/renderer/src/features/chat/input/useSkillActivation.ts) validates available names and calls the existing `skill:load` IPC. [ChatInputArea](../../src/renderer/src/features/chat/input/ChatInputArea.tsx) routes both command selection and standalone submission through that activation path. A per-chat skills revision refreshes the composer slot, command panel, Chat statistics, and Settings active status after a manual activation or deactivation. [chatRunEvent](../../src/renderer/src/features/chat/runtime/chatRunEvent.ts) also updates that revision when a persisted `TOOL_RESULT_ATTACHED` belongs to `load_skill` or `unload_skill`, including results for a background chat. Consumers re-read the persistent skill set; they do not infer active status from tool-result text.
+
+### Active skills in the composer
+
+[ActiveSkillsSlot](../../src/renderer/src/features/chat/input/ActiveSkillsSlot.tsx) displays the current chat's active names inside the shared Chat and Welcome composer, below the queue rail and above attachments and task text. It shows the first three skills by default; `+N` reveals the remainder and `Show less` collapses the list. Long names retain their full text in the tooltip and accessible content, and an expanded list wraps within a bounded scroll area.
+
+The slot follows the existing persistent per-chat state, remains visible after sending a task, and keeps an empty Welcome composer expanded while skills are active. Switching chats resets the disclosure state. Disclosure clicks preserve textarea focus, draft, and selection.
+
+Each chip has a separate `Deactivate <name>` button, displayed as ×. Clicking the skill name keeps the chip unchanged; clicking × invokes the existing `skill:unload` handler for the selected chat. The handler removes that chat's activation row and retains the installed skill files. The next task rebuilds loaded-skills context from the remaining set. A skill can be activated again with `/sk:<name>`.
+
+Deactivation requires an idle persistent chat with no blocking post-run jobs, unanswered model question, or queued-message edit. Activation and deactivation share a mutation lock and `isUpdatingSkills` state; task submission and queued-task flushing wait for the update to settle. Buttons are disabled during those blocked states. Successful deactivation re-reads the remaining persisted names, while failed requests retain the current chips and report an error. Both paths preserve text, attachments, and selection. Async completion refreshes its owning chat and cannot update a newly selected chat or clear its draft. Deactivation also supports residual active names whose installed skill is no longer available.
 
 ## Chat Load State
 
@@ -149,7 +174,7 @@ Loaded skill state is stored per chat in SQLite. The `chat_skills` table contain
 
 [SkillDao](../../src/main/db/dao/SkillDao.ts) inserts and deletes skill rows and returns skills ordered by `load_order`. [ChatRepository](../../src/main/db/repositories/ChatRepository.ts) materializes `load_order` as the current max plus one.
 
-`processLoadSkill()` checks `DatabaseService.getSkills(chat.id)` before inserting, so repeated `load_skill` calls for the same chat return a successful status without adding another row. The schema itself does not enforce a unique `(chat_id, skill_name)` constraint, so a database-level unique index or DAO upsert would make this invariant stronger.
+`processLoadSkill()` checks `DatabaseService.getSkills(chat.id)` before inserting, so repeated `load_skill` calls for the same chat return a successful status without adding another row. The schema also has a unique `(chat_id, skill_name)` index.
 
 ## Prompt Injection
 

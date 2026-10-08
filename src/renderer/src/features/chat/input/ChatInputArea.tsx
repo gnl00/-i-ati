@@ -2,7 +2,10 @@ import { shouldAttachPastedText } from '@shared/chat/textAttachments'
 import { TextAttachmentList } from './TextAttachmentList'
 import ChatImageGallery from '@renderer/features/chat/shell/ChatImageGallery'
 import useChatRun, { getActiveChatRunIdentity } from '@renderer/features/chat/runtime/useChatRun'
-import { useSlashCommands } from '@renderer/features/chat/input/useSlashCommands'
+import { useSlashCommands, type SlashCommand } from '@renderer/features/chat/input/useSlashCommands'
+import { useSkillActivation } from './useSkillActivation'
+import { parseStandaloneSkillCommand } from './skillCommand'
+import { ActiveSkillsSlot } from './ActiveSkillsSlot'
 import { useMcpConnection } from '@renderer/features/settings'
 import { cn } from '@renderer/shared/lib/utils'
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
@@ -215,9 +218,90 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
   const previousQueueKeyRef = useRef(queueKey)
   const activeQueueKeyRef = useRef(queueKey)
   activeQueueKeyRef.current = queueKey
+  const skillCreatedChatUuidRef = useRef<string | null>(null)
+  const skillInputBusyRef = useRef(false)
+  const onSkillChatCreated = useCallback((chatUuid: string) => {
+    skillCreatedChatUuidRef.current = chatUuid
+  }, [])
+  const {
+    skills,
+    activeSkills,
+    loading: skillsLoading,
+    loadError: skillsLoadError,
+    refreshSkills,
+    activateSkill,
+    deactivateSkill,
+    isUpdatingSkills
+  } = useSkillActivation({ onChatCreated: onSkillChatCreated })
+
+  const activateSkillFromInput = useCallback(async (name: string): Promise<boolean> => {
+    if (skillInputBusyRef.current) return false
+    if (editingQueue) {
+      toast.info('Finish editing the queued message before activating a skill')
+      return false
+    }
+    const submittedInput = inputValueRef.current
+    skillInputBusyRef.current = true
+    try {
+      const activated = await activateSkill(name)
+      if (!activated || inputValueRef.current !== submittedInput) {
+        return false
+      }
+      setInputContent('')
+      requestAnimationFrame(() => {
+        textareaRef.current?.focus()
+        caretOverlayRef.current?.updateCaret()
+      })
+      return true
+    } finally {
+      skillInputBusyRef.current = false
+    }
+  }, [activateSkill, editingQueue, setInputContent])
+
+  const deactivateSkillFromInput = useCallback(async (name: string): Promise<boolean> => {
+    if (skillInputBusyRef.current) return false
+    if (editingQueue) {
+      toast.info('Finish editing the queued message before deactivating a skill')
+      return false
+    }
+    const sourceQueueKey = activeQueueKeyRef.current
+    skillInputBusyRef.current = true
+    try {
+      const deactivated = await deactivateSkill(name)
+      if (deactivated) {
+        requestAnimationFrame(() => {
+          if (activeQueueKeyRef.current !== sourceQueueKey) return
+          textareaRef.current?.focus()
+          caretOverlayRef.current?.updateCaret()
+        })
+      }
+      return deactivated
+    } finally {
+      skillInputBusyRef.current = false
+    }
+  }, [deactivateSkill, editingQueue])
+
+  const submitSkillCommand = useCallback(async (input: string): Promise<boolean> => {
+    const name = parseStandaloneSkillCommand(input)
+    if (name === null) return false
+    if (!name) {
+      toast.info('Choose a skill to activate')
+      return false
+    }
+    return await activateSkillFromInput(name)
+  }, [activateSkillFromInput])
+
+  const skillCommands = useMemo<SlashCommand[]>(() => skills.map(skill => ({
+    cmd: `/sk:${skill.name}`,
+    label: skill.name,
+    description: skill.description,
+    active: activeSkills.includes(skill.name),
+    action: (): Promise<boolean> => activateSkillFromInput(skill.name)
+  })), [skills, activeSkills, activateSkillFromInput])
 
   // Callback to handle command execution with textarea cleanup
-  const handleCommandExecute = useCallback((_command: any) => {
+  const handleCommandExecute = useCallback((command: SlashCommand): void => {
+    if (command.cmd.startsWith('/sk:')) return
     const textarea = textareaRef.current
     if (textarea) {
       const cursorPos = textarea.selectionStart
@@ -247,11 +331,24 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     executeCommand,
     handleKeyDown: handleCommandKeyDown,
     handleInputChange: handleCommandInputChange,
-    handleBlur: handleCommandBlur
+    handleBlur: handleCommandBlur,
+    setIsOpen: setCommandPanelOpen
   } = useSlashCommands({
     textareaRef,
-    onCommandExecute: handleCommandExecute
+    onCommandExecute: handleCommandExecute,
+    skillCommands,
+    onSkillCommandSubmit: submitSkillCommand
   })
+
+  const isSkillCommand = parseStandaloneSkillCommand(inputContent) !== null
+  useEffect(() => {
+    if (commandPanelOpen && isSkillCommand) refreshSkills()
+  }, [commandPanelOpen, isSkillCommand, refreshSkills])
+  const skillEmptyMessage = isSkillCommand
+    ? skillsLoading
+      ? 'Loading skills…'
+      : skillsLoadError ?? 'No matching skills'
+    : undefined
 
   const fillInput = useCallback((text: string) => {
     setInputContent(text)
@@ -400,6 +497,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     isWelcomeFocused ||
     isWelcomePopoverOpen ||
     isWelcomeInteractionHeld ||
+    activeSkills.length > 0 ||
     inputContent.trim().length > 0 ||
     imageSrcBase64List.length > 0 || textAttachments.length > 0
   )
@@ -407,6 +505,13 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
   const onSubmitClick = useCallback((_event?: React.MouseEvent | React.KeyboardEvent, overrideText?: string) => {
     const rawInput = overrideText ?? inputContent
     const trimmedInput = rawInput.trim()
+    if (isUpdatingSkills || skillInputBusyRef.current) return
+    if (parseStandaloneSkillCommand(rawInput) !== null) {
+      void submitSkillCommand(rawInput).then(activated => {
+        if (activated) setCommandPanelOpen(false)
+      })
+      return
+    }
     if (!trimmedInput && !textAttachments.length && !imageSrcBase64List.length) {
       return
     }
@@ -491,7 +596,10 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     submitMessage,
     setImageSrcBase64List,
     setQueuePaused,
-    hasPendingUserQuestion
+    hasPendingUserQuestion,
+    isUpdatingSkills,
+    submitSkillCommand,
+    setCommandPanelOpen
   ])
 
   const insertQueuedMessage = useCallback(async () => {
@@ -539,6 +647,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
   useEffect(() => {
     if (
       isSubmitBlocked
+      || isUpdatingSkills
       || queuePaused
       || editingQueue
       || queuedMessages.length === 0
@@ -558,7 +667,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     const scheduledQueueKey = queueKey
     queueTimerRef.current = window.setTimeout(() => {
       const latestState = useChatStore.getState()
-      if (isSubmissionBlocked(latestState.runPhase, latestState.postRunJobs)) {
+      if (skillInputBusyRef.current || isSubmissionBlocked(latestState.runPhase, latestState.postRunJobs)) {
         return
       }
       const nextItem = selectQueuedPayloadForFlush({
@@ -581,6 +690,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     }
   }, [
     isSubmitBlocked,
+    isUpdatingSkills,
     queuePaused,
     editingQueue,
     queueKey,
@@ -614,13 +724,18 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
 
     previousQueueKeyRef.current = queueKey
     queueFlushingRef.current = false
+    if (skillCreatedChatUuidRef.current === currentChatUuid && currentChatUuid) {
+      skillCreatedChatUuidRef.current = null
+      return
+    }
+    skillCreatedChatUuidRef.current = null
     // First-submission recovery keeps any draft entered while the IPC request was pending.
     if (queueOwner.failedDraft) return
     setInputContent('')
     setTextAttachments([])
     pastePositions.current.clear()
     setImageSrcBase64List([])
-  }, [queueKey, setImageSrcBase64List])
+  }, [queueKey, currentChatUuid, setImageSrcBase64List])
 
   useEffect(() => {
     if (!queueOwner.failedDraft) return
@@ -726,6 +841,10 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     // Handle Enter for submit, Shift+Enter for newline
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
+      if (parseStandaloneSkillCommand(inputContent) !== null) {
+        onSubmitClick(e)
+        return
+      }
       if (hasPendingUserQuestion) {
         toast.info('Answer the pending question to continue')
         return
@@ -913,6 +1032,15 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
     />
   ) : null
 
+  const activeSkillsSlot = activeSkills.length ? (
+    <ActiveSkillsSlot
+      key={currentChatUuid}
+      names={activeSkills}
+      onDeactivate={deactivateSkillFromInput}
+      disabled={isUpdatingSkills || runPhase !== 'idle' || postRunJobs.title === 'pending' || postRunJobs.compression === 'pending' || hasPendingUserQuestion || editingQueue}
+    />
+  ) : null
+
   if (welcomeVisualMode) {
     return (
       <div
@@ -951,6 +1079,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
           onDragOver={onDragOver}
           onDrop={onDrop}
           topAccessory={queuedMessageRail}
+          skillSlot={activeSkillsSlot}
           mediaGallery={imageSrcBase64List.length !== 0 ? <ChatImageGallery /> : null}
           textAttachmentGallery={textAttachments.length ? <TextAttachmentList attachments={textAttachments} onRemove={removeTextAttachment} onRestore={restoreTextAttachment} /> : null}
           bodyOverlay={(
@@ -997,7 +1126,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
               onSubmit={onSubmitClick}
               onCancel={cancelChatSubmit}
               workspacePathToSelect={workspacePathToSelect}
-              submitDisabled={(!inputContent.trim() && !textAttachments.length && !imageSrcBase64List.length) || hasPendingUserQuestion}
+              submitDisabled={(!inputContent.trim() && !textAttachments.length && !imageSrcBase64List.length) || hasPendingUserQuestion || isUpdatingSkills}
             />
           )}
         />
@@ -1008,6 +1137,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
           selectedIndex={selectedCommandIndex}
           textareaRef={textareaRef}
           onCommandClick={executeCommand}
+          emptyMessage={skillEmptyMessage}
         />
       </div>
     )
@@ -1053,6 +1183,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
               onDragOver={onDragOver}
               onDrop={onDrop}
               topAccessory={queuedMessageRail}
+              skillSlot={activeSkillsSlot}
               mediaGallery={imageSrcBase64List.length !== 0 ? <ChatImageGallery /> : null}
           textAttachmentGallery={textAttachments.length ? <TextAttachmentList attachments={textAttachments} onRemove={removeTextAttachment} onRestore={restoreTextAttachment} /> : null}
               dropIndicator={isDragging ? (
@@ -1091,7 +1222,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
                   onSubmit={onSubmitClick}
                   onCancel={cancelChatSubmit}
                   workspacePathToSelect={workspacePathToSelect}
-                  submitDisabled={(!inputContent.trim() && !textAttachments.length && !imageSrcBase64List.length) || hasPendingUserQuestion}
+                  submitDisabled={(!inputContent.trim() && !textAttachments.length && !imageSrcBase64List.length) || hasPendingUserQuestion || isUpdatingSkills}
                 />
               )}
             />
@@ -1106,6 +1237,7 @@ const ChatInputArea = React.forwardRef<ChatInputAreaHandle, ChatInputAreaProps>(
         selectedIndex={selectedCommandIndex}
         textareaRef={textareaRef}
         onCommandClick={executeCommand}
+        emptyMessage={skillEmptyMessage}
       />
     </div>
   )

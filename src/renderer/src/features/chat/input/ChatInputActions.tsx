@@ -309,6 +309,7 @@ const ChatInputActions: React.FC<ChatInputActionsProps> = ({
             onClick={onSubmit}
             variant="default"
             disabled={submitDisabled}
+            aria-label="Send message"
             className={cn(
               'shared-prompt-action-button group relative h-8 min-w-[82px] overflow-hidden rounded-xl px-3.5',
               'border border-slate-600/50 bg-linear-to-br from-slate-700 to-slate-800 shadow-lg shadow-slate-500/20',

@@ -39,7 +39,7 @@ beforeAll(async () => {
 beforeEach(() => {
   ipc.stop.mockClear()
   store.setState({ currentChatUuid: 'tg-chat', currentChatId: 1, messages: [],
-    transcriptBuffersByChatUuid: {}, runUiByChatUuid: {}, preview: { message: null },
+    transcriptBuffersByChatUuid: {}, runUiByChatUuid: {}, chatSkillsRevisionByChatUuid: {}, preview: { message: null },
     runPhase: 'idle', postRunJobs: { title: 'idle', compression: 'idle' } })
   release = ingress.retainChatRunIngress()
 })
@@ -75,6 +75,28 @@ describe('app run ingress', () => {
     expect(store.getState().currentChatUuid).toBe('other-chat')
     expect(store.getState().messages).toEqual([])
     expect(store.getState().transcriptBuffersByChatUuid['tg-chat'].messages[0].body.content).toBe('background')
+  })
+
+  it('refreshes background chat skills through the app ingress while preserving the selected chat', async () => {
+    store.setState({ currentChatUuid: 'other-chat', currentChatId: 2 })
+    await emit(event(CHAT_RENDER_EVENTS.TOOL_RESULT_ATTACHED, {
+      toolCallId: 'load-tool',
+      message: {
+        chatUuid: 'tg-chat',
+        body: { role: 'tool', name: 'load_skill', content: '{"success":true}', segments: [] }
+      }
+    }))
+    await emit(event(CHAT_RENDER_EVENTS.TOOL_RESULT_ATTACHED, {
+      toolCallId: 'unload-tool',
+      message: {
+        chatUuid: 'tg-chat',
+        body: { role: 'tool', name: 'unload_skill', content: '{"success":true}', segments: [] }
+      }
+    }))
+
+    expect(store.getState().chatSkillsRevisionByChatUuid).toEqual({ 'tg-chat': 2 })
+    expect(store.getState().currentChatUuid).toBe('other-chat')
+    expect(store.getState().currentChatId).toBe(2)
   })
 
   it('serializes events and keeps title updates alive after run completion', async () => {

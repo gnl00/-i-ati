@@ -3,6 +3,7 @@ import { act, createRef } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import CommandPalette from '../CommandPalette';
+import type { SlashCommand } from '../useSlashCommands';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -34,7 +35,8 @@ describe('CommandPalette', () => {
   const render = async (
     isOpen = true,
     selectedIndex = 0,
-    items = commands,
+    items: SlashCommand[] = commands,
+    emptyMessage?: string,
   ): Promise<void> => {
     await act(async () =>
       root.render(
@@ -44,6 +46,7 @@ describe('CommandPalette', () => {
           selectedIndex={selectedIndex}
           textareaRef={ref}
           onCommandClick={onCommandClick}
+          emptyMessage={emptyMessage}
         />,
       ),
     );
@@ -129,5 +132,38 @@ describe('CommandPalette', () => {
   it('renders no panel for no matching commands', async () => {
     await render(true, 0, []);
     expect(document.querySelector('[aria-label="Slash commands"]')).toBeNull();
+  });
+
+  it('shows an accessible empty state for loading or failed skill discovery', async () => {
+    await render(true, -1, [], 'Loading skills...');
+    expect(document.querySelector('[role="status"]')?.textContent).toBe('Loading skills...');
+    expect(document.querySelector('[aria-label="Slash commands"] button')).toBeNull();
+    await render(true, -1, [], 'Failed to load skills');
+    expect(document.querySelector('[role="status"]')?.textContent).toBe('Failed to load skills');
+  });
+
+  it('announces active skills without showing Enter on an unselected candidate', async () => {
+    const skills = [
+      { ...commands[0], cmd: '/sk:pdf', label: 'PDF', active: true },
+      { ...commands[1], cmd: '/sk:other', label: 'Other' },
+    ];
+    await render(true, -1, skills);
+    const button = document.querySelector('[aria-label="Slash commands"] button');
+    expect(button?.textContent).toContain('Active');
+    expect(button?.getAttribute('aria-label')).toContain(', Active');
+    expect(button?.textContent).not.toContain('↵');
+    expect(document.querySelector('button[aria-current="true"]')).toBeNull();
+    expect(document.querySelector('[aria-label="Slash commands"]')?.textContent).not.toContain('↵');
+    await render(true, 0, skills);
+    expect(document.querySelector('button[aria-current="true"]')?.textContent).toContain('↵');
+  });
+
+  it('scrolls the selected row into view when keyboard selection changes', async () => {
+    await render(true, -1);
+    const button = document.querySelectorAll('[aria-label="Slash commands"] button')[1] as HTMLButtonElement;
+    const scrollIntoView = vi.fn();
+    button.scrollIntoView = scrollIntoView;
+    await render(true, 1);
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' });
   });
 });
