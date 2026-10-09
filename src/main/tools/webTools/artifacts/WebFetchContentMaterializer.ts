@@ -32,20 +32,6 @@ export interface MaterializedWebContent {
   artifact?: WebFetchArtifact
 }
 
-export interface ArtifactBudgetReservation {
-  commit(): void
-  release(): void
-}
-
-export class WebFetchArtifactBudgetExceededError extends Error {
-  readonly code = 'WEB_SEARCH_ARTIFACT_BUDGET_EXCEEDED'
-
-  constructor() {
-    super('WEB_SEARCH_ARTIFACT_BUDGET_EXCEEDED')
-    this.name = 'WebFetchArtifactBudgetExceededError'
-  }
-}
-
 function fallbackTitle(url: string): string {
   try {
     const parsed = new URL(url)
@@ -142,13 +128,7 @@ function descriptor(artifact: WebFetchArtifact): string {
 }
 
 export class WebFetchContentMaterializer {
-  constructor(
-    private readonly artifactService: WorkspaceWebFetchArtifactService,
-    private readonly reserveArtifact?: (
-      sizeBytes: number,
-      signal?: AbortSignal
-    ) => Promise<ArtifactBudgetReservation | undefined>
-  ) {}
+  constructor(private readonly artifactService: WorkspaceWebFetchArtifactService) {}
 
   async materialize(
     response: DownloadedHttpResponse,
@@ -293,34 +273,14 @@ export class WebFetchContentMaterializer {
     signal?: AbortSignal
   ): Promise<MaterializedWebContent> {
     throwIfAborted(signal)
-    const reservation = this.reserveArtifact
-      ? await this.reserveArtifact(sizeBytes, signal)
-      : undefined
-    if (this.reserveArtifact && !reservation) {
-      await this.artifactService.cleanupSpool(spool)
-      throw new WebFetchArtifactBudgetExceededError()
-    }
-    try {
-      throwIfAborted(signal)
-    } catch (error) {
-      reservation?.release()
-      throw error
-    }
     const summary = createSummary(readable)
-    let artifact: WebFetchArtifact
-    try {
-      artifact = await this.artifactService.saveResult({
-        spool,
-        contentType: response.contentType,
-        readableContent: warning ? undefined : readable,
-        summary,
-        signal
-      })
-      reservation?.commit()
-    } catch (error) {
-      reservation?.release()
-      throw error
-    }
+    const artifact = await this.artifactService.saveResult({
+      spool,
+      contentType: response.contentType,
+      readableContent: warning ? undefined : readable,
+      summary,
+      signal
+    })
     logger.info('web_fetch.artifact.materialized', {
       url: response.finalUrl,
       sizeBytes,

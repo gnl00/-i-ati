@@ -5,7 +5,7 @@ export const webTools = [
     type: 'function',
     function: {
       name: 'web_search',
-      description: 'Perform a web search and return titles, snippets, and links. Prefer snippetsOnly=true for initial discovery, then web_fetch selected URLs when full content is needed. Each result contentStatus distinguishes not_requested, fetched, failed, or blocked; search metadata can remain useful when fetching fails. Large text and fetched files are saved directly to .tmp/web-fetch/*.tmp with a file path, MIME, and a bounded summary. Inspect source files with a suitable workspace file-reading tool.',
+      description: 'Discover sources with a web search and return titles, snippets, and links. Search results contain excerpts, not page bodies. Select relevant URLs and use web_fetch to read their content when more evidence is needed.',
       parameters: {
         type: 'object',
         properties: {
@@ -17,10 +17,6 @@ export const webTools = [
             type: 'string',
             description: 'Search engine to use. Defaults to bing. Use duckduckgo as an independent alternative when another engine is degraded or blocked.',
             enum: ['bing', 'google', 'duckduckgo']
-          },
-          snippetsOnly: {
-            type: 'boolean',
-            description: 'If true, returns only titles, snippets, and links without fetching full page content. Use for fast initial searches when you only need quick overviews. Set to false or omit when you need complete page content for detailed analysis.'
           }
         },
         required: ['query'],

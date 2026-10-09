@@ -1,6 +1,6 @@
 # Web Search and Fetch
 
-Last verified against source: 2026-10-03.
+Last verified against source: 2026-10-09.
 
 ## Runtime ownership
 
@@ -12,7 +12,7 @@ windows and direct HTTP, with Cheerio extraction and Turndown Markdown conversio
 The pool configures one search window and three content windows. Acquisition can
 initialize the pool lazily. Operations release their windows in `finally`,
 including failed or destroyed windows, so later requests retain capacity.
-Window and scrape queues observe cancellation and remove cancelled waiters.
+Window queues observe cancellation and remove cancelled waiters.
 Cleanup timers are cleared before windows become available for reuse.
 Cancelled rendered operations and timed-out JS extraction retire their windows;
 failed or timed-out blank-page cleanup also retires the window. Acquisition
@@ -24,31 +24,34 @@ another request.
 1. Normalize `param` or `query`, resolve the configured result count and engine.
 2. Load the search page and capture URL, title and body diagnostics.
 3. Classify the page, wait for result containers and extract result metadata.
-4. Apply the result quality gate before fetching result pages or returning snippets.
-5. Return snippets directly when `snippetsOnly` is enabled; otherwise fetch the
-   result pages with bounded concurrency, time and artifact budgets.
+4. Select, deduplicate and apply the result quality gate.
+5. Return search-result titles, snippets and links. Source pages are not loaded.
 
 Embedded calls propagate `EmbeddedToolExecutionContext.signal` through searches,
 fetches, nested timeouts, HTTP body reads and window acquisition. Background search
 has a 60-second overall deadline; interactive IPC search has 180 seconds to allow
 manual Google verification. Loading plus snapshot capture is bounded at 23 seconds,
 result readiness at 15 seconds and result extraction at 8 seconds. Fetch keeps its
-45-second overall deadline; each search content fetch keeps its 37-second budget.
+45-second overall deadline.
+Webpage navigation is bounded at 15 seconds, content readiness at 8 seconds and
+DOM extraction at 8 seconds.
 Search queue time is included in the overall deadline.
 
-Prefer `snippetsOnly: true` for initial discovery and fetch selected URLs with
-`web_fetch`. Omitting the flag still fetches full content for compatibility.
-Each new result includes `contentStatus`: `not_requested`, `fetched`, `failed`,
-or `blocked`. Existing `success` semantics are unchanged: response success means
-search discovery succeeded; item success in full-content mode means fetching
-succeeded. A failed content fetch still retains the search title, snippet and link.
+`web_search(query, engine?)` only discovers sources. Results contain `query`,
+`success`, `title`, `snippet` and `link`; response success means search discovery
+passed the quality gate. No result-body `content`, `artifact` or `contentStatus`
+fields are produced. Select relevant links and call `web_fetch(url, cleanMode?)`
+explicitly to read their bodies. Search does not acquire content windows, download
+source files or allocate workspace web-fetch artifacts. The former search-mode
+parameter and search-body concurrency/inline/artifact budgets are retired.
+See [ADR-0043](../../decisions/0043-search-discovery-and-explicit-fetch.md).
 
 Engine definitions support Bing, Google and DuckDuckGo. Bing degraded pages and
 obviously irrelevant result collections fail with `success: false`. These
 heuristics reject known bad result shapes; they do not prove that accepted pages
 answer the question.
 
-Before fetching content, search selects from up to twice the requested result
+Search selects from up to twice the requested result
 count (maximum 20 candidates). Query-matching first-party domain labels precede
 other results, with engine order retained among peers. Community subdomains do
 not receive that preference. Explicit prerelease titles are demoted unless the
@@ -58,8 +61,8 @@ heuristic, not an authoritative source registry or a guarantee of the latest ver
 Duplicate keys ignore fragments, common tracking parameters and `www`; meaningful
 query parameters remain. Apple support regional mirrors collapse within the same
 language and article/version path. Returned URLs remain the actual selected URLs.
-Different languages and versions stay separate. Selection runs before content
-fetching, so duplicates do not consume download or artifact budgets.
+Different languages and versions stay separate. Selection runs before returning discovery results, so duplicates do not consume
+result slots. Source fetching happens only through subsequent explicit calls.
 
 Google readiness and extraction share the same heading-and-link parser. Navigation
 links cannot satisfy readiness. Plain `/url` targets are decoded directly; opaque
@@ -78,8 +81,7 @@ import { invokeWebSearchIPC } from '@renderer/infrastructure/ipc/integrations'
 const result = await invokeWebSearchIPC({
   param: 'example query',
   engine: 'bing',
-  fetchCounts: 3,
-  snippetsOnly: true
+  fetchCounts: 3
 })
 ```
 
@@ -89,10 +91,34 @@ IPC and model-facing contracts. Keep ad hoc browser scripts out of renderer.
 
 ## Fetch and workspace artifacts
 
-Fetch first tries direct HTTP. A readable artifact or sufficient extracted text
-can satisfy the request directly; insufficient text or recoverable direct-fetch
-failure falls back to a pooled rendered page. Size/budget rejection and an
-aborted operation do not proceed to that fallback.
+Webpages always load in a pooled Electron window, then the rendered DOM goes
+through the shared Cheerio/Turndown extractor. There is no HTTP-first content
+length gate or HTTP fallback after a rendering failure. Explicit fetches of
+selected search links use this routing. See [ADR-0042](../../decisions/0042-electron-rendered-web-fetch.md).
+
+Known raw/file URLs (including text, PDF, images, archives and office documents),
+`raw.githubusercontent.com`, and `raw=1` download directly over HTTP. An
+extensionless URL that Chromium identifies as a download is cancelled before
+unmanaged saving and handed to the bounded workspace downloader. Only downloads
+from the acquired window are intercepted; the listener is removed after navigation.
+Chromium may reject navigation before its download event: `ERR_ABORTED` and
+`ERR_FAILED` allow up to one second for that event within the navigation budget.
+Other navigation failures return directly. This handles file responses, not
+login/verification interactions or script-driven export workflows.
+
+Content windows stay hidden, with offscreen painting disabled and background
+throttling disabled so asynchronous page work continues. After loading, readiness
+samples nonempty article/main content (body when no populated candidate exists),
+excluding structural chrome, explicitly hidden nodes, scripts and styles.
+Loading-only text and explicit busy/progress states do not satisfy readiness.
+A snapshot must stay unchanged for 900 ms, sampled every 300 ms. This permits
+complete short articles without a minimum text-length gate. At the 8-second
+readiness deadline, continuously changing usable content can still be extracted;
+a remaining loading/busy shell fails with `WEB_FETCH_CONTENT_NOT_READY`.
+Empty and blocked content retain their existing error codes. Stability does not
+prove completeness: late updates, pagination, clicks, virtual lists, iframes and
+closed shadow roots may require browser interaction. Navigation completion itself
+does not establish SPA readiness.
 
 [HttpFetcher](../../../src/main/tools/webTools/http/HttpFetcher.ts) spools direct
 responses to the chat workspace. The
@@ -113,8 +139,8 @@ limits and artifact materialization bound output instead of truncating code.
 Empty extracted text fails with `WEB_FETCH_EMPTY_CONTENT`. Explicit verification,
 access-denied and login interstitials fail with `WEB_FETCH_BLOCKED_PAGE`, including
 large bodies that would otherwise become artifacts. This conservative check does
-not establish article completeness or detect all paywalls. Recoverable direct
-HTML failures can still try the rendered page; both paths validate content.
+not establish article completeness or detect all paywalls. Both the direct-download
+and rendered-page paths validate extracted content.
 Large bodies and non-text documents stay available to workspace file tools.
 
 Current limits come from [constants.ts](../../../src/main/tools/webTools/artifacts/constants.ts):
@@ -125,9 +151,6 @@ Current limits come from [constants.ts](../../../src/main/tools/webTools/artifac
 | Maximum direct download | 50 MiB |
 | Fetch inline text | 24,000 characters |
 | Inline UTF-8 bytes | 48,000 bytes |
-| Search inline text per result | 24,000 characters |
-| Total search inline text | 96,000 characters |
-| Search artifact budget | 100 MiB |
 | Artifact summary | 2,000 characters |
 
 Completed files are retained with the workspace; failed or cancelled writes are
@@ -140,15 +163,26 @@ See [ADR-0011](../../decisions/0011-size-based-web-fetch-workspace-artifacts.md)
 ## Verification and diagnostics
 
 ```bash
-pnpm exec vitest run \
-  src/main/tools/webTools/__tests__/BrowserWindowPool.test.ts \
-  src/main/tools/webTools/__tests__/WebToolsProcessor.test.ts \
-  src/main/tools/webTools/__tests__/webToolsUnits.test.ts \
-  src/main/tools/webTools/__tests__/googleRedirects.test.ts \
-  src/main/tools/webTools/__tests__/searchResultSelection.test.ts
-pnpm run typecheck:node
+pnpm exec vitest run src/main/tools/webTools/__tests__ src/main/services/skills/__tests__/SkillService.test.ts src/renderer/src/infrastructure/ipc/__tests__
+pnpm run typecheck
 pnpm run check:main-boundaries
+pnpm run test:main-architecture
 pnpm run check:main-doc-paths
+pnpm run check:renderer-boundaries
+pnpm run test:renderer-architecture
+pnpm run check:renderer-doc-paths
+pnpm exec eslint --quiet \
+  src/main/tools/webTools/WebToolsProcessor.ts \
+  src/main/tools/webTools/artifacts/WebFetchContentMaterializer.ts \
+  src/main/tools/webTools/artifacts/constants.ts \
+  src/main/tools/webTools/__tests__/WebToolsProcessor.test.ts \
+  src/main/services/skills/__tests__/SkillService.test.ts \
+  src/shared/tools/webTools/index.d.ts \
+  src/shared/tools/webTools/definitions.ts \
+  src/renderer/src/infrastructure/ipc/__tests__/ipcInvoker.domains.test.ts
+pnpm exec eslint --quiet src/main/ipc/tools.ts src/renderer/src/infrastructure/ipc/integrations.ts
+pnpm test:coverage
+pnpm exec electron-vite build
 ```
 
 The 2026-10-02 regression checks also cover timeout cleanup after immediate reuse,
@@ -167,6 +201,41 @@ The Python sample retained 81 fenced blocks and 219 unescaped REPL prompts.
 Public search rankings and network conditions vary; these samples establish
 specific behavior, not a statistically reliable overall speedup. Provider input
 acceptance and general article completeness remain separate acceptance tasks.
+
+The 2026-10-09 render-only change passed 113 web-tool tests and full V8 coverage
+(2,788 tests passed, 30 skipped), Node typecheck, changed-file ESLint with no
+errors, main boundary/architecture/doc checks and the production Electron/Vite
+bundle. Repository Prettier warnings remain under the existing lint configuration;
+`--quiet` suppresses warnings rather than reformatting the full processor.
+An isolated Electron 44.5.0 process with local HTTP fixtures passed 11 scenarios:
+delayed SPA content with code blocks, short articles, raw files, extensionless
+attachments, blocked/empty/loading rejection, automatic hung-renderer timeout,
+reuse after timeout, cancellation, and reuse after cancellation. Each sampled
+webpage was requested once per fetch; an extensionless attachment was requested
+once for Chromium classification and once by the bounded downloader. The harness
+used production fetch/pool/extraction/materialization code with isolated logging,
+config and workspace bindings. Installed-app and live-provider acceptance were
+not exercised by that harness.
+
+The subsequent 2026-10-09 discovery-only change passed 137 focused tests and
+full V8 coverage (2,786 passed, 30 skipped), both typechecks, main and renderer
+boundary/architecture/documentation checks, and the production bundle. Eight
+changed source/test files passed ESLint error checks. Full lint on the two IPC
+modules still reports nine pre-existing errors: three unused event parameters in
+Main and six explicit `any` annotations in unrelated renderer integrations. HEAD
+has the same Main errors and seven renderer annotations; typing the search
+response removed one. No new lint errors were introduced. Formatting warnings
+remain under the existing configuration.
+
+Four isolated Electron/local-fixture scenarios verified discovery without source
+navigation or workspace writes, explicit selected-source fetching, search
+cancellation, and search-window capacity restoration. Production engine parsing,
+quality gates, selection, window pooling and fetch code ran against a local Bing
+DOM fixture; the harness mapped search navigation and snapshot URL identity to
+the fixture and isolated config/logging/workspace bindings. The search returned
+only metadata, neither destination was requested until explicit fetch, and only
+the selected destination was then loaded. This verifies the split locally;
+installed-app and live search/provider acceptance remain separate.
 
 Use structured `web_search` and `web_fetch` logs to separate window acquisition,
 page loading, result readiness, extraction, quality rejection and content fetching.

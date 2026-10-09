@@ -62,3 +62,7 @@ Use sequential names such as `0001-chat-runtime-host-boundary.md`.
 - [0040: Independent subagent system prompt](0040-independent-subagent-system-prompt.md) - Accepted
 
 - [0041: Scheduled task misfire window](0041-scheduled-misfire-window.md) - Accepted
+
+- [0042: Electron-rendered web fetch](0042-electron-rendered-web-fetch.md) - Accepted
+
+- [0043: Search discovery and explicit fetch](0043-search-discovery-and-explicit-fetch.md) - Accepted

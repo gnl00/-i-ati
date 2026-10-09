@@ -23,12 +23,13 @@ import {
   WEB_SEARCH_ACTION
 } from '@shared/constants/index'
 import { invokeIpc } from './client'
+import type { WebSearchResponse } from '@shared/tools/webTools/index.d'
 
 export const invokeMcpConnect = (mcpProps: any): Promise<any> => invokeIpc(MCP_CONNECT, mcpProps)
 export const invokeMcpDisconnect = (serverInfo: { name: string }): Promise<any> => invokeIpc(MCP_DISCONNECT, serverInfo)
 export const invokeMcpToolCall = (toolCallInfo: any): Promise<any> => invokeIpc(MCP_TOOL_CALL, toolCallInfo)
 export const invokeMcpStatus = (): Promise<McpRuntimeSnapshot> => invokeIpc(MCP_STATUS)
-export const invokeWebSearchIPC = (args: { param: string; engine?: 'bing' | 'google' | 'duckduckgo'; fetchCounts?: number; snippetsOnly?: boolean }): Promise<any> =>
+export const invokeWebSearchIPC = (args: { param: string; engine?: 'bing' | 'google' | 'duckduckgo'; fetchCounts?: number }): Promise<WebSearchResponse> =>
   invokeIpc(WEB_SEARCH_ACTION, args)
 export const invokeWebFetchIPC = (args: { url: string; cleanMode?: 'lite' | 'full' }): Promise<any> =>
   invokeIpc(WEB_FETCH_ACTION, args)

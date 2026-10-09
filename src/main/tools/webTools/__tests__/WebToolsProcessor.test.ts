@@ -1,7 +1,8 @@
 import { mkdtemp, readFile, readdir, rm } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
+import { EventEmitter } from 'events'
 
 const mocks = vi.hoisted(() => {
   return {
@@ -55,10 +56,8 @@ vi.mock('../BrowserWindowPool', () => ({
 
 import DatabaseService from '@main/db/DatabaseService'
 import {
-  applySearchAggregateInlineBudget,
   processWebFetch,
   processWebSearch,
-  SearchArtifactBudget,
   _withTimeout,
   _WEB_FETCH_TIMEOUT,
   _resolveConfiguredFetchCounts,
@@ -125,6 +124,33 @@ const irrelevantTimeResults = [
   }
 ]
 
+function createContentWindow(url: string, body: string): {
+  loadURL: Mock<(requestedUrl?: string) => Promise<void>>
+  isDestroyed: Mock<() => boolean>
+  destroy: Mock
+  webContents: {
+    session: EventEmitter
+    stop: Mock
+    getURL: Mock<() => string>
+    executeJavaScript: Mock<(script: string) => Promise<string | { html: string, title: string, finalUrl: string, contentSnapshot: string }>>
+  }
+} {
+  let currentUrl = url
+  return {
+    loadURL: vi.fn(async (requestedUrl?: string) => { currentUrl = requestedUrl || url }),
+    isDestroyed: vi.fn(() => false),
+    destroy: vi.fn(),
+    webContents: {
+      session: new EventEmitter(),
+      stop: vi.fn(),
+      getURL: vi.fn(() => url),
+      executeJavaScript: vi.fn(async (script: string) => script.includes('html:')
+        ? { html: `<body><main>${body}</main></body>`, title: 'Rendered page', finalUrl: currentUrl, contentSnapshot: body }
+        : body)
+    }
+  }
+}
+
 function createSearchWindow(snapshot: object, items: object[]): {
   loadURL: ReturnType<typeof vi.fn<() => Promise<undefined>>>
   isDestroyed: ReturnType<typeof vi.fn<() => boolean>>
@@ -155,7 +181,7 @@ describe('WebToolsProcessor', () => {
   let userDataDir: string
 
   beforeEach(async () => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
     userDataDir = await mkdtemp(join(tmpdir(), 'ati-web-tools-'))
     mocks.getPath.mockReturnValue(userDataDir)
   })
@@ -164,21 +190,22 @@ describe('WebToolsProcessor', () => {
     await rm(userDataDir, { recursive: true, force: true })
   })
 
-  it.each([
-    { body: 'Useful example content. '.repeat(20), status: 'fetched', success: true },
-    { body: '', status: 'failed', success: false },
-    { body: '<html><title>Access denied</title><body>Request blocked.</body></html>', status: 'blocked', success: false }
-  ])('distinguishes $status content while retaining search metadata', async ({ body, status, success }) => {
-    const link = 'https://example.com/article.txt'
-    mocks.acquireSearchWindow.mockResolvedValueOnce(createSearchWindow(normalBingSnapshot, [
+  it('returns discovery metadata without reading source pages or creating artifacts', async () => {
+    const link = 'https://example.com/article'
+    const window = createSearchWindow(normalBingSnapshot, [
       { link, title: 'Example article', snippet: 'Example search snippet' }
-    ]))
-    mocks.netFetch.mockResolvedValueOnce(new Response(body, { headers: { 'content-type': 'text/html' } }))
+    ])
+    mocks.acquireSearchWindow.mockResolvedValueOnce(window)
     const result = await processWebSearch({ query: 'example' })
-    expect(result.success).toBe(true)
-    expect(result.results[0]).toMatchObject({
-      link, snippet: 'Example search snippet', contentStatus: status, success
+    expect(result).toEqual({
+      success: true,
+      results: [{ query: 'example', success: true, link, title: 'Example article', snippet: 'Example search snippet' }]
     })
+    expect(mocks.acquireContentWindow).not.toHaveBeenCalled()
+    expect(mocks.netFetch).not.toHaveBeenCalled()
+    expect(mocks.getPath).not.toHaveBeenCalled()
+    expect(await readdir(userDataDir)).toEqual([])
+    expect(mocks.releaseSearchWindow).toHaveBeenCalledWith(window)
   })
 
   it('deduplicates and orders sources before fetching content', async () => {
@@ -191,21 +218,46 @@ describe('WebToolsProcessor', () => {
     mocks.acquireSearchWindow.mockResolvedValueOnce(createSearchWindow(normalBingSnapshot,
       links.map(link => ({ link, title: 'Apple Time Machine backup', snippet: 'Apple backup documentation' }))
     ))
-    mocks.netFetch.mockImplementation(async () => new Response('Useful backup content. '.repeat(20), {
-      headers: { 'content-type': 'text/plain' }
-    }))
     const result = await processWebSearch({ query: 'Apple Time Machine backup', fetchCounts: 2 })
     expect(result.results.map(item => item.link)).toEqual([links[1], links[3]])
-    expect(mocks.netFetch.mock.calls.map(call => call[0]).sort()).toEqual([links[1], links[3]].sort())
+    expect(mocks.acquireContentWindow).not.toHaveBeenCalled()
+    expect(mocks.netFetch).not.toHaveBeenCalled()
   })
 
-  it('marks snippets as not requested without fetching content', async () => {
-    mocks.acquireSearchWindow.mockResolvedValueOnce(createSearchWindow(normalBingSnapshot, [
-      { link: 'https://example.com/article', title: 'Example article', snippet: 'Example search snippet' }
-    ]))
-    const result = await processWebSearch({ query: 'example', snippetsOnly: true })
-    expect(result.results[0]).toMatchObject({ success: true, contentStatus: 'not_requested', content: '' })
+  it('preserves the noninteractive Google verification fallback without fetching sources', async () => {
+    const google = createSearchWindow({
+      currentUrl: 'https://www.google.com/sorry/index', title: 'Verify you are human',
+      bodyPreview: 'Our systems have detected unusual traffic.', bodyTextLength: 100
+    }, [])
+    const bing = createSearchWindow(normalBingSnapshot, [
+      { link: 'https://example.com/source', title: 'Example source', snippet: 'Example excerpt' }
+    ])
+    mocks.acquireSearchWindow.mockResolvedValueOnce(google).mockResolvedValueOnce(bing)
+    expect(await processWebSearch({ query: 'Example', engine: 'google' })).toMatchObject({
+      success: true, results: [{ title: 'Example source', snippet: 'Example excerpt' }]
+    })
+    expect(mocks.acquireSearchWindow).toHaveBeenCalledTimes(2)
+    expect(mocks.releaseSearchWindow).toHaveBeenCalledWith(google)
+    expect(mocks.releaseSearchWindow).toHaveBeenCalledWith(bing)
+    expect(mocks.acquireContentWindow).not.toHaveBeenCalled()
     expect(mocks.netFetch).not.toHaveBeenCalled()
+  })
+
+  it('reads only a selected source through an explicit web_fetch call', async () => {
+    const links = ['https://example.com/selected', 'https://example.com/other']
+    mocks.acquireSearchWindow.mockResolvedValueOnce(createSearchWindow(normalBingSnapshot,
+      links.map(link => ({ link, title: 'Example article', snippet: 'Example search snippet' }))
+    ))
+    const search = await processWebSearch({ query: 'example', fetchCounts: 2 })
+    expect(search.results).toHaveLength(2)
+    expect(mocks.acquireContentWindow).not.toHaveBeenCalled()
+    const window = createContentWindow(links[0], 'Selected source body.')
+    mocks.acquireContentWindow.mockResolvedValueOnce(window)
+    expect(await processWebFetch({ url: search.results[0].link })).toMatchObject({
+      success: true, content: 'Selected source body.'
+    })
+    expect(mocks.acquireContentWindow).toHaveBeenCalledOnce()
+    expect(window.loadURL).toHaveBeenCalledWith(links[0], expect.anything())
   })
 
   it.each([
@@ -213,18 +265,16 @@ describe('WebToolsProcessor', () => {
     { html: '<body>Request blocked.</body>', title: 'Access denied', error: 'WEB_FETCH_BLOCKED_PAGE' }
   ])('rejects $error after rendered extraction and returns the window', async ({ html, title, error }) => {
     const url = 'https://example.com/rendered-page'
-    mocks.netFetch.mockResolvedValueOnce(new Response('short direct content', {
-      headers: { 'content-type': 'text/plain' }
-    }))
     const window = {
       loadURL: vi.fn(async () => {}),
       isDestroyed: vi.fn(() => false),
-    destroy: vi.fn(),
+      destroy: vi.fn(),
       webContents: {
+        session: new EventEmitter(),
         stop: vi.fn(), getURL: vi.fn(() => url),
         executeJavaScript: vi.fn(async (script: string) => script.includes('html:')
-          ? { html, title, finalUrl: url }
-          : 100)
+          ? { html, title, finalUrl: url, contentSnapshot: 'Useful content' }
+          : 'Useful content')
       }
     }
     mocks.acquireContentWindow.mockResolvedValueOnce(window)
@@ -235,7 +285,6 @@ describe('WebToolsProcessor', () => {
   it('retires an active rendered window when the run is cancelled and returns its permit', async () => {
     const controller = new AbortController()
     const url = 'https://example.com/rendered-page'
-    mocks.netFetch.mockResolvedValueOnce(new Response('short direct content'))
     let started!: () => void
     const ready = new Promise<void>(resolve => { started = resolve })
     let destroyed = false
@@ -246,7 +295,7 @@ describe('WebToolsProcessor', () => {
       }),
       isDestroyed: vi.fn(() => destroyed),
       destroy: vi.fn(() => { destroyed = true }),
-      webContents: { stop: vi.fn() }
+      webContents: { stop: vi.fn(), session: new EventEmitter() }
     }
     mocks.acquireContentWindow.mockResolvedValueOnce(window)
     const fetching = processWebFetch({ url }, { signal: controller.signal })
@@ -255,6 +304,115 @@ describe('WebToolsProcessor', () => {
     expect(await fetching).toMatchObject({ success: false, error: 'Run stopped' })
     await vi.waitFor(() => expect(mocks.releaseContentWindow).toHaveBeenCalledWith(window))
     expect(window.destroy).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders a webpage directly and accepts a complete short article', async () => {
+    const url = 'https://example.com/article'
+    const window = createContentWindow(url, 'A complete short article.')
+    mocks.acquireContentWindow.mockResolvedValueOnce(window)
+    expect(await processWebFetch({ url })).toMatchObject({ success: true, content: 'A complete short article.' })
+    expect(window.loadURL).toHaveBeenCalledWith(url, expect.anything())
+    expect(mocks.netFetch).not.toHaveBeenCalled()
+    expect(mocks.releaseContentWindow).toHaveBeenCalledWith(window)
+  })
+
+  it.each(['navigation', 'extraction'])('returns a %s error without HTTP fallback', async phase => {
+    const window = createContentWindow('https://example.com/article', 'Article body')
+    if (phase === 'navigation') window.loadURL.mockRejectedValue(new Error('Navigation failed'))
+    else window.webContents.executeJavaScript.mockImplementation(async script => {
+      if (script.includes('html:')) throw new Error('Extraction failed')
+      return 'Article body'
+    })
+    mocks.acquireContentWindow.mockResolvedValueOnce(window)
+    expect(await processWebFetch({ url: 'https://example.com/article' })).toMatchObject({ success: false })
+    expect(mocks.netFetch).not.toHaveBeenCalled()
+    expect(mocks.releaseContentWindow).toHaveBeenCalledWith(window)
+    expect(window.webContents.session.listenerCount('will-download')).toBe(0)
+  })
+
+  it('routes an extensionless file download to the workspace downloader', async () => {
+    const url = 'https://example.com/download'
+    const window = createContentWindow(url, '')
+    const preventDefault = vi.fn()
+    window.loadURL.mockImplementation(async () => {
+      window.webContents.session.emit('will-download', { preventDefault }, { getURL: () => url }, window.webContents)
+      throw new Error('ERR_ABORTED')
+    })
+    mocks.acquireContentWindow.mockResolvedValueOnce(window)
+    mocks.netFetch.mockResolvedValueOnce(new Response(new Uint8Array([0, 1, 2]).buffer))
+    const result = await processWebFetch({ url })
+    expect(result.success).toBe(true)
+    expect(result.artifact?.mimeType).toBe('application/octet-stream')
+    expect(preventDefault).toHaveBeenCalledOnce()
+    expect(window.webContents.session.listenerCount('will-download')).toBe(0)
+    expect(mocks.releaseContentWindow).toHaveBeenCalledWith(window)
+  })
+
+  it('handles a download event after Chromium rejects navigation', async () => {
+    vi.useFakeTimers()
+    try {
+      const url = 'https://example.com/download'
+      const window = createContentWindow(url, '')
+      window.loadURL.mockImplementation(async () => {
+        setTimeout(() => window.webContents.session.emit('will-download',
+          { preventDefault: vi.fn() }, { getURL: () => url }, window.webContents), 100)
+        throw Object.assign(new Error('Navigation became a download'), { code: 'ERR_FAILED' })
+      })
+      mocks.acquireContentWindow.mockResolvedValueOnce(window)
+      mocks.netFetch.mockResolvedValueOnce(new Response('Downloaded content'))
+      const result = processWebFetch({ url })
+      await vi.advanceTimersByTimeAsync(100)
+      expect(await result).toMatchObject({ success: true, content: 'Downloaded content' })
+      expect(window.webContents.session.listenerCount('will-download')).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('rejects a loading shell at the readiness deadline without fetching over HTTP', async () => {
+    vi.useFakeTimers()
+    try {
+      const window = createContentWindow('https://example.com/loading', 'Loading...')
+      window.webContents.executeJavaScript.mockImplementation(async script => script.includes('html:')
+        ? { html: '<main>Loading...</main>', title: 'Loading page', finalUrl: 'https://example.com/loading', contentSnapshot: '' }
+        : '')
+      mocks.acquireContentWindow.mockResolvedValueOnce(window)
+      const result = processWebFetch({ url: 'https://example.com/loading' })
+      await vi.advanceTimersByTimeAsync(8000)
+      expect(await result).toMatchObject({ success: false, error: 'WEB_FETCH_CONTENT_NOT_READY' })
+      expect(mocks.netFetch).not.toHaveBeenCalled()
+      expect(mocks.releaseContentWindow).toHaveBeenCalledWith(window)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('retires a renderer whose DOM extraction hangs and releases its window', async () => {
+    vi.useFakeTimers()
+    try {
+      const window = createContentWindow('https://example.com/hung', 'Article')
+      window.webContents.executeJavaScript.mockImplementation(script => script.includes('html:')
+        ? new Promise(() => {}) : Promise.resolve('Article'))
+      mocks.acquireContentWindow.mockResolvedValueOnce(window)
+      const result = processWebFetch({ url: 'https://example.com/hung' })
+      await vi.advanceTimersByTimeAsync(9000)
+      expect(await result).toMatchObject({ success: false, error: expect.stringContaining('Timeout extracting page') })
+      expect(window.destroy).toHaveBeenCalledOnce()
+      expect(mocks.releaseContentWindow).toHaveBeenCalledWith(window)
+      expect(mocks.netFetch).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('materializes a large rendered article using the existing artifact budget', async () => {
+    const window = createContentWindow('https://example.com/large', 'Article text. '.repeat(4000))
+    mocks.acquireContentWindow.mockResolvedValueOnce(window)
+    const result = await processWebFetch({ url: 'https://example.com/large' })
+    expect(result.success).toBe(true)
+    expect(result.artifact?.mimeType).toContain('text/markdown')
+    expect(result.content.length).toBeLessThan(4000)
+    expect(mocks.netFetch).not.toHaveBeenCalled()
   })
 
   it('rejects empty direct text instead of returning successful empty content', async () => {
@@ -291,7 +449,7 @@ describe('WebToolsProcessor', () => {
         transportSignal!.addEventListener('abort', () => reject(transportSignal!.reason), { once: true })
       })
     })
-    const fetching = processWebFetch({ url: 'https://example.com/article' }, { signal: controller.signal })
+    const fetching = processWebFetch({ url: 'https://example.com/article.txt' }, { signal: controller.signal })
     await ready
     controller.abort(new Error('Run stopped'))
     expect(await fetching).toMatchObject({ success: false, error: 'Run stopped' })
@@ -326,19 +484,15 @@ describe('WebToolsProcessor', () => {
   })
 
   it('returns an error within the overall deadline instead of hanging when fetch never settles', async () => {
-    // 模拟慢速涓流响应：net.fetch 永不 settle（既不 resolve 也不 reject）。
-    // 修复前 processWebFetch 未套整体超时且 signal 为 undefined，此调用会永久挂死；
-    // 修复后整体 withTimeout（WEB_FETCH_TIMEOUT）会 abort 并让 processWebFetch 返回 error。
+    // Queueing is part of the overall deadline even if acquisition never settles.
     vi.useFakeTimers()
     try {
-      mocks.netFetch.mockReturnValue(new Promise(() => {}))
-      // 渲染回退同样永不 settle，模拟连渲染路径也卡死——只有外层整体超时能兜底
       mocks.acquireContentWindow.mockReturnValue(new Promise(() => {}))
 
       const url = 'https://example.com/slow-trickle-page'
       const resultPromise = processWebFetch({ url, cleanMode: 'lite' })
 
-      // 推进超过整体 deadline（派生自内层子超时之和），超时应触发而非永久 pending
+      // The request must return when its overall deadline expires.
       await vi.advanceTimersByTimeAsync(_WEB_FETCH_TIMEOUT)
       const result = await resultPromise
 
@@ -464,7 +618,7 @@ describe('WebToolsProcessor', () => {
       status: 200
     }))
     const result = await processWebFetch({
-      url: 'https://example.com/download',
+      url: 'https://example.com/download.bin',
       chat_uuid: 'small-binary'
     })
     expect(result.success).toBe(true)
@@ -509,7 +663,7 @@ describe('web search quality gate', () => {
       const window = createSearchWindow(normalBingSnapshot, [])
       window.loadURL.mockReturnValue(new Promise<undefined>(() => {}))
       mocks.acquireSearchWindow.mockResolvedValueOnce(window)
-      const result = processWebSearch({ query: 'Time Machine', snippetsOnly: true })
+      const result = processWebSearch({ query: 'Time Machine' })
       await vi.advanceTimersByTimeAsync(23000)
       expect(await result).toMatchObject({ success: false, error: 'Timeout loading search page' })
       expect(mocks.releaseSearchWindow).toHaveBeenCalledWith(window)
@@ -549,7 +703,6 @@ describe('web search quality gate', () => {
       engine: 'bing',
       fetchCounts: 5,
       query,
-      snippetsOnly: true
     })
 
     expect(result).toMatchObject({
@@ -586,7 +739,6 @@ describe('web search quality gate', () => {
       engine: 'bing',
       fetchCounts: 5,
       query: 'Time Machine backup disk Apple support',
-      snippetsOnly: true
     })
 
     expect(result).toMatchObject({
@@ -613,7 +765,6 @@ describe('web search quality gate', () => {
       engine: 'bing',
       fetchCounts: 5,
       query: 'Time Machine backup disk Apple support',
-      snippetsOnly: true
     })
 
     expect(result).toMatchObject({ success: true, results: items })
@@ -661,67 +812,6 @@ describe('web search quality gate', () => {
         snippet: 'Use Time Machine to back up your Mac.'
       }]
     )).toMatchObject({ accepted: true, matchedResultCount: 1 })
-  })
-})
-
-describe('web search budgets', () => {
-  it('reserves artifact capacity in result order and releases failed reservations', async () => {
-    const budget = new SearchArtifactBudget()
-    let secondSettled = false
-    const second = budget.reserve(1, 1).then(value => {
-      secondSettled = true
-      return value
-    })
-    await Promise.resolve()
-    expect(secondSettled).toBe(false)
-    budget.complete(0)
-    const reservation = await second
-    expect(reservation).toBeDefined()
-    reservation!.release()
-  })
-
-  it('cancels an ordered artifact reservation while it waits for an earlier result', async () => {
-    const budget = new SearchArtifactBudget()
-    const controller = new AbortController()
-    const pending = budget.reserve(1, 1, controller.signal)
-    controller.abort()
-    await expect(pending).rejects.toThrow('aborted while waiting for artifact budget')
-    budget.complete(0)
-  })
-
-  it('degrades only the aggregate-overflow result when artifact promotion is exhausted', async () => {
-    const results = [
-      {
-        query: 'q',
-        success: true,
-        link: 'https://example.com/1',
-        title: 'one',
-        snippet: 'one snippet',
-        content: 'a'.repeat(96_000)
-      },
-      {
-        query: 'q',
-        success: true,
-        link: 'https://example.com/2',
-        title: 'two',
-        snippet: 'two snippet',
-        content: 'b'
-      }
-    ]
-    await applySearchAggregateInlineBudget(results, async () => {
-      throw Object.assign(new Error('budget exhausted'), {
-        code: 'WEB_SEARCH_ARTIFACT_BUDGET_EXCEEDED'
-      })
-    })
-    expect(results[0].success).toBe(true)
-    expect(results[1]).toMatchObject({
-      success: false,
-      link: 'https://example.com/2',
-      title: 'two',
-      snippet: 'two snippet',
-      content: '',
-      error: 'WEB_SEARCH_ARTIFACT_BUDGET_EXCEEDED'
-    })
   })
 })
 
@@ -784,7 +874,7 @@ describe('resolveConfiguredFetchCounts', () => {
   it('clamps an oversized configured value from DatabaseService down to MAX_FETCH_COUNTS', () => {
     vi.mocked(DatabaseService.getConfig).mockReturnValueOnce({
       tools: { maxWebSearchItems: 999 }
-    } as any)
+    } as ReturnType<typeof DatabaseService.getConfig>)
     expect(_resolveConfiguredFetchCounts(undefined)).toBe(_MAX_FETCH_COUNTS)
   })
 

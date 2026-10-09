@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   DB_CHAT_GET_BY_ID,
   DB_PROVIDER_DEFINITIONS_GET_ALL,
@@ -6,7 +6,9 @@ import {
   OPEN_EXTERNAL,
   RUN_CANCEL,
   SKILL_UNLOAD_ACTION,
-  WIN_FULLSCREEN_STATE_GET
+  WIN_FULLSCREEN_STATE_GET,
+  WEB_SEARCH_ACTION,
+  WEB_FETCH_ACTION
 } from '@shared/constants'
 import {
   invokeDbChatGetById,
@@ -15,7 +17,9 @@ import {
   invokeOpenExternal,
   invokeRunCancel,
   invokeSkillUnload,
-  invokeWindowFullScreenState
+  invokeWindowFullScreenState,
+  invokeWebSearchIPC,
+  invokeWebFetchIPC
 } from '..'
 
 describe('renderer IPC domain contracts', () => {
@@ -25,7 +29,28 @@ describe('renderer IPC domain contracts', () => {
 
   beforeEach(() => {
     ipcRenderer.invoke.mockReset()
-    ;(globalThis as any).window = { electron: { ipcRenderer } }
+    vi.stubGlobal('window', { electron: { ipcRenderer } })
+  })
+
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('returns search discovery metadata through the search channel', async () => {
+    const request = { param: 'Example', engine: 'bing' as const, fetchCounts: 2 }
+    const response = {
+      success: true,
+      results: [{ query: 'Example', success: true, title: 'Example source', snippet: 'Source excerpt', link: 'https://example.com/source' }]
+    }
+    ipcRenderer.invoke.mockResolvedValue(response)
+    await expect(invokeWebSearchIPC(request)).resolves.toEqual(response)
+    expect(ipcRenderer.invoke).toHaveBeenCalledExactlyOnceWith(WEB_SEARCH_ACTION, request)
+  })
+
+  it('reads a selected source through the separate fetch channel', async () => {
+    const request = { url: 'https://example.com/source', cleanMode: 'full' as const }
+    const response = { success: true, url: request.url, title: 'Example source', content: 'Source body' }
+    ipcRenderer.invoke.mockResolvedValue(response)
+    await expect(invokeWebFetchIPC(request)).resolves.toEqual(response)
+    expect(ipcRenderer.invoke).toHaveBeenCalledExactlyOnceWith(WEB_FETCH_ACTION, request)
   })
 
   it('uses the integrations channel and payload for MCP disconnect', async () => {

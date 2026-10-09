@@ -52,7 +52,7 @@ system prompt + available list with descriptions
   the active set is reconstructed from `chat_skills` and full content is read
   on demand.
 - The available-skills catalog description routes matching search requests to
-  `search-general`. The two-stage `snippetsOnly` workflow lives in
+  `search-general`. The two-stage search-discovery and explicit-fetch workflow lives in
   `resources/skills/search-general/SKILL.md`.
 - The static system prompt keeps one repository trigger for `project-context`.
   Frontend artifact routing is discoverable through the available-skills

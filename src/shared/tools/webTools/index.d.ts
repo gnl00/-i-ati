@@ -1,20 +1,14 @@
 export interface WebSearchArgs {
   query: string
   engine?: 'bing' | 'google' | 'duckduckgo'
-  snippetsOnly?: boolean
-  chat_uuid?: string
 }
 
 export interface WebSearchResultV2 {
   query: string
   success: boolean
   link: string
-  title: string       // 从网页 <title> 提取
-  snippet: string     // 从 Bing 搜索结果提取
-  content: string     // 完整抓取内容
-  artifact?: WebFetchArtifact
-  contentStatus?: 'not_requested' | 'fetched' | 'failed' | 'blocked'
-  error?: string      // 失败时的错误信息
+  title: string       // Search result title
+  snippet: string     // Search result excerpt
 }
 
 export interface WebSearchResponse {

@@ -20,9 +20,9 @@ Load this skill when the user asks to:
 
 ## Workflow
 
-1. Start with `web_search` and set `snippetsOnly: true` for a quick overview.
+1. Start with `web_search` to discover sources through titles, snippets, and links.
 2. Read the snippet results and decide whether they settle the answer.
-3. Use `web_search` with `snippetsOnly: false` or `web_fetch` when snippets leave gaps in evidence, dates, source details, direct attribution, or current accuracy.
+3. Select relevant source URLs and use `web_fetch` when snippets leave gaps in evidence, dates, source details, direct attribution, or current accuracy. Search does not read page bodies.
 4. Prefer primary or authoritative sources when the answer depends on precise facts, policies, product details, legal or medical guidance, software documentation, schedules, or prices.
 5. Compare dates when sources describe recent events, releases, leadership, rules, or other unstable facts.
 6. Cite the sources used in the response when the answer relies on web evidence.

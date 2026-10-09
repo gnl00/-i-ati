@@ -59,5 +59,6 @@ bytes. The response supplies a bounded summary and read path. There is no artifa
 promotion, hash directory, metadata file or diagnostic sidecar. Both HTTP and
 rendered content follow these limits. Completed files stay with the workspace;
 failed or cancelled writes are removed, and completed files are not age-pruned.
-The shared web
-materializer also applies the byte and JSON-escaping checks to search page content.
+`web_search` returns discovery metadata only. It does not use the fetch
+materializer or create fetched-source artifacts; source bodies are read through
+explicit `web_fetch` calls.

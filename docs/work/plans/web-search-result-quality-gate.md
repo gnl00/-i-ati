@@ -83,7 +83,7 @@ Related implementation: [Primary implementation](../../../src/main/tools/webTool
   -> 引擎页面有效性检查
   -> 等待并提取搜索结果
   -> 结果集合质量门禁
-  -> snippetsOnly 直接返回 / 抓取内容页
+  -> 返回标题、摘要和链接（正文通过显式 web_fetch 读取）
   -> 返回成功结果
 ```
 

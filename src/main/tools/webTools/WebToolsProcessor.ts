@@ -1,5 +1,5 @@
 import type { EmbeddedToolExecutionContext } from '@shared/tools/registry'
-import type { BrowserWindow } from 'electron'
+import type { BrowserWindow, DownloadItem, Event, WebContents } from 'electron'
 import { mainWindow } from '@main/main-window'
 import type { WebSearchResponse, WebSearchResultV2, WebFetchResponse } from '@tools/webTools/index.d'
 import { getWindowPool } from './BrowserWindowPool'
@@ -13,20 +13,14 @@ import {
 import { selectSearchResults } from './search-engine/selectResults'
 import { resolveGoogleResultUrls } from './search-engine/google'
 import { waitForCondition } from './util/waitForCondition'
-import { Semaphore } from './util/Semaphore'
+import { PAGE_CONTENT_SNAPSHOT_SCRIPT, waitForPageContent } from './util/waitForPageContent'
 import { assertUsableWebContent, extractCleanContent } from './extract/ContentExtractor'
 import type { CleanMode } from './extract/postClean'
 import { downloadViaHttp } from './http/HttpFetcher'
-import {
-  WEB_FETCH_INLINE_MAX_CHARACTERS,
-  WEB_SEARCH_ARTIFACT_MAX_BYTES,
-  WEB_SEARCH_RESULT_INLINE_MAX_CHARACTERS,
-  WEB_SEARCH_TOTAL_INLINE_MAX_CHARACTERS
-} from './artifacts/constants'
+import { WEB_FETCH_INLINE_MAX_CHARACTERS } from './artifacts/constants'
 import { WorkspaceWebFetchArtifactService } from './artifacts/WorkspaceWebFetchArtifactService'
 import {
   WebFetchContentMaterializer,
-  type ArtifactBudgetReservation,
   type MaterializedWebContent
 } from './artifacts/WebFetchContentMaterializer'
 
@@ -35,13 +29,11 @@ interface WebSearchProcessArgs {
   fetchCounts?: number
   param?: string
   query?: string
-  snippetsOnly?: boolean
   // 是否允许弹窗人工验证（Google 反爬/consent）。默认 false：后台/LLM 调用不弹窗死等，
   // 降级到 Bing。仅 renderer 用户主动搜索时透传 true。
   interactive?: boolean
   // 内部递归防护：反爬降级到 Bing 的重试深度，避免无限递归
   _fallbackDepth?: number
-  chat_uuid?: string
 }
 
 interface WebFetchProcessArgs {
@@ -54,94 +46,6 @@ interface WebFetchContext {
   artifactService: WorkspaceWebFetchArtifactService
   materializer: WebFetchContentMaterializer
   inlineMaxCharacters: number
-}
-
-export class SearchArtifactBudget {
-  private bytes = 0
-  private readonly completed = new Set<number>()
-  private waiters: Array<() => void> = []
-
-  async reserve(
-    index: number,
-    sizeBytes: number,
-    signal?: AbortSignal
-  ): Promise<ArtifactBudgetReservation | undefined> {
-    while (!this.previousResultsCompleted(index)) {
-      await new Promise<void>((resolve, reject) => {
-        const wake = (): void => {
-          signal?.removeEventListener('abort', onAbort)
-          resolve()
-        }
-        const onAbort = (): void => {
-          this.waiters = this.waiters.filter(waiter => waiter !== wake)
-          reject(new Error('Fetch aborted while waiting for artifact budget'))
-        }
-        if (signal?.aborted) {
-          reject(new Error('Fetch aborted while waiting for artifact budget'))
-          return
-        }
-        signal?.addEventListener('abort', onAbort, { once: true })
-        this.waiters.push(wake)
-      })
-    }
-    if (
-      this.bytes + sizeBytes > WEB_SEARCH_ARTIFACT_MAX_BYTES
-    ) return undefined
-    this.bytes += sizeBytes
-    let active = true
-    return {
-      commit: (): void => {
-        active = false
-      },
-      release: (): void => {
-        if (!active) return
-        active = false
-        this.bytes -= sizeBytes
-      }
-    }
-  }
-
-  complete(index: number): void {
-    this.completed.add(index)
-    const waiters = this.waiters
-    this.waiters = []
-    waiters.forEach(resolve => resolve())
-  }
-
-  private previousResultsCompleted(index: number): boolean {
-    for (let previous = 0; previous < index; previous++) {
-      if (!this.completed.has(previous)) return false
-    }
-    return true
-  }
-}
-
-export async function applySearchAggregateInlineBudget(
-  results: WebSearchResultV2[],
-  promote: (result: WebSearchResultV2, index: number) => Promise<MaterializedWebContent>
-): Promise<void> {
-  let remainingInlineCharacters = WEB_SEARCH_TOTAL_INLINE_MAX_CHARACTERS
-  for (let resultIndex = 0; resultIndex < results.length; resultIndex++) {
-    const result = results[resultIndex]
-    if (!result.success || result.artifact) continue
-    if (result.content.length <= remainingInlineCharacters) {
-      remainingInlineCharacters -= result.content.length
-      continue
-    }
-    try {
-      const promoted = await promote(result, resultIndex)
-      result.content = promoted.extractedText
-      result.artifact = promoted.artifact
-    } catch (error: unknown) {
-      const errorValue = error as { code?: string, message?: string } | undefined
-      result.success = false
-      result.content = ''
-      result.contentStatus = 'failed'
-      result.error = errorValue?.code
-        || errorValue?.message
-        || 'WEB_SEARCH_ARTIFACT_BUDGET_EXCEEDED'
-    }
-  }
 }
 
 interface PageSnapshot {
@@ -187,41 +91,19 @@ const directHttpExtensions = new Set([
   '.csv',
   '.xml',
   '.log',
-  '.pdf'
+  '.pdf',
+  '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico',
+  '.zip', '.gz', '.tar', '.bin', '.docx', '.xlsx', '.pptx',
+  '.mp3', '.mp4', '.wav', '.webm'
 ])
 
-// 直连 HTTP 抓取的软超时（渐进增强首选路径）
-const DIRECT_HTTP_TIMEOUT = 12000
-// 渲染路径 loadURL 的软超时（重 SPA 页首屏加载预算）
+// Page loading, asynchronous content readiness and DOM extraction have separate bounds.
 const LOAD_URL_TIMEOUT = 15000
-// 渲染路径 SPA 内容就绪等待（body.innerText 达到有效长度）
 const CONTENT_READY_TIMEOUT = 8000
-// 渲染路径抽取 executeJavaScript 的软超时
 const EXTRACT_TIMEOUT = 8000
+// Overall deadlines include window queueing and file downloads.
+const WEB_FETCH_TIMEOUT = 45000
 
-// web_fetch 整体安全网 deadline：产品级整体上限——超过此时长即视为卡死并返回 error
-// （这是 LLM 工具调用，不宜等更久）。派生自渲染路径 happy-path 各串行子阶段之和
-// （direct + loadURL + content-ready + extract），作为该上限的 best-effort 覆盖目标。
-// 注意：loadURL / extraction 失败时的 direct HTTP fallback 未计入此和，
-// 仅受本 deadline 的外层 signal 约束，可能被截断；统一 spool 下载与 materializer
-// 都会观察 abort 并清理临时文件。派生而非写死，避免子超时调整后漂移。（当前值 = 45000）
-const WEB_FETCH_TIMEOUT =
-  DIRECT_HTTP_TIMEOUT + LOAD_URL_TIMEOUT + CONTENT_READY_TIMEOUT + EXTRACT_TIMEOUT + 2000
-
-// 搜索单条抓取超时：有意紧于 web_fetch —— 搜索重广度，慢 SPA 单条不该拖慢整批
-// （item 并发受 scrapeSem 限流，Promise.all 等最慢一条），且超时后该条 snippet 仍返回。
-// 放宽到能容纳「直连失败 + loadURL + 一次 content-ready」，但不给足完整抽取预算。
-// （当前值 = 37000）
-const SCRAPE_ITEM_TIMEOUT = DIRECT_HTTP_TIMEOUT + LOAD_URL_TIMEOUT + CONTENT_READY_TIMEOUT + 2000
-
-// 直连结果正文低于此长度视为不足，回退渲染窗口
-const MIN_DIRECT_CONTENT = 200
-
-// 搜索结果批量抓取的并发上限（跨 direct/render 路径统一限流，防止一次搜索瞬间
-// 打出过多并发请求）。窗口池自身还有 contentSem(3) 做第二层背压，二者严格嵌套
-// （scrapeSem 在外层先 acquire，内层 contentSem 先 release），不会死锁。
-const MAX_SCRAPE_CONCURRENCY = 6
-const scrapeSem = new Semaphore(MAX_SCRAPE_CONCURRENCY)
 // resolveConfiguredFetchCounts 的硬上限，防止配置项被误设为过大值时打出海量并发
 const MAX_FETCH_COUNTS = 20
 
@@ -255,7 +137,7 @@ async function fetchPageContentViaHttp(
   }
 }
 
-function shouldPreferDirectHttpFetch(url: string): boolean {
+function isDirectDownloadUrl(url: string): boolean {
   try {
     const parsed = new URL(url)
     const pathname = parsed.pathname.toLowerCase()
@@ -624,7 +506,8 @@ async function loadSearchPage(
   try {
     await window.loadURL(searchUrl, { userAgent })
     return await capturePageSnapshot(window)
-  } catch (error: any) {
+  } catch (caught: unknown) {
+    const error = caught as { code?: string, message?: string } | undefined
     if (engine !== 'google' || error?.code !== 'ERR_ABORTED') {
       throw error
     }
@@ -668,8 +551,7 @@ function resolveConfiguredFetchCounts(fetchCounts?: number): number {
 }
 
 /**
- * 渲染路径：用 BrowserWindow 加载页面（等 SPA 渲染），再抽取正文。
- * loadURL / 抽取失败时降级到直连 HTTP。
+ * Load webpages in Electron, wait for content, then extract the rendered DOM.
  */
 async function fetchPageContentViaRender(
   url: string,
@@ -693,99 +575,84 @@ async function fetchPageContentViaRender(
   }
 
   try {
+    // A file endpoint without an extension can turn navigation into a download.
+    // Cancel Chromium's unmanaged download and use the bounded workspace downloader.
+    let downloadUrl: string | undefined
+    let resolveDownload!: () => void
+    const download = new Promise<void>(resolve => { resolveDownload = resolve })
+    const onDownload = (event: Event, item: DownloadItem, webContents: WebContents): void => {
+      if (webContents !== contentWindow.webContents) return
+      event.preventDefault()
+      downloadUrl = item.getURL()
+      resolveDownload()
+    }
+    const session = contentWindow.webContents.session
+    session.on('will-download', onDownload)
     try {
       await withTimeout(
         (timeoutSignal) => {
           timeoutSignal.addEventListener('abort', () => {
-            if (contentWindow && !contentWindow.isDestroyed()) {
-              contentWindow.webContents.stop()
-            }
-          })
-          return contentWindow.loadURL(url, { userAgent })
+            if (!contentWindow.isDestroyed()) contentWindow.destroy()
+          }, { once: true })
+          return Promise.race([
+            contentWindow.loadURL(url, { userAgent }).catch(async error => {
+              if (downloadUrl) return
+              // Chromium can reject navigation before emitting will-download.
+              if (error?.code !== 'ERR_ABORTED' && error?.code !== 'ERR_FAILED') throw error
+              await withTimeout(() => download, 1000, error.message, signal)
+            }),
+            download
+          ])
         },
         LOAD_URL_TIMEOUT,
         `Timeout loading page: ${url}`,
         signal
       )
-    } catch (error: any) {
+    } finally {
+      session.removeListener('will-download', onDownload)
+    }
+    signal?.throwIfAborted()
+    if (downloadUrl) return await fetchPageContentViaHttp(downloadUrl, mode, context, signal)
+
+    try {
+      await waitForPageContent(contentWindow.webContents, CONTENT_READY_TIMEOUT, signal)
+    } catch (error) {
       signal?.throwIfAborted()
-      logger.warn('web_fetch.load_url_failed_fallback_http', {
-        url,
-        message: error?.message || String(error)
-      })
-      return await fetchPageContentViaHttp(url, mode, context, signal)
+      logger.warn('web_fetch.content_ready_timeout', { url, message: String(error) })
+      // A continuously updating page can still have useful content at the deadline.
+      // Extraction below has its own bound and retires a hung renderer.
     }
 
-    // SPA 内容等待：loadURL 在 DOM ready 时 resolve，但 SPA（如 Twitter/X）
-    // 需要额外时间通过 JS 渲染内容。等待 body.innerText 达到有效长度后再提取。
-    try {
-      await waitForCondition(
-        async () => {
-          try {
-            const textLength = await contentWindow.webContents.executeJavaScript(
-              '(document.body?.innerText || "").replace(/\\s+/g, "").length'
-            )
-            return (textLength as number) > 20
-          } catch {
-            return false
+    // 只提取必要的原始数据：HTML、URL、标题，交由 Cheerio 在 Node.js 端处理。
+    // 用 withTimeout 给 executeJavaScript 加界：页面 JS 卡死时 executeJavaScript
+    // 会永久 pending（webContents.stop() 停网络加载但停不了卡死的 JS 事件循环），
+    // 若不加界，本函数永不 settle → 上层 finally 的 releaseContentWindow 永不执行
+    // → contentSem permit 泄漏 → 数个卡死页面后整个渲染路径永久阻塞。withTimeout
+    // 超时时销毁窗口，避免卡住的 JS 被带入下一次借用；finally 仍归还 permit。
+    const pageData: { html: string, finalUrl: string, title: string, contentSnapshot: string } = await withTimeout(
+      (timeoutSignal) => {
+        timeoutSignal.addEventListener('abort', () => {
+          if (contentWindow && !contentWindow.isDestroyed()) {
+            contentWindow.webContents.stop()
+            contentWindow.destroy()
           }
-        },
-        CONTENT_READY_TIMEOUT,
-        300,
-        signal
-      )
-    } catch {
-      logger.warn('web_fetch.content_ready_timeout', { url })
-    }
-
-    // 若外层已 abort（如 item-level 22s 超时触发的取消），不要在已 stop 的页面上
-    // 继续抽取并返回近空内容的「假成功」，直接抛出让上层归类为失败。
-    // 注意只在真正 aborted 时抛；非 abort 的慢页面（8s 内没到 innerText 阈值但仍
-    // 有可提取内容）保持原行为，继续尝试抽取。
-    if (signal?.aborted) {
-      throw new Error('Aborted during render')
-    }
-
-    let pageData: { html: string, finalUrl: string, title: string }
-    try {
-      // 只提取必要的原始数据：HTML、URL、标题，交由 Cheerio 在 Node.js 端处理。
-      // 用 withTimeout 给 executeJavaScript 加界：页面 JS 卡死时 executeJavaScript
-      // 会永久 pending（webContents.stop() 停网络加载但停不了卡死的 JS 事件循环），
-      // 若不加界，本函数永不 settle → 上层 finally 的 releaseContentWindow 永不执行
-      // → contentSem permit 泄漏 → 数个卡死页面后整个渲染路径永久阻塞。withTimeout
-      // 超时时销毁窗口，避免卡住的 JS 被带入下一次借用；finally 仍归还 permit。
-      pageData = await withTimeout(
-        (timeoutSignal) => {
-          timeoutSignal.addEventListener('abort', () => {
-            if (contentWindow && !contentWindow.isDestroyed()) {
-              contentWindow.webContents.stop()
-              contentWindow.destroy()
-            }
+        })
+        return contentWindow.webContents.executeJavaScript(`
+          ({
+            html: document.body ? document.body.outerHTML : '',
+            finalUrl: window.location.href,
+            title: document.title || '',
+            contentSnapshot: ${PAGE_CONTENT_SNAPSHOT_SCRIPT}
           })
-          return contentWindow.webContents.executeJavaScript(`
-            ({
-              html: document.body ? document.body.outerHTML : '',
-              finalUrl: window.location.href,
-              title: document.title || ''
-            })
-          `)
-        },
-        EXTRACT_TIMEOUT,
-        `Timeout extracting page: ${url}`,
-        signal
-      )
-    } catch (error: any) {
-      signal?.throwIfAborted()
-      const currentUrl = contentWindow.isDestroyed() ? url : contentWindow.webContents.getURL() || url
-      logger.warn('web_fetch.extract_js_failed_fallback_http', {
-        url: currentUrl,
-        message: error?.message || String(error)
-      })
-      return await fetchPageContentViaHttp(currentUrl, mode, context, signal)
-    }
-
+        `)
+      },
+      EXTRACT_TIMEOUT,
+      `Timeout extracting page: ${url}`,
+      signal
+    )
     const { title, text } = extractCleanContent(pageData.html, mode, pageData.title)
     assertUsableWebContent(text, pageData.title || title, pageData.finalUrl)
+    if (!pageData.contentSnapshot) throw new Error('WEB_FETCH_CONTENT_NOT_READY')
     return await context.materializer.materializeExtractedText({
       pageTitle: pageData.title || title,
       finalUrl: pageData.finalUrl,
@@ -798,59 +665,18 @@ async function fetchPageContentViaRender(
   }
 }
 
-/**
- * 渐进增强抓取：优先直连 HTTP（快、不占窗口），正文不足或失败再回退渲染窗口。
- * content window 仅在真正需要渲染时才 acquire，静态页完全不进窗口池。
- */
-async function fetchPageContentProgressive(
+/** Webpages render in Electron; recognized file URLs download directly. */
+async function fetchPageContent(
   url: string,
   mode: CleanMode,
   context: WebFetchContext,
   signal?: AbortSignal
 ): Promise<MaterializedWebContent> {
-  // 已知纯静态/原始资源：直接直连
-  if (shouldPreferDirectHttpFetch(url)) {
+  signal?.throwIfAborted()
+  if (isDirectDownloadUrl(url)) {
     return await fetchPageContentViaHttp(url, mode, context, signal)
   }
 
-  // 先尝试直连，正文足够即返回，省掉起窗口与 SPA 等待
-  try {
-    const direct = await withTimeout(
-      (timeoutSignal) => fetchPageContentViaHttp(url, mode, context, timeoutSignal),
-      DIRECT_HTTP_TIMEOUT,
-      `Timeout direct-fetching page: ${url}`,
-      signal
-    )
-    if (direct.artifact) {
-      return direct
-    }
-    if (direct.extractedText.length >= MIN_DIRECT_CONTENT) {
-      logger.debug('web_fetch.direct_http_sufficient', { url, length: direct.extractedText.length })
-      return direct
-    }
-    logger.info('web_fetch.direct_http_insufficient_fallback_render', {
-      url,
-      length: direct.extractedText.length
-    })
-  } catch (error: any) {
-    if (
-      error?.code === 'WEB_FETCH_DOWNLOAD_TOO_LARGE'
-      || error?.code === 'WEB_SEARCH_ARTIFACT_BUDGET_EXCEEDED'
-      || signal?.aborted
-    ) {
-      throw error
-    }
-    logger.info('web_fetch.direct_http_failed_fallback_render', {
-      url,
-      message: error?.message || String(error)
-    })
-  }
-
-  if (signal?.aborted) {
-    throw new Error('Aborted before render')
-  }
-
-  // 回退渲染路径
   const windowPool = getWindowPool()
   let contentWindow: BrowserWindow | null = null
   try {
@@ -874,10 +700,8 @@ const executeWebSearch = async ({
   fetchCounts,
   param,
   query,
-  snippetsOnly,
   interactive,
-  _fallbackDepth,
-  chat_uuid
+  _fallbackDepth
 }: WebSearchProcessArgs, signal: AbortSignal): Promise<WebSearchResponse> => {
   const searchStartTime = Date.now()
   const windowPool = getWindowPool()
@@ -900,14 +724,11 @@ const executeWebSearch = async ({
     const resolvedQuery = trimmedQuery
     const resolvedFetchCounts = resolveConfiguredFetchCounts(fetchCounts)
     const searchEngine = resolveSearchEngine(engine)
-    const searchArtifactBudget = new SearchArtifactBudget()
-    const fetchContext = createWebFetchContext(chat_uuid, WEB_SEARCH_RESULT_INLINE_MAX_CHARACTERS)
 
     logger.info('web_search.started', {
       engine: searchEngine.displayName,
       query: trimmedQuery,
       fetchCounts: resolvedFetchCounts,
-      snippetsOnly: Boolean(snippetsOnly),
       interactive: Boolean(interactive),
       timestamp: new Date().toISOString()
     })
@@ -1011,10 +832,8 @@ const executeWebSearch = async ({
             fetchCounts,
             param: trimmedQuery,
             query,
-            snippetsOnly,
             interactive,
-            _fallbackDepth: (_fallbackDepth ?? 0) + 1,
-            chat_uuid
+            _fallbackDepth: (_fallbackDepth ?? 0) + 1
           }, signal)
         } else {
           logger.warn('web_search.anti_bot_no_fallback', {
@@ -1099,151 +918,26 @@ const executeWebSearch = async ({
       }
     }
 
-    // Release search window back to pool
-    if (searchWindow) {
-      await windowPool.releaseSearchWindow(searchWindow)
-      searchWindow = null
-    }
-
-    // Snippets only mode: return titles/snippets/links without fetching full pages
-    if (snippetsOnly) {
-      const totalTime = Date.now() - searchStartTime
-      logger.info('web_search.completed_snippets_only', {
-        engine: searchEngine.displayName,
-        count: searchItems.length,
-        durationMs: totalTime
-      })
-
-      return {
-        success: true,
-        results: searchItems.map((item): WebSearchResultV2 => ({
-          query: resolvedQuery,
-          success: true,
-          link: item.link,
-          title: item.title,
-          snippet: item.snippet,
-          // No need to use snippet as content fallback, assistant will mis-understand content and snippet
-          content: '',
-          contentStatus: 'not_requested'
-        }))
-      }
-    }
-
-    // Process each search item: scrape full content and extract metadata.
-    // 渐进增强：静态页走直连不占窗口，仅需渲染的才进窗口池（受信号量背压）。
-    logger.info('web_search.scrape_started', {
-      engine: searchEngine.displayName,
-      count: searchItems.length
-    })
-    const scrapeStart = Date.now()
-    const scrapedResults: WebSearchResultV2[] = await Promise.all(
-      searchItems.map(async (item: SearchResultItem, index: number): Promise<WebSearchResultV2> => {
-        const itemStart = Date.now()
-        const itemContext: WebFetchContext = {
-          ...fetchContext,
-          materializer: new WebFetchContentMaterializer(
-            fetchContext.artifactService,
-            (sizeBytes, signal) => searchArtifactBudget.reserve(index, sizeBytes, signal)
-          )
-        }
-
-        const resultItem: WebSearchResultV2 = {
-          query: resolvedQuery,
-          success: false,
-          link: item.link,
-          title: item.title,
-          snippet: item.snippet,
-          content: '',
-          contentStatus: 'failed',
-          error: undefined
-        }
-
-        try {
-          // 先过并发闸门（覆盖 direct + render 全程），try/finally 确保 timeout/throw
-          // 都释放 permit，不泄漏。
-          await scrapeSem.acquire(signal)
-          try {
-            const { pageTitle, finalUrl, extractedText, artifact } = await withTimeout(
-              (itemSignal) => fetchPageContentProgressive(item.link, 'lite', itemContext, itemSignal),
-              SCRAPE_ITEM_TIMEOUT,
-              `Timeout scraping page: ${item.link}`,
-              signal
-            )
-
-            resultItem.link = finalUrl
-            resultItem.title = pageTitle || item.title
-            resultItem.content = extractedText
-            resultItem.artifact = artifact
-            resultItem.success = true
-            resultItem.contentStatus = 'fetched'
-          } finally {
-            scrapeSem.release()
-          }
-
-          const itemTime = Date.now() - itemStart
-          logger.debug('web_search.scrape_item_completed', {
-            engine: searchEngine.displayName,
-            index: index + 1,
-            link: resultItem.link,
-            durationMs: itemTime
-          })
-
-          return resultItem
-        } catch (err: any) {
-          logger.warn('web_search.scrape_item_failed', {
-            engine: searchEngine.displayName,
-            index: index + 1,
-            link: item.link,
-            message: err?.message || 'Failed to fetch page'
-          })
-          // 注意：success:false 仅表示未拿到完整正文 content；resultItem 上的 snippet/title/link
-          // 来自上游搜索结果，此处仍原样保留（未被覆盖），消费者（LLM）可继续利用——这是
-          // SCRAPE_ITEM_TIMEOUT「超时后 snippet 仍返回」的落点，而非「整条 item 无用」。
-          resultItem.success = false
-          resultItem.error = err?.message || 'Failed to fetch page'
-          resultItem.contentStatus = resultItem.error === 'WEB_FETCH_BLOCKED_PAGE' ? 'blocked' : 'failed'
-          return resultItem
-        } finally {
-          searchArtifactBudget.complete(index)
-        }
-      })
-    )
-
     signal.throwIfAborted()
-    await applySearchAggregateInlineBudget(scrapedResults, async (result, resultIndex) => {
-      const orderedMaterializer = new WebFetchContentMaterializer(
-        fetchContext.artifactService,
-        (sizeBytes) => searchArtifactBudget.reserve(resultIndex, sizeBytes, signal)
-      )
-      return orderedMaterializer.materializeExtractedText({
-        pageTitle: result.title,
-        finalUrl: result.link,
-        extractedText: result.content,
-        inlineMaxCharacters: 0,
-        signal
-      })
-    })
-
-    const scrapeTime = Date.now() - scrapeStart
-    logger.info('web_search.scrape_completed', {
-      engine: searchEngine.displayName,
-      count: searchItems.length,
-      durationMs: scrapeTime
-    })
-
-    const totalTime = Date.now() - searchStartTime
     logger.info('web_search.completed', {
       engine: searchEngine.displayName,
-      count: scrapedResults.length,
-      durationMs: totalTime
+      count: searchItems.length,
+      durationMs: Date.now() - searchStartTime
     })
 
     return {
       success: true,
-      results: scrapedResults
+      results: searchItems.map((item): WebSearchResultV2 => ({
+        query: resolvedQuery,
+        success: true,
+        link: item.link,
+        title: item.title,
+        snippet: item.snippet
+      }))
     }
 
-  } catch (error: any) {
+  } catch (caught: unknown) {
+    const error = caught as { code?: string, message?: string } | undefined
     logger.error('web_search.failed', error)
     return {
       success: false,
@@ -1292,10 +986,9 @@ const processWebFetch = async (
     })
     const fetchContext = createWebFetchContext(chat_uuid, WEB_FETCH_INLINE_MAX_CHARACTERS)
 
-    // 与 processWebSearch 一致：整体超时 + signal 贯穿，保证 HTTP 子路径（含直连静态/
-    // 渲染回退）有界、渲染路径 content window permit 一定归还，避免慢速涓流响应永久挂死。
+    // Bound queueing, rendering and direct downloads with the same cancellation signal.
     const { pageTitle, finalUrl, extractedText, artifact } = await withTimeout(
-      (signal) => fetchPageContentProgressive(url, mode, fetchContext, signal),
+      (signal) => fetchPageContent(url, mode, fetchContext, signal),
       WEB_FETCH_TIMEOUT,
       `Timeout fetching page: ${url}`,
       context?.signal
@@ -1314,7 +1007,8 @@ const processWebFetch = async (
       content: extractedText,
       artifact
     }
-  } catch (error: any) {
+  } catch (caught: unknown) {
+    const error = caught as { code?: string, message?: string } | undefined
     logger.error('web_fetch.failed', error)
     return {
       success: false,
@@ -1333,7 +1027,6 @@ export {
   withTimeout as _withTimeout,
   WEB_FETCH_TIMEOUT as _WEB_FETCH_TIMEOUT,
   resolveConfiguredFetchCounts as _resolveConfiguredFetchCounts,
-  MAX_SCRAPE_CONCURRENCY as _MAX_SCRAPE_CONCURRENCY,
   MAX_FETCH_COUNTS as _MAX_FETCH_COUNTS,
   classifyBingSearchPage as _classifyBingSearchPage,
   classifyGoogleSearchPage as _classifyGoogleSearchPage,

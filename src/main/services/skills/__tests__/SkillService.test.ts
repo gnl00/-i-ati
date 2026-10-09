@@ -74,7 +74,7 @@ describe('SkillService', () => {
     const content = await SkillService.getSkillContent('search-general')
     expect(content).toContain('name: search-general')
     expect(content).toContain('## Trigger Conditions')
-    expect(content).toContain('snippetsOnly: true')
+    expect(content).toContain('use `web_fetch` when snippets leave gaps')
   })
 
   it('lists and reads the built-in project and frontend artifact skills', async () => {

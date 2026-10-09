@@ -256,7 +256,8 @@ class BrowserWindowPool {
     const window = new BrowserWindow({
       show: false,
       webPreferences: {
-        offscreen: true,
+        offscreen: false,
+        backgroundThrottling: false,
         sandbox: false,
         images: false,
         webSecurity: false
