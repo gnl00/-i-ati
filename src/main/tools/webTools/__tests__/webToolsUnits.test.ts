@@ -432,6 +432,36 @@ describe('postClean', () => {
 })
 
 describe('code formatting', () => {
+  it.each(['lite', 'full'] as const)('cleans documented controls and retains ordinary interactions in %s mode', mode => {
+    const { text } = extractCleanContent(`<main><p>Copy code to clipboard instructions.</p>
+      <div><pre><code>const label = "Copied";</code></pre><button aria-label="Copy code to clipboard"><span role="progressbar">Copying</span>Copied!</button></div>
+      <div class="language-js"><button class="copy copied" data-copied="Copied" title="Copied!">Copied!</button><pre><code>const value = 42;</code></pre></div>
+      <div class="theme-doc-toc-mobile"><button class="clean-btn tocCollapsibleButton_TO0P">On this page</button><a href="#section">Section link</a></div>
+      <button>Run example</button><div role="tablist"><button role="tab">JavaScript</button></div>
+      <button class="copy" data-copied="Copied">Copy example</button><button class="tocCollapsibleButton_TO0P">Open example index</button><p class="tocCollapsibleButton_TO0P">On this page in the guide.</p>
+      <p aria-label="Copy code to clipboard">Clipboard API prose.</p>
+      <pre><code>&lt;button aria-label="Copy code to clipboard"&gt;Copy&lt;/button&gt;</code></pre></main>`, mode)
+    expect(text).not.toContain('Copying')
+    expect(text).not.toContain('Copied!')
+    expect(text).toContain('const label = "Copied";')
+    expect(text).toContain('const value = 42;')
+    expect(text).toContain('Copy code to clipboard instructions.')
+    expect(text).toContain('[Section link](#section)')
+    expect(text).toContain('Run example')
+    expect(text).toContain('JavaScript')
+    expect(text).toContain('Copy example')
+    expect(text).toContain('Open example index')
+    expect(text).toContain('On this page in the guide.')
+    expect(text).toContain('Clipboard API prose.')
+    expect(text).toContain('<button aria-label="Copy code to clipboard">Copy</button>')
+  })
+
+  it.each(['lite', 'full'] as const)('removes rendered copy controls while preserving source and prose in %s mode', mode => {
+    const source = 'Copy\nconst label = "Copy";\n<button class="copybutton">Copy</button>\n'
+    const result = extractCleanContent(`<main><p>Copy</p><div class="highlight-javascript"><pre>${source.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre><button class="copybutton" type="button" title="Copy to clipboard">Copy</button><button class="copybutton">Copied!</button></div><button>Run example</button><p class="copybutton">Copy instructions</p></main>`, mode)
+    expect(result.text).toBe(`Copy\n\n\`\`\`javascript\n${source}\`\`\`\n\nRun example\n\nCopy instructions`)
+  })
+
   it.each(['lite', 'full'] as const)('preserves fenced source in %s mode', mode => {
     const source = '```python\nif True:\n    print("a  b")\n\nCopyright = "code"\n```'
     const clean = mode === 'lite' ? postCleanLite : postCleanFull

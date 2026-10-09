@@ -66,3 +66,5 @@ Use sequential names such as `0001-chat-runtime-host-boundary.md`.
 - [0042: Electron-rendered web fetch](0042-electron-rendered-web-fetch.md) - Accepted
 
 - [0043: Search discovery and explicit fetch](0043-search-discovery-and-explicit-fetch.md) - Accepted
+
+- [0044: Bounded web-fetch batch concurrency](0044-bounded-web-fetch-batch-concurrency.md) - Accepted

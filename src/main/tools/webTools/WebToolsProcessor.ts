@@ -1,4 +1,6 @@
 import type { EmbeddedToolExecutionContext } from '@shared/tools/registry'
+import { randomUUID } from 'node:crypto'
+import { performance } from 'node:perf_hooks'
 import type { BrowserWindow, DownloadItem, Event, WebContents } from 'electron'
 import { mainWindow } from '@main/main-window'
 import type { WebSearchResponse, WebSearchResultV2, WebFetchResponse } from '@tools/webTools/index.d'
@@ -46,7 +48,16 @@ interface WebFetchContext {
   artifactService: WorkspaceWebFetchArtifactService
   materializer: WebFetchContentMaterializer
   inlineMaxCharacters: number
+  phaseDurationsMs: Partial<Record<WebFetchPhase, number>>
+  phaseStartedAt: Partial<Record<WebFetchPhase, number>>
+  route?: 'render' | 'http' | 'render-download'
+  readinessOutcome?: 'stable' | 'deadline'
+  failedPhase?: WebFetchPhase
 }
+
+type WebFetchPhase = 'queue' | 'navigation' | 'readiness' | 'domExtraction'
+  | 'contentExtraction' | 'materialization' | 'release' | 'spoolAllocation'
+  | 'httpDownload' | 'httpMaterialization' | 'spoolCleanup'
 
 interface PageSnapshot {
   currentUrl: string
@@ -117,7 +128,27 @@ function createWebFetchContext(
   return {
     artifactService,
     materializer: new WebFetchContentMaterializer(artifactService),
-    inlineMaxCharacters
+    inlineMaxCharacters,
+    phaseDurationsMs: {},
+    phaseStartedAt: {}
+  }
+}
+
+async function measureFetchPhase<T>(
+  context: WebFetchContext,
+  phase: WebFetchPhase,
+  operation: () => T | Promise<T>
+): Promise<T> {
+  const startedAt = performance.now()
+  context.phaseStartedAt[phase] = startedAt
+  try {
+    return await operation()
+  } catch (error) {
+    context.failedPhase = phase
+    throw error
+  } finally {
+    context.phaseDurationsMs[phase] = (context.phaseDurationsMs[phase] ?? 0) + performance.now() - startedAt
+    delete context.phaseStartedAt[phase]
   }
 }
 
@@ -127,12 +158,13 @@ async function fetchPageContentViaHttp(
   context: WebFetchContext,
   signal?: AbortSignal
 ): Promise<MaterializedWebContent> {
-  const spool = await context.artifactService.allocateSpool()
+  const spool = await measureFetchPhase(context, 'spoolAllocation', () => context.artifactService.allocateSpool())
   try {
-    const response = await downloadViaHttp(url, userAgent, spool, signal)
-    return await context.materializer.materialize(response, mode, context.inlineMaxCharacters, signal)
+    const response = await measureFetchPhase(context, 'httpDownload', () => downloadViaHttp(url, userAgent, spool, signal))
+    return await measureFetchPhase(context, 'httpMaterialization', () =>
+      context.materializer.materialize(response, mode, context.inlineMaxCharacters, signal))
   } catch (error) {
-    await context.artifactService.cleanupSpool(spool)
+    await measureFetchPhase(context, 'spoolCleanup', () => context.artifactService.cleanupSpool(spool))
     throw error
   }
 }
@@ -589,7 +621,7 @@ async function fetchPageContentViaRender(
     const session = contentWindow.webContents.session
     session.on('will-download', onDownload)
     try {
-      await withTimeout(
+      await measureFetchPhase(context, 'navigation', () => withTimeout(
         (timeoutSignal) => {
           timeoutSignal.addEventListener('abort', () => {
             if (!contentWindow.isDestroyed()) contentWindow.destroy()
@@ -607,17 +639,22 @@ async function fetchPageContentViaRender(
         LOAD_URL_TIMEOUT,
         `Timeout loading page: ${url}`,
         signal
-      )
+      ))
     } finally {
       session.removeListener('will-download', onDownload)
     }
     signal?.throwIfAborted()
-    if (downloadUrl) return await fetchPageContentViaHttp(downloadUrl, mode, context, signal)
+    if (downloadUrl) {
+      context.route = 'render-download'
+      return await fetchPageContentViaHttp(downloadUrl, mode, context, signal)
+    }
 
     try {
-      await waitForPageContent(contentWindow.webContents, CONTENT_READY_TIMEOUT, signal)
+      await measureFetchPhase(context, 'readiness', () => waitForPageContent(contentWindow.webContents, CONTENT_READY_TIMEOUT, signal))
+      context.readinessOutcome = 'stable'
     } catch (error) {
       signal?.throwIfAborted()
+      context.readinessOutcome = 'deadline'
       logger.warn('web_fetch.content_ready_timeout', { url, message: String(error) })
       // A continuously updating page can still have useful content at the deadline.
       // Extraction below has its own bound and retires a hung renderer.
@@ -629,7 +666,7 @@ async function fetchPageContentViaRender(
     // 若不加界，本函数永不 settle → 上层 finally 的 releaseContentWindow 永不执行
     // → contentSem permit 泄漏 → 数个卡死页面后整个渲染路径永久阻塞。withTimeout
     // 超时时销毁窗口，避免卡住的 JS 被带入下一次借用；finally 仍归还 permit。
-    const pageData: { html: string, finalUrl: string, title: string, contentSnapshot: string } = await withTimeout(
+    const pageData: { html: string, finalUrl: string, title: string, contentSnapshot: string } = await measureFetchPhase(context, 'domExtraction', () => withTimeout(
       (timeoutSignal) => {
         timeoutSignal.addEventListener('abort', () => {
           if (contentWindow && !contentWindow.isDestroyed()) {
@@ -649,17 +686,20 @@ async function fetchPageContentViaRender(
       EXTRACT_TIMEOUT,
       `Timeout extracting page: ${url}`,
       signal
-    )
-    const { title, text } = extractCleanContent(pageData.html, mode, pageData.title)
-    assertUsableWebContent(text, pageData.title || title, pageData.finalUrl)
-    if (!pageData.contentSnapshot) throw new Error('WEB_FETCH_CONTENT_NOT_READY')
-    return await context.materializer.materializeExtractedText({
+    ))
+    const { title, text } = await measureFetchPhase(context, 'contentExtraction', () => {
+      const extracted = extractCleanContent(pageData.html, mode, pageData.title)
+      assertUsableWebContent(extracted.text, pageData.title || extracted.title, pageData.finalUrl)
+      if (!pageData.contentSnapshot) throw new Error('WEB_FETCH_CONTENT_NOT_READY')
+      return extracted
+    })
+    return await measureFetchPhase(context, 'materialization', () => context.materializer.materializeExtractedText({
       pageTitle: pageData.title || title,
       finalUrl: pageData.finalUrl,
       extractedText: text,
       inlineMaxCharacters: context.inlineMaxCharacters,
       signal
-    })
+    }))
   } finally {
     if (signal) signal.removeEventListener('abort', onAbort)
   }
@@ -673,21 +713,23 @@ async function fetchPageContent(
   signal?: AbortSignal
 ): Promise<MaterializedWebContent> {
   signal?.throwIfAborted()
-  if (isDirectDownloadUrl(url)) {
+  context.route = isDirectDownloadUrl(url) ? 'http' : 'render'
+  if (context.route === 'http') {
     return await fetchPageContentViaHttp(url, mode, context, signal)
   }
 
   const windowPool = getWindowPool()
   let contentWindow: BrowserWindow | null = null
   try {
-    contentWindow = await windowPool.acquireContentWindow(signal)
+    contentWindow = await measureFetchPhase(context, 'queue', () => windowPool.acquireContentWindow(signal))
     signal?.throwIfAborted()
     return await fetchPageContentViaRender(url, contentWindow, mode, context, signal)
   } finally {
     // 无条件归还（即便窗口已崩溃/销毁），否则信号量 permit 泄漏、容量永久减少。
     // recycleWindow 会处理已销毁窗口并始终释放 permit。abort 只是让这里更快执行到。
     if (contentWindow) {
-      await windowPool.releaseContentWindow(contentWindow)
+      const windowToRelease = contentWindow
+      await measureFetchPhase(context, 'release', () => windowPool.releaseContentWindow(windowToRelease))
     }
   }
 }
@@ -975,28 +1017,38 @@ const processWebFetch = async (
   { url, cleanMode, chat_uuid }: WebFetchProcessArgs,
   context?: EmbeddedToolExecutionContext
 ): Promise<WebFetchResponse> => {
-  const fetchStartTime = Date.now()
+  const fetchStartTime = performance.now()
+  const fetchId = randomUUID()
+  let fetchContext: WebFetchContext | undefined
+  let succeeded = false
+  let failure: string | undefined
+  let outputKind: 'inline' | 'artifact' | undefined
 
   try {
     const mode: CleanMode = cleanMode === 'full' ? 'full' : 'lite'
     logger.info('web_fetch.started', {
       url,
+      fetchId,
       cleanMode: mode,
       timestamp: new Date().toISOString()
     })
-    const fetchContext = createWebFetchContext(chat_uuid, WEB_FETCH_INLINE_MAX_CHARACTERS)
+    fetchContext = createWebFetchContext(chat_uuid, WEB_FETCH_INLINE_MAX_CHARACTERS)
+    const activeContext = fetchContext
 
     // Bound queueing, rendering and direct downloads with the same cancellation signal.
     const { pageTitle, finalUrl, extractedText, artifact } = await withTimeout(
-      (signal) => fetchPageContent(url, mode, fetchContext, signal),
+      (signal) => fetchPageContent(url, mode, activeContext, signal),
       WEB_FETCH_TIMEOUT,
       `Timeout fetching page: ${url}`,
       context?.signal
     )
 
-    const totalTime = Date.now() - fetchStartTime
+    succeeded = true
+    outputKind = artifact ? 'artifact' : 'inline'
+    const totalTime = performance.now() - fetchStartTime
     logger.info('web_fetch.completed', {
       url: finalUrl,
+      fetchId,
       durationMs: totalTime
     })
 
@@ -1009,14 +1061,31 @@ const processWebFetch = async (
     }
   } catch (caught: unknown) {
     const error = caught as { code?: string, message?: string } | undefined
+    failure = error?.message || 'Failed to fetch page'
     logger.error('web_fetch.failed', error)
     return {
       success: false,
       url: url,
       title: '',
       content: '',
-      error: error?.message || 'Failed to fetch page'
+      error: failure
     }
+  } finally {
+    const now = performance.now()
+    const phaseDurationsMs: Record<string, number> = { ...fetchContext?.phaseDurationsMs }
+    for (const [phase, startedAt] of Object.entries(fetchContext?.phaseStartedAt ?? {})) {
+      phaseDurationsMs[phase] = (phaseDurationsMs[phase] ?? 0) + now - startedAt
+    }
+    logger.info('web_fetch.timings', {
+      fetchId, url, success: succeeded, error: failure,
+      durationMs: now - fetchStartTime,
+      route: fetchContext?.route,
+      outputKind,
+      readinessOutcome: fetchContext?.readinessOutcome,
+      phaseDurationsMs,
+      inFlightPhases: Object.keys(fetchContext?.phaseStartedAt ?? {}),
+      failedPhase: succeeded ? undefined : fetchContext?.failedPhase
+    })
   }
 }
 

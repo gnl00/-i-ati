@@ -3,6 +3,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { EventEmitter } from 'events'
+import { performance } from 'node:perf_hooks'
 
 const mocks = vi.hoisted(() => {
   return {
@@ -309,8 +310,29 @@ describe('WebToolsProcessor', () => {
   it('renders a webpage directly and accepts a complete short article', async () => {
     const url = 'https://example.com/article'
     const window = createContentWindow(url, 'A complete short article.')
-    mocks.acquireContentWindow.mockResolvedValueOnce(window)
-    expect(await processWebFetch({ url })).toMatchObject({ success: true, content: 'A complete short article.' })
+    let clock = 0
+    const now = vi.spyOn(performance, 'now').mockImplementation(() => clock)
+    mocks.acquireContentWindow.mockImplementationOnce(async () => { clock += 40; return window })
+    window.loadURL.mockImplementationOnce(async () => { clock += 120 })
+    mocks.releaseContentWindow.mockImplementationOnce(async () => { clock += 10 })
+    try {
+      const result = await processWebFetch({ url })
+      expect(result).toMatchObject({ success: true, content: 'A complete short article.' })
+      expect(result).not.toHaveProperty('phaseDurationsMs')
+      const timings = mocks.logger.info.mock.calls.find(([event]) => event === 'web_fetch.timings')?.[1]
+      expect(timings).toMatchObject({
+        success: true, route: 'render', outputKind: 'inline', readinessOutcome: 'stable',
+        durationMs: 170, inFlightPhases: [],
+        phaseDurationsMs: {
+          queue: 40, navigation: 120, readiness: 0, domExtraction: 0,
+          contentExtraction: 0, materialization: 0, release: 10
+        }
+      })
+      expect(mocks.logger.info).toHaveBeenCalledWith('web_fetch.started', expect.objectContaining({ fetchId: timings.fetchId }))
+      expect(mocks.logger.info).toHaveBeenCalledWith('web_fetch.completed', expect.objectContaining({ fetchId: timings.fetchId }))
+    } finally {
+      now.mockRestore()
+    }
     expect(window.loadURL).toHaveBeenCalledWith(url, expect.anything())
     expect(mocks.netFetch).not.toHaveBeenCalled()
     expect(mocks.releaseContentWindow).toHaveBeenCalledWith(window)
@@ -328,6 +350,10 @@ describe('WebToolsProcessor', () => {
     expect(mocks.netFetch).not.toHaveBeenCalled()
     expect(mocks.releaseContentWindow).toHaveBeenCalledWith(window)
     expect(window.webContents.session.listenerCount('will-download')).toBe(0)
+    expect(mocks.logger.info).toHaveBeenCalledWith('web_fetch.timings', expect.objectContaining({
+      success: false, failedPhase: phase === 'navigation' ? 'navigation' : 'domExtraction',
+      phaseDurationsMs: expect.objectContaining({ release: expect.any(Number) })
+    }))
   })
 
   it('routes an extensionless file download to the workspace downloader', async () => {
@@ -343,6 +369,12 @@ describe('WebToolsProcessor', () => {
     const result = await processWebFetch({ url })
     expect(result.success).toBe(true)
     expect(result.artifact?.mimeType).toBe('application/octet-stream')
+    expect(mocks.logger.info).toHaveBeenCalledWith('web_fetch.timings', expect.objectContaining({
+      success: true, route: 'render-download', outputKind: 'artifact',
+      phaseDurationsMs: expect.objectContaining({
+        navigation: expect.any(Number), httpDownload: expect.any(Number), httpMaterialization: expect.any(Number)
+      })
+    }))
     expect(preventDefault).toHaveBeenCalledOnce()
     expect(window.webContents.session.listenerCount('will-download')).toBe(0)
     expect(mocks.releaseContentWindow).toHaveBeenCalledWith(window)
@@ -481,6 +513,9 @@ describe('WebToolsProcessor', () => {
       title: 'README.md',
       content: '# Title\n\nBody text'
     })
+    const timings = mocks.logger.info.mock.calls.find(([event]) => event === 'web_fetch.timings')?.[1]
+    expect(timings).toMatchObject({ success: true, route: 'http', outputKind: 'inline', inFlightPhases: [] })
+    expect(Object.keys(timings.phaseDurationsMs)).toEqual(['spoolAllocation', 'httpDownload', 'httpMaterialization'])
   })
 
   it('returns an error within the overall deadline instead of hanging when fetch never settles', async () => {
@@ -501,6 +536,10 @@ describe('WebToolsProcessor', () => {
         url,
         error: expect.stringContaining('Timeout fetching page')
       })
+      expect(mocks.logger.info).toHaveBeenCalledWith('web_fetch.timings', expect.objectContaining({
+        success: false, route: 'render', inFlightPhases: ['queue'],
+        phaseDurationsMs: { queue: expect.any(Number) }
+      }))
     } finally {
       vi.useRealTimers()
     }

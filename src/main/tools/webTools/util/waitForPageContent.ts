@@ -1,5 +1,6 @@
 import type { WebContents } from 'electron'
 import { waitForCondition } from './waitForCondition'
+import { RENDERED_CONTROL_NOISE_SELECTOR } from './renderedControlSelectors'
 
 // Observe content rather than navigation, clocks or other changing page chrome.
 export const PAGE_CONTENT_SNAPSHOT_SCRIPT = `(() => {
@@ -7,9 +8,9 @@ export const PAGE_CONTENT_SNAPSHOT_SCRIPT = `(() => {
   const root = candidates.find(el => el.innerText?.trim()) || document.body;
   if (!root) return '';
   const copy = root.cloneNode(true);
-  copy.querySelectorAll('script, style, noscript, nav, header, footer, aside, [hidden], [aria-hidden="true"]').forEach(el => el.remove());
+  copy.querySelectorAll('script, style, noscript, nav, header, footer, aside, ${RENDERED_CONTROL_NOISE_SELECTOR}, [hidden], [aria-hidden="true"]').forEach(el => el.remove());
   const text = (copy.textContent || '').replace(/\\s+/g, ' ').trim();
-  const busy = root.matches('[aria-busy="true"]') || !!root.querySelector('[aria-busy="true"], [role="progressbar"]');
+  const busy = copy.matches('[aria-busy="true"]') || !!copy.querySelector('[aria-busy="true"], [role="progressbar"]');
   const loading = /^(loading(?:\\.{3}|…)?|please wait(?:\\.{3}|…)?|加载中(?:\\.{3}|…)?)[.!\\s]*$/i.test(text);
   return busy || loading ? '' : text;
 })()`

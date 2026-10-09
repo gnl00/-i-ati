@@ -1294,4 +1294,64 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     const toolMessage = secondRequest.messages.find((message) => message.role === 'tool')
     expect(toolMessage?.content).not.toContain('Use frontend workflow.')
   })
+  it('batches three source fetches and preserves artifact references through the next read step', async () => {
+    let round = 0
+    const sourceIds = ['source-0', 'source-1', 'source-2']
+    const filePaths = sourceIds.map(id => `.tmp/web-fetch/${id}.tmp`)
+    const modelStreamExecutor: ModelStreamExecutor = {
+      execute: vi.fn(async ({ request }) => {
+        const currentRound = round++
+        if (currentRound === 1) {
+          const tools = request.messages.filter(message => message.role === 'tool')
+          expect(tools).toHaveLength(3)
+          tools.forEach((message, index) => expect(message.content).toContain(filePaths[index]))
+        }
+        if (currentRound === 2) {
+          const tools = request.messages.filter(message => message.role === 'tool')
+          expect(tools.slice(-3).map(message => message.content)).toEqual(['Body 0', 'Body 1', 'Body 2'])
+          return createAsyncStream([
+            { kind: 'delta', responseId: 'sources-done', model: 'model-1', content: 'Compared all sources', finishReason: 'stop' },
+            { kind: 'final', responseId: 'sources-done', model: 'model-1' }
+          ])
+        }
+        return createAsyncStream([
+          { kind: 'delta', responseId: `sources-${currentRound}`, model: 'model-1',
+            toolCalls: sourceIds.map((id, index) => ({ argumentsMode: 'snapshot', toolCall: {
+              id: currentRound === 0 ? id : `read-${index}`, index, type: 'function',
+              function: { name: currentRound === 0 ? 'web_fetch' : 'read',
+                arguments: JSON.stringify(currentRound === 0
+                  ? { url: `https://example.com/source-${index}` }
+                  : { file_path: filePaths[index] }) }
+            } })), finishReason: 'tool_calls' },
+          { kind: 'final', responseId: `sources-${currentRound}`, model: 'model-1' }
+        ])
+      })
+    }
+    executeMock.mockImplementation(async (calls, options) => {
+      calls.forEach(call => options.onProgress({ id: call.id, name: call.function, phase: 'started' }))
+      const results = calls.map(call => {
+        const index = call.index
+        return { id: call.id, index, name: call.function,
+          content: call.function === 'web_fetch'
+            ? { success: true, artifact: { readPath: filePaths[index] } }
+            : { content: `Body ${index}` },
+          modelContent: call.function === 'web_fetch' ? `Source file: ${filePaths[index]}` : `Body ${index}`,
+          modelContentKind: 'text', cost: 1, status: 'success' }
+      })
+      for (const result of [...results].reverse()) {
+        options.onProgress({ id: result.id, name: result.name, phase: 'completed', result })
+      }
+      return results
+    })
+    const runner = new DefaultMainAgentRuntimeRunner(undefined, undefined, { modelStreamExecutor })
+    await runner.run({ runInput: input, prepared,
+      emitter: { submissionId: 'sources-test', emit: vi.fn(), setChatMeta: vi.fn() } as unknown as Parameters<typeof runner.run>[0]['emitter'],
+      signal: new AbortController().signal,
+      toolConfirmationRequester: { request: vi.fn(async () => ({ approved: true })) } })
+    expect(round).toBe(3)
+    expect(executeMock.mock.calls.map(([calls]) => calls.map(call => call.id))).toEqual([
+      sourceIds, ['read-0'], ['read-1'], ['read-2']
+    ])
+  })
+
 })

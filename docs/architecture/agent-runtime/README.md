@@ -128,3 +128,18 @@ Documentation: [Agent runtime](README.md)
     - `agentLoopDependenciesFactory`
 - 在 wiring 仍然可控之前，不急着把 `AgentRuntimeContext` 改成嵌套结构
 - 运行中的状态变化应进入 loop state、events 或 transcript，而不是回写 context
+
+## Tool 批次调度
+
+`DefaultToolExecutorDispatcher` 持有批次顺序与审批边界。连续且
+`confirmationPolicy.mode === 'not_required'` 的 `web_fetch` 每组最多三个，
+一次交给已有 `ToolExecutor`；当前组全部收敛后再启动下一组。
+其他工具和需要审批的调用保持逐项执行；`ask_user_question` 保留后续调用延迟语义。
+
+每个调用的 started/output/terminal 事件保持顺序，完成事件按实际完成时刻发出且去重。
+模型收到的结果仍按原调用顺序返回。单页失败不影响同组其他页面。
+父级取消后等待已启动调用收敛，返回有序 partialResults，并停止后续组；
+工具自身 aborted 结果继续遵循既有 abortedResultDisposition。
+单个调用保留原事件收敛时机。工具参数、工件格式、窗口容量和持久化契约不变。
+
+取舍与验证见 [ADR-0044](../../decisions/0044-bounded-web-fetch-batch-concurrency.md)。

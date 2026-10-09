@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio'
 import { createLogger } from '@main/logging/LogService'
 import { convertHtmlToMarkdown, type CleanMode } from './htmlToMarkdown'
 import { postClean } from './postClean'
+import { RENDERED_CONTROL_NOISE_SELECTOR } from '../util/renderedControlSelectors'
 
 const logger = createLogger('ContentExtractor')
 
@@ -16,6 +17,7 @@ const NOISE_SELECTORS = [
   'footer',
   'aside',
   'form',
+  RENDERED_CONTROL_NOISE_SELECTOR,
   '.ad',
   '.ads',
   '.advertisement',

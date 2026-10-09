@@ -39,6 +39,11 @@ describe('rendered page content readiness', () => {
     ['<nav>Navigation</nav><main>Loading...</main>', ''],
     ['<main aria-busy="true">Partial article</main>', ''],
     ['<main><span role="progressbar">Working</span>Partial article</main>', ''],
+    ['<main>Short article<button class="copybutton">Copied!</button><p>Copy instructions</p></main>', 'Short articleCopy instructions'],
+    ['<main>Article<button aria-label="Copy code to clipboard" aria-busy="true"><span role="progressbar">Copying</span>Copied!</button></main>', 'Article'],
+    ['<main><div class="language-js"><button class="copy copied" data-copied="Copied">Copied!</button><pre>const value = 42;</pre></div><div class="theme-doc-toc-mobile"><button class="clean-btn tocCollapsibleButton_TO0P">On this page</button></div></main>', 'const value = 42;'],
+    ['<main>Article<button>Run example</button><button role="tab">JavaScript</button><button class="copy" data-copied="Copied">Copy example</button></main>', 'ArticleRun exampleJavaScriptCopy example'],
+    ['<main aria-busy="true">Article<button aria-label="Copy code to clipboard">Copied!</button></main>', ''],
     ['<main>Short article<nav>Changing clock</nav><span hidden>Hidden</span><script>noise()</script></main>', 'Short article']
   ])('ignores loading and chrome in %s', async (html, expected) => {
     const window = new Window()

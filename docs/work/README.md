@@ -11,6 +11,8 @@ An implemented feature can remain Active while runtime acceptance is pending.
 
 ## Plans and implementation acceptance
 
+- [Web Fetch 阶段耗时与后续优化](plans/web-fetch-phase-timing-optimization.md)
+
 - [Background Tool Result Compaction](../archive/2026/tools/2026-10-01-background-tool-result-compaction.md)
 - [MessageScroller Electron acceptance](plans/chat/message-scroller-integration-implementation.md)
 - [Token Usage Cache Persistence Plan](plans/chat/token-usage-cache-persistence-plan.md)

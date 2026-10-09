@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { DefaultToolExecutorDispatcher } from '../ToolExecutorDispatcher'
 import type { AgentEventEmitter } from '../../events/AgentEventEmitter'
 import type { ToolExecutionResult } from '@main/agent/tools'
+import type { ToolBatch } from '../ToolBatch'
 import type { RuntimeClock } from '../../loop/RuntimeClock'
 
 const executeMock = vi.fn()
@@ -13,7 +14,7 @@ vi.mock('@main/agent/tools/ToolExecutor', () => ({
       toolExecutorConfig = config
     }
 
-    execute(calls: Array<{ id?: string; function: string }>) {
+    execute(calls: Array<{ id?: string; function: string }>): Promise<ToolExecutionResult[]> {
       const call = calls[0]
       if (call.id) {
         toolExecutorConfig?.onProgress?.({
@@ -44,6 +45,15 @@ const createEventEmitter = (): AgentEventEmitter => ({
   emitLoopFailed: vi.fn(async () => {}),
   emitLoopAborted: vi.fn(async () => {}),
   emitSteeringConsumed: vi.fn(async () => {})
+})
+
+const fetchBatch = (count: number): ToolBatch => ({
+  batchId: 'fetch-batch', stepId: 'fetch-step', createdAt: 0,
+  calls: Array.from({ length: count }, (_, index) => ({
+    toolCallId: `fetch-${index}`, stepId: 'fetch-step', index, name: 'web_fetch',
+    arguments: JSON.stringify({ url: `https://example.com/${index}` }),
+    confirmationPolicy: { mode: 'not_required' }, status: 'pending'
+  }))
 })
 
 describe('DefaultToolExecutorDispatcher', () => {
@@ -458,7 +468,7 @@ describe('DefaultToolExecutorDispatcher', () => {
     const dispatcher = new DefaultToolExecutorDispatcher({
       agentEventEmitter,
       runtimeClock: { now: vi.fn(() => 100) },
-      executeToolCalls: async (calls, context) => {
+      executeToolCalls: async (calls, context): Promise<ToolExecutionResult[]> => {
         const call = calls[0]
         context.onProgress({
           id: call.id!,
@@ -507,4 +517,161 @@ describe('DefaultToolExecutorDispatcher', () => {
 
     expect(order).toEqual(['started', 'output:1', 'output:2', 'completed'])
   })
+  it('starts three fetches together, publishes fast completion once, and queues the fourth', async () => {
+    const emitter = createEventEmitter()
+    const groups: string[][] = []
+    const pending = new Map<string, (status?: ToolExecutionResult['status']) => void>()
+    const executor = vi.fn(async (calls, context) => {
+      groups.push(calls.map(call => call.id))
+      return Promise.all(calls.map(call => new Promise<ToolExecutionResult>(resolve => {
+        context.onProgress({ id: call.id, name: call.function, phase: 'started' })
+        pending.set(call.id, (status = 'success') => {
+          const result: ToolExecutionResult = { id: call.id, index: call.index, name: call.function,
+            content: { source: call.id }, cost: 1, status }
+          context.onProgress({ id: call.id, name: call.function, phase: 'completed', result })
+          context.onProgress({ id: call.id, name: call.function, phase: 'completed', result })
+          resolve(result)
+        })
+      })))
+    })
+    const dispatcher = new DefaultToolExecutorDispatcher({ runtimeClock: { now: (): number => 100 },
+      agentEventEmitter: emitter, executeToolCalls: executor })
+    const dispatched = dispatcher.dispatch(fetchBatch(4))
+    expect(groups).toEqual([['fetch-0', 'fetch-1', 'fetch-2']])
+    pending.get('fetch-2')!()
+    await vi.waitFor(() => expect(emitter.emitToolExecutionCompleted).toHaveBeenCalledTimes(1))
+    expect(vi.mocked(emitter.emitToolExecutionCompleted).mock.calls[0][0].result.toolCallId).toBe('fetch-2')
+    expect(groups).toHaveLength(1)
+    pending.get('fetch-0')!('error')
+    pending.get('fetch-1')!()
+    await vi.waitFor(() => expect(groups).toHaveLength(2))
+    expect(groups[1]).toEqual(['fetch-3'])
+    pending.get('fetch-3')!()
+    const outcome = await dispatched
+    expect(outcome).toMatchObject({ status: 'completed', results: [
+      { toolCallId: 'fetch-0', status: 'error' }, { toolCallId: 'fetch-1', status: 'success' },
+      { toolCallId: 'fetch-2', status: 'success' }, { toolCallId: 'fetch-3', status: 'success' }
+    ] })
+    expect(emitter.emitToolExecutionCompleted).toHaveBeenCalledTimes(3)
+    expect(emitter.emitToolExecutionFailed).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps other tools, required confirmations and questions between fetch groups', async () => {
+    const batch = fetchBatch(8)
+    batch.calls[2].name = 'write'
+    batch.calls[4].confirmationPolicy = { mode: 'required', source: 'user',
+      deniedResult: { status: 'denied', message: 'Denied' } }
+    batch.calls[6].name = 'ask_user_question'
+    const order: string[] = []
+    const executeToolCalls = vi.fn(async calls => {
+      order.push(calls.map(call => call.id).join(','))
+      return calls.map(call => ({ id: call.id!, index: call.index!, name: call.function,
+        content: { ok: true }, cost: 1, status: 'success' as const }))
+    })
+    const dispatcher = new DefaultToolExecutorDispatcher({ runtimeClock: { now: (): number => 100 },
+      executeToolCalls, requestConfirmation: async (): Promise<{ approved: boolean }> => { order.push('confirmation'); return { approved: true } } })
+    const outcome = await dispatcher.dispatch(batch)
+    expect(order).toEqual(['fetch-0,fetch-1', 'fetch-2', 'fetch-3', 'confirmation', 'fetch-4', 'fetch-5', 'fetch-6'])
+    expect(outcome).toMatchObject({ status: 'completed', results: [ {}, {}, {}, {}, {}, {}, {},
+      { toolCallId: 'fetch-7', content: { status: 'deferred_due_to_user_question' } }
+    ] })
+  })
+
+  it('waits for all launched fetches on cancellation and never starts the next group', async () => {
+    const controller = new AbortController()
+    const pending = new Map<string, () => void>()
+    const executor = vi.fn(async calls => Promise.all(calls.map(call => new Promise<ToolExecutionResult>(resolve => {
+      pending.set(call.id!, () => resolve({ id: call.id!, index: call.index!, name: call.function,
+        content: null, cost: 1, status: 'aborted', error: new Error('Cancelled') }))
+    }))))
+    const dispatcher = new DefaultToolExecutorDispatcher({ runtimeClock: { now: (): number => 100 },
+      signal: controller.signal, executeToolCalls: executor })
+    let settled = false
+    const dispatched = dispatcher.dispatch(fetchBatch(4)).then(outcome => { settled = true; return outcome })
+    controller.abort(new Error('Cancelled'))
+    pending.get('fetch-1')!()
+    await Promise.resolve()
+    expect(settled).toBe(false)
+    pending.get('fetch-0')!()
+    pending.get('fetch-2')!()
+    expect(await dispatched).toMatchObject({ status: 'aborted', partialResults: [
+      { toolCallId: 'fetch-0', status: 'aborted' }, { toolCallId: 'fetch-1', status: 'aborted' },
+      { toolCallId: 'fetch-2', status: 'aborted' }
+    ] })
+    expect(executor).toHaveBeenCalledTimes(1)
+  })
+
+  it('stops after an aborted fetch group even when the parent signal stays live', async () => {
+    const executeToolCalls = vi.fn(async calls => calls.map(call => ({ id: call.id!, index: call.index!,
+      name: call.function, content: null, cost: 1,
+      status: call.index === 1 ? 'aborted' as const : 'success' as const })))
+    const dispatcher = new DefaultToolExecutorDispatcher({ runtimeClock: { now: (): number => 100 }, executeToolCalls })
+    expect(await dispatcher.dispatch(fetchBatch(4))).toMatchObject({ status: 'aborted', partialResults: [
+      { toolCallId: 'fetch-0', status: 'success' }, { toolCallId: 'fetch-1', status: 'aborted' },
+      { toolCallId: 'fetch-2', status: 'success' }
+    ] })
+    expect(executeToolCalls).toHaveBeenCalledTimes(1)
+  })
+
+  it('routes interleaved output by call and preserves each call event order and timing', async () => {
+    const emitter = createEventEmitter()
+    const events: string[] = []
+    vi.mocked(emitter.emitToolExecutionStarted).mockImplementation(async e => { await Promise.resolve(); events.push('start:' + e.toolCallId) })
+    vi.mocked(emitter.emitToolExecutionOutput).mockImplementation(async e => { events.push('output:' + e.toolCallId) })
+    vi.mocked(emitter.emitToolExecutionCompleted).mockImplementation(async e => { events.push('done:' + e.result.toolCallId) })
+    let now = 0
+    const dispatcher = new DefaultToolExecutorDispatcher({ runtimeClock: { now: (): number => now }, agentEventEmitter: emitter,
+      executeToolCalls: async (calls, context): Promise<ToolExecutionResult[]> => {
+        for (const call of calls) context.onProgress({ id: call.id!, name: call.function, phase: 'started' })
+        const results = calls.map(call => ({ id: call.id!, index: call.index!, name: call.function,
+          content: null, cost: 1, status: 'success' as const }))
+        for (const index of [1, 0]) {
+          const call = calls[index]
+          context.onProgress({ id: call.id!, name: call.function, phase: 'output', output: {
+            toolCallId: call.id!, sequence: 1, chunks: [{ stream: 'stdout', text: String(index) }], stdoutBytes: 1, stderrBytes: 0 } })
+          now = index === 1 ? 20 : 50
+          context.onProgress({ id: call.id!, name: call.function, phase: 'completed', result: results[index] })
+        }
+        return results.reverse()
+      } })
+    const batch = fetchBatch(2)
+    batch.calls.forEach(call => { call.startedAt = 0 })
+    expect(await dispatcher.dispatch(batch)).toMatchObject({ status: 'completed', results: [
+      { toolCallId: 'fetch-0', latencyCost: 50, executionStartedAt: 0 },
+      { toolCallId: 'fetch-1', latencyCost: 20, executionStartedAt: 0 }
+    ] })
+    for (const id of ['fetch-0', 'fetch-1']) {
+      expect(events.filter(e => e.endsWith(id))).toEqual(['start:' + id, 'output:' + id, 'done:' + id])
+    }
+  })
+
+  it('keeps parent cancellation terminal after a successful final group', async () => {
+    const controller = new AbortController()
+    const dispatcher = new DefaultToolExecutorDispatcher({ runtimeClock: { now: (): number => 100 },
+      signal: controller.signal, abortedResultDisposition: 'non_terminal',
+      executeToolCalls: async (calls): Promise<ToolExecutionResult[]> => {
+        controller.abort(new Error('Stopped'))
+        return calls.map(call => ({ id: call.id!, index: call.index!, name: call.function,
+          content: { success: false, error: 'Stopped' }, cost: 1, status: 'success' as const }))
+      } })
+    expect(await dispatcher.dispatch(fetchBatch(2))).toMatchObject({ status: 'aborted', partialResults: [
+      { toolCallId: 'fetch-0' }, { toolCallId: 'fetch-1' }
+    ] })
+  })
+
+  it('does not start calls or request approval when the parent is already cancelled', async () => {
+    const controller = new AbortController()
+    controller.abort(new Error('Stopped'))
+    const executeToolCalls = vi.fn()
+    const requestConfirmation = vi.fn()
+    const batch = fetchBatch(1)
+    batch.calls[0].confirmationPolicy = { mode: 'required', source: 'user',
+      deniedResult: { status: 'denied', message: 'Denied' } }
+    const dispatcher = new DefaultToolExecutorDispatcher({ runtimeClock: { now: (): number => 100 },
+      signal: controller.signal, executeToolCalls, requestConfirmation })
+    expect(await dispatcher.dispatch(batch)).toMatchObject({ status: 'aborted', partialResults: [] })
+    expect(executeToolCalls).not.toHaveBeenCalled()
+    expect(requestConfirmation).not.toHaveBeenCalled()
+  })
+
 })

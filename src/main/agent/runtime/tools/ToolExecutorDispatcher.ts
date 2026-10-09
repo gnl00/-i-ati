@@ -176,6 +176,14 @@ const toToolResultFact = (
   }
 }
 
+type CallExecutionOutcome = {
+  result: ToolResultFact
+  terminalOutcome?: (batch: ToolBatch, results: ToolResultFact[]) => ToolDispatchOutcome
+}
+
+const isConcurrentFetch = (call: ToolBatch['calls'][number]): boolean =>
+  call.name === 'web_fetch' && call.confirmationPolicy.mode === 'not_required'
+
 export class DefaultToolExecutorDispatcher implements ToolExecutorDispatcher {
   constructor(private readonly options: DefaultToolExecutorDispatcherOptions) {}
 
@@ -183,7 +191,28 @@ export class DefaultToolExecutorDispatcher implements ToolExecutorDispatcher {
     const results: ToolResultFact[] = []
 
     for (let callIndex = 0; callIndex < batch.calls.length; callIndex += 1) {
+      if (this.options.signal?.aborted) {
+        return {
+          status: 'aborted', batchId: batch.batchId, stepId: batch.stepId,
+          abortReason: String(this.options.signal.reason || 'Tool execution aborted'),
+          partialResults: results
+        }
+      }
       const call = batch.calls[callIndex]
+      if (isConcurrentFetch(call)) {
+        const group = [call]
+        while (group.length < 3) {
+          const next = batch.calls[callIndex + group.length]
+          if (!next || !isConcurrentFetch(next)) break
+          group.push(next)
+        }
+        const outcomes = await this.executeCalls(group)
+        results.push(...outcomes.map(outcome => outcome.result))
+        const terminal = outcomes.find(outcome => outcome.terminalOutcome)
+        if (terminal?.terminalOutcome) return terminal.terminalOutcome(batch, results)
+        callIndex += group.length - 1
+        continue
+      }
       if (call.confirmationPolicy.mode === 'required') {
         await this.options.agentEventEmitter?.emitToolAwaitingConfirmation({
           timestamp: this.options.runtimeClock.now(),
@@ -253,6 +282,14 @@ export class DefaultToolExecutorDispatcher implements ToolExecutorDispatcher {
       }
     }
 
+    if (this.options.signal?.aborted) {
+      return {
+        status: 'aborted', batchId: batch.batchId, stepId: batch.stepId,
+        abortReason: String(this.options.signal.reason || 'Tool execution aborted'),
+        partialResults: results
+      }
+    }
+
     return {
       status: 'completed',
       batchId: batch.batchId,
@@ -261,30 +298,60 @@ export class DefaultToolExecutorDispatcher implements ToolExecutorDispatcher {
     }
   }
 
-  private async executeCall(call: ToolBatch['calls'][number]): Promise<{
-    result: ToolResultFact
-    terminalOutcome?: (batch: ToolBatch, results: ToolResultFact[]) => ToolDispatchOutcome
-  }> {
-    let progressEventChain = Promise.resolve()
-    const enqueueProgressEvent = (emit: () => Promise<void>): void => {
-      progressEventChain = progressEventChain.then(emit)
-    }
-    let executionStartedAt: number | undefined
-    const progressContext: ToolExecutionProgressContext = {
-      onProgress: this.createProgressHandler(call, enqueueProgressEvent, (startedAt) => {
-        executionStartedAt = startedAt
-      })
-    }
+  private async executeCall(call: ToolBatch['calls'][number]): Promise<CallExecutionOutcome> {
+    return (await this.executeCalls([call]))[0]
+  }
 
+  private async executeCalls(calls: ToolBatch['calls']): Promise<CallExecutionOutcome[]> {
+    const outcomes = new Map<string, Promise<CallExecutionOutcome>>()
+    const states = new Map(calls.map(call => {
+      let progressEventChain = Promise.resolve()
+      let executionStartedAt: number | undefined
+      const onProgress = this.createProgressHandler(call, emit => {
+        progressEventChain = progressEventChain.then(emit)
+      }, startedAt => { executionStartedAt = startedAt })
+      const settle = (executionResult: ToolExecutionResult): Promise<CallExecutionOutcome> => {
+        const existing = outcomes.get(call.toolCallId)
+        if (existing) return existing
+        const completedAt = this.options.runtimeClock.now()
+        const outcome = (async (): Promise<CallExecutionOutcome> => {
+          await progressEventChain
+          return this.publishResult(call, executionResult, completedAt, executionStartedAt)
+        })()
+        outcomes.set(call.toolCallId, outcome)
+        // Event sinks may reject before the executor settles; await below retains that error.
+        void outcome.catch(() => {})
+        return outcome
+      }
+      return [call.toolCallId, { onProgress, settle }] as const
+    }))
+    const progressContext: ToolExecutionProgressContext = {
+      onProgress: progress => {
+        const state = states.get(progress.id)
+        if (!state) return
+        state.onProgress(progress)
+        if (calls.length > 1 && (progress.phase === 'completed' || progress.phase === 'failed') && progress.result?.id === progress.id) {
+          void state.settle(progress.result)
+        }
+      }
+    }
     const executionResults = this.options.executeToolCalls
-      ? await this.options.executeToolCalls([toToolCallProps(call)], progressContext)
-      : await new ToolExecutor({
-          signal: this.options.signal,
-          onProgress: progressContext.onProgress
-        }).execute([toToolCallProps(call)])
-    await progressEventChain
-    const executionResult = executionResults[0]
-    const completedAt = this.options.runtimeClock.now()
+      ? await this.options.executeToolCalls(calls.map(toToolCallProps), progressContext)
+      : await new ToolExecutor({ signal: this.options.signal, maxConcurrency: 3,
+          onProgress: progressContext.onProgress }).execute(calls.map(toToolCallProps))
+    return Promise.all(calls.map(call => {
+      const result = executionResults.find(result => result.id === call.toolCallId)
+      if (!result) throw new Error(`Missing execution result for tool call ${call.toolCallId}`)
+      return states.get(call.toolCallId)!.settle(result)
+    }))
+  }
+
+  private async publishResult(
+    call: ToolBatch['calls'][number],
+    executionResult: ToolExecutionResult,
+    completedAt: number,
+    executionStartedAt?: number
+  ): Promise<CallExecutionOutcome> {
     const rawResult = toToolResultFact(call, executionResult, completedAt, executionStartedAt)
     const result = this.options.toolResultNormalizer?.normalize(rawResult) ?? rawResult
 
