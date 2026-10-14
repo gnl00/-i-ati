@@ -9,6 +9,7 @@ import type { AssistantMessageTranscriptProjection } from './model/assistantMess
 import type { AssistantMessageTextPlaybackModel } from './model/assistantMessageTextPlayback'
 import { projectCleanOutputContent } from './model/cleanOutput'
 import { CleanOutputStatus } from './renderers/CleanOutputStatus'
+import { CleanOutputReveal } from './renderers/CleanOutputReveal'
 import { ErrorMessage } from '../error-message'
 
 export interface AssistantMessageBodyModel {
@@ -61,7 +62,7 @@ export const AssistantMessageBody: React.FC<AssistantMessageBodyProps> = memo(({
       return <CleanOutputStatus label={model.cleanOutputStatus ?? 'Working…'} />
     }
     const content = projectCleanOutputContent(transcript)
-    const replayCompleted = observedCleanRun.current && status === 'completed'
+    const revealCompleted = observedCleanRun.current && status === 'completed'
       && isLatest && model.animateOnMount !== false && !reducedMotion
     return (
       <div className="flex min-w-0 flex-col" data-testid="clean-output-content">
@@ -70,18 +71,19 @@ export const AssistantMessageBody: React.FC<AssistantMessageBodyProps> = memo(({
             {status === 'failed' ? 'Failed' : status === 'aborted' ? 'Stopped' : 'Incomplete response'}
           </p>
         )}
-        <AssistantTextSegmentList
-          index={index}
-          committedPlaybackInput={textPlayback.committed}
-          previewPlaybackInput={textPlayback.preview}
-          isLatest={isLatest}
-          animateOnMount={replayCompleted}
-          replayCompleted={replayCompleted}
-          onTypingChange={onTypingChange}
-          items={content.textItems}
-          isOverlayPreview={transcript.isOverlayPreview}
-        />
-        {content.imageItems.map(item => <ImageShowResult key={item.key} toolCall={item.segment as ToolCallSegment} />)}
+        <CleanOutputReveal reveal={revealCompleted}>
+          <AssistantTextSegmentList
+            index={index}
+            committedPlaybackInput={textPlayback.committed}
+            previewPlaybackInput={textPlayback.preview}
+            isLatest={isLatest}
+            animateOnMount={false}
+            onTypingChange={onTypingChange}
+            items={content.textItems}
+            isOverlayPreview={transcript.isOverlayPreview}
+          />
+          {content.imageItems.map(item => <ImageShowResult key={item.key} toolCall={item.segment as ToolCallSegment} />)}
+        </CleanOutputReveal>
         {content.errorItems.map(item => item.segment.type === 'error'
           ? <ErrorMessage key={item.key} error={item.segment.error} /> : null)}
         {!content.hasVisibleContent && (

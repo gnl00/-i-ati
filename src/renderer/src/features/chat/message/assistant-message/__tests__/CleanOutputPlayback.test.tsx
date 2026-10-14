@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act } from 'react'
+import { act, StrictMode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AssistantMessageBody } from '../AssistantMessageBody'
@@ -70,21 +70,88 @@ describe('clean output completion playback', () => {
     }
   }
 
-  it('replays a finalized message through the existing typewriter only after the clean run finishes', async () => {
+  it('mounts the complete answer at completion and reveals once without token playback', async () => {
     await render(true)
     expect(container.querySelector('[data-testid="answer"]')).toBeNull()
     await render(false)
-    expect(container.textContent).not.toContain(answer)
+    expect(container.textContent).toBe(answer)
+    const reveal = container.querySelector<HTMLElement>('[data-testid="clean-output-reveal"]')!
+    expect(reveal.dataset.revealing).toBe('true')
+    expect(reveal.style.maskImage).toContain('transparent')
     await advance(3)
-    const partial = container.querySelector('[data-testid="answer"]')?.textContent ?? ''
-    expect(partial.length).toBeGreaterThan(0)
-    expect(partial.length).toBeLessThan(answer.length)
+    expect(container.textContent).toBe(answer)
+    expect(container.querySelector('[data-testid="answer"]')?.getAttribute('data-typing')).toBe('false')
     await advance(100)
     expect(container.querySelector('[data-testid="answer"]')?.textContent).toBe(answer)
     expect(container.querySelector('[data-testid="answer"]')?.getAttribute('data-typing')).toBe('false')
     await render(false)
     expect(container.querySelector('[data-testid="answer"]')?.textContent).toBe(answer)
     expect(message.typewriterCompleted).toBe(true)
+    expect(reveal.style.maskImage).toBe('')
+    expect(reveal.dataset.revealing).toBeUndefined()
+    expect(frames.size).toBe(0)
+  })
+
+  it.each(['wheel', 'touchmove', 'pointerdown'])('finishes the reveal on %s and does not restart it', async event => {
+    await render(true)
+    await render(false)
+    const reveal = container.querySelector<HTMLElement>('[data-testid="clean-output-reveal"]')!
+    await act(async () => reveal.dispatchEvent(new Event(event, { bubbles: true })))
+    expect(reveal.style.maskImage).toBe('')
+    expect(frames.size).toBe(0)
+    await render(false)
+    expect(reveal.dataset.revealing).toBeUndefined()
+    expect(container.textContent).toBe(answer)
+  })
+
+  it('handles scroll keys from the transcript viewport and cancels on loss of latest position', async () => {
+    container.dataset.testid = 'message-scroller-viewport'
+    await render(true)
+    await render(false)
+    const reveal = container.querySelector<HTMLElement>('[data-testid="clean-output-reveal"]')!
+    await act(async () => container.dispatchEvent(new KeyboardEvent('keydown', { key: 'PageDown' })))
+    expect(reveal.style.maskImage).toBe('')
+    await render(true)
+    await render(false)
+    expect(container.querySelector<HTMLElement>('[data-testid="clean-output-reveal"]')!.dataset.revealing).toBe('true')
+    await render(false, true, false)
+    expect(container.querySelector<HTMLElement>('[data-testid="clean-output-reveal"]')!.style.maskImage).toBe('')
+    expect(frames.size).toBe(0)
+  })
+
+  it('finishes immediately if reduced motion is enabled during the reveal', async () => {
+    await render(true)
+    await render(false)
+    motionPreference.reduced = true
+    await render(false)
+    expect(container.querySelector<HTMLElement>('[data-testid="clean-output-reveal"]')!.style.maskImage).toBe('')
+    expect(frames.size).toBe(0)
+    expect(container.textContent).toBe(answer)
+  })
+
+  it('reveals under Strict Mode and cancels pending frames on unmount', async () => {
+    const model = { index: 0, isLatest: true, animateOnMount: true, cleanOutput: true,
+      cleanOutputActive: true, workStatus: 'completed' as const, transcript, textPlayback }
+    await act(async () => root.render(<StrictMode><AssistantMessageBody model={model} /></StrictMode>))
+    await act(async () => root.render(<StrictMode><AssistantMessageBody model={{ ...model, cleanOutputActive: false }} /></StrictMode>))
+    expect(container.querySelector<HTMLElement>('[data-testid="clean-output-reveal"]')!.dataset.revealing).toBe('true')
+    await act(async () => root.render(null))
+    expect(frames.size).toBe(0)
+  })
+
+  it('responds to the native reduced-motion preference while mounted', async () => {
+    const preference = new EventTarget() as MediaQueryList
+    Object.defineProperty(preference, 'matches', { value: false })
+    vi.spyOn(window, 'matchMedia').mockReturnValueOnce(preference)
+    await render(true)
+    await render(false)
+    // The reveal owns this matchMedia subscription independently of Framer Motion.
+    const event = new Event('change') as MediaQueryListEvent
+    Object.defineProperty(event, 'matches', { value: true })
+    await act(async () => preference.dispatchEvent(event))
+    expect(container.querySelector<HTMLElement>('[data-testid="clean-output-reveal"]')!.style.maskImage).toBe('')
+    expect(frames.size).toBe(0)
+    vi.restoreAllMocks()
   })
 
   it('shows history immediately and avoids replay on a post-completion mode toggle', async () => {

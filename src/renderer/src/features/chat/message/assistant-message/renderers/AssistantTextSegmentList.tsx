@@ -64,7 +64,6 @@ interface AssistantTextSegmentListProps {
   previewPlaybackInput: AssistantMessageTextPlaybackInput
   isLatest: boolean
   animateOnMount?: boolean
-  replayCompleted?: boolean
   onTypingChange?: () => void
   items: TextSegmentRenderItem[]
   isOverlayPreview: boolean
@@ -76,7 +75,6 @@ const AssistantTextSegmentListComponent = ({
   previewPlaybackInput,
   isLatest,
   animateOnMount = true,
-  replayCompleted = false,
   onTypingChange,
   items,
   isOverlayPreview
@@ -86,7 +84,6 @@ const AssistantTextSegmentListComponent = ({
     message: committedPlaybackInput,
     isLatest,
     playbackEnabled: animateOnMount && !isOverlayPreview,
-    replayCompleted,
     onTypingChange
   })
   const previewTypewriter = useMessageTypewriter({
@@ -94,7 +91,6 @@ const AssistantTextSegmentListComponent = ({
     message: previewPlaybackInput,
     isLatest,
     playbackEnabled: animateOnMount && isOverlayPreview,
-    replayCompleted,
     onTypingChange
   })
 
@@ -134,7 +130,6 @@ export const AssistantTextSegmentList = memo(AssistantTextSegmentListComponent, 
   && prevProps.previewPlaybackInput === nextProps.previewPlaybackInput
   && prevProps.isLatest === nextProps.isLatest
   && prevProps.animateOnMount === nextProps.animateOnMount
-  && prevProps.replayCompleted === nextProps.replayCompleted
   && prevProps.onTypingChange === nextProps.onTypingChange
   && prevProps.isOverlayPreview === nextProps.isOverlayPreview
   && areTextSegmentRenderItemsEqual(prevProps.items, nextProps.items)

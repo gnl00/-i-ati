@@ -13,11 +13,14 @@ presentation only. It does not change agent requests or persisted messages.
 Clean output mounts only one status row while the current turn is submitting,
 streaming or cancelling. Intermediate committed steps and buffered text never
 reveal an answer early. Once terminal lifecycle processing leaves those phases
-(including post-run title/compression work), successful responses start the
-existing token playback. The current Clean run is observed locally, and
-`replayCompleted` bypasses Main's persisted completion flag only for that live
-presentation. History, reduced motion, post-completion mode toggles and partial
-failure/stopped responses remain immediate. Persisted completion is retained.
+(including post-run title/compression work), successful responses mount all
+Markdown and images immediately. `CleanOutputReveal` applies the approved 650ms
+continuous downward opacity mask once for an observed live Clean run. Text data
+and final layout remain stable. User scroll intent, selection, reduced motion,
+or loss of latest position removes the mask immediately. History, post-completion
+mode toggles and failed/stopped responses remain immediate. Clean output disables
+token playback; persisted typewriter completion is retained. The shared transcript
+scroller continues to own anchoring and receives the final content size at mount.
 The existing model header remains; answer operations are hidden while
 buffering. Approval and user-question controls remain in the composer.
 

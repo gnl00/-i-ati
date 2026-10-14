@@ -517,11 +517,14 @@ Only that wrapper uses `will-change: transform`, scoped to the active status row
 reduced motion removes rotation and the layer hint. Label changes preserve the
 wrapper and SVG identity, independently of the text's entry/exit animation.
 
-Successful whole-run termination replaces the status row with answer playback
-through the existing token typewriter and Markdown renderer. A transient replay
-option handles messages already marked `typewriterCompleted` by Main; it does
-not reset persisted completion. Only an observed live Clean run replays, while
-history, post-completion mode toggles and reduced motion display text immediately.
+Successful whole-run termination mounts complete Markdown and images at once,
+then reveals the answer with a continuous top-to-bottom opacity mask over 650ms.
+The soft edge spans 24% of the answer height, with no character playback, blur,
+translation or animated layout. Only an observed live Clean run reveals once;
+history, post-completion toggles, reduced motion and failures appear immediately.
+Wheel/touch scrolling, pointer selection and scroll keys finish the reveal
+immediately. Losing latest position or disabling motion cancels the mask. The
+existing scroller owns anchoring; persisted typewriter completion is unchanged.
 Success leaves no Completed row. Failed/stopped/incomplete
 answers retain their outcome label and any partial text; errors remain actionable.
 Empty results display No response generated; image results remain visible.
