@@ -1,6 +1,6 @@
 # Chat transcript scrolling
 
-Last verified against source: 2026-10-01.
+Last verified against source: 2026-10-14.
 
 ## Ownership
 
@@ -114,17 +114,47 @@ scroll margins keep the result below the overlay. Wheel, touch and scroll-key
 input pass to the provider. User history browsing releases following; the
 `MessageScrollerButton` uses the provider's end state for visibility and recovery.
 
+Manual wheel, touch and scroll-key input immediately cancels the previous
+automatic-scroll grace period. Upward or undirected input releases following;
+downward wheel/key input at the actual bottom retains or restores it even when
+the browser emits no scroll event. An upward scrollbar movement
+also releases following, including movement inside the 80px button threshold.
+Content resize and queued state commits preserve manual browsing. Following
+resumes when the viewport moves downward to the actual bottom (within the
+primitive's 0.5px rounding tolerance), or through Scroll to latest. The 80px
+threshold continues to control button visibility independently of following.
+Downward recovery accepts subpixel movement. While following, a content shrink
+that clamps the viewport to its new bottom keeps following active; an upward
+movement away from that bottom releases it.
+Interrupting an active automatic scroll also stops the browser's in-flight
+smooth scroll at the current position, so its final animation frames cannot
+continue moving a manual reader.
+
 ## Dependency patch and verification
 
 The local `@shadcn/react@0.3.0` pnpm patch registers existing anchors on initial
 content mount. This prevents an equal-size row replacement from being mistaken
-for a new user anchor. The patch references shadcn/ui issue #11128; inspect it
-again on dependency upgrades and remove it when the upstream fix is present.
+for a new user anchor. It also separates the button's edge threshold from
+following recovery and clears automatic-scroll state on native input, preventing
+small upward scrolls from being pulled back to the bottom on resize. The anchor
+patch references shadcn/ui issue #11128. Recheck both fixes on dependency upgrades
+and remove each when its upstream fix is present.
+
+[Manual-scroll regression tests](../../src/renderer/src/features/chat/shell/__tests__/MessageScroller.scroll-intent.test.tsx)
+exercise the installed, patched primitive with wheel, keyboard, touch and
+scrollbar input; queued state commits; content growth and shrink; subpixel
+downward recovery; and interruption immediately after Scroll to latest. Run them with:
+
+```sh
+pnpm exec vitest run src/renderer/src/features/chat/shell/__tests__/MessageScroller.scroll-intent.test.tsx
+```
 
 [ChatWindow integration tests](../../src/renderer/src/features/chat/shell/__tests__/ChatWindow.message-scroller.test.tsx)
 and the transcript tests protect provider parameters, row identity and hint
 behavior. Previous automated results remain in the
 [implementation archive](../archive/2026/chat/2026-09-29-message-scroller-integration.md).
-They are historical results. Light/Dark, long-history, streaming and nested-scroll
-checks remain in [Electron acceptance](../work/plans/chat/message-scroller-integration-implementation.md);
-this documentation cleanup did not execute them.
+They are historical results. The 2026-10-14 fix also checks the production shared
+wrapper in isolated Electron windows with native macOS bounce, Light/Dark and
+wide/compact sizes. Physical input in the original conversation, long-history,
+live streaming and nested-scroll acceptance remain in
+[Electron acceptance](../work/plans/chat/message-scroller-integration-implementation.md).

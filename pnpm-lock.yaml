@@ -8,7 +8,7 @@ overrides:
   '@electron/rebuild>node-abi': ^4.35.0
 
 patchedDependencies:
-  '@shadcn/react@0.3.0': 3725d79ec9f73ab32983b7e24407aceafff32f9d2e5bf9957badc45660972b21
+  '@shadcn/react@0.3.0': 44ae6ce71a6dc2f3ed61dbf07290c04e4289a6badc8158854696cef12ac02d80
 
 importers:
 
@@ -85,7 +85,7 @@ importers:
         version: 10.0.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@shadcn/react':
         specifier: 0.3.0
-        version: 0.3.0(patch_hash=3725d79ec9f73ab32983b7e24407aceafff32f9d2e5bf9957badc45660972b21)(@types/react@19.2.9)(react@19.2.3)
+        version: 0.3.0(patch_hash=44ae6ce71a6dc2f3ed61dbf07290c04e4289a6badc8158854696cef12ac02d80)(@types/react@19.2.9)(react@19.2.3)
       '@speed-highlight/core':
         specifier: ^1.2.12
         version: 1.2.14
@@ -8081,7 +8081,7 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.46.2':
     optional: true
 
-  '@shadcn/react@0.3.0(patch_hash=3725d79ec9f73ab32983b7e24407aceafff32f9d2e5bf9957badc45660972b21)(@types/react@19.2.9)(react@19.2.3)':
+  '@shadcn/react@0.3.0(patch_hash=44ae6ce71a6dc2f3ed61dbf07290c04e4289a6badc8158854696cef12ac02d80)(@types/react@19.2.9)(react@19.2.3)':
     optionalDependencies:
       '@types/react': 19.2.9
       react: 19.2.3
