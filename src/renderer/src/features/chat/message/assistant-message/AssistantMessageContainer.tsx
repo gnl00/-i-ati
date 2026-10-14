@@ -2,6 +2,8 @@ import React, { memo, useCallback, useLayoutEffect, useMemo, useRef } from 'reac
 import { toast } from 'sonner'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
+import { useToolConfirmationStore } from '@renderer/features/chat/state/toolConfirmationStore'
+import { useToolUserQuestionStore } from '@renderer/features/chat/state/toolUserQuestionStore'
 import { ChatForkInProgressError } from '@renderer/features/chat/state/chatCoordinatorStore'
 import useChatRun from '@renderer/features/chat/runtime/useChatRun'
 import { useAppConfigStore } from '@renderer/infrastructure/config/appConfig'
@@ -21,6 +23,7 @@ import {
 import { buildAssistantMessageFooterState } from './model/assistantMessageFooterState'
 import { buildAssistantMessageShellState } from './model/assistantMessageShellState'
 import { buildAssistantMessageTextPlaybackModel } from './model/assistantMessageTextPlayback'
+import { projectCleanOutputStatus } from './model/cleanOutput'
 import {
   buildAssistantMessageBodyModel,
   buildAssistantMessageFooterModel,
@@ -71,6 +74,10 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
   const forkCurrentChatFromMessage = useChatStore(state => state.forkCurrentChatFromMessage)
   const providerDefinitions = useAppConfigStore(state => state.providerDefinitions)
   const accounts = useAppConfigStore(state => state.accounts)
+  const cleanOutput = useAppConfigStore(state => state.appConfig?.cleanOutput === true)
+  const currentChatUuid = useChatStore(state => state.currentChatUuid)
+  const waitingForApproval = useToolConfirmationStore(state => state.pendingRequests.some(request => request.chatUuid === currentChatUuid))
+  const waitingForAnswer = useToolUserQuestionStore(state => state.pendingRequests.some(request => request.chatUuid === currentChatUuid))
   const { onSubmit: handleChatSubmit } = useChatRun()
   const isForkingRef = useRef(false)
   const projectionCacheRef = useRef<AssistantMessageProjectionCache | undefined>(undefined)
@@ -168,10 +175,6 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
     isLatest,
     isAssistantResponseActive
   ])
-
-  if (!shellState.shouldRender) {
-    return null
-  }
 
   const footerState = useMemo(() => buildAssistantMessageFooterState({
     committedMessage: displayCommittedMessage,
@@ -292,6 +295,10 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
       transcriptProjection: renderState.transcript,
       textPlayback
     }),
+    cleanOutput,
+    cleanOutputActive: isLatest && isCurrentTurnResponse && ['submitting', 'streaming', 'cancelling'].includes(runPhase),
+    cleanOutputStatus: projectCleanOutputStatus(renderState.transcript,
+      runPhase === 'cancelling' ? 'cancelling' : waitingForApproval ? 'approval' : waitingForAnswer ? 'question' : undefined),
     workStatus: isLatest && isCurrentTurnResponse && ['submitting', 'streaming', 'cancelling'].includes(runPhase)
       ? 'running' as const
       : displayCommittedMessage.workStatus === 'running' ? 'incomplete' as const : displayCommittedMessage.workStatus,
@@ -304,6 +311,9 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
     onTypingChange,
     renderState.transcript,
     textPlayback,
+    cleanOutput,
+    waitingForApproval,
+    waitingForAnswer,
     isCurrentTurnResponse,
     runPhase,
     displayCommittedMessage.workStatus,
@@ -331,12 +341,16 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
     handleEdit
   ])
 
+  if (!shellState.shouldRender && !(cleanOutput && committedMessage)) {
+    return null
+  }
+
   return (
     <AssistantMessageLayout
       shell={shellModel}
       header={headerModel}
       body={bodyModel}
-      footer={footerModel}
+      footer={cleanOutput && bodyModel.cleanOutputActive ? { ...footerModel, showOperations: false } : footerModel}
     />
   )
 })

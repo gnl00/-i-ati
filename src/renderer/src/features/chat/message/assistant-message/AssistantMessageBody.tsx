@@ -1,13 +1,20 @@
 import { parseImageShowResult, isImageDisplayTool } from '@shared/tools/image/types'
 import { ImageShowResult } from './image/ImageShowResult'
-import React, { memo } from 'react'
+import React, { memo, useRef } from 'react'
+import { useReducedMotion } from 'framer-motion'
 import { AssistantTextSegmentList } from './renderers/AssistantTextSegmentList'
 import { AssistantCompletedWorkGroup } from './renderers/AssistantCompletedWorkGroup'
 import { AssistantSupportSegmentList } from './renderers/AssistantSupportSegmentList'
 import type { AssistantMessageTranscriptProjection } from './model/assistantMessageMapper'
 import type { AssistantMessageTextPlaybackModel } from './model/assistantMessageTextPlayback'
+import { projectCleanOutputContent } from './model/cleanOutput'
+import { CleanOutputStatus } from './renderers/CleanOutputStatus'
+import { ErrorMessage } from '../error-message'
 
 export interface AssistantMessageBodyModel {
+  cleanOutput?: boolean
+  cleanOutputActive?: boolean
+  cleanOutputStatus?: string
   workStatus?: ChatMessage['workStatus']
   workStartedAt?: number
   workEndedAt?: number
@@ -33,6 +40,10 @@ export const AssistantMessageBody: React.FC<AssistantMessageBodyProps> = memo(({
     transcript,
     textPlayback
   } = model
+  const observedCleanRun = useRef(false)
+  const reducedMotion = useReducedMotion()
+  if (!model.cleanOutput) observedCleanRun.current = false
+  else if (model.cleanOutputActive) observedCleanRun.current = true
 
   const hasError = transcript.supportItems.some(item => item.segment.type === 'error')
   const hasPendingTool = transcript.supportItems.some(item => item.segment.type === 'toolCall'
@@ -43,6 +54,41 @@ export const AssistantMessageBody: React.FC<AssistantMessageBodyProps> = memo(({
   if (hasError) status = 'failed'
   else if (status === 'completed' && (hasPendingTool || (!hasShownImage && !transcript.textItems.some(item => item.segment.content.trim())))) {
     status = 'incomplete'
+  }
+
+  if (model.cleanOutput) {
+    if (model.cleanOutputActive) {
+      return <CleanOutputStatus label={model.cleanOutputStatus ?? 'Working…'} />
+    }
+    const content = projectCleanOutputContent(transcript)
+    const replayCompleted = observedCleanRun.current && status === 'completed'
+      && isLatest && model.animateOnMount !== false && !reducedMotion
+    return (
+      <div className="flex min-w-0 flex-col" data-testid="clean-output-content">
+        {['failed', 'aborted', 'incomplete'].includes(status) && (
+          <p className="px-2 text-xs text-(--chat-text-secondary)">
+            {status === 'failed' ? 'Failed' : status === 'aborted' ? 'Stopped' : 'Incomplete response'}
+          </p>
+        )}
+        <AssistantTextSegmentList
+          index={index}
+          committedPlaybackInput={textPlayback.committed}
+          previewPlaybackInput={textPlayback.preview}
+          isLatest={isLatest}
+          animateOnMount={replayCompleted}
+          replayCompleted={replayCompleted}
+          onTypingChange={onTypingChange}
+          items={content.textItems}
+          isOverlayPreview={transcript.isOverlayPreview}
+        />
+        {content.imageItems.map(item => <ImageShowResult key={item.key} toolCall={item.segment as ToolCallSegment} />)}
+        {content.errorItems.map(item => item.segment.type === 'error'
+          ? <ErrorMessage key={item.key} error={item.segment.error} /> : null)}
+        {!content.hasVisibleContent && (
+          <p className="px-2 text-sm text-(--chat-text-secondary)">No response generated</p>
+        )}
+      </div>
+    )
   }
 
   return (

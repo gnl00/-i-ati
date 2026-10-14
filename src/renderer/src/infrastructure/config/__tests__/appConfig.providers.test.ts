@@ -351,3 +351,21 @@ describe('image generation model routing', () => {
     await vi.waitFor(() => expect(invokeDbConfigSaveMock.mock.calls.at(-1)?.[0].tools?.imageGenModel).toBeUndefined())
   })
 })
+
+describe('clean output preference', () => {
+  it('persists and reloads presentation mode without changing model routes', async () => {
+    const { useAppConfigStore } = await import('../appConfig')
+    const ref = { accountId: 'account', modelId: 'model' }
+    useAppConfigStore.setState({ appConfig: { tools: { mainModel: ref } }, accounts: [], providerDefinitions: [] })
+    await useAppConfigStore.getState().setAppConfig({
+      ...useAppConfigStore.getState().getAppConfig(), cleanOutput: true
+    })
+    const saved = invokeDbConfigSaveMock.mock.calls.at(-1)?.[0] as IAppConfig
+    expect(saved.cleanOutput).toBe(true)
+    expect(saved.tools?.mainModel).toEqual(ref)
+    useAppConfigStore.getState()._setAppConfig(saved)
+    expect(useAppConfigStore.getState().appConfig.cleanOutput).toBe(true)
+    useAppConfigStore.getState()._setAppConfig({ tools: {} })
+    expect(useAppConfigStore.getState().appConfig.cleanOutput).toBeUndefined()
+  })
+})

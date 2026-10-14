@@ -471,3 +471,56 @@ Hovering the new-chat button rotates its icon 90 degrees and scales it to 110%
 over 300ms ease-out, matching ChatInput; reduced motion disables the transform.
 Custom groups create and select a chat bound to that workspace, while Recently
 starts a chat in the default temporary workspace.
+
+## Clean output
+
+ChatInput's bottom toolbar places an icon-only Clean output toggle immediately
+after Approval. It uses the existing 32px control geometry, Chat semantic colors,
+an explicit pressed state, keyboard focus ring and English tooltip/accessibility
+label. Its AlignLeft icon is 16px with a 2px stroke; the shared action-button
+geometry and variant-specific neutral surfaces match adjacent Chat and Welcome
+controls. Hover updates background, border and icon color over 150ms; press scales
+to 95%, with immediate color updates and no scaling under reduced motion. Enabled
+mode follows the custom Workspace control treatment: a thin colored border,
+subtle tinted surface and colored icon. Clean output uses emerald green to stay
+distinct from Workspace blue, with pale green in Light and a restrained deep
+green tint in Dark. Hover strengthens the border and tint; no selected outline
+is added, preserving the existing geometry and separate keyboard focus ring. Saving keeps the button geometry and blocks
+repeat clicks; failures retain the prior mode. Tooltip reads `Clean output: On`
+or `Clean output: Off` and uses the neighboring tooltip material and 350ms delay.
+The application preference `cleanOutput` defaults to false when absent.
+
+During an active assistant run, Clean output displays one fixed-height status row
+in place of the message body. Text, reasoning, tool details and images remain in
+the message data without mounting their presentation. Updates replace the same
+row: working, thinking, preparing/running tools, writing, waiting for approval or
+an answer, and stopping. Reasoning previews wait for the complete second sentence
+and then display it on one line; further sentences do not change that preview.
+While the second sentence is incomplete, the row reads `Thinking…`. Ended reasoning
+uses its second sentence, or its first when only one exists; empty ended reasoning
+falls back to `Working…`. Sentence boundaries use native Intl segmentation for
+English and Chinese; streaming candidates require terminal punctuation. Tool,
+approval, question and cancellation states take priority. Active tools use their existing `tool_call_reason` as
+the status text, with whitespace flattened into one line. Parallel calls show
+the active tool count first, followed by the latest available active reason
+(`Running 2 tools Check build scripts`), without a trailing dot/count; missing reasons
+fall back to the generic operation label. Model headers
+remain; answer operations appear only after completion. Approval/question controls
+remain available in the composer.
+
+Status text swaps use a 150ms opacity/blur transition with 4px vertical movement
+and 2px blur, inspired by Transitions.dev Text states swap. Rapid updates sample
+the latest target once per transition; waiting/stopping update immediately.
+Reduced motion replaces the text immediately and disables spinner movement.
+
+Successful whole-run termination replaces the status row with answer playback
+through the existing token typewriter and Markdown renderer. A transient replay
+option handles messages already marked `typewriterCompleted` by Main; it does
+not reset persisted completion. Only an observed live Clean run replays, while
+history, post-completion mode toggles and reduced motion display text immediately.
+Success leaves no Completed row. Failed/stopped/incomplete
+answers retain their outcome label and any partial text; errors remain actionable.
+Empty results display No response generated; image results remain visible.
+`projectCleanOutputContent()` owns answer selection and currently retains all
+visible nonblank text in order, rather than guessing commentary versus final text.
+Switching back to detailed output restores the existing work group presentation.

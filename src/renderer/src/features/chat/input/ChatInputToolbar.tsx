@@ -2,6 +2,7 @@ import { cn } from '@renderer/shared/lib/utils'
 import { ChatToolbarModelSelector } from '@renderer/shared/components/model-selector'
 import { Button } from '@renderer/shared/components/ui/button'
 import PermissionApprovalModeSelector from './toolbar/PermissionApprovalModeSelector'
+import { CleanOutputToggle } from './toolbar/CleanOutputToggle'
 import {
   Tooltip,
   TooltipContent,
@@ -130,6 +131,7 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
               variant="baseline"
             />
           </div>
+          <CleanOutputToggle variant="baseline" onInteractionStart={onBaselineInteractionStart} />
         </div>
 
       </div>
@@ -193,6 +195,8 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
           variant="surface"
         />
 
+        <CleanOutputToggle variant={variant} />
+
       </div>
     )
   }
@@ -222,6 +226,8 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
         onChange={setPermissionApprovalMode}
         variant="default"
       />
+
+      <CleanOutputToggle variant={variant} />
 
       {/* Config Panel */}
       <div id="customPanel" className='grow w-full bg-transparent'>

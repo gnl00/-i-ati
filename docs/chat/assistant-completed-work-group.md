@@ -1,8 +1,45 @@
 # Assistant whole-turn work group
 
-Updated: 2026-10-08.
+Updated: 2026-10-14.
 
 ## Presentation contract
+
+The contract below describes detailed output. Desktop Chat also supports Clean
+output through the icon-only toggle immediately to the right of Approval in the
+composer toolbar. Optional application config `cleanOutput` is persisted through
+the existing config repository, defaults to false, and applies to current/history
+presentation only. It does not change agent requests or persisted messages.
+
+Clean output mounts only one status row while the current turn is submitting,
+streaming or cancelling. Intermediate committed steps and buffered text never
+reveal an answer early. Once terminal lifecycle processing leaves those phases
+(including post-run title/compression work), successful responses start the
+existing token playback. The current Clean run is observed locally, and
+`replayCompleted` bypasses Main's persisted completion flag only for that live
+presentation. History, reduced motion, post-completion mode toggles and partial
+failure/stopped responses remain immediate. Persisted completion is retained.
+The existing model header remains; answer operations are hidden while
+buffering. Approval and user-question controls remain in the composer.
+
+`projectCleanOutputContent()` in the assistant message model owns the independent
+answer-selection boundary: initially it keeps visible nonblank text, user image
+tools and errors. `projectCleanOutputStatus()` derives semantic progress from
+ordered segments, active tool counts and pending interactions. It reuses
+`getReasonFromToolCall()` to display the latest active `tool_call_reason`, including
+partial streamed JSON args; parallel calls keep their count. Generic labels are
+fallbacks. Reasoning contributes a single-line second-sentence preview only after
+that sentence is complete while streaming. Until then the row shows `Thinking…`.
+Ended reasoning falls back to its first sentence when no second exists, or
+`Working…` when empty. Native Intl sentence segmentation handles sentence boundaries;
+further sentences leave the preview stable. Tool and interaction statuses take
+priority. Full reasoning, other tool arguments and tool output stay out of the
+status label. Failed, stopped and
+incomplete runs retain partial text and their outcome; empty results get an
+explicit fallback. Switching mode is reversible without data migration.
+
+The status row coalesces rapid updates into the latest 150ms target, with immediate
+waiting/stopping feedback, reduced-motion support and an atomic accessible status.
+See [Design](../../DESIGN.md) for the visual contract and reference motion.
 
 A single assistant message owns one stable work disclosure from its first visible
 support segment. Reasoning, tools and errors remain in transcript order

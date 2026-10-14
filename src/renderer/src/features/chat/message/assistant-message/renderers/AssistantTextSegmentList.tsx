@@ -56,31 +56,37 @@ const AssistantTextSegmentItem = memo(({
   && prevProps.isTyping === nextProps.isTyping
   && prevProps.animateOnMount === nextProps.animateOnMount
 ))
+AssistantTextSegmentItem.displayName = 'AssistantTextSegmentItem'
 
-export const AssistantTextSegmentList = memo(({
-  index,
-  committedPlaybackInput,
-  previewPlaybackInput,
-  isLatest,
-  animateOnMount = true,
-  onTypingChange,
-  items,
-  isOverlayPreview
-}: {
+interface AssistantTextSegmentListProps {
   index: number
   committedPlaybackInput: AssistantMessageTextPlaybackInput
   previewPlaybackInput: AssistantMessageTextPlaybackInput
   isLatest: boolean
   animateOnMount?: boolean
+  replayCompleted?: boolean
   onTypingChange?: () => void
   items: TextSegmentRenderItem[]
   isOverlayPreview: boolean
-}) => {
+}
+
+const AssistantTextSegmentListComponent = ({
+  index,
+  committedPlaybackInput,
+  previewPlaybackInput,
+  isLatest,
+  animateOnMount = true,
+  replayCompleted = false,
+  onTypingChange,
+  items,
+  isOverlayPreview
+}: AssistantTextSegmentListProps): React.ReactNode => {
   const committedTypewriter = useMessageTypewriter({
     index,
     message: committedPlaybackInput,
     isLatest,
     playbackEnabled: animateOnMount && !isOverlayPreview,
+    replayCompleted,
     onTypingChange
   })
   const previewTypewriter = useMessageTypewriter({
@@ -88,6 +94,7 @@ export const AssistantTextSegmentList = memo(({
     message: previewPlaybackInput,
     isLatest,
     playbackEnabled: animateOnMount && isOverlayPreview,
+    replayCompleted,
     onTypingChange
   })
 
@@ -119,13 +126,17 @@ export const AssistantTextSegmentList = memo(({
       </div>
     )
   })
-}, (prevProps, nextProps) => (
+}
+
+export const AssistantTextSegmentList = memo(AssistantTextSegmentListComponent, (prevProps, nextProps) => (
   prevProps.index === nextProps.index
   && prevProps.committedPlaybackInput === nextProps.committedPlaybackInput
   && prevProps.previewPlaybackInput === nextProps.previewPlaybackInput
   && prevProps.isLatest === nextProps.isLatest
   && prevProps.animateOnMount === nextProps.animateOnMount
+  && prevProps.replayCompleted === nextProps.replayCompleted
   && prevProps.onTypingChange === nextProps.onTypingChange
   && prevProps.isOverlayPreview === nextProps.isOverlayPreview
   && areTextSegmentRenderItemsEqual(prevProps.items, nextProps.items)
 ))
+AssistantTextSegmentList.displayName = 'AssistantTextSegmentList'

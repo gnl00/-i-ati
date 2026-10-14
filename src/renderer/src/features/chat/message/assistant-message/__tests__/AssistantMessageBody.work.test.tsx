@@ -7,8 +7,8 @@ import { mapAssistantMessage } from '../model/assistantMessageMapper'
 import { buildAssistantMessageTextPlaybackModel } from '../model/assistantMessageTextPlayback'
 
 vi.mock('../renderers/AssistantTextSegmentList', () => ({
-  AssistantTextSegmentList: ({ items }: { items: { segment: TextSegment }[] }): ReactElement => (
-    <div data-testid="answer">{items.map(item => item.segment.content).join('')}</div>
+  AssistantTextSegmentList: ({ items, animateOnMount }: { items: { segment: TextSegment }[], animateOnMount?: boolean }): ReactElement => (
+    <div data-testid="answer" data-playback={String(animateOnMount)}>{items.map(item => item.segment.content).join('')}</div>
   )
 }))
 vi.mock('../renderers/AssistantSupportSegmentList', () => ({
@@ -28,7 +28,7 @@ describe('whole-turn work presentation', () => {
     await act(async () => root.unmount())
     container.remove()
   })
-  const render = async (status: ChatMessage['workStatus'], toolStatus = 'completed', error = false, trailingSupport = false, closingText = true): Promise<void> => {
+  const render = async (status: ChatMessage['workStatus'], toolStatus = 'completed', error = false, trailingSupport = false, closingText = true, cleanOutput = false): Promise<void> => {
     const message: ChatMessage = {
       role: 'assistant', content: 'Result', segments: [
         { type: 'text', segmentId: 'intro', content: 'Let me check.', timestamp: 1 },
@@ -47,9 +47,35 @@ describe('whole-turn work presentation', () => {
     const { transcript } = mapAssistantMessage(source, { isLatest: true, isStreaming: status === 'running', accounts: [], providerDefinitions: [] })
     await act(async () => root.render(<AssistantMessageBody model={{
       index: 0, isLatest: true, animateOnMount: false, workStatus: status, transcript,
+      cleanOutput, cleanOutputActive: status === 'running', cleanOutputStatus: 'Reading project files…',
       textPlayback: buildAssistantMessageTextPlaybackModel(source, transcript.textItems)
     }} />))
   }
+
+  it('buffers all text until whole-run completion in clean output and supports live toggling', async () => {
+    await render('running', 'running', false, false, true, true)
+    expect(container.querySelector('[role="status"]')?.getAttribute('aria-label')).toBe('Reading project files…')
+    expect(container.textContent).not.toContain('Result')
+    expect(container.textContent).not.toContain('Check source.')
+    expect(container.querySelector('[data-testid="assistant-completed-work-group"]')).toBeNull()
+    await render('running', 'completed', false, true, true, true)
+    expect(container.querySelector('[data-testid="answer"]')).toBeNull()
+    await render('running', 'completed', false, true, true, false)
+    expect(container.querySelector('[data-testid="answer"]')?.textContent).toContain('Result')
+    await render('running', 'completed', false, true, true, true)
+    expect(container.querySelector('[data-testid="answer"]')).toBeNull()
+    await render('completed', 'completed', false, true, true, true)
+    expect(container.querySelector('[role="status"]')).toBeNull()
+    expect(container.querySelector('[data-testid="answer"]')?.textContent).toBe('Let me check.ResultClosing note.')
+    expect(container.querySelector('[data-testid="answer"]')?.getAttribute('data-playback')).toBe('false')
+    expect(container.textContent).not.toContain('Tool and reasoning details')
+  })
+
+  it.each(['failed', 'aborted', 'incomplete'] as const)('reveals partial text after %s in clean output', async status => {
+    await render(status, 'completed', false, false, true, true)
+    expect(container.querySelector('[data-testid="answer"]')?.textContent).toContain('Result')
+    expect(container.textContent).toContain(status === 'aborted' ? 'Stopped' : status === 'failed' ? 'Failed' : 'Incomplete response')
+  })
 
   it('keeps all text outside one stable work group through completion', async () => {
     await render('running')

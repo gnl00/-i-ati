@@ -221,9 +221,59 @@ beforeEach(() => {
       pendingRequests: []
     })
     useAppConfigStore.setState({
+      appConfig: { cleanOutput: false },
       providerDefinitions: [],
       accounts: []
     })
+  })
+
+  it('keeps committed intermediate answers hidden until the run ends in clean output', async () => {
+    useAppConfigStore.setState({ appConfig: { cleanOutput: true } })
+    const message = { ...createAssistantMessage([textSegment('answer', 'Buffered answer')], 'Buffered answer'), typewriterCompleted: true, workStatus: 'completed' as const }
+    await act(async () => root.render(<AssistantMessage
+      index={0} committedMessage={message} isLatest isHovered={false}
+      onHover={() => {}} onCopyClick={() => {}}
+    />))
+    expect(container.querySelector('[role="status"]')).not.toBeNull()
+    expect(container.textContent).not.toContain('Buffered answer')
+    expect(branchOperationCapture.props?.showBranch).toBeUndefined()
+    await act(async () => useChatStore.setState({ runPhase: 'post_run' }))
+    expect(container.querySelector('[role="status"]')).toBeNull()
+    await vi.waitFor(async () => {
+      await act(async () => { await new Promise(resolve => window.setTimeout(resolve, 50)) })
+      expect(container.textContent).toContain('Buffered answer')
+    })
+  })
+
+  it('shows an explicit empty result in clean history', async () => {
+    useChatStore.setState({ runPhase: 'idle' })
+    await act(async () => root.render(<AssistantMessage
+      index={0} committedMessage={createAssistantMessage([], '')} isLatest={false} isHovered={false}
+      onHover={() => {}} onCopyClick={() => {}}
+    />))
+    expect(container.textContent).toBe('')
+    await act(async () => useAppConfigStore.setState({ appConfig: { cleanOutput: true } }))
+    expect(container.textContent).toContain('No response generated')
+    await act(async () => useAppConfigStore.setState({ appConfig: { cleanOutput: false } }))
+    expect(container.textContent).toBe('')
+  })
+
+  it('scopes approval status to the current conversation while keeping the answer buffered', async () => {
+    useAppConfigStore.setState({ appConfig: { cleanOutput: true } })
+    useChatStore.setState({ currentChatUuid: 'current' })
+    const confirmation = {
+      confirmationId: 'confirm', submissionId: 'run', chatUuid: 'other', toolCallId: 'tool',
+      name: 'command', createdAt: 1, expiresAt: 10000, status: 'pending' as const, version: 1
+    }
+    useToolConfirmationStore.setState({ pendingRequests: [confirmation] })
+    await act(async () => root.render(<AssistantMessage
+      index={0} committedMessage={createAssistantMessage([], '')} isLatest isHovered={false}
+      onHover={() => {}} onCopyClick={() => {}}
+    />))
+    expect(container.querySelector('[role="status"]')?.getAttribute('aria-label')).toBe('Working…')
+    await act(async () => useToolConfirmationStore.setState({ pendingRequests: [{ ...confirmation, chatUuid: 'current' }] }))
+    expect(container.querySelector('[role="status"]')?.getAttribute('aria-label')).toBe('Waiting for approval')
+    expect(container.querySelector('[data-testid="clean-output-content"]')).toBeNull()
   })
 
   afterEach(async () => {

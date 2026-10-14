@@ -74,6 +74,8 @@ declare interface McpServerConfig {
 }
 
 declare interface IAppConfig {
+  /** Renderer presentation preference; absent means detailed output. */
+  cleanOutput?: boolean
   defaultPermissionApprovalMode?: PermissionApprovalMode
   providerDefinitions?: ProviderDefinition[]
   accounts?: ProviderAccount[]
