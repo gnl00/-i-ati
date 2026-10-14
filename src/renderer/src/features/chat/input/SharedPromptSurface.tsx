@@ -37,6 +37,73 @@ interface SharedPromptSurfaceProps {
   onDrop?: (event: React.DragEvent<HTMLTextAreaElement>) => void
 }
 
+// CSS drives the orbit; React only updates geometry when the composer resizes.
+function PromptProgress({ active }: { active: boolean }): React.JSX.Element {
+  const svgRef = React.useRef<SVGSVGElement>(null)
+  const [geometry, setGeometry] = React.useState({ width: 0, height: 0, radius: 0 })
+
+  React.useLayoutEffect(() => {
+    const surface = svgRef.current?.parentElement
+    if (!surface) return
+
+    const measure = (): void => {
+      const width = surface.clientWidth
+      const height = surface.clientHeight
+      const radius = Math.max(0, Math.min(
+        parseFloat(getComputedStyle(surface).borderTopLeftRadius) - 1 || 0,
+        (width - 2) / 2,
+        (height - 2) / 2
+      ))
+      setGeometry(previous => previous.width === width && previous.height === height && previous.radius === radius
+        ? previous
+        : { width, height, radius })
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(surface)
+    // Also pick up the final radius after Welcome's expansion transition.
+    surface.addEventListener('transitionend', measure)
+    return (): void => {
+      observer.disconnect()
+      surface.removeEventListener('transitionend', measure)
+    }
+  }, [])
+
+  const { width, height, radius } = geometry
+  const perimeter = 2 * (width + height - 4) + (2 * Math.PI - 8) * radius
+  const segmentLength = 120 / 48
+  return (
+    <svg
+      ref={svgRef}
+      className="shared-prompt-progress"
+      data-active={active}
+      aria-hidden="true"
+      style={{
+        '--prompt-orbit-length': `${perimeter}px`,
+        '--prompt-orbit-duration': `${perimeter / 270}s`
+      } as React.CSSProperties}
+    >
+      {width > 2 && height > 2 && Array.from({ length: 48 }, (_, index) => (
+        <rect
+          key={index}
+          className="shared-prompt-comet-segment"
+          x="1"
+          y="1"
+          width={width - 2}
+          height={height - 2}
+          rx={radius}
+          fill="none"
+          strokeDasharray={`${segmentLength + 0.4} ${perimeter - segmentLength - 0.4}`}
+          style={{
+            '--prompt-orbit-offset': `${index * segmentLength}px`,
+            opacity: Math.pow(1 - index / 48, 1.7) * 0.95
+          } as React.CSSProperties}
+        />
+      ))}
+    </svg>
+  )
+}
+
 const SharedPromptSurface = React.forwardRef<HTMLTextAreaElement, SharedPromptSurfaceProps>(({
   value,
   onChange,
@@ -70,6 +137,28 @@ const SharedPromptSurface = React.forwardRef<HTMLTextAreaElement, SharedPromptSu
 }, ref) => {
   const runPhase = useChatStore(state => state.runPhase)
   const isAIThinking = runPhase === 'submitting' || runPhase === 'streaming'
+  const [progressVisible, setProgressVisible] = React.useState(isAIThinking)
+
+  React.useEffect(() => {
+    if (isAIThinking) {
+      setProgressVisible(true)
+      return
+    }
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
+    if (reducedMotion.matches) {
+      setProgressVisible(false)
+      return
+    }
+    const timeout = window.setTimeout(() => setProgressVisible(false), 180)
+    const onMotionChange = (): void => {
+      if (reducedMotion.matches) setProgressVisible(false)
+    }
+    reducedMotion.addEventListener('change', onMotionChange)
+    return (): void => {
+      window.clearTimeout(timeout)
+      reducedMotion.removeEventListener('change', onMotionChange)
+    }
+  }, [isAIThinking])
 
   return (
     <div
@@ -84,14 +173,7 @@ const SharedPromptSurface = React.forwardRef<HTMLTextAreaElement, SharedPromptSu
         className
       )}
     >
-      {isAIThinking && (
-        <div
-          className="shared-prompt-progress absolute left-0 right-0 top-0 h-[2px] overflow-hidden opacity-0 transition-[opacity,transform] duration-150 data-[active=true]:opacity-100"
-          data-active={isAIThinking}
-        >
-          <div className="shuttle-bar" />
-        </div>
-      )}
+      {(isAIThinking || progressVisible) && <PromptProgress active={isAIThinking} />}
 
       <div className="shared-prompt-top-accessory min-w-0 overflow-hidden">
         {topAccessory}
