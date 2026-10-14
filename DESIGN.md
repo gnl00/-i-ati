@@ -512,6 +512,10 @@ Status text swaps use a 150ms opacity/blur transition with 4px vertical movement
 and 2px blur, inspired by Transitions.dev Text states swap. Rapid updates sample
 the latest target once per transition; waiting/stopping update immediately.
 Reduced motion replaces the text immediately and disables spinner movement.
+The 14px spinner rotates a fixed-size HTML wrapper while its SVG remains static.
+Only that wrapper uses `will-change: transform`, scoped to the active status row;
+reduced motion removes rotation and the layer hint. Label changes preserve the
+wrapper and SVG identity, independently of the text's entry/exit animation.
 
 Successful whole-run termination replaces the status row with answer playback
 through the existing token typewriter and Markdown renderer. A transient replay

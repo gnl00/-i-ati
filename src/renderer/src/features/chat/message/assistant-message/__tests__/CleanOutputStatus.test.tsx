@@ -32,6 +32,8 @@ describe('clean status updates', () => {
   it('coalesces rapid updates to the latest status and immediately exposes waiting/stopping', async () => {
     await render('Thinking…')
     const status = container.querySelector('[role="status"]')!
+    const spinner = status.querySelector('.animate-spin')!
+    const icon = spinner.querySelector('svg')!
     await render('Preparing read_file…')
     await render('Running read_file…')
     expect(status.getAttribute('aria-label')).toBe('Thinking…')
@@ -42,11 +44,17 @@ describe('clean status updates', () => {
     await render('Stopping…')
     expect(status.getAttribute('aria-label')).toBe('Stopping…')
     expect(container.querySelectorAll('[role="status"]')).toHaveLength(1)
+    expect(status.querySelector('.animate-spin')).toBe(spinner)
+    expect(spinner.tagName).toBe('SPAN')
+    expect(spinner.querySelector('svg')).toBe(icon)
+    expect(icon.classList.contains('animate-spin')).toBe(false)
   })
   it('replaces status immediately with reduced motion', async () => {
     motionPreference.reduced = true
     await render('Thinking…')
     await render('Writing response…')
     expect(container.querySelector('[role="status"]')?.getAttribute('aria-label')).toBe('Writing response…')
+    expect(container.querySelector('.animate-spin')).toBeNull()
+    expect(container.querySelector('svg')).not.toBeNull()
   })
 })

@@ -21,7 +21,14 @@ export function CleanOutputStatus({ label }: { label: string }): React.ReactElem
   }, [urgent, reducedMotion])
   return (
     <div role="status" aria-live="polite" aria-atomic="true" aria-label={displayLabel} className="my-1.5 flex h-7 min-w-0 items-center gap-2 overflow-hidden px-2 text-xs text-(--chat-text-secondary)">
-      <LoaderCircle aria-hidden="true" className="h-3.5 w-3.5 shrink-0 animate-spin motion-reduce:animate-none" />
+      <span
+        aria-hidden="true"
+        className={'inline-flex h-3.5 w-3.5 shrink-0' + (reducedMotion
+          ? ''
+          : ' animate-spin will-change-transform motion-reduce:animate-none motion-reduce:will-change-auto')}
+      >
+        <LoaderCircle className="h-full w-full" />
+      </span>
       <span aria-hidden="true" className="relative min-w-0 flex-1">
         <AnimatePresence initial={false} mode="popLayout">
           <motion.span
