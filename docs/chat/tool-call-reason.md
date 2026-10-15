@@ -37,6 +37,12 @@ The renderer reads tool-call reasons at the tool row level:
 - `ToolCallGroup` uses the same `ToolCallTriggerContent` for every row and keeps one inline detail region expanded.
 - Expanding a grouped tool row calls `selectToolCall`, which updates the Tools inspector selection while preserving the current Artifacts panel state.
 - The selected tool reason remains in the inspector header while Parameters contains executable arguments.
+- Clean output's status line reuses `getReasonFromToolCall` for active calls,
+  including pending calls whose reason has just arrived. It flattens whitespace
+  into one line, shows the latest available reason plus a tool count for parallel
+  calls, and uses generic status labels when no valid reason exists. Completed
+  calls no longer supply the active status reason; waiting/stopping remain higher
+  priority.
 
 Streaming updates can add `tool_call_reason` while a tool call remains `pending`. `areToolCallSegmentsEqual` compares the extracted reason from the previous and next segments, so memoized tool rows re-render when a streamed args patch adds or changes the reason.
 
