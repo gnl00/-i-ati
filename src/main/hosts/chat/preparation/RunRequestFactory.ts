@@ -30,6 +30,7 @@ const SCHEDULE_EXECUTION_INSTRUCTION = [
 ].join('\n')
 
 export type RunRequestBuildResult = {
+  emotionEnabled: boolean
   requestSpec: AgentRequestSpec
   contextMessages: ChatMessage[]
 }
@@ -55,8 +56,9 @@ export class RunRequestFactory {
   ): Promise<RunRequestBuildResult> {
     const mergedUserInstruction = this.mergeRequestUserInstruction(input)
     const config = this.appConfigStore.requireConfig()
+    const emotionEnabled = config.emotion?.enabled ?? true
     const compressionSummary = this.compressionSummaryResolver.resolve(config, environment.chat.id)
-    const systemPrompts = await this.systemPromptComposer.compose(environment.chat.id)
+    const systemPrompts = await this.systemPromptComposer.compose(environment.chat.id, emotionEnabled)
     const systemEnvironmentContext = this.systemEnvironmentContextProvider.build({
       workspacePath: environment.workspacePath
     })
@@ -66,6 +68,7 @@ export class RunRequestFactory {
         this.userInfoPromptProvider.buildContext(),
         this.knowledgebaseContextProvider.build(expandTextAttachments(input.textCtx, input.textAttachments)),
         this.awakeContextProvider.build({
+          emotionEnabled,
           chat: environment.chat,
           workspacePath: environment.workspacePath,
           currentQuery: expandTextAttachments(input.textCtx, input.textAttachments),
@@ -92,6 +95,7 @@ export class RunRequestFactory {
     })
 
     return {
+      emotionEnabled,
       requestSpec: {
         adapterPluginId: environment.modelContext.providerDefinition.adapterPluginId,
         baseUrl: environment.modelContext.account.apiUrl,
@@ -107,7 +111,10 @@ export class RunRequestFactory {
         ),
         modelType: environment.modelContext.model.type,
         tools: this.toolListBuilder.build(input.tools, {
-          excludedToolNames: isInteractiveMessageSource(input.source) ? [] : ['ask_user_question']
+          excludedToolNames: [
+            ...(isInteractiveMessageSource(input.source) ? [] : ['ask_user_question']),
+            ...(emotionEnabled ? [] : ['emotion_report'])
+          ]
         }),
         options: this.resolveRequestOptions(environment, input.options),
         stream: input.stream,

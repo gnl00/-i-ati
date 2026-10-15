@@ -77,7 +77,8 @@ export class ChatAgentAdapter {
     const updatedAssistantMessage = await this.finalizeService.finalizeAssistantMessage(
       chatContext.chat,
       stepCommitter.getFinalAssistantMessage(),
-      usage
+      usage,
+      chatContext.emotionEnabled
     )
     const finalizedChat = this.finalizeService.finalizeChatEntity(
       chatContext.chat,
@@ -118,7 +119,8 @@ export class ChatAgentAdapter {
     const settledAssistantMessage = await this.finalizeService.settleAbortedAssistantMessage(
       chatContext.chat,
       finalAssistantMessage,
-      chatContext.messageEntities
+      chatContext.messageEntities,
+      chatContext.emotionEnabled
     )
     if (settledAssistantMessage) {
       new ChatEventMapper(emitter).emitMessageCreated(settledAssistantMessage)

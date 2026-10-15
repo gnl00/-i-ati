@@ -41,6 +41,7 @@ export type StepBootstrap = {
 }
 
 export type ChatHostRunContext = {
+  emotionEnabled?: boolean
   chat: ChatEntity
   workspacePath: string
   historyMessages: MessageEntity[]

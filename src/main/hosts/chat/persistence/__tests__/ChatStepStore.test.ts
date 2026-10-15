@@ -78,6 +78,21 @@ describe('ChatStepStore.finalizeAssistantMessage', () => {
     })
   })
 
+  it.each([false, true])('skips emotion state when disabled, aborted=%s', async (aborted) => {
+    const chat = { id: 1, uuid: 'chat-1', messages: [] } as unknown as ChatEntity
+    const message = { id: 102, chatId: 1, chatUuid: 'chat-1', body: { role: 'assistant', content: 'Done', segments: [] } } as unknown as MessageEntity
+    const store = new ChatStepStore()
+    const result = aborted
+      ? await store.settleAbortedAssistantMessage(chat, message, [], false)
+      : await store.finalizeAssistantMessage(chat, message, undefined, false)
+    expect(result?.body.content).toBe('Done')
+    expect(result?.body.emotion).toBeUndefined()
+    expect(updateMessageMock).toHaveBeenCalled()
+    expect(getEmotionStateMock).not.toHaveBeenCalled()
+    expect(transitionEmotionStateMock).not.toHaveBeenCalled()
+    expect(logInfoMock).not.toHaveBeenCalled()
+  })
+
   it('persists media content for vision-capable llm models', () => {
     const store = new ChatStepStore()
     const chatEntity = {
@@ -121,6 +136,21 @@ describe('ChatStepStore.finalizeAssistantMessage', () => {
         ]
       })
     }))
+  })
+
+  it.each([false, true])('skips emotion state when disabled, aborted=%s', async (aborted) => {
+    const chat = { id: 1, uuid: 'chat-1', messages: [] } as unknown as ChatEntity
+    const message = { id: 102, chatId: 1, chatUuid: 'chat-1', body: { role: 'assistant', content: 'Done', segments: [] } } as unknown as MessageEntity
+    const store = new ChatStepStore()
+    const result = aborted
+      ? await store.settleAbortedAssistantMessage(chat, message, [], false)
+      : await store.finalizeAssistantMessage(chat, message, undefined, false)
+    expect(result?.body.content).toBe('Done')
+    expect(result?.body.emotion).toBeUndefined()
+    expect(updateMessageMock).toHaveBeenCalled()
+    expect(getEmotionStateMock).not.toHaveBeenCalled()
+    expect(transitionEmotionStateMock).not.toHaveBeenCalled()
+    expect(logInfoMock).not.toHaveBeenCalled()
   })
 
   it('persists media content for text models when mediaCtx has images', () => {

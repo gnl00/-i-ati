@@ -20,6 +20,24 @@ emotion 为 @i 人格提供跨轮次的状态连续性。系统把当前用户�
 - main-process reducer 负责向量转移、label/intensity/emoji、history、持久化和诊断。
 - 13 个资源标签继续组成统一 presentation ontology。
 
+## Settings switch
+
+Settings → Tools exposes **Emotion System**, persisted as `emotion.enabled`
+(default `true`). The setting follows the existing Save flow. Each new run
+captures the saved value once and uses it through completion or abort settlement.
+
+When disabled, new conversation turns exclude `emotion_report` from their tool
+list, omit `<emotion_system>`, and omit `awake_state.emotion` and `mood_notes`.
+The awake service skips reading emotion state. Assistant finalization skips
+emotion projection and singleton transitions, so new messages receive no emotion
+presentation. The saved singleton remains frozen and is reused when enabled.
+Emotion Pack remains independently configurable for existing message assets.
+
+Historical messages, tool replay, and existing compression summaries are left
+unchanged. There is no data migration or legacy filtering path. Acceptance is
+scoped to new conversations; existing conversation history can retain emotion
+material. Saving during an active run affects subsequent runs.
+
 ## 单一标签体系
 
 ```ts

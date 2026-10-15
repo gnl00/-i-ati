@@ -49,6 +49,14 @@ vi.mock('../EmotionPromptProvider', () => ({
 import { SystemPromptComposer } from '../SystemPromptComposer'
 
 describe('SystemPromptComposer', () => {
+  it('omits emotion policy while retaining the other modules when disabled', async () => {
+    const [prompt] = await new SystemPromptComposer().compose(42, false)
+    expect(prompt).not.toContain('<emotion_system>')
+    expect(prompt).toContain('<soul_prompt>')
+    expect(prompt).toContain('<skills_system>')
+    expect(prompt).toContain('<user_info_system>')
+  })
+
   it('composes every stable module exactly once in cache-stable order', async () => {
     const [prompt] = await new SystemPromptComposer().compose(42)
     const orderedMarkers = [

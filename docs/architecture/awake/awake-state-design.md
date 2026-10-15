@@ -422,3 +422,10 @@ transition。
 - thinking 模型在普通回答结束前无需因强制 emotion tail-call 进入额外 continuation。
 - mood notes 字段预留，后续可接入独立存储和后台 reflection。
 - `awake` 作为 server-side bootstrap 行为实现，模型可见 tool registry 中不注册 `awake`。
+
+## Emotion System switch
+
+`emotion.enabled` controls emotion injection for new runs. When disabled,
+`awake_state` omits `emotion` and `mood_notes`; other awake fields remain available.
+See [Emotion system design](../emotion-system-design.md#settings-switch) for
+request, finalization, and persistence semantics.

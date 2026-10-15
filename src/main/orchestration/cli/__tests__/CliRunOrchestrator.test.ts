@@ -48,6 +48,7 @@ beforeEach(async () => {
     profile: {
       secrets: [secret],
       requestSpec: { ...modelConfig, tools: [], systemPrompt: 'test' },
+      emotionEnabled: true,
       contextMessages: [],
       modelRef: { accountId: 'test', modelId: 'test' }
     }

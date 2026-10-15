@@ -63,6 +63,14 @@ const currentVector = { valence: 6, arousal: 4, dominance: 5 }
 const currentProjection = projectEmotionVector(currentVector)
 
 describe('AwakeSnapshotService', () => {
+  it('omits emotion context and skips state reads when disabled', async () => {
+    const snapshot = await new AwakeSnapshotService().build({ chat, emotionEnabled: false })
+    expect(snapshot).not.toHaveProperty('emotion')
+    expect(snapshot).not.toHaveProperty('mood_notes')
+    expect(getEmotionStateMock).not.toHaveBeenCalled()
+    expect(snapshot.work_context).toBeDefined()
+  })
+
   beforeEach(() => {
     vi.clearAllMocks()
     getWorkContextByChatUuidMock.mockReturnValue({
@@ -208,21 +216,21 @@ describe('AwakeSnapshotService', () => {
       exists: true,
       truncated: false
     }))
-    expect(snapshot.emotion.baseline).toEqual({
+    expect(snapshot.emotion!.baseline).toEqual({
       label: 'neutral',
       intensity: 5,
       source: 'awake_carryover',
       vector: EMOTION_BASELINE_VECTOR
     })
-    expect(snapshot.emotion.current).toEqual({
+    expect(snapshot.emotion!.current).toEqual({
       label: currentProjection.label,
       intensity: currentProjection.intensity,
       vector: currentVector
     })
-    expect(snapshot.emotion.summary).toContain(`Current emotion: ${currentProjection.label}`)
-    expect(snapshot.emotion.summary).toContain('Current VAD:')
-    expect(snapshot.emotion.baseline).not.toHaveProperty('updated_at')
-    expect(snapshot.emotion.recent_history[0]).toMatchObject({
+    expect(snapshot.emotion!.summary).toContain(`Current emotion: ${currentProjection.label}`)
+    expect(snapshot.emotion!.summary).toContain('Current VAD:')
+    expect(snapshot.emotion!.baseline).not.toHaveProperty('updated_at')
+    expect(snapshot.emotion!.recent_history[0]).toMatchObject({
       label: currentProjection.label,
       stimulus: { impact: 1, activation: 1, control: 0 }
     })
@@ -256,7 +264,7 @@ describe('AwakeSnapshotService', () => {
 
     expect(snapshot.memories).toEqual([])
     expect('diagnostics' in snapshot).toBe(false)
-    expect(snapshot.emotion.current.label).toBe(currentProjection.label)
-    expect(snapshot.emotion.summary).toContain(`Current emotion: ${currentProjection.label}`)
+    expect(snapshot.emotion!.current.label).toBe(currentProjection.label)
+    expect(snapshot.emotion!.summary).toContain(`Current emotion: ${currentProjection.label}`)
   })
 })

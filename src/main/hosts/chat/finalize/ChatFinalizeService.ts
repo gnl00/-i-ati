@@ -9,17 +9,19 @@ export class ChatFinalizeService {
   async finalizeAssistantMessage(
     chatEntity: ChatEntity,
     finalAssistantMessage: MessageEntity,
-    usage?: ITokenUsage
+    usage?: ITokenUsage,
+    emotionEnabled = true
   ): Promise<MessageEntity> {
-    return this.chatStepStore.finalizeAssistantMessage(chatEntity, finalAssistantMessage, usage)
+    return this.chatStepStore.finalizeAssistantMessage(chatEntity, finalAssistantMessage, usage, emotionEnabled)
   }
 
   async settleAbortedAssistantMessage(
     chatEntity: ChatEntity,
     lastAssistantMessage: MessageEntity,
-    messageEntities: MessageEntity[] = []
+    messageEntities: MessageEntity[] = [],
+    emotionEnabled = true
   ): Promise<MessageEntity | undefined> {
-    return this.chatStepStore.settleAbortedAssistantMessage(chatEntity, lastAssistantMessage, messageEntities)
+    return this.chatStepStore.settleAbortedAssistantMessage(chatEntity, lastAssistantMessage, messageEntities, emotionEnabled)
   }
 
   createRunStoppedBoundaryMessage(

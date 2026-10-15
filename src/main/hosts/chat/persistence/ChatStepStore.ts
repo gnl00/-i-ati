@@ -205,7 +205,8 @@ export class ChatStepStore implements ConversationStore {
   async finalizeAssistantMessage(
     chatEntity: ChatEntity,
     finalAssistantMessage: MessageEntity,
-    usage?: ITokenUsage
+    usage?: ITokenUsage,
+    emotionEnabled = true
   ): Promise<MessageEntity> {
     const content = finalAssistantMessage.body.segments?.length
       ? extractContentFromSegments(finalAssistantMessage.body.segments)
@@ -213,11 +214,11 @@ export class ChatStepStore implements ConversationStore {
 
     const emotionToolState = extractEmotionToolStateFromSegments(finalAssistantMessage.body)
     const transitionTime = Date.now()
-    const emotionPreview = transitionEmotionState({
+    const emotionPreview = emotionEnabled ? transitionEmotionState({
       previous: chatDb.getEmotionState(),
       reported: emotionToolState,
       now: transitionTime
-    })
+    }) : undefined
 
     const updated: MessageEntity = {
       ...finalAssistantMessage,
@@ -225,7 +226,7 @@ export class ChatStepStore implements ConversationStore {
       body: {
         ...finalAssistantMessage.body,
         content,
-        emotion: emotionPreview.presentation,
+        emotion: emotionPreview?.presentation,
         typewriterCompleted: true
       }
     }
@@ -237,14 +238,16 @@ export class ChatStepStore implements ConversationStore {
       this.attachMessageToChat(chatEntity, updated.id)
     }
 
-    const emotionTransition = chatDb.transitionEmotionState(
-      previous => transitionEmotionState({
-        previous,
-        reported: emotionToolState,
-        now: transitionTime
-      })
-    )
-    logger.info('emotion_state.transition', emotionTransition.diagnostics)
+    if (emotionEnabled) {
+      const emotionTransition = chatDb.transitionEmotionState(
+        previous => transitionEmotionState({
+          previous,
+          reported: emotionToolState,
+          now: transitionTime
+        })
+      )
+      logger.info('emotion_state.transition', emotionTransition.diagnostics)
+    }
 
     return updated
   }
@@ -252,14 +255,15 @@ export class ChatStepStore implements ConversationStore {
   async settleAbortedAssistantMessage(
     chatEntity: ChatEntity,
     lastAssistantMessage: MessageEntity,
-    messageEntities: MessageEntity[] = []
+    messageEntities: MessageEntity[] = [],
+    emotionEnabled = true
   ): Promise<MessageEntity | undefined> {
     if (this.hasUnansweredToolCalls(chatEntity, lastAssistantMessage.body, messageEntities)) {
       return undefined
     }
 
     if (this.hasPersistableAssistantPayload(lastAssistantMessage.body)) {
-      return await this.finalizeAssistantMessage(chatEntity, lastAssistantMessage)
+      return await this.finalizeAssistantMessage(chatEntity, lastAssistantMessage, undefined, emotionEnabled)
     }
 
     return undefined

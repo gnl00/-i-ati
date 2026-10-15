@@ -25,6 +25,7 @@ type ActivityJournalSearchItem = Awaited<ReturnType<typeof activityJournalServic
 type SmartMessageCandidateSummary = ReturnType<typeof smartMessageDb.listRecentSmartMessageCandidateSummaries>[number]
 
 export type BuildAwakeSnapshotInput = {
+  emotionEnabled?: boolean
   chat: ChatEntity
   workspacePath?: string
   currentQuery?: string
@@ -384,7 +385,7 @@ const buildRetrievalPlan = (input: {
   }
 }
 
-const fallbackEmotion = (): AwakeSnapshot['emotion'] => {
+const fallbackEmotion = (): NonNullable<AwakeSnapshot['emotion']> => {
   const projection = projectEmotionVector(EMOTION_BASELINE_VECTOR)
   return {
     summary: buildEmotionStateSummary(undefined),
@@ -403,7 +404,7 @@ const fallbackEmotion = (): AwakeSnapshot['emotion'] => {
   }
 }
 
-const buildEmotionSnapshot = (state: EmotionStateSnapshot | undefined): AwakeSnapshot['emotion'] => {
+const buildEmotionSnapshot = (state: EmotionStateSnapshot | undefined): NonNullable<AwakeSnapshot['emotion']> => {
   if (!state) {
     return fallbackEmotion()
   }
@@ -464,7 +465,6 @@ export class AwakeSnapshotService {
       this.buildMemorySnapshot(input.chat.id, retrievalPlan),
       this.buildRecentActivities(retrievalPlan)
     ])
-    const emotion = this.buildEmotion(input.chat.id)
     const chatMeta = {
       chat_id: input.chat.id,
       chat_uuid: input.chat.uuid,
@@ -481,8 +481,9 @@ export class AwakeSnapshotService {
         content: workContext.content,
         truncated: workContext.truncated
       },
-      emotion,
-      mood_notes: [],
+      ...(input.emotionEnabled !== false
+        ? { emotion: this.buildEmotion(input.chat.id), mood_notes: [] }
+        : {}),
       recent_activities: recentActivities,
       session_meta: chatMeta
     }
@@ -588,7 +589,7 @@ export class AwakeSnapshotService {
     }
   }
 
-  private buildEmotion(_chatId: number | undefined): AwakeSnapshot['emotion'] {
+  private buildEmotion(_chatId: number | undefined): NonNullable<AwakeSnapshot['emotion']> {
     try {
       return buildEmotionSnapshot(
         chatDb.getEmotionState()

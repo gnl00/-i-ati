@@ -58,7 +58,7 @@ export type AwakeSnapshot = {
     content: string
     truncated: boolean
   }
-  emotion: {
+  emotion?: {
     summary?: string
     baseline: {
       label: string
@@ -80,7 +80,7 @@ export type AwakeSnapshot = {
       source: string
     }>
   }
-  mood_notes: Array<{
+  mood_notes?: Array<{
     content: string
     ts: number
   }>

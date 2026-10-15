@@ -58,6 +58,7 @@ const SettingsPanel: React.FC = () => {
     const [maxWebSearchItems, setMaxWebSearchItems] = useState<number>(appConfig?.tools?.maxWebSearchItems || 3)
     const [telegramEnabled, setTelegramEnabled] = useState<boolean>(appConfig?.telegram?.enabled ?? false)
     const [telegramBotToken, setTelegramBotToken] = useState<string>(appConfig?.telegram?.botToken || '')
+    const [emotionEnabled, setEmotionEnabled] = useState<boolean>(appConfig?.emotion?.enabled ?? true)
     const [emotionAssetPack, setEmotionAssetPack] = useState<string>(appConfig?.emotion?.assetPack || 'default')
     const [knowledgebaseEnabled, setKnowledgebaseEnabled] = useState<boolean>(appConfig?.knowledgebase?.enabled ?? false)
     const [knowledgebaseFolders, setKnowledgebaseFolders] = useState<string[]>(appConfig?.knowledgebase?.folders || [])
@@ -91,6 +92,7 @@ const SettingsPanel: React.FC = () => {
         setKnowledgebaseChunkSize(appConfig?.knowledgebase?.chunkSize || 1200)
         setKnowledgebaseChunkOverlap(appConfig?.knowledgebase?.chunkOverlap || 200)
         setKnowledgebaseMaxResults(appConfig?.knowledgebase?.maxResults || 8)
+        setEmotionEnabled(appConfig?.emotion?.enabled ?? true)
         setEmotionAssetPack(appConfig?.emotion?.assetPack || 'default')
     }, [appConfig])
 
@@ -140,6 +142,7 @@ const SettingsPanel: React.FC = () => {
             },
             emotion: {
                 ...(appConfig.emotion || {}),
+                enabled: emotionEnabled,
                 assetPack: emotionAssetPack || 'default'
             },
             knowledgebase: {
@@ -216,6 +219,7 @@ const SettingsPanel: React.FC = () => {
         || streamChunkDebugEnabled !== (savedTools.streamChunkDebugEnabled ?? false)
         || telegramEnabled !== (appConfig?.telegram?.enabled ?? false)
         || telegramBotToken !== (appConfig?.telegram?.botToken ?? '')
+        || emotionEnabled !== (appConfig?.emotion?.enabled ?? true)
         || emotionAssetPack !== (appConfig?.emotion?.assetPack ?? 'default')
         || mainModel?.accountId !== savedTools.mainModel?.accountId
         || mainModel?.modelId !== savedTools.mainModel?.modelId
@@ -298,6 +302,8 @@ const SettingsPanel: React.FC = () => {
                             setTelegramEnabled={setTelegramEnabled}
                             telegramBotToken={telegramBotToken}
                             setTelegramBotToken={setTelegramBotToken}
+                            emotionEnabled={emotionEnabled}
+                            setEmotionEnabled={setEmotionEnabled}
                             emotionAssetPack={emotionAssetPack}
                             setEmotionAssetPack={setEmotionAssetPack}
                             compressionEnabled={compressionEnabled}

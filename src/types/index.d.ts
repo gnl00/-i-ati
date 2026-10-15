@@ -116,6 +116,7 @@ declare interface KnowledgebaseConfig {
 }
 
 declare interface EmotionConfig {
+  enabled?: boolean
   assetPack?: string
 }
 

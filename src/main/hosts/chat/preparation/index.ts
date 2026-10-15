@@ -36,6 +36,7 @@ export class ChatPreparationPipeline {
         }
       },
       chatContext: {
+        emotionEnabled: requestBuild.emotionEnabled,
         chat: environment.chat,
         workspacePath: environment.workspacePath,
         historyMessages: environment.historyMessages,

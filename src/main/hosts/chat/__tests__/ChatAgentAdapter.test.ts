@@ -202,7 +202,8 @@ describe('ChatAgentAdapter', () => {
     expect(finalizeService.finalizeAssistantMessage).toHaveBeenCalledWith(
       prepared.chatContext.chat,
       finalizedAssistantMessage,
-      usage
+      usage,
+      prepared.chatContext.emotionEnabled
     )
     expect(finalizeService.finalizeChatEntity).toHaveBeenCalledWith(
       prepared.chatContext.chat,
@@ -248,7 +249,8 @@ describe('ChatAgentAdapter', () => {
     expect(finalizeService.settleAbortedAssistantMessage).toHaveBeenCalledWith(
       prepared.chatContext.chat,
       finalAssistantMessage,
-      prepared.chatContext.messageEntities
+      prepared.chatContext.messageEntities,
+      prepared.chatContext.emotionEnabled
     )
     expect(finalizeService.createRunStoppedBoundaryMessage).toHaveBeenCalledWith(
       prepared.chatContext.chat,

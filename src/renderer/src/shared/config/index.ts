@@ -31,6 +31,7 @@ export const defaultConfig: IAppConfig = {
     autoCompress: true
   },
   emotion: {
+    enabled: true,
     assetPack: 'default'
   },
   configForUpdate: {

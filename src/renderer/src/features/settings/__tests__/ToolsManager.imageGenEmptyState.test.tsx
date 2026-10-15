@@ -18,6 +18,7 @@ describe('image generation empty state', () => {
     document.body.append(container)
     const root = createRoot(container)
     const configure = vi.fn()
+    const setEmotionEnabled = vi.fn()
     const noop = (): void => {}
     try {
       await act(async () => root.render(<ToolsManager
@@ -25,11 +26,16 @@ describe('image generation empty state', () => {
         maxWebSearchItems={3} setMaxWebSearchItems={noop}
         telegramEnabled={false} setTelegramEnabled={noop}
         telegramBotToken="" setTelegramBotToken={noop}
+        emotionEnabled={true} setEmotionEnabled={setEmotionEnabled}
         emotionAssetPack="default" setEmotionAssetPack={noop}
         compressionEnabled={true} setCompressionEnabled={noop}
         compressionTriggerTokenRatio={0.7} setCompressionTriggerTokenRatio={noop}
         streamChunkDebugEnabled={false} setStreamChunkDebugEnabled={noop}
       />))
+      const emotionSwitch = container.querySelector<HTMLButtonElement>('#emotion-system-enabled')!
+      expect(emotionSwitch.getAttribute('aria-checked')).toBe('true')
+      await act(async () => emotionSwitch.click())
+      expect(setEmotionEnabled).toHaveBeenCalledWith(false)
       expect(container.textContent).toContain('No image models available')
       expect(container.textContent).toContain('Generate images with the selected model.')
       const button = Array.from(container.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Add model')!

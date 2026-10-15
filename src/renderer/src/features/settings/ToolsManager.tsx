@@ -83,6 +83,8 @@ interface ToolsManagerProps {
   setTelegramEnabled: (value: boolean) => void
   telegramBotToken: string
   setTelegramBotToken: (value: string) => void
+  emotionEnabled: boolean
+  setEmotionEnabled: (value: boolean) => void
   emotionAssetPack: string
   setEmotionAssetPack: (value: string) => void
   compressionEnabled: boolean
@@ -101,6 +103,8 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
   setTelegramEnabled,
   telegramBotToken,
   setTelegramBotToken,
+  emotionEnabled,
+  setEmotionEnabled,
   emotionAssetPack,
   setEmotionAssetPack,
   compressionEnabled,
@@ -509,6 +513,21 @@ const ToolsManager: React.FC<ToolsManagerProps> = ({
                     items
                   </span>
                 </SettingsControlGroup>
+              }
+            />
+          </section>
+
+          <section className="min-w-0">
+            <SettingsSectionHeader
+              title={<Label htmlFor="emotion-system-enabled">Emotion System</Label>}
+              description="Enable emotion tracking and include emotion context in conversations. Applies to the next conversation turn after saving."
+              actions={
+                <Switch
+                  id="emotion-system-enabled"
+                  checked={emotionEnabled}
+                  onCheckedChange={setEmotionEnabled}
+                  aria-label="Enable emotion system"
+                />
               }
             />
           </section>

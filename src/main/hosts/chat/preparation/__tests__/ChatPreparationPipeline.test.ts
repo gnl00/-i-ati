@@ -304,6 +304,24 @@ describe('ChatPreparationPipeline', () => {
     )
   })
 
+  it.each([true, false])('applies emotion enabled=%s to a new conversation request', async (enabled) => {
+    vi.mocked(DatabaseService.getConfig).mockReturnValue({ ...config, emotion: { enabled } } as IAppConfig)
+    vi.mocked(DatabaseService.getMessagesByChatId).mockReturnValue([])
+    vi.mocked(DatabaseService.getMessagesByChatUuid).mockReturnValue([])
+    const prepared = await new ChatPreparationPipeline().prepare({
+      ...input,
+      input: { ...input.input, tools: [{ name: 'emotion_report', parameters: {} }, { name: 'read', parameters: {} }] }
+    }, { emit: vi.fn(), setChatMeta: vi.fn() } as unknown as RunEventEmitter)
+    expect(prepared.chatContext.emotionEnabled).toBe(enabled)
+    expect(prepared.runSpec.requestSpec.systemPrompt?.includes('emotion prompt')).toBe(enabled)
+    expect((prepared.runSpec.requestSpec.tools as Array<{ name: string }>).some(tool => tool.name === 'emotion_report')).toBe(enabled)
+    expect((prepared.runSpec.requestSpec.tools as Array<{ name: string }>).some(tool => tool.name === 'read')).toBe(true)
+    const awake = prepared.runSpec.contextMessages.find(message => message.source === MESSAGE_SOURCE.AWAKE_CONTEXT)!
+    const snapshot = JSON.parse(String(awake.content).replace('<awake_state>', '').replace('</awake_state>', ''))
+    expect('emotion' in snapshot).toBe(enabled)
+    expect('mood_notes' in snapshot).toBe(enabled)
+  })
+
   it('builds step bootstrap and request through the pipeline', async () => {
     const service = new ChatPreparationPipeline()
     const emitter = {

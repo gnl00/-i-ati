@@ -83,6 +83,7 @@ export class ConfigRepository {
         maxWebSearchItems: 3,
         streamChunkDebugEnabled: false
       },
+      emotion: { enabled: true },
       knowledgebase: {
         enabled: false,
         folders: [],
