@@ -7,11 +7,12 @@ const getToolDescription = (name: string): string => {
 }
 
 describe('skill tool definitions', () => {
-  it('describes load_skill as hidden context activation', () => {
+  it('returns skill instructions without requiring a second file read', () => {
     const description = getToolDescription('load_skill')
 
-    expect(description).toContain('hidden loaded skills context')
-    expect(description).not.toContain('return its full instruction content')
+    expect(description).toContain('return its SKILL.md instructions and skill_root')
+    expect(description).toContain('when already active')
+    expect(description).toContain('without rereading SKILL.md')
   })
 
   it('describes read_skill_file as supporting directory listing', () => {
@@ -29,10 +30,13 @@ describe('skill tool definitions', () => {
     const description = getToolDescription('run_skill_script')
     const tool = skillTools.find(item => item.function.name === 'run_skill_script')
 
-    expect(description).toContain('Run a script bundled inside an available skill')
-    expect(tool?.function.parameters.required).toEqual(['name', 'script'])
-    expect(tool?.function.parameters.properties.args).toEqual(expect.objectContaining({
-      type: 'array'
+    expect(description).toContain('current task workspace')
+    expect(description).toContain('SKILL_ROOT and SKILL_SCRIPT')
+    expect(tool?.function.parameters.required).toEqual(['name', 'script', 'command'])
+    expect(tool?.function.parameters.properties.command).toEqual(expect.objectContaining({
+      type: 'string'
     }))
+    expect(tool?.function.parameters.properties.cwd?.type).toBe('string')
+    expect(tool?.function.parameters.properties).not.toHaveProperty('args')
   })
 })

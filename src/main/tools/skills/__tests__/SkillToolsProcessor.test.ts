@@ -110,7 +110,8 @@ describe('SkillToolsProcessor', () => {
       loaded: true,
       contextInjected: true
     })
-    expect(result).not.toHaveProperty('content')
+    expect(result.content).toContain('Use PDF workflow.')
+    expect(result.skill_root).toBe('/tmp/user-data/skills/amap')
     expect(DatabaseService.getSkills).toHaveBeenCalledWith(1)
     expect(DatabaseService.addSkill).toHaveBeenCalledWith(1, 'pdf-processing')
     expect(SkillService.getSkillContent).toHaveBeenCalledWith('pdf-processing')
@@ -127,12 +128,26 @@ describe('SkillToolsProcessor', () => {
       name: 'pdf-processing',
       loaded: true,
       contextInjected: true,
-      message: 'Skill already loaded in hidden skills context.'
+      message: 'Skill already active. Use the returned SKILL.md instructions.'
     })
-    expect(result).not.toHaveProperty('content')
+    expect(result.content).toContain('Use PDF workflow.')
+    expect(result.skill_root).toBe('/tmp/user-data/skills/amap')
     expect(DatabaseService.getSkills).toHaveBeenCalledWith(1)
     expect(DatabaseService.addSkill).toHaveBeenCalledTimes(0)
     expect(SkillService.getSkillContent).toHaveBeenCalledWith('pdf-processing')
+  })
+
+  it('does not activate a skill when its instructions cannot be read', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.mocked(DatabaseService.getChatByUuid).mockReturnValue({ id: 1 } as ChatEntity)
+    vi.mocked(SkillService.getSkillContent).mockRejectedValueOnce(new Error('Unreadable SKILL.md'))
+
+    const result = await processLoadSkill({ name: 'pdf-processing', chat_uuid: 'chat-1' })
+
+    expect(result).toMatchObject({ success: false, loaded: false })
+    expect(result.message).toContain('Unreadable SKILL.md')
+    expect(DatabaseService.addSkill).not.toHaveBeenCalled()
+    consoleError.mockRestore()
   })
 
   it('lists entries when read_skill_file targets a directory', async () => {
@@ -291,12 +306,12 @@ describe('SkillToolsProcessor', () => {
     })
   })
 
-  it('runs a TypeScript skill script from the skill root', async () => {
+  it('runs an explicit command in the task workspace with resolved skill paths', async () => {
     const result = await processRunSkillScript(
       {
         name: 'amap',
         script: 'scripts/amap.ts',
-        args: ['geocode', '--address', "Bob's house"],
+        command: 'bun "$SKILL_SCRIPT" geocode --address "Bob\'s house"',
         env: { AMAP_MAPS_API_KEY: 'key' },
         timeout: 10000,
         chat_uuid: 'chat-1'
@@ -307,25 +322,21 @@ describe('SkillToolsProcessor', () => {
     expect(SkillService.resolveSkillRootPath).toHaveBeenCalledWith('amap')
     expect(processExecuteCommand).toHaveBeenCalledWith(
       {
-        command: "bun 'scripts/amap.ts' 'geocode' '--address' 'Bob'\\''s house'",
-        cwd: '/tmp/user-data/skills/amap',
+        command: 'bun "$SKILL_SCRIPT" geocode --address "Bob\'s house"',
+        cwd: undefined,
         timeout: 10000,
-        env: { AMAP_MAPS_API_KEY: 'key' },
+        env: {
+          AMAP_MAPS_API_KEY: 'key',
+          SKILL_ROOT: '/tmp/user-data/skills/amap',
+          SKILL_SCRIPT: '/tmp/user-data/skills/amap/scripts/amap.ts'
+        },
+        chat_uuid: 'chat-1',
         execution_reason: 'Run skill script amap/scripts/amap.ts',
-        possible_risk: 'Runs an available skill script with the working directory fixed to the skill root.',
+        possible_risk: 'Runs a shell command with access to the selected skill script and task workspace.',
         risk_score: 3,
         confirmed: true
       },
-      { metadataConfirmationApproved: true },
-      {
-        executable: 'bun',
-        args: [
-          '/tmp/user-data/skills/amap/scripts/amap.ts',
-          'geocode',
-          '--address',
-          "Bob's house"
-        ]
-      }
+      { metadataConfirmationApproved: true }
     )
     expect(result).toMatchObject({
       success: true,
@@ -346,19 +357,16 @@ describe('SkillToolsProcessor', () => {
 
     await processRunSkillScript({
       name: 'amap',
-      script: 'scripts/amap.ts'
+      script: 'scripts/amap.ts',
+      command: 'bun "$SKILL_SCRIPT"'
     }, context)
 
     expect(processExecuteCommand).toHaveBeenCalledWith(
       expect.objectContaining({
-        command: "bun 'scripts/amap.ts'",
+        command: 'bun "$SKILL_SCRIPT"',
         confirmed: true
       }),
-      context,
-      {
-        executable: 'bun',
-        args: ['/tmp/user-data/skills/amap/scripts/amap.ts']
-      }
+      context
     )
   })
 
@@ -366,6 +374,7 @@ describe('SkillToolsProcessor', () => {
     await processRunSkillScript({
       name: 'amap',
       script: 'scripts/amap.ts',
+      command: 'bun "$SKILL_SCRIPT"',
       confirmed: true
     } as never)
 
@@ -373,16 +382,39 @@ describe('SkillToolsProcessor', () => {
       expect.objectContaining({
         confirmed: false
       }),
-      undefined,
-      expect.any(Object)
+      undefined
     )
+  })
+
+  it('rejects missing commands without trying to infer an interpreter', async () => {
+    const result = await processRunSkillScript({ name: 'amap', script: 'scripts/amap.ts' } as never)
+
+    expect(result.error).toContain('command is required')
+    expect(processExecuteCommand).not.toHaveBeenCalled()
+  })
+
+  it('keeps resolved script variables authoritative and passes cwd explicitly', async () => {
+    await processRunSkillScript({
+      name: 'amap', script: 'scripts/amap.ts', command: 'bun "$SKILL_SCRIPT"',
+      cwd: 'input', env: { SKILL_SCRIPT: '/outside.ts', skill_root: '/outside', CUSTOM: 'value' }
+    })
+
+    expect(processExecuteCommand).toHaveBeenCalledWith(expect.objectContaining({
+      cwd: 'input',
+      env: {
+        SKILL_SCRIPT: '/tmp/user-data/skills/amap/scripts/amap.ts',
+        SKILL_ROOT: '/tmp/user-data/skills/amap',
+        CUSTOM: 'value'
+      }
+    }), undefined)
   })
 
   it('rejects script paths that escape the skill directory', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
     const result = await processRunSkillScript({
       name: 'amap',
-      script: '../outside.sh'
+      script: '../outside.sh',
+      command: 'sh "$SKILL_SCRIPT"'
     })
 
     expect(result.success).toBe(false)
@@ -400,7 +432,8 @@ describe('SkillToolsProcessor', () => {
 
     const result = await processRunSkillScript({
       name: 'amap',
-      script: 'scripts/external.sh'
+      script: 'scripts/external.sh',
+      command: 'sh "$SKILL_SCRIPT"'
     })
 
     expect(result).toMatchObject({
@@ -423,7 +456,8 @@ describe('SkillToolsProcessor', () => {
 
     const result = await processRunSkillScript({
       name: 'amap',
-      script: 'scripts/dangling.sh'
+      script: 'scripts/dangling.sh',
+      command: 'sh "$SKILL_SCRIPT"'
     })
 
     expect(result).toMatchObject({
@@ -447,22 +481,20 @@ describe('SkillToolsProcessor', () => {
     const result = await processRunSkillScript(
       {
         name: 'amap',
-        script: 'scripts/current.sh'
+        script: 'scripts/current.sh',
+        command: 'bun "$SKILL_SCRIPT"',
+        cwd: '/tmp/user-data/skills/amap'
       },
       { metadataConfirmationApproved: true }
     )
 
     expect(processExecuteCommand).toHaveBeenCalledWith(
       expect.objectContaining({
-        command: "bun 'scripts/current.sh'",
+        command: 'bun "$SKILL_SCRIPT"',
         cwd: '/tmp/user-data/skills/amap',
         confirmed: true
       }),
-      expect.objectContaining({ metadataConfirmationApproved: true }),
-      {
-        executable: 'bun',
-        args: ['/tmp/user-data/skills/amap/scripts/v2.ts']
-      }
+      expect.objectContaining({ metadataConfirmationApproved: true })
     )
     expect(result.script_path).toBe('/tmp/user-data/skills/amap/scripts/v2.ts')
   })
@@ -472,7 +504,8 @@ describe('SkillToolsProcessor', () => {
 
     const result = await processRunSkillScript({
       name: 'amap',
-      script: 'scripts'
+      script: 'scripts',
+      command: 'sh "$SKILL_SCRIPT"'
     })
 
     expect(result).toMatchObject({

@@ -1192,7 +1192,11 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     )
   })
 
-  it('injects hidden loaded skills context before continuing after load_skill', async () => {
+  it('continues from load_skill instructions while hidden context stays metadata-only', async () => {
+    executeMock.mockResolvedValueOnce([{
+      id: 'skill-tool-1', index: 0, name: 'load_skill', status: 'success', cost: 1,
+      content: { success: true, loaded: true, content: 'Use frontend workflow.', skill_root: '/skills/frontend-design' }
+    }])
     vi.mocked(DatabaseService.getSkills).mockReturnValue(['frontend-design'])
     vi.mocked(SkillService.listSkills).mockResolvedValue([
       {
@@ -1288,11 +1292,11 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
       '<skill name="frontend-design" path="/skills/frontend-design/SKILL.md" />'
     )
     expect(contextMessage?.content).toContain(
-      'Read the full skill file before applying a loaded skill.'
+      'Use an active skill only when relevant.'
     )
     expect(contextMessage?.content).not.toContain('Use frontend workflow.')
     const toolMessage = secondRequest.messages.find((message) => message.role === 'tool')
-    expect(toolMessage?.content).not.toContain('Use frontend workflow.')
+    expect(toolMessage?.content).toContain('Use frontend workflow.')
   })
   it('batches three source fetches and preserves artifact references through the next read step', async () => {
     let round = 0

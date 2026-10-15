@@ -6,12 +6,11 @@ export const buildSkillsSystemPrompt = (skillsContext: string): string => {
 
   return [
     '<skills_system>',
-    '- Discover relevant capabilities in the available-skills catalog. Call `load_skill` when the task clearly matches.',
-    '- `load_skill` activates the skill for the current chat and the runtime injects active skill names through hidden `<loaded_skills_context>` messages.',
-    '- When `<loaded_skills_context>` is present, read the full `SKILL.md` through `read_skill_file` before applying a loaded skill.',
-    '- Use `read_skill_file` with `path: "."` or a relative directory path to discover skill files and resources.',
-    '- When a skill file has been read, follow it and reuse its resources. For a referenced script, run it with `run_skill_script`; execution uses the skill root.',
-    '- Apply skills within truthfulness, safety, and execution-quality boundaries. Ground skill claims in content returned by skill tools.',
+    '- Skills are optional. Choose relevant capabilities from the catalog or `<loaded_skills_context>` (active names and paths only).',
+    '- If needed instructions are absent, call `load_skill`, even if already active. It returns `SKILL.md` and skill_root. Reuse existing instructions; recover incomplete results before use.',
+    '- Use `read_skill_file` for additional files or directory listings (`path: "."`). Follow the skill instructions and reuse its resources.',
+    '- For bundled scripts, use `run_skill_script`: name, relative script, command with an explicit interpreter and SKILL_SCRIPT. Defaults to the task workspace; use cwd for another directory.',
+    '- Ground skill claims in returned content and preserve safety and execution quality.',
     '',
     normalizedContext,
     '</skills_system>'

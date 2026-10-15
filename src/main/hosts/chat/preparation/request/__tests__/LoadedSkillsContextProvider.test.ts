@@ -50,7 +50,7 @@ describe('LoadedSkillsContextProvider', () => {
     )
     expect(message?.content).toContain('<skill name="hunt" />')
     expect(message?.content).toContain(
-      '<instruction>Read the full skill file before applying a loaded skill.</instruction>'
+      'Use an active skill only when relevant.'
     )
     expect(message?.content).not.toContain('Use frontend workflow.')
     expect(SkillService.listSkills).toHaveBeenCalledOnce()

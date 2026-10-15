@@ -40,6 +40,8 @@ export const invokeSkillLoad = (name: string, chatUuid: string): Promise<{
   name?: string
   loaded?: boolean
   contextInjected?: boolean
+  content?: string
+  skill_root?: string
   message?: string
 }> => invokeIpc(SKILL_LOAD_ACTION, { name, chat_uuid: chatUuid })
 export const invokeSkillUnload = (name: string, chatUuid: string): Promise<{

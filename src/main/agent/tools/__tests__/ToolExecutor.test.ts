@@ -1151,6 +1151,7 @@ describe('ToolExecutor runtime context', () => {
       args: JSON.stringify({
         name: 'amap',
         script: 'scripts/amap.ts',
+        command: 'bun "$SKILL_SCRIPT"',
         confirmed: true
       })
     } as any])
@@ -1171,7 +1172,8 @@ describe('ToolExecutor runtime context', () => {
       function: 'run_skill_script',
       args: JSON.stringify({
         name: 'amap',
-        script: 'scripts/amap.ts'
+        script: 'scripts/amap.ts',
+        command: 'bun "$SKILL_SCRIPT"'
       })
     } as any])
 

@@ -175,25 +175,20 @@ describe('shared prompts systemPrompt', () => {
     expect(prompt).toContain('State fidelity rules:')
   })
 
-  it('describes skills as hidden loaded context after load_skill activation', () => {
+  it('loads instructions only when needed and reuses returned skill content', () => {
     const prompt = buildSkillsSystemPrompt('<skills_context>\n## Skills\n</skills_context>')
 
-    expect(prompt).toContain(
-      'runtime injects active skill names through hidden `<loaded_skills_context>` messages'
-    )
-    expect(prompt).toContain('When `<loaded_skills_context>` is present')
-    expect(prompt).toContain(
-      'read the full `SKILL.md` through `read_skill_file` before applying a loaded skill'
-    )
-    expect(prompt).toContain('When a skill file has been read')
-    expect(prompt).toContain(
-      'Use `read_skill_file` with `path: "."` or a relative directory path'
-    )
-    expect(prompt).toContain('discover skill files')
-    expect(prompt).toContain('run it with `run_skill_script`')
-    expect(prompt).toContain('uses the skill root')
+    expect(prompt).toContain('Skills are optional')
+    expect(prompt).toContain('active names and paths only')
+    expect(prompt).toContain('If needed instructions are absent, call `load_skill`')
+    expect(prompt).toContain('even if already active')
+    expect(prompt).toContain('Reuse existing instructions')
+    expect(prompt).toContain('recover incomplete results before use')
+    expect(prompt).toContain('`read_skill_file` for additional files or directory listings')
+    expect(prompt).toContain('`run_skill_script`')
+    expect(prompt).toContain('Defaults to the task workspace')
+    expect(prompt).toContain('explicit interpreter and SKILL_SCRIPT')
     expect(prompt).not.toContain('full active skill documents')
-    expect(prompt).not.toContain('After `load_skill` returns a skill document')
-    expect(prompt).not.toContain('When skill content has been returned by `load_skill`')
+    expect(prompt).not.toContain('read the full `SKILL.md` through `read_skill_file` before applying')
   })
 })

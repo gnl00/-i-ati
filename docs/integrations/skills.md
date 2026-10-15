@@ -1,6 +1,6 @@
 # Skills
 
-This app supports Agent Skills as file-based capability packages. Skills can come from built-in app resources or the Electron app data directory, appear in the system prompt as available capabilities, and can be activated on demand through the `load_skill` tool or a standalone `/sk:<name>` chat command. Active skill names and paths are injected into model context as hidden user messages sourced from the current chat's `chat_skills` rows. The assistant reads the full `SKILL.md` before applying the skill.
+This app supports Agent Skills as file-based capability packages. Skills can come from built-in app resources or the Electron app data directory, appear in the system prompt as available capabilities, and can be activated on demand through the `load_skill` tool or a standalone `/sk:<name>` chat command. Active skill names and paths are injected into model context as hidden user messages sourced from the current chat's `chat_skills` rows. Activation is a hint, not a requirement to use the skill. When the model needs instructions absent from its current context, `load_skill` returns `SKILL.md` directly, including for an already-active skill.
 
 ## File Format
 
@@ -98,7 +98,7 @@ The model-facing tool definitions live in [src/shared/tools/skills/definitions.t
 The available skill tools are:
 
 - `install_skill`: install one skill from a URL, file, directory, or archive.
-- `load_skill`: activate an available skill for the current chat and return a lightweight status result.
+- `load_skill`: activate an available skill for the current chat and return its `SKILL.md` instructions and `skill_root`.
 - `import_skills`: recursively import all skills from a folder.
 - `unload_skill`: remove a skill from the current chat.
 - `read_skill_file`: read a text file inside an available skill directory.
@@ -107,10 +107,28 @@ The available skill tools are:
 [SkillToolsProcessor](../../src/main/tools/skills/SkillToolsProcessor.ts) adapts tool calls to services and database writes:
 
 - Relative install/import sources resolve against the current chat workspace when `chat_uuid` is available, then fall back to `userData`.
-- `load_skill` requires `chat_uuid`, verifies the available `SKILL.md`, resolves the chat row, writes the skill name to `chat_skills` when it is absent, and returns `{ success, name, loaded, contextInjected }`.
+- `load_skill` requires `chat_uuid`, verifies the available `SKILL.md`, resolves the chat row, writes the skill name to `chat_skills` when it is absent, and returns `{ success, name, loaded, contextInjected, content, skill_root }`. Already-active skills return the current content without inserting another activation row. Body read failures leave activation unchanged.
 - `unload_skill` requires `chat_uuid`, resolves the chat row, and deletes the row from `chat_skills`.
 - `read_skill_file` accepts only a relative path inside the resolved skill root and rejects path traversal.
-- `run_skill_script` accepts only a relative script path inside the resolved skill root and runs it with that root as the working directory.
+- `run_skill_script` requires `name`, a relative `script` path inside the resolved skill root, and a complete shell `command`. It validates canonical script containment, keeps the script in place, and sets `SKILL_ROOT` and `SKILL_SCRIPT` environment variables. Commands select their interpreter explicitly. The working directory defaults to the current task workspace using the runtime chat UUID; optional `cwd` overrides it with an absolute or workspace-relative directory. To run at the skill root, pass the returned `skill_root`. No script copying or implicit interpreter selection occurs. The former `args` input is retired; include arguments in `command`.
+
+Example script invocation on macOS/Linux:
+
+```json
+{
+  "name": "seecode",
+  "script": "scripts/seecode.mjs",
+  "command": "node \"$SKILL_SCRIPT\" render diagrams/ponte.json"
+}
+```
+
+Windows commands use the existing `cmd.exe` convention, for example
+`node "%SKILL_SCRIPT%" render diagrams/ponte.json`. Custom `env` entries cannot
+override the runtime skill variables, including case variants. Command approvals,
+timeouts, cancellation, streamed output and model output limits reuse `exec`.
+Skill scripts can reference installed resources through their own file location
+or `SKILL_ROOT`; relative task paths resolve from `cwd`. See
+[ADR-0045](../decisions/0045-on-demand-skill-content-and-workspace-commands.md).
 
 The tool metadata marks `install_skill`, `import_skills`, `load_skill`, `unload_skill`, and `run_skill_script` as `riskLevel: 'warning'`; `read_skill_file` is `riskLevel: 'none'`.
 
@@ -188,7 +206,7 @@ The generated context has one data section:
 
 - `Available Skills`: every available skill as `name: description`, plus `allowed-tools` when present.
 
-The system prompt tells the model that available skills are discoverable options. When the current task clearly matches an available skill, the model should call `load_skill`; the tool result confirms activation, and the runtime injects the active skill names through a hidden user context message.
+The system prompt tells the model that available skills are discoverable options. The model chooses skills relevant to the current task. If instructions are absent, it calls `load_skill`; the tool result carries the instructions and root path, and the runtime refreshes only active names and paths in hidden context. Instructions already available in current context are reused without a second read.
 
 Specialized workflow details live in built-in skills:
 
@@ -207,7 +225,7 @@ core repository behavior.
 
 Loaded skill state is assembled by [LoadedSkillsContextProvider](../../src/main/hosts/chat/preparation/request/LoadedSkillsContextProvider.ts) and [buildLoadedSkillsContextMessage](../../src/shared/services/skills/LoadedSkillsContext.ts).
 
-For every chat request, `RunRequestFactory` reads `chat_skills` for the current chat and passes a compact virtual context message to `RequestMessageBuilder`. The compact context carries active skill names, metadata paths when available, and a reminder to read the full skill file before applying a loaded skill.
+For every chat request, `RunRequestFactory` reads `chat_skills` for the current chat and passes a compact virtual context message to `buildContextMessages`. The compact context carries active skill names, metadata paths when available, and a reminder to choose relevant skills and call `load_skill` only when needed instructions are absent. Manual `/sk:` activation does not inject the full skill body.
 
 The injected message shape is:
 
@@ -215,12 +233,12 @@ The injected message shape is:
 {
   role: 'user',
   source: MESSAGE_SOURCE.SKILLS_CONTEXT,
-  content: '<loaded_skills_context>\n<skill name="frontend-design" path="<user-skills-root>/frontend-design/SKILL.md" />\n<skill name="hunt" path="<user-skills-root>/hunt/SKILL.md" />\n<instruction>Read the full skill file before applying a loaded skill.</instruction>\n</loaded_skills_context>',
+  content: '<loaded_skills_context>\n<skill name="frontend-design" path="<user-skills-root>/frontend-design/SKILL.md" />\n<skill name="hunt" path="<user-skills-root>/hunt/SKILL.md" />\n<instruction>Use an active skill only when relevant. If you need its instructions and they are absent from the current context, call load_skill; it returns SKILL.md even when already active. Reuse instructions already present without rereading them.</instruction>\n</loaded_skills_context>',
   segments: []
 }
 ```
 
-`RequestMessageBuilder` inserts this virtual message before the latest user message. With compression enabled, the order becomes:
+[buildContextMessages](../../src/main/hosts/chat/preparation/request/buildContextMessages.ts) inserts this virtual message before the latest user message. The following shows logical host context order with compression; protocol projection later merges runtime context into the following user message:
 
 ```text
 system prompt
@@ -228,12 +246,12 @@ user: [Previous conversation summary ...]
 user: <loaded_skills_context>
 <skill name="frontend-design" path="<user-skills-root>/frontend-design/SKILL.md" />
 <skill name="hunt" path="<user-skills-root>/hunt/SKILL.md" />
-<instruction>Read the full skill file before applying a loaded skill.</instruction>
+<instruction>Use an active skill only when relevant. If you need its instructions and they are absent from the current context, call load_skill; it returns SKILL.md even when already active. Reuse instructions already present without rereading them.</instruction>
 </loaded_skills_context>
 user: latest user request
 ```
 
-Skill paths come from `SkillService.listSkills()` metadata assembled from the skill registry/cache. The compact context only points at the `SKILL.md` path; the model reads full instructions by calling `read_skill_file` for the loaded skill before applying it.
+Skill paths come from `SkillService.listSkills()` metadata assembled from the skill registry/cache. The compact context only points at the `SKILL.md` path. The model calls `load_skill` when it needs the instructions. Its tool result enters ordinary history once and uses existing bounded tool-result normalization and recovery for oversized content; the hidden context never duplicates the body. `read_skill_file` remains available for references, scripts, directories and missing-content recovery.
 Loaded skill XML fragments are generated through the shared XML helper, so skill names and metadata paths are escaped consistently when rendered as attributes.
 
 During the same run, `AgentLoop` refreshes the hidden context after successful `load_skill` or `unload_skill` tool results by using `ChatLoadedSkillsTranscriptContextProvider`. This makes the next model continuation see the updated active skill set within the same run.
@@ -242,7 +260,7 @@ The skill prompt hierarchy has three layers:
 
 1. `<skills_system>` / `<skills_context>` list available skills by name, description, and global usage rules.
 2. `<loaded_skills_context>` records the current chat's active skill names and metadata paths as transient state.
-3. `read_skill_file` returns the full `SKILL.md` instructions and bundled skill files immediately before applying a loaded skill.
+3. `load_skill` returns `SKILL.md` instructions on demand. `read_skill_file` reads additional bundled resources or recovers missing content.
 
 Renderer UI and history search filter `MESSAGE_SOURCE.SKILLS_CONTEXT`, so the hidden carrier message stays out of visible transcript surfaces and searchable chat history.
 
@@ -279,7 +297,7 @@ tool call load_skill
   -> DatabaseService.getChatByUuid(chat_uuid)
   -> SkillService.getSkillContent(name)
   -> DatabaseService.addSkill(chat.id, name)
-  -> return { success, name, loaded, contextInjected }
+  -> return { success, name, loaded, contextInjected, content, skill_root }
   -> AgentLoop refreshes hidden loaded skills context for the next model continuation
 ```
 
@@ -294,8 +312,9 @@ SystemPromptComposer
   -> provider request system prompt with Available Skills only
 RunRequestFactory
   -> LoadedSkillsContextProvider.build(chatId)
-  -> RequestMessageBuilder.setEphemeralContextMessages([...])
-  -> provider request messages include hidden <loaded_skills_context>
+  -> buildContextMessages({ contexts: [...] })
+  -> ContextManager prepares records and projectContextRequest merges request context
+  -> provider user message includes hidden <loaded_skills_context>
 ```
 
 Reference file reading:
@@ -316,9 +335,12 @@ Existing tests cover the service and part of the tool processor:
 - [SkillService.test.ts](../../src/main/services/skills/__tests__/SkillService.test.ts): installs from single `SKILL.md`, installs from directory and copies assets, imports folders with conflict renaming, and installs a zip archive when archive tooling is available.
 - [SkillInstallation.test.ts](../../src/main/services/skills/__tests__/SkillInstallation.test.ts): verifies publication rollback, stale transaction restoration, active transaction protection, invalid record containment, and cross-process lock contention.
 - [SkillRecoveryFlow.integration.test.ts](../../src/main/services/skills/__tests__/SkillRecoveryFlow.integration.test.ts): verifies incomplete skill recovery, old-version preservation after copy failure, startup failure reporting, and symlink handling through `SkillService`.
-- [SkillToolsProcessor.test.ts](../../src/main/tools/skills/__tests__/SkillToolsProcessor.test.ts): covers `unload_skill` validation and DB deletion, plus `load_skill` lightweight status and duplicate-load behavior.
+- [SkillToolsProcessor.test.ts](../../src/main/tools/skills/__tests__/SkillToolsProcessor.test.ts): covers `unload_skill` validation and DB deletion, plus instruction-returning `load_skill`, duplicate-load behavior and script command delegation.
 - [SkillPromptBuilder.test.ts](../../src/shared/services/skills/__tests__/SkillPromptBuilder.test.ts): covers available skill prompt formatting and verifies loaded skill content is omitted from the initial prompt.
 - [SkillsPromptProvider.test.ts](../../src/main/hosts/chat/preparation/request/__tests__/SkillsPromptProvider.test.ts): verifies prompt assembly lists available metadata without reading loaded skill content.
 - [LoadedSkillsContextProvider.test.ts](../../src/main/hosts/chat/preparation/request/__tests__/LoadedSkillsContextProvider.test.ts): verifies active chat skills are rebuilt into hidden context messages.
-- [RequestMessageBuilder.test.ts](../../src/shared/services/__tests__/RequestMessageBuilder.test.ts): verifies hidden context insertion after compression summaries.
-- [DefaultMainAgentRuntimeRunner.integration.test.ts](../../src/main/orchestration/chat/run/runtime/__tests__/DefaultMainAgentRuntimeRunner.integration.test.ts): verifies `load_skill` refreshes hidden context before same-run continuation.
+- [buildContextMessages.test.ts](../../src/main/hosts/chat/preparation/request/__tests__/buildContextMessages.test.ts): verifies hidden context insertion after compression summaries.
+- [ContextRequest.test.ts](../../src/main/agent/runtime/context/__tests__/ContextRequest.test.ts): verifies runtime-context projection into the following user protocol message.
+- [DefaultMainAgentRuntimeRunner.integration.test.ts](../../src/main/orchestration/chat/run/runtime/__tests__/DefaultMainAgentRuntimeRunner.integration.test.ts): verifies the continuation receives skill instructions in the tool result while refreshed hidden context remains metadata-only.
+
+- [SkillToolsProcessor.execution.test.ts](../../src/main/tools/skills/__tests__/SkillToolsProcessor.execution.test.ts): runs real interpreter/shell processes against non-executable scripts, workspace inputs and outputs, skill-root overrides, nonzero exits, timeouts and cancellation.

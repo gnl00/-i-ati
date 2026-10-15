@@ -44,7 +44,8 @@ interface ReadSkillFileArgs {
 interface RunSkillScriptArgs {
   name: string
   script: string
-  args?: string[]
+  command: string
+  cwd?: string
   env?: Record<string, string>
   timeout?: number
   chat_uuid?: string
@@ -62,6 +63,8 @@ interface LoadSkillResponse {
   name?: string
   loaded?: boolean
   contextInjected?: boolean
+  content?: string
+  skill_root?: string
   message?: string
 }
 
@@ -149,29 +152,6 @@ const normalizeDirectoryEntryLimit = (value: unknown): number => {
   return Math.max(1, Math.min(MAX_DIRECTORY_ENTRY_LIMIT, Math.floor(value)))
 }
 
-const shellQuote = (value: string): string => `'${value.replace(/'/g, `'\\''`)}'`
-
-const buildSkillScriptCommand = (
-  scriptPath: string,
-  args: string[] = [],
-  useTypeScriptRuntime = scriptPath.endsWith('.ts')
-): string => {
-  const quotedArgs = args.map(shellQuote).join(' ')
-  const commandPrefix = useTypeScriptRuntime
-    ? `bun ${shellQuote(scriptPath)}`
-    : shellQuote(scriptPath)
-  return [commandPrefix, quotedArgs].filter(Boolean).join(' ')
-}
-
-const buildSkillScriptInvocation = (
-  absolutePath: string,
-  args: string[] = []
-): { executable: string; args: string[] } => (
-  absolutePath.endsWith('.ts')
-    ? { executable: 'bun', args: [absolutePath, ...args] }
-    : { executable: absolutePath, args }
-)
-
 export async function processLoadSkill(args: LoadSkillArgs): Promise<LoadSkillResponse> {
   try {
     if (!args?.name) {
@@ -186,7 +166,8 @@ export async function processLoadSkill(args: LoadSkillArgs): Promise<LoadSkillRe
       return { success: false, loaded: false, message: 'Chat not found' }
     }
 
-    await SkillService.getSkillContent(args.name)
+    const skillRoot = await resolveSkillRootPath(args.name)
+    const content = await SkillService.getSkillContent(args.name)
 
     if (chatDb.getSkills(chat.id).includes(args.name)) {
       return {
@@ -194,7 +175,9 @@ export async function processLoadSkill(args: LoadSkillArgs): Promise<LoadSkillRe
         name: args.name,
         loaded: true,
         contextInjected: true,
-        message: 'Skill already loaded in hidden skills context.'
+        content,
+        skill_root: skillRoot,
+        message: 'Skill already active. Use the returned SKILL.md instructions.'
       }
     }
 
@@ -205,7 +188,9 @@ export async function processLoadSkill(args: LoadSkillArgs): Promise<LoadSkillRe
       name: args.name,
       loaded: true,
       contextInjected: true,
-      message: 'Skill loaded into hidden skills context.'
+      content,
+      skill_root: skillRoot,
+      message: 'Skill activated. Use the returned SKILL.md instructions.'
     }
   } catch (error) {
     console.error('[SkillTools] Failed to load skill:', error)
@@ -386,6 +371,9 @@ export async function processRunSkillScript(
     if (!args?.script) {
       return { success: false, error: 'script is required' }
     }
+    if (typeof args.command !== 'string' || !args.command.trim()) {
+      return { success: false, error: 'command is required; select an interpreter and reference SKILL_SCRIPT' }
+    }
     if (path.isAbsolute(args.script)) {
       return { success: false, error: 'script must be a relative file path' }
     }
@@ -422,25 +410,24 @@ export async function processRunSkillScript(
       }
     }
 
-    const command = buildSkillScriptCommand(
-      args.script,
-      args.args,
-      canonicalScriptPath.endsWith('.ts')
-    )
-    const invocation = buildSkillScriptInvocation(canonicalScriptPath, args.args)
     const commandArgs = {
-      command,
-      cwd: canonicalSkillRoot,
+      command: args.command,
+      cwd: args.cwd,
       timeout: args.timeout,
-      env: args.env,
+      env: {
+        ...Object.fromEntries(Object.entries(args.env ?? {}).filter(
+          ([key]) => !['SKILL_ROOT', 'SKILL_SCRIPT'].includes(key.toUpperCase())
+        )),
+        SKILL_ROOT: canonicalSkillRoot,
+        SKILL_SCRIPT: canonicalScriptPath
+      },
+      chat_uuid: args.chat_uuid,
       execution_reason: `Run skill script ${args.name}/${args.script}`,
-      possible_risk: 'Runs an available skill script with the working directory fixed to the skill root.',
+      possible_risk: 'Runs a shell command with access to the selected skill script and task workspace.',
       risk_score: 3,
       confirmed: context?.metadataConfirmationApproved === true
     }
-    const result = context
-      ? await processExecuteCommand(commandArgs, context, invocation)
-      : await processExecuteCommand(commandArgs, undefined, invocation)
+    const result = await processExecuteCommand(commandArgs, context)
 
     return {
       ...result,

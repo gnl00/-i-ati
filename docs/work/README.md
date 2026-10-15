@@ -25,6 +25,7 @@ An implemented feature can remain Active while runtime acceptance is pending.
 
 ## Investigations
 
+- [ati 与 piagent 同题任务效率对比及优化讨论](investigations/2026-10-15-ati-piagent-task-efficiency.md)
 - [Agent runtime architecture issues](investigations/agent-runtime-architecture-issues.md)
 - [Unified chat run submission](investigations/unified-run-submission.md)
 - [Knowledgebase Recall Issues And Plan](investigations/knowledgebase/recall-issues-and-plan.md)

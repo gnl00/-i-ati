@@ -32,7 +32,7 @@ export const skillTools = [
     type: 'function',
     function: {
       name: 'load_skill',
-      description: 'Load an available skill into the current chat context. The skill document is injected through hidden loaded skills context on the next model turn.',
+      description: 'Activate an available skill and return its SKILL.md instructions and skill_root. Also returns the instructions when already active. Use them directly without rereading SKILL.md; read_skill_file is for additional files or missing content.',
       parameters: {
         type: 'object',
         properties: {
@@ -126,7 +126,7 @@ export const skillTools = [
     type: 'function',
     function: {
       name: 'run_skill_script',
-      description: 'Run a script bundled inside an available skill with the working directory fixed to that skill root. Use this instead of exec for scripts referenced by skill documents.',
+      description: 'Run a shell command for a script bundled inside an available skill. Resolves the script in place and provides SKILL_ROOT and SKILL_SCRIPT environment variables. Select the interpreter in command. Defaults to the current task workspace; use cwd to override. Reuses exec execution, output, cancellation and approval behavior.',
       parameters: {
         type: 'object',
         properties: {
@@ -138,17 +138,17 @@ export const skillTools = [
             type: 'string',
             description: 'Relative script path inside the skill directory, e.g. scripts/amap.ts.'
           },
-          args: {
-            type: 'array',
-            description: 'Command-line arguments passed to the script.',
-            items: {
-              type: 'string'
-            },
-            default: []
+          command: {
+            type: 'string',
+            description: 'Complete shell command including the interpreter and arguments. POSIX example: node "$SKILL_SCRIPT" render diagrams/example.json. Windows cmd example: node "%SKILL_SCRIPT%" render diagrams/example.json. Quote script paths; no executable permission is needed when using an interpreter.'
+          },
+          cwd: {
+            type: 'string',
+            description: 'Working directory, absolute or relative to the task workspace. Defaults to the task workspace. To run from the skill directory, pass skill_root returned by load_skill. Scripts and resources remain in their installed location.'
           },
           env: {
             type: 'object',
-            description: 'Additional environment variables for the script.',
+            description: 'Additional environment variables. SKILL_ROOT and SKILL_SCRIPT are set by the runtime and cannot be overridden.',
             additionalProperties: {
               type: 'string'
             }
@@ -159,7 +159,7 @@ export const skillTools = [
             default: 30000
           }
         },
-        required: ['name', 'script'],
+        required: ['name', 'script', 'command'],
         $schema: 'http://json-schema.org/draft-07/schema#'
       }
     }

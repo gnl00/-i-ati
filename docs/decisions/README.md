@@ -68,3 +68,5 @@ Use sequential names such as `0001-chat-runtime-host-boundary.md`.
 - [0043: Search discovery and explicit fetch](0043-search-discovery-and-explicit-fetch.md) - Accepted
 
 - [0044: Bounded web-fetch batch concurrency](0044-bounded-web-fetch-batch-concurrency.md) - Accepted
+
+- [0045: On-demand skill instructions and workspace script commands](0045-on-demand-skill-content-and-workspace-commands.md) - Accepted

@@ -23,7 +23,7 @@ export const buildLoadedSkillsContextContent = (skills: LoadedSkillContent[]): s
     ...loadedSkills.map(buildSkillNode),
     xmlTag(
       'instruction',
-      escapeXmlText('Read the full skill file before applying a loaded skill.')
+      escapeXmlText('Use an active skill only when relevant. If you need its instructions and they are absent from the current context, call load_skill; it returns SKILL.md even when already active. Reuse instructions already present without rereading them.')
     ),
     ''
   ].join('\n'))
