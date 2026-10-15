@@ -174,7 +174,7 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
 
         <div
           id="modelSelector"
-          className="app-undragable shrink-0 bg-transparent"
+          className="app-undragable w-[206px] min-w-24 shrink bg-transparent"
         >
           <ChatToolbarModelSelector
             selectedModel={selectedModel}
@@ -185,6 +185,7 @@ const ChatInputToolbar: React.FC<ChatInputToolbarProps> = ({
             isOpen={selectModelPopoutState}
             onOpenChange={handleModelPopoverOpenChange}
             onModelSelect={handleModelSelect}
+            triggerClassName="w-full min-w-0"
             variant="surface"
           />
         </div>
