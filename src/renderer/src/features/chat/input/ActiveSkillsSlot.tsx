@@ -1,4 +1,4 @@
-import { Puzzle, X } from 'lucide-react';
+import { Sparkles, X } from 'lucide-react';
 import { useId, useState } from 'react';
 
 export function ActiveSkillsSlot({
@@ -26,7 +26,7 @@ export function ActiveSkillsSlot({
       onClick={(event) => event.stopPropagation()}
     >
       <span className="inline-flex h-6 shrink-0 items-center gap-1.5 text-[11px] text-(--chat-text-secondary)">
-        <Puzzle aria-hidden="true" className="size-3" />
+        <Sparkles aria-hidden="true" className="size-3" />
         Skills
       </span>
       <div
