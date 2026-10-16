@@ -7,7 +7,7 @@ import { AssistantCompletedWorkGroup } from './renderers/AssistantCompletedWorkG
 import { AssistantSupportSegmentList } from './renderers/AssistantSupportSegmentList'
 import type { AssistantMessageTranscriptProjection } from './model/assistantMessageMapper'
 import type { AssistantMessageTextPlaybackModel } from './model/assistantMessageTextPlayback'
-import { projectCleanOutputContent } from './model/cleanOutput'
+import { projectCleanOutputContent, type CleanOutputProgress } from './model/cleanOutput'
 import { CleanOutputStatus } from './renderers/CleanOutputStatus'
 import { CleanOutputReveal } from './renderers/CleanOutputReveal'
 import { ErrorMessage } from '../error-message'
@@ -15,7 +15,7 @@ import { ErrorMessage } from '../error-message'
 export interface AssistantMessageBodyModel {
   cleanOutput?: boolean
   cleanOutputActive?: boolean
-  cleanOutputStatus?: string
+  cleanOutputStatus?: CleanOutputProgress
   workStatus?: ChatMessage['workStatus']
   workStartedAt?: number
   workEndedAt?: number
@@ -59,7 +59,7 @@ export const AssistantMessageBody: React.FC<AssistantMessageBodyProps> = memo(({
 
   if (model.cleanOutput) {
     if (model.cleanOutputActive) {
-      return <CleanOutputStatus label={model.cleanOutputStatus ?? 'Working…'} />
+      return <CleanOutputStatus progress={model.cleanOutputStatus ?? { phase: 'working', label: 'Working…' }} />
     }
     const content = projectCleanOutputContent(transcript)
     const revealCompleted = observedCleanRun.current && status === 'completed'

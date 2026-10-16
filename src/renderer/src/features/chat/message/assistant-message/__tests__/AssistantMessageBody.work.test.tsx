@@ -47,7 +47,7 @@ describe('whole-turn work presentation', () => {
     const { transcript } = mapAssistantMessage(source, { isLatest: true, isStreaming: status === 'running', accounts: [], providerDefinitions: [] })
     await act(async () => root.render(<AssistantMessageBody model={{
       index: 0, isLatest: true, animateOnMount: false, workStatus: status, transcript,
-      cleanOutput, cleanOutputActive: status === 'running', cleanOutputStatus: 'Reading project files…',
+      cleanOutput, cleanOutputActive: status === 'running', cleanOutputStatus: { phase: 'tool', label: 'Reading project files…' },
       textPlayback: buildAssistantMessageTextPlaybackModel(source, transcript.textItems)
     }} />))
   }

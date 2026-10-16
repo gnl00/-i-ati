@@ -32,13 +32,18 @@ function getReasoningPreview(segment: ReasoningSegment): string | undefined {
   return candidate.replace(/\s+/g, ' ')
 }
 
+export interface CleanOutputProgress {
+  phase: 'working' | 'thinking' | 'tool' | 'writing' | 'approval' | 'question' | 'cancelling'
+  label: string
+}
+
 export function projectCleanOutputStatus(
   transcript: AssistantMessageTranscriptProjection,
   interaction?: 'approval' | 'question' | 'cancelling'
-): string {
-  if (interaction === 'cancelling') return 'Stopping…'
-  if (interaction === 'approval') return 'Waiting for approval'
-  if (interaction === 'question') return 'Waiting for your answer'
+): CleanOutputProgress {
+  if (interaction === 'cancelling') return { phase: 'cancelling', label: 'Stopping…' }
+  if (interaction === 'approval') return { phase: 'approval', label: 'Waiting for approval' }
+  if (interaction === 'question') return { phase: 'question', label: 'Waiting for your answer' }
   const activeTools = transcript.supportItems.filter(item => item.segment.type === 'toolCall'
     && !item.segment.isError
     && (!item.segment.content?.status || ['pending', 'running'].includes(item.segment.content.status)))
@@ -46,20 +51,20 @@ export function projectCleanOutputStatus(
     .map(item => item.segment.type === 'toolCall' ? getReasonFromToolCall(item.segment) : undefined)
     .find(value => Boolean(value))
     ?.replace(/\s+/g, ' ')
-  if (reason) return activeTools.length > 1 ? `Running ${activeTools.length} tools ${reason}` : reason
-  if (activeTools.length > 1) return `Running ${activeTools.length} tools…`
+  if (reason) return { phase: 'tool', label: `${reason} Running ${activeTools.length} ${activeTools.length === 1 ? 'tool' : 'tools'}.` }
+  if (activeTools.length > 1) return { phase: 'tool', label: `Running ${activeTools.length} tools…` }
   const tool = activeTools[0]?.segment
   if (tool?.type === 'toolCall') {
     const name = tool.name.replace(/[^a-zA-Z0-9_. -]/g, '').slice(0, 64) || 'tool'
-    return `${tool.content?.status === 'running' ? 'Running' : 'Preparing'} ${name}…`
+    return { phase: 'tool', label: `${tool.content?.status === 'running' ? 'Running' : 'Preparing'} ${name}…` }
   }
   const tail = [...transcript.textItems, ...transcript.supportItems]
     .reduce<(typeof transcript.textItems)[number] | (typeof transcript.supportItems)[number] | undefined>(
       (latest, item) => !latest || item.order > latest.order ? item : latest, undefined
     )
-  if (tail?.segment.type === 'text') return 'Writing response…'
+  if (tail?.segment.type === 'text') return { phase: 'writing', label: 'Writing response…' }
   if (tail?.segment.type === 'reasoning') {
-    return getReasoningPreview(tail.segment) ?? (tail.segment.endedAt == null ? 'Thinking…' : 'Working…')
+    return { phase: 'thinking', label: getReasoningPreview(tail.segment) ?? (tail.segment.endedAt == null ? 'Thinking…' : 'Working…') }
   }
-  return 'Working…'
+  return { phase: 'working', label: 'Working…' }
 }

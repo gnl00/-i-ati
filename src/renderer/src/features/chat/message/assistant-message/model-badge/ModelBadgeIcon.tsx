@@ -5,7 +5,6 @@ import { cn } from '@renderer/shared/lib/utils'
 interface ModelBadgeIconProps {
   provider?: string
   model: string
-  animate?: boolean
 }
 
 function inferProviderFromModel(model: string): string | undefined {
@@ -57,8 +56,7 @@ function inferProviderFromModel(model: string): string | undefined {
 
 export const ModelBadgeIcon: React.FC<ModelBadgeIconProps> = ({
   provider,
-  model,
-  animate = false
+  model
 }) => {
   return (
     <span
@@ -70,10 +68,7 @@ export const ModelBadgeIcon: React.FC<ModelBadgeIconProps> = ({
       <ProviderIcon
         provider={provider || inferProviderFromModel(model)}
         alt=""
-        className={cn(
-          'h-3 w-3 object-contain',
-          animate && 'animate-model-badge-dot'
-        )}
+        className="h-3 w-3 object-contain"
       />
     </span>
   )

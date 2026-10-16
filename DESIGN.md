@@ -181,7 +181,7 @@ Light 使用 `#f0f2f4` 底色和 `#343a41` 文字，Dark 使用 `#2e3135` 底色
 - 单次文本粘贴达到 8,000 字符，或至少 2,000 字符且达到 100 行时，生成 `pasted-text-N.txt` 文本附件。附件在正文上方独立占位，使用现有 Chat surface、细边界与 12px 名称、10px 元数据；纯文本预览即时展开，内部最大 160px 滚动。附件区最大 240px 内部滚动，名称截断且完整名称可访问，显示 UTF-8 字节数与行数。操作为 `Paste as text`、`Download`、`Remove`，恢复正文时回到粘贴锚点与输入焦点；只含附件时允许发送。历史消息沿用同一附件展示，保留原始换行，内容以纯文本显示。
 - 已激活 skills 在 Chat 与 Welcome composer 内使用独立 `Skills` 插槽，位于队列条下方、附件和正文上方，插槽使用 16px 水平内边距。标签使用中性 hover surface、细边界、6px 圆角、24px 高度和 11px 等宽名称；超长名称在 160px 内截断，保留完整 title 和可访问文本。默认显示前 3 个，`+N` 展开其余项，`Show less` 收起；技能区域换行并在 96px 高度内滚动。显示当前会话的持久化激活状态，发送正文后保留，切换会话重置展开状态；有激活技能时 Welcome 保持展开。每个标签末端使用始终可见的独立 × 停用按钮，保留完整名称的 `Deactivate <name>` 提示与键盘焦点样式；只点击 × 执行停用。运行、技能更新、阻塞后处理、未答问题或队列编辑期间禁用停用。停用完成后刷新当前会话的持久化激活状态，失败时保留标签并提示；展开与停用保持正文、附件、焦点和选区。
 - 输入正文使用透明背景，外层 surface 负责材质、边界和 focus 层级。Chat 与展开后的 Welcome composer 正文从 96px 起随内容增长，上限为 `min(240px, 25dvh)`，超出后正文内部滚动；底部 action row 保持可见，Chat 底部锚定并向上增长。附件在正文上方独立占位，删除与清空即时回缩，逐行增长不添加高度过渡。Chat 顶部保留拖动条；手动调整后正文使用固定高度（96px 至 60dvh），随窗口缩小受 60dvh 约束；双击拖动条或按 Enter / Home 恢复自动高度，方向键每次调整 24px。手动高度仅保留在当前挂载的 Chat 输入区，不持久化；Welcome 保持自动高度。
-- Composer 在 `submitting` 与 `streaming` 状态使用方案 B 柔光彗星：2px 蓝色亮边、120px 渐隐尾巴和局部 2.5px 光晕，沿完整外轮廓顺时针匀速循环（270px/s）。队列、skills、附件和手动高度改变时路径随 surface 尺寸更新，底部 action row 和正文保持原位。Light 使用 `#3b82f6`，Dark 使用 `#83ade4`；装饰层不接收指针且从辅助技术隐藏。输出结束后保持绕行，亮点、尾巴与光晕在 180ms 内以 ease-out 整体淡出，再卸载并释放尺寸观察；淡出期间开始新一轮输出时复用同一轨迹并取消卸载。reduced-motion 下运行时保留静态亮边，结束即时卸载。
+- ModelBadge 的模型图标和外缘保持静态，不展示运行中的彗星亮边；Chat/Welcome composer 同样保持静态边框。运行反馈集中在 Clean mode 状态行。
 - Model selector、approval mode、Workspace 和 Send 共享高度、圆角、间距与暗色 material。
 - 输入、搜索和内部编辑区使用 `--app-surface-inset`，形成向内的空间关系。
 - placeholder 使用 muted text，focus 通过 border、ring 和 surface 变化表达。Composer 使用 textarea 原生 placeholder，共享正文的字号、行高和内边距；textarea 与自绘光标位于同一个文字区域，附件增删只移动该区域，避免独立定位偏差。
@@ -502,20 +502,28 @@ falls back to `Working…`. Sentence boundaries use native Intl segmentation for
 English and Chinese; streaming candidates require terminal punctuation. Tool,
 approval, question and cancellation states take priority. Active tools use their existing `tool_call_reason` as
 the status text, with whitespace flattened into one line. Parallel calls show
-the active tool count first, followed by the latest available active reason
-(`Running 2 tools Check build scripts`), without a trailing dot/count; missing reasons
+the latest available active reason first, followed by the active tool count
+(`Check build scripts Running 2 tools.`; singular `Running 1 tool.`); missing reasons
 fall back to the generic operation label. Model headers
 remain; answer operations appear only after completion. Approval/question controls
 remain available in the composer.
 
-Status text swaps use a 150ms opacity/blur transition with 4px vertical movement
-and 2px blur, inspired by Transitions.dev Text states swap. Rapid updates sample
-the latest target once per transition; waiting/stopping update immediately.
-Reduced motion replaces the text immediately and disables spinner movement.
-The 14px spinner rotates a fixed-size HTML wrapper while its SVG remains static.
-Only that wrapper uses `will-change: transform`, scoped to the active status row;
-reduced motion removes rotation and the layer hint. Label changes preserve the
-wrapper and SVG identity, independently of the text's entry/exit animation.
+Clean status text uses Transitions.dev Shimmer text: a normal readable base plus
+a glyph-clipped highlight sweeping left-to-right over 2000ms, linear, at 400%
+background size. Approved comparison variant B increases contrast only: Light
+uses base `#8993a0` and highlight `#111827`; Dark uses base `#778393` and
+highlight `#ffffff`. Waiting/stopping and reduced-motion/forced-color text retain
+the Chat secondary token. The label node remains mounted across text changes so the sweep does
+not restart on every update. Text updates sample the latest target every 150ms;
+waiting/stopping update immediately. The previous blur/vertical swap is removed.
+Working/thinking/tools/writing shimmer; approval/question/stopping remain static.
+Reduced motion and forced colors disable the highlight while retaining base text.
+Reduced motion replaces the text immediately. A 14px LoaderCircle icon rotates
+clockwise during working/thinking/tools/writing. Reduced motion keeps it static.
+Approval, question and stopping retain static ShieldCheck, MessageCircleQuestion
+and Square icons respectively. The icon has no pulse or layer hint;
+phase and label update together. Phase is independent of user-provided reason
+text, including text that happens to begin with Waiting or Stopping.
 
 Successful whole-run termination mounts complete Markdown and images at once,
 then reveals the answer with a continuous top-to-bottom opacity mask over 650ms.

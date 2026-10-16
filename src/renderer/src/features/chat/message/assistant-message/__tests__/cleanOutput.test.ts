@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { mapAssistantMessage } from '../model/assistantMessageMapper'
-import { projectCleanOutputContent, projectCleanOutputStatus } from '../model/cleanOutput'
+import { projectCleanOutputContent, projectCleanOutputStatus as projectProgress } from '../model/cleanOutput'
 import type { AssistantMessageTranscriptProjection } from '../model/assistantMessageMapper'
+
+const projectCleanOutputStatus = (...args: Parameters<typeof projectProgress>): string => projectProgress(...args).label
 
 const project = (segments: MessageSegment[]): AssistantMessageTranscriptProjection => mapAssistantMessage({
   committedMessage: { role: 'assistant', content: '', segments }
@@ -12,6 +14,16 @@ const tool = (id: string, status = 'running'): ToolCallSegment => ({
 })
 
 describe('clean output projections', () => {
+  it('keeps semantic phases independent of reason text', () => {
+    const active = tool('a')
+    active.content.args = { tool_call_reason: 'Waiting for approval wording in a document' }
+    expect(projectProgress(project([active])).phase).toBe('tool')
+    expect(projectProgress(project([active]), 'approval').phase).toBe('approval')
+    expect(projectProgress(project([text()])).phase).toBe('writing')
+    expect(projectProgress(project([{ type: 'reasoning', segmentId: 'r', content: 'Check. Inspect source.', timestamp: 1 }])).phase).toBe('thinking')
+    expect(projectProgress(project([])).phase).toBe('working')
+  })
+
   it('preserves ordered visible text without guessing answer intent', () => {
     const first = text('Let me check.')
     const last = { ...text('Result'), segmentId: 'result' }
@@ -100,9 +112,9 @@ describe('clean output projections', () => {
   it('uses streamed reasons from object or partial JSON arguments in one line', () => {
     const current = tool('a', 'pending')
     current.content.args = '{"tool_call_reason":"核对项目\\n配置", "file":'
-    expect(projectCleanOutputStatus(project([current]))).toBe('核对项目 配置')
+    expect(projectCleanOutputStatus(project([current]))).toBe('核对项目 配置 Running 1 tool.')
     current.content.args = { tool_call_reason: '验证修改结果', file: 'private-file' }
-    expect(projectCleanOutputStatus(project([current]))).toBe('验证修改结果')
+    expect(projectCleanOutputStatus(project([current]))).toBe('验证修改结果 Running 1 tool.')
     current.content.args = { tool_call_reason: '   ' }
     expect(projectCleanOutputStatus(project([current]))).toBe('Preparing read_file…')
   })
@@ -112,9 +124,9 @@ describe('clean output projections', () => {
     earlier.content.args = { tool_call_reason: 'Read configuration' }
     const latest = tool('b')
     latest.content.args = { tool_call_reason: 'Check build scripts' }
-    expect(projectCleanOutputStatus(project([earlier, latest]))).toBe('Running 2 tools Check build scripts')
+    expect(projectCleanOutputStatus(project([earlier, latest]))).toBe('Check build scripts Running 2 tools.')
     latest.content.status = 'success'
-    expect(projectCleanOutputStatus(project([earlier, latest]))).toBe('Read configuration')
+    expect(projectCleanOutputStatus(project([earlier, latest]))).toBe('Read configuration Running 1 tool.')
     expect(projectCleanOutputStatus(project([earlier, latest]), 'approval')).toBe('Waiting for approval')
   })
 })

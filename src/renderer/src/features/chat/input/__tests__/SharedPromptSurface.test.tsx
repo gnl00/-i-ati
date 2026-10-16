@@ -34,101 +34,12 @@ describe('SharedPromptSurface text entry', () => {
     vi.unstubAllGlobals();
   });
 
-  it('cancels fade-out removal when another run starts and preserves the same orbit', async () => {
-    const render = async (phase: string): Promise<void> => {
-      runState.runPhase = phase;
-      await act(async () => root.render(<SharedPromptSurface value="Draft" onChange={() => {}} />));
-    };
-    await render('streaming');
-    const svg = container.querySelector('.shared-prompt-progress')!;
-    await render('idle');
-    await act(async () => vi.advanceTimersByTime(100));
-    await render('submitting');
-    expect(container.querySelector('.shared-prompt-progress')).toBe(svg);
-    expect(svg.getAttribute('data-active')).toBe('true');
-    await act(async () => vi.advanceTimersByTime(180));
-    expect(container.querySelector('.shared-prompt-progress')).toBe(svg);
-    await render('idle');
-    await act(async () => vi.advanceTimersByTime(180));
-    expect(container.querySelector('.shared-prompt-progress')).toBeNull();
+  it.each(['submitting', 'streaming', 'idle'])('keeps the composer static during %s', async phase => {
+    runState.runPhase = phase;
+    await act(async () => root.render(<SharedPromptSurface value="Draft" onChange={() => {}} />));
+    expect(container.querySelector('svg')).toBeNull();
+    expect(container.querySelector('textarea')?.value).toBe('Draft');
   });
-
-  it('removes the comet immediately when reduced motion is preferred', async () => {
-    vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: true } as MediaQueryList);
-    runState.runPhase = 'streaming';
-    const render = async (): Promise<void> => {
-      await act(async () => root.render(<SharedPromptSurface value="Draft" onChange={() => {}} />));
-    };
-    await render();
-    expect(container.querySelector('.shared-prompt-progress')).not.toBeNull();
-    runState.runPhase = 'idle';
-    await render();
-    expect(container.querySelector('.shared-prompt-progress')).toBeNull();
-  });
-
-  it.each(['chat', 'welcome'] as const)(
-    'follows the whole %s surface during a run and releases observation when idle',
-    async variant => {
-      let resize!: ResizeObserverCallback;
-      const observe = vi.fn();
-      const disconnect = vi.fn();
-      vi.stubGlobal('ResizeObserver', class {
-        constructor(callback: ResizeObserverCallback) { resize = callback; }
-        observe = observe;
-        disconnect = disconnect;
-      });
-      let width = 620;
-      let height = 140;
-      vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(() => width);
-      vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockImplementation(() => height);
-      const render = async (phase: string, queued = false): Promise<void> => {
-        runState.runPhase = phase;
-        await act(async () => root.render(
-          <SharedPromptSurface
-            variant={variant}
-            expanded
-            value="Draft text"
-            onChange={() => {}}
-            topAccessory={queued ? <div>Queued task</div> : null}
-          />
-        ));
-      };
-      await render('idle');
-      expect(container.querySelector('.shared-prompt-progress')).toBeNull();
-      await render('submitting');
-      const svg = container.querySelector('.shared-prompt-progress')!;
-      expect(svg.getAttribute('aria-hidden')).toBe('true');
-      expect(observe).toHaveBeenCalledWith(svg.parentElement);
-      const edge = svg.querySelector('rect')!;
-      expect(edge.getAttribute('width')).toBe('618');
-      expect(edge.getAttribute('height')).toBe('138');
-      const textarea = container.querySelector('textarea')!;
-      textarea.focus();
-      textarea.setSelectionRange(2, 7);
-      height = 172;
-      await render('streaming', true);
-      await act(async () => resize([], {} as ResizeObserver));
-      expect(container.querySelector('.shared-prompt-progress')).toBe(svg);
-      expect(edge.getAttribute('height')).toBe('170');
-      width = 380;
-      height = 284;
-      await act(async () => resize([], {} as ResizeObserver));
-      expect(edge.getAttribute('width')).toBe('378');
-      expect(edge.getAttribute('height')).toBe('282');
-      expect(container.querySelector('textarea')).toBe(textarea);
-      expect(document.activeElement).toBe(textarea);
-      expect(textarea.selectionStart).toBe(2);
-      expect(textarea.selectionEnd).toBe(7);
-      await render('idle');
-      expect(container.querySelector('.shared-prompt-progress')).toBe(svg);
-      expect(svg.getAttribute('data-active')).toBe('false');
-      await act(async () => vi.advanceTimersByTime(179));
-      expect(disconnect).not.toHaveBeenCalled();
-      await act(async () => vi.advanceTimersByTime(1));
-      expect(container.querySelector('.shared-prompt-progress')).toBeNull();
-      expect(disconnect).toHaveBeenCalledOnce();
-    }
-  );
 
   it.each(['chat', 'welcome'] as const)(
     'keeps %s text entry and native placeholder intact when attachments change',

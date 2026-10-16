@@ -11,8 +11,7 @@ interface ModelBadgeProps {
 
 export const ModelBadge: React.FC<ModelBadgeProps> = ({
   model,
-  provider,
-  animate = false
+  provider
 }) => {
   const shouldReduceMotion = useReducedMotion()
 
@@ -27,7 +26,7 @@ export const ModelBadge: React.FC<ModelBadgeProps> = ({
         }
       }}
       className={cn(
-        'mb-0.5 inline-flex max-w-full items-center gap-2.5 px-2.5 py-1.25 rounded-2xl',
+        'relative mb-0.5 inline-flex max-w-full items-center gap-2.5 px-2.5 py-1.25 rounded-2xl',
         'select-none tracking-tight',
         'bg-linear-to-r from-slate-100/92 via-white/84 to-slate-100/88',
         'dark:bg-(--chat-surface-raised) dark:bg-none dark:ring-1 dark:ring-(--chat-border-subtle)',
@@ -35,7 +34,7 @@ export const ModelBadge: React.FC<ModelBadgeProps> = ({
         'backdrop-blur-md dark:shadow-none dark:backdrop-blur-none'
       )}
     >
-      <ModelBadgeIcon provider={provider} model={model} animate={animate} />
+      <ModelBadgeIcon provider={provider} model={model} />
 
       <span className="shrink-0 text-[10.5px] font-semibold text-slate-700 dark:text-(--chat-text-primary) uppercase">
         {model}

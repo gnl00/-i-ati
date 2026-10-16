@@ -1,0 +1,54 @@
+/* Adapted from Transitions.dev Shimmer text; readable base text stays intact. */
+.clean-status-label {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  vertical-align: middle;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--chat-text-secondary);
+}
+
+.clean-status-label[data-shimmer='true'] {
+  --clean-status-highlight: #111827;
+  color: #8993a0;
+}
+
+.dark .clean-status-label[data-shimmer='true'] {
+  --clean-status-highlight: #fff;
+  color: #778393;
+}
+
+.clean-status-label[data-shimmer='true']::before {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background-image: linear-gradient(90deg, transparent 40%, var(--clean-status-highlight) 50%, transparent 60%);
+  background-size: 400% 100%;
+  background-repeat: no-repeat;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: clean-status-shimmer 2000ms linear infinite;
+}
+
+@keyframes clean-status-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: 0% 0; }
+}
+
+@media (prefers-reduced-motion: reduce), (forced-colors: active) {
+  .clean-status-label[data-shimmer='true'] {
+    color: var(--chat-text-secondary);
+  }
+
+  .clean-status-label[data-shimmer='true']::before {
+    content: none;
+    animation: none;
+  }
+}

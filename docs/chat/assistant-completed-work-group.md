@@ -27,9 +27,12 @@ buffering. Approval and user-question controls remain in the composer.
 `projectCleanOutputContent()` in the assistant message model owns the independent
 answer-selection boundary: initially it keeps visible nonblank text, user image
 tools and errors. `projectCleanOutputStatus()` derives semantic progress from
-ordered segments, active tool counts and pending interactions. It reuses
+ordered segments, active tool counts and pending interactions, returning an
+explicit phase and label. The phase selects the loading or waiting icon independently
+of label text. It reuses
 `getReasonFromToolCall()` to display the latest active `tool_call_reason`, including
-partial streamed JSON args; parallel calls keep their count. Generic labels are
+partial streamed JSON args; the reason precedes `Running N tools.` (singular
+`Running 1 tool.`). Without a reason, the generic operation label remains. Generic labels are
 fallbacks. Reasoning contributes a single-line second-sentence preview only after
 that sentence is complete while streaming. Until then the row shows `Thinking…`.
 Ended reasoning falls back to its first sentence when no second exists, or
@@ -41,7 +44,14 @@ incomplete runs retain partial text and their outcome; empty results get an
 explicit fallback. Switching mode is reversible without data migration.
 
 The status row coalesces rapid updates into the latest 150ms target, with immediate
-waiting/stopping feedback, reduced-motion support and an atomic accessible status.
+waiting/stopping feedback. A persistent glyph-clipped highlight sweeps over the
+base label every 2000ms during working/thinking/tools/writing. Approved variant B
+strengthens Light/Dark contrast while retaining the 400% background and existing
+40/50/60% highlight stops; the old blur/slide
+swap is removed. Approval, questions, stopping, reduced motion and forced colors
+keep readable static text. A LoaderCircle icon rotates during busy states and stays static with reduced motion.
+Waiting/stopping keep their static semantic icons. The badge has no
+comet animation. Screen readers receive only the atomic status label.
 See [Design](../../DESIGN.md) for the visual contract and reference motion.
 
 A single assistant message owns one stable work disclosure from its first visible

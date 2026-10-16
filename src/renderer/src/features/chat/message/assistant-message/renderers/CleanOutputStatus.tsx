@@ -1,45 +1,49 @@
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { LoaderCircle } from 'lucide-react'
+import './CleanOutputStatus.css'
+import { useReducedMotion } from 'framer-motion'
+import { LoaderCircle, ShieldCheck, MessageCircleQuestion, Square } from 'lucide-react'
+import type { CleanOutputProgress } from '../model/cleanOutput'
 import { useEffect, useRef, useState } from 'react'
 
-export function CleanOutputStatus({ label }: { label: string }): React.ReactElement {
+const phaseIcons = {
+  working: LoaderCircle,
+  thinking: LoaderCircle,
+  tool: LoaderCircle,
+  writing: LoaderCircle,
+  approval: ShieldCheck,
+  question: MessageCircleQuestion,
+  cancelling: Square
+}
+
+export function CleanOutputStatus({ progress }: { progress: CleanOutputProgress }): React.ReactElement {
   const reducedMotion = useReducedMotion()
-  const [displayLabel, setDisplayLabel] = useState(label)
-  const latestLabel = useRef(label)
-  latestLabel.current = label
-  const urgent = label === 'Stopping…' || label.startsWith('Waiting for')
+  const [display, setDisplay] = useState(progress)
+  const latestProgress = useRef(progress)
+  latestProgress.current = progress
+  const urgent = ['cancelling', 'approval', 'question'].includes(progress.phase)
   useEffect(() => {
     if (urgent || reducedMotion) {
-      setDisplayLabel(label)
+      setDisplay(progress)
     }
-  }, [urgent, reducedMotion, label])
+  }, [urgent, reducedMotion, progress])
   useEffect(() => {
     if (urgent || reducedMotion) return
     // Sample the latest target once per transition, without replaying obsolete states.
-    const timer = window.setInterval(() => setDisplayLabel(latestLabel.current), 150)
+    const timer = window.setInterval(() => setDisplay(latestProgress.current), 150)
     return (): void => window.clearInterval(timer)
   }, [urgent, reducedMotion])
+  const Icon = phaseIcons[display.phase]
+  const busy = !['approval', 'question', 'cancelling'].includes(display.phase)
   return (
-    <div role="status" aria-live="polite" aria-atomic="true" aria-label={displayLabel} className="my-1.5 flex h-7 min-w-0 items-center gap-2 overflow-hidden px-2 text-xs text-(--chat-text-secondary)">
-      <span
-        aria-hidden="true"
-        className={'inline-flex h-3.5 w-3.5 shrink-0' + (reducedMotion
-          ? ''
-          : ' animate-spin will-change-transform motion-reduce:animate-none motion-reduce:will-change-auto')}
-      >
-        <LoaderCircle className="h-full w-full" />
+    <div role="status" aria-live="polite" aria-atomic="true" aria-label={display.label} className="my-1.5 flex h-7 min-w-0 items-center gap-2 overflow-hidden px-2 text-xs text-(--chat-text-secondary)">
+      <span aria-hidden="true" className="inline-flex h-3.5 w-3.5 shrink-0" data-phase={display.phase}>
+        <Icon className={`h-full w-full${busy && !reducedMotion ? ' motion-safe:animate-spin' : ''}`} />
       </span>
-      <span aria-hidden="true" className="relative min-w-0 flex-1">
-        <AnimatePresence initial={false} mode="popLayout">
-          <motion.span
-            key={displayLabel}
-            className="block truncate"
-            initial={reducedMotion ? false : { y: 4, opacity: 0, filter: 'blur(2px)' }}
-            animate={{ y: 0, opacity: 1, filter: 'blur(0px)' }}
-            exit={reducedMotion ? { opacity: 0 } : { y: -4, opacity: 0, filter: 'blur(2px)' }}
-            transition={{ duration: reducedMotion ? 0 : 0.15, ease: 'easeInOut' }}
-          >{displayLabel}</motion.span>
-        </AnimatePresence>
+      <span aria-hidden="true" className="min-w-0 flex-1 overflow-hidden">
+        <span
+          className="clean-status-label"
+          data-text={display.label}
+          data-shimmer={busy}
+        >{display.label}</span>
       </span>
     </div>
   )
