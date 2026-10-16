@@ -115,3 +115,26 @@ formatter's version and continuation text verbatim; direct image results retain
 their own image transport. Persist the model-view text kind with the view and
 restore both when rebuilding Chat history, so literal image data in a Read result
 remains source text across turns.
+
+## Conditional tool availability
+
+Embedded metadata can declare `requires`, an array of fixed requirements. Every
+requirement must be true; omission or an empty array adds no condition:
+
+- `emotionSystemEnabled`: the run's Emotion System snapshot is enabled.
+- `visionAnalysisAvailable`: `config.tools?.visionModel` is non-empty. Other
+  available vision models do not enable injection when this slot is empty.
+  Execution also rejects an empty slot with a configuration hint. Reference
+  validity and vision capability remain execution-time checks, with no automatic
+  replacement by another account's model or the main model.
+- `interactiveInputAvailable`: the message source supports interactive questions.
+
+`RunRequestFactory` computes these facts once for request composition.
+`ToolListBuilder` applies the shared metadata to built-in and same-name extra
+tools, retains explicit `excludedToolNames`, and logs unmet requirements once per
+build. Unrelated extra/MCP tools remain available. Requirements are internal
+metadata, separate from the provider-facing tool schema. Keep related prompts
+and hidden context aligned with the same snapshot; execution-time validation
+still handles configuration changes and unavailable services.
+
+See [ADR-0046](../../decisions/0046-conditional-tool-availability.md).

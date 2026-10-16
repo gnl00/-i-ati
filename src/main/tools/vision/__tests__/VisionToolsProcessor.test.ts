@@ -16,8 +16,35 @@ vi.mock('@main/main-window', () => ({
 }))
 
 import { VisionToolsProcessor } from '../VisionToolsProcessor'
+import type { ImageRefResolver } from '@main/hosts/chat/vision/ImageRefResolver'
+import { VisionRequestService } from '@main/hosts/chat/vision/VisionRequestService'
 
 describe('VisionToolsProcessor', () => {
+  it('returns a configuration hint when the vision slot is empty', async () => {
+    const request = vi.fn()
+    const resolve = vi.fn()
+    const processor = new VisionToolsProcessor({
+      imageRefResolver: { resolveImages: (): ReturnType<ImageRefResolver['resolveImages']> => [{
+        ref: 'input:1', success: true,
+        images: [{ ref: 'input:1', url: 'https://example.invalid/image.png' }]
+      }] },
+      visionRequestService: new VisionRequestService({
+        appConfigStore: { requireConfig: (): IAppConfig => ({ tools: {} }) as IAppConfig },
+        modelContextResolver: { resolve },
+        request
+      })
+    })
+    const result = await processor.analyze({
+      urls: ['https://example.invalid/image.png'], prompt: 'inspect'
+    })
+    expect(result).toMatchObject({
+      success: false, image_count: 0, images: [],
+      message: 'Vision model is not configured. Select a vision model in Settings > Tools.'
+    })
+    expect(resolve).not.toHaveBeenCalled()
+    expect(request).not.toHaveBeenCalled()
+  })
+
   it('passes prompt through to the vision request unchanged and resolves refs', async () => {
     const analyze = vi.fn(async () => ({
       text: 'The amount is $42.00.',

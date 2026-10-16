@@ -34,7 +34,8 @@ const truncateContextText = (value: string): string => {
 export class AvailableImagesContextProvider {
   build(
     messages: MessageEntity[],
-    compressionSummary: CompressedSummaryEntity | null
+    compressionSummary: CompressedSummaryEntity | null,
+    visionAnalysisAvailable = true
   ): ChatMessage | null {
     const window = this.resolveUncompressedWindow(messages, compressionSummary)
     const lines = this.buildImageLines(window)
@@ -47,7 +48,9 @@ export class AvailableImagesContextProvider {
       source: MESSAGE_SOURCE.AVAILABLE_IMAGES_CONTEXT,
       content: [
         '<available_images>',
-        'Use these refs with image_analyze when the user asks to inspect a current or historical image. The raw image data stays outside the MainAgent request.',
+        visionAnalysisAvailable
+          ? 'Use these refs with image_analyze when the user asks to inspect a current or historical image. The raw image data stays outside the MainAgent request.'
+          : 'Image analysis is unavailable because no vision model is configured. These refs identify attached images; their raw data stays outside the MainAgent request.',
         ...lines,
         '</available_images>'
       ].join('\n'),

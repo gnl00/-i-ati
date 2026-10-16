@@ -322,6 +322,47 @@ describe('ChatPreparationPipeline', () => {
     expect('mood_notes' in snapshot).toBe(enabled)
   })
 
+  it.each([
+    ['no tools config', undefined, false],
+    ['no vision model', {}, false],
+    ['undefined vision model', { visionModel: undefined }, false],
+    ['null vision model', { visionModel: null }, false],
+    ['configured vision model', { visionModel: { accountId: 'account-1', modelId: 'vision' } }, true],
+    ['stale configured reference', { visionModel: { accountId: 'missing', modelId: 'missing' } }, true]
+  ] as const)('applies vision slot presence for %s', async (_label, tools, available) => {
+    const visionConfig = {
+      ...config,
+      accounts: [{
+        ...config.accounts[0],
+        models: [config.accounts[0].models[0], { id: 'vision', type: 'vlm' }]
+      }],
+      tools
+    } as IAppConfig
+    vi.mocked(DatabaseService.getConfig).mockReturnValue(visionConfig)
+    const prepared = await new ChatPreparationPipeline().prepare({
+      ...input,
+      input: { ...input.input, tools: [{ name: 'image_analyze', parameters: {} }] }
+    }, { emit: vi.fn(), setChatMeta: vi.fn() } as unknown as RunEventEmitter)
+    expect((prepared.runSpec.requestSpec.tools as Array<{ name: string }>).some(
+      tool => tool.name === 'image_analyze'
+    )).toBe(available)
+  })
+
+  it.each([
+    [undefined, true],
+    [MESSAGE_SOURCE.TUI, true],
+    [MESSAGE_SOURCE.TELEGRAM, false],
+    [MESSAGE_SOURCE.SCHEDULE, false]
+  ])('applies interactive input availability for source=%s', async (source, available) => {
+    const prepared = await new ChatPreparationPipeline().prepare({
+      ...input,
+      input: { ...input.input, source, tools: [{ name: 'ask_user_question', parameters: {} }] }
+    }, { emit: vi.fn(), setChatMeta: vi.fn() } as unknown as RunEventEmitter)
+    expect((prepared.runSpec.requestSpec.tools as Array<{ name: string }>).some(
+      tool => tool.name === 'ask_user_question'
+    )).toBe(available)
+  })
+
   it('builds step bootstrap and request through the pipeline', async () => {
     const service = new ChatPreparationPipeline()
     const emitter = {

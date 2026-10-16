@@ -64,7 +64,12 @@ Host adapter
 - `ChatPreparationPipeline.prepare()` emits `CHAT_READY` and existing history before bootstrapping the new step. This gives new chats a shell before any `MESSAGE_CREATED` event is sent.
 - `StepBootstrapService.bootstrap()` is asynchronous. It saves the visible user message first, emits that message immediately, then calls `VisionObservationService` and appends the hidden observation to the current `messageBuffer`.
 - `ChatAgentAdapter.prepareRun()` emits created messages that were produced after early preparation events. `earlyEmittedMessageIds` prevents the visible user message from being sent twice while still allowing hidden `VISION_OBSERVATION` messages to be emitted after observation completes.
-- `VisionObservationService` resolves `tools.visionModel` through `resolveVisionModelRef()`, resolves provider/account/model context through `ChatModelContextResolver`, and sends a non-streaming `createUnifiedRequest()` + `unifiedChatRequest()` multimodal request.
+- `VisionObservationService` and `image_analyze` share `VisionRequestService`.
+  It checks `tools.visionModel` first and returns an English configuration hint when
+  the slot is empty. `resolveVisionModelRef()` validates only that explicit slot;
+  it never substitutes another account's model or the main model. Provider/account/
+  model context comes from `ChatModelContextResolver`, followed by a non-streaming
+  `createUnifiedRequest()` + `unifiedChatRequest()` multimodal request.
 - MainAgent still receives the chat-selected model through `modelRef` and `chatModelRef`. Telegram and desktop hosts pass media through `MainAgentRunInput.input.mediaCtx`.
 - `ContextManager.prepare()` removes `input_image` parts from provider-facing MainAgent user messages. Hidden vision observation text stays in the materialized request.
 

@@ -293,6 +293,24 @@ describe('VisionObservationService', () => {
     expect(result.body.content).toContain('vision observation aborted')
   })
 
+  it.each([undefined, {}])('reports an unconfigured vision model without cross-account fallback', async (tools) => {
+    const request = vi.fn()
+    const resolve = vi.fn()
+    const service = new VisionObservationService({
+      appConfigStore: { requireConfig: (): IAppConfig => ({ ...config, tools }) },
+      modelContextResolver: { resolve },
+      chatStepStore: createStore(),
+      request
+    })
+    const result = await service.observe({
+      chat, userMessage, textCtx: 'inspect', mediaCtx: ['data:image/png;base64,abc']
+    })
+    expect(result.body.content).toContain('status="failed"')
+    expect(result.body.content).toContain('Vision model is not configured')
+    expect(resolve).not.toHaveBeenCalled()
+    expect(request).not.toHaveBeenCalled()
+  })
+
   it('persists failed hidden observation when configured model lacks vision', async () => {
     const chatStepStore = createStore()
     const service = new VisionObservationService({
@@ -338,6 +356,6 @@ describe('VisionObservationService', () => {
     })
 
     expect(result.body.content).toContain('status="failed"')
-    expect(result.body.content).toContain('vision model unavailable')
+    expect(result.body.content).toContain('Vision model is unavailable. Select an available vision model in Settings &gt; Tools.')
   })
 })

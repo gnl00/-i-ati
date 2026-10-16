@@ -7,7 +7,6 @@ import {
   isVisionModelRefAvailable,
   resolveExistingChatModelRef,
   resolveFirstAvailableModelRef,
-  resolveFirstAvailableVisionModelRef,
   resolveHistoryChatModelRef,
   resolveLiteModelRef,
   resolveMainModelRef,
@@ -162,13 +161,9 @@ describe('ChatModelResolver', () => {
     })
   })
 
-  it('resolves vision model from explicit slot or first vision-capable model', () => {
+  it('resolves only the explicit vision model slot', () => {
     const config = buildConfig()
 
-    expect(resolveFirstAvailableVisionModelRef(config)).toEqual({
-      accountId: 'account-2',
-      modelId: 'model-c'
-    })
     expect(resolveVisionModelRef({
       ...config,
       tools: {
@@ -186,6 +181,16 @@ describe('ChatModelResolver', () => {
       accountId: 'account-1',
       modelId: 'model-a'
     })).toBe(false)
+  })
+
+  it.each([
+    undefined,
+    { accountId: 'missing', modelId: 'missing' },
+    { accountId: 'account-1', modelId: 'model-b' },
+    { accountId: 'account-1', modelId: 'model-a' }
+  ])('does not replace an absent or unavailable vision slot: %j', (visionModel) => {
+    const config = buildConfig()
+    expect(resolveVisionModelRef({ ...config, tools: { ...config.tools, visionModel } })).toBeUndefined()
   })
 
   it('detects vision models from modalities and capabilities', () => {
@@ -226,10 +231,6 @@ describe('ChatModelResolver', () => {
       accountId: 'account-1',
       modelId: 'model-image-capability'
     })).toBe(true)
-    expect(resolveFirstAvailableVisionModelRef(config)).toEqual({
-      accountId: 'account-1',
-      modelId: 'model-image-modality'
-    })
   })
 
   it('excludes image generation models from vision model resolution', () => {
@@ -274,17 +275,10 @@ describe('ChatModelResolver', () => {
       accountId: 'account-1',
       modelId: 'model-image-generator'
     })).toBe(false)
-    expect(resolveFirstAvailableVisionModelRef(config)).toEqual({
-      accountId: 'account-1',
-      modelId: 'model-vision'
-    })
-    expect(resolveVisionModelRef(config)).toEqual({
-      accountId: 'account-1',
-      modelId: 'model-vision'
-    })
+    expect(resolveVisionModelRef(config)).toBeUndefined()
   })
 
-  it('falls back to the main model when no vision model is available', () => {
+  it('leaves vision unresolved when only a main model is configured', () => {
     const config = {
       ...buildConfig(),
       accounts: [
@@ -307,10 +301,7 @@ describe('ChatModelResolver', () => {
       }
     } satisfies IAppConfig
 
-    expect(resolveVisionModelRef(config)).toEqual({
-      accountId: 'account-1',
-      modelId: 'model-a'
-    })
+    expect(resolveVisionModelRef(config)).toBeUndefined()
   })
 
   it('prefers the chat stored modelRef over the main model', () => {

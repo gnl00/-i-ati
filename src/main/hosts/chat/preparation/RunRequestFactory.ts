@@ -57,6 +57,11 @@ export class RunRequestFactory {
     const mergedUserInstruction = this.mergeRequestUserInstruction(input)
     const config = this.appConfigStore.requireConfig()
     const emotionEnabled = config.emotion?.enabled ?? true
+    const toolConditions = {
+      emotionSystemEnabled: emotionEnabled,
+      visionAnalysisAvailable: Boolean(config.tools?.visionModel),
+      interactiveInputAvailable: isInteractiveMessageSource(input.source)
+    }
     const compressionSummary = this.compressionSummaryResolver.resolve(config, environment.chat.id)
     const systemPrompts = await this.systemPromptComposer.compose(environment.chat.id, emotionEnabled)
     const systemEnvironmentContext = this.systemEnvironmentContextProvider.build({
@@ -77,7 +82,8 @@ export class RunRequestFactory {
       ])
     const availableImagesContext = this.availableImagesContextProvider.build(
       step.messageBuffer,
-      compressionSummary
+      compressionSummary,
+      toolConditions.visionAnalysisAvailable
     )
 
     const contextMessages = buildContextMessages({
@@ -111,10 +117,7 @@ export class RunRequestFactory {
         ),
         modelType: environment.modelContext.model.type,
         tools: this.toolListBuilder.build(input.tools, {
-          excludedToolNames: [
-            ...(isInteractiveMessageSource(input.source) ? [] : ['ask_user_question']),
-            ...(emotionEnabled ? [] : ['emotion_report'])
-          ]
+          conditions: toolConditions
         }),
         options: this.resolveRequestOptions(environment, input.options),
         stream: input.stream,

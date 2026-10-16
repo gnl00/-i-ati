@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { embeddedToolMetadata } from '@shared/tools/metadata'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 
 vi.mock('@tools/registry', () => ({
@@ -32,6 +33,12 @@ vi.mock('@tools/registry', () => ({
   }
 }))
 
+const conditions = {
+  emotionSystemEnabled: true,
+  visionAnalysisAvailable: true,
+  interactiveInputAvailable: true
+}
+
 describe('ToolListBuilder', () => {
   it('requires tool_call_reason for embedded and extra tools', async () => {
     const { ToolListBuilder } = await import('../ToolListBuilder')
@@ -51,7 +58,7 @@ describe('ToolListBuilder', () => {
         },
         source: 'mcp'
       }
-    ])
+    ], { conditions })
 
     expect(tools).toHaveLength(3)
     for (const tool of tools) {
@@ -66,9 +73,64 @@ describe('ToolListBuilder', () => {
   it('can exclude interactive tools for external-source runs', async () => {
     const { ToolListBuilder } = await import('../ToolListBuilder')
     const tools = new ToolListBuilder().build(undefined, {
+      conditions,
       excludedToolNames: ['ask_user_question']
     })
 
     expect(tools.map(tool => tool.name)).toEqual(['read'])
   })
+
+  it.each([
+    ['emotion_report', 'emotionSystemEnabled'],
+    ['image_analyze', 'visionAnalysisAvailable'],
+    ['ask_user_question', 'interactiveInputAvailable']
+  ] as const)('filters %s and same-name extra tools when %s is false', async (name, requirement) => {
+    const { ToolListBuilder } = await import('../ToolListBuilder')
+    const { embeddedToolsRegistry } = await import('@tools/registry')
+    const definition = {
+      type: 'function',
+      function: { name, description: 'Conditional tool', parameters: { type: 'object' } }
+    }
+    const registry = vi.mocked(embeddedToolsRegistry.getAllTools)
+    const originalTools = registry()
+    registry.mockReturnValueOnce([...originalTools, definition])
+    const debug = vi.spyOn(console, 'debug').mockImplementation(() => {})
+    const tools = new ToolListBuilder().build([definition.function, {
+      name: 'mcp_search', parameters: { type: 'object' }, source: 'mcp'
+    }], { conditions: { ...conditions, [requirement]: false } })
+    expect(tools.map(tool => tool.name)).not.toContain(name)
+    expect(tools.map(tool => tool.name)).toContain('mcp_search')
+    expect(debug).toHaveBeenCalledWith(
+      '[ToolListBuilder] Unmet tool requirements:', { [name]: [requirement] }
+    )
+    debug.mockRestore()
+
+    registry.mockReturnValueOnce([...originalTools, definition])
+    const enabled = new ToolListBuilder().build(undefined, { conditions })
+    expect(enabled.map(tool => tool.name)).toContain(name)
+    expect(enabled.find(tool => tool.name === name)).not.toHaveProperty('requires')
+  })
+
+  it('requires every declared condition', async () => {
+    const { ToolListBuilder } = await import('../ToolListBuilder')
+    const original = embeddedToolMetadata.read
+    embeddedToolMetadata.read = {
+      ...original, requires: ['emotionSystemEnabled', 'visionAnalysisAvailable']
+    }
+    try {
+      for (const emotionSystemEnabled of [true, false]) {
+        for (const visionAnalysisAvailable of [true, false]) {
+          const tools = new ToolListBuilder().build(undefined, {
+            conditions: { ...conditions, emotionSystemEnabled, visionAnalysisAvailable }
+          })
+          expect(tools.some(tool => tool.name === 'read')).toBe(
+            emotionSystemEnabled && visionAnalysisAvailable
+          )
+        }
+      }
+    } finally {
+      embeddedToolMetadata.read = original
+    }
+  })
+
 })

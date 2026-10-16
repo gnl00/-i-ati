@@ -59,6 +59,16 @@ describe('AvailableImagesContextProvider', () => {
     expect(context?.content).not.toContain('data:image')
   })
 
+  it('keeps image refs without asking for an unavailable analysis tool', () => {
+    const context = new AvailableImagesContextProvider().build([
+      imageMessage(1, 'inspect this', 'data:image/png;base64,image')
+    ], null, false)
+    expect(context?.content).toContain('ref="message:1#image:1"')
+    expect(context?.content).toContain('Image analysis is unavailable')
+    expect(context?.content).not.toContain('image_analyze')
+    expect(context?.content).not.toContain('data:image')
+  })
+
   it('returns null when the compressed window has no image refs', () => {
     const provider = new AvailableImagesContextProvider()
     const context = provider.build([

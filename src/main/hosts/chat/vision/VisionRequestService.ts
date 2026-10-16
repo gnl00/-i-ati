@@ -102,6 +102,10 @@ export class VisionRequestService {
     const redactionSecrets: string[] = []
 
     try {
+      const config = this.appConfigStore.requireConfig()
+      if (!config.tools?.visionModel) {
+        throw new Error('Vision model is not configured. Select a vision model in Settings > Tools.')
+      }
       const imageUrls = input.imageUrls.map(url => url.trim()).filter(Boolean)
       const prompt = input.prompt.trim()
 
@@ -112,15 +116,14 @@ export class VisionRequestService {
         throw new Error('prompt is required')
       }
 
-      const config = this.appConfigStore.requireConfig()
       const visionModelRef = resolveVisionModelRef(config)
       if (!visionModelRef) {
-        throw new Error('vision model unavailable')
+        throw new Error('Vision model is unavailable. Select an available vision model in Settings > Tools.')
       }
 
       const modelContext = this.modelContextResolver.resolve(config, visionModelRef)
       if (!modelContext || !isVisionModel(modelContext.model)) {
-        throw new Error('vision model unavailable')
+        throw new Error('Vision model is unavailable. Select an available vision model in Settings > Tools.')
       }
       redactionSecrets.push(modelContext.account.apiKey)
 

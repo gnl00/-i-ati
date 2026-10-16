@@ -74,24 +74,6 @@ export const resolveFirstAvailableModelRef = (config: IAppConfig): ModelRef | un
   return undefined
 }
 
-export const resolveFirstAvailableVisionModelRef = (config: IAppConfig): ModelRef | undefined => {
-  for (const account of config.accounts ?? []) {
-    if (!isProviderEnabledForAccount(config, account)) {
-      continue
-    }
-
-    const model = account.models.find(item => item.enabled !== false && isVisionModel(item))
-    if (model) {
-      return {
-        accountId: account.id,
-        modelId: model.id
-      }
-    }
-  }
-
-  return undefined
-}
-
 export const resolveMainModelRef = (config: IAppConfig): ModelRef | undefined => {
   const tools = config.tools
   if (isModelRefAvailable(config, tools?.mainModel)) {
@@ -111,12 +93,8 @@ export const resolveLiteModelRef = (config: IAppConfig): ModelRef | undefined =>
 }
 
 export const resolveVisionModelRef = (config: IAppConfig): ModelRef | undefined => {
-  const tools = config.tools
-  if (isVisionModelRefAvailable(config, tools?.visionModel)) {
-    return tools?.visionModel
-  }
-
-  return resolveFirstAvailableVisionModelRef(config) ?? resolveMainModelRef(config)
+  const ref = config.tools?.visionModel
+  return isVisionModelRefAvailable(config, ref) ? ref : undefined
 }
 
 export const resolveNewChatModelRef = (config: IAppConfig): ModelRef | undefined => {

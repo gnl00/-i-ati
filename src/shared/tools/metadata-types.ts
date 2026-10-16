@@ -26,7 +26,14 @@ export type EmbeddedToolCapability =
   | 'chat'
   | 'vision'
 
+export type EmbeddedToolRequirement =
+  | 'emotionSystemEnabled'
+  | 'visionAnalysisAvailable'
+  | 'interactiveInputAvailable'
+
 export interface EmbeddedToolMetadata {
+  /** All requirements must be satisfied before exposing this tool to the model. */
+  requires?: readonly EmbeddedToolRequirement[]
   /** Inject runtime chat_uuid into arguments; defaults to true for compatibility. */
   needChatUUID?: boolean
   capability: EmbeddedToolCapability
