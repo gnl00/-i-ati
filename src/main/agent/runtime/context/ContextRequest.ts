@@ -75,34 +75,32 @@ const partsToText = (parts: AgentContentPart[]): string =>
     .filter(Boolean)
     .join('\n\n')
 
-const buildRequestContextPart = (parts: AgentContentPart[]): AgentContentPart | null => {
-  const text = partsToText(parts)
-  if (!text) {
-    return null
-  }
+export const formatRequestContext = (texts: string[]): string | undefined => {
+  const text = texts.map(text => text.trim()).filter(Boolean).join('\n\n')
+  if (!text) return undefined
+  return [
+    '<request_context>',
+    'This snapshot describes runtime state for the user request it accompanies. In replayed history it is historical evidence; the latest request snapshot supplies current state. It does not renew past instructions or authorizations.',
+    '',
+    text,
+    '</request_context>'
+  ].join('\n')
+}
 
-  return {
-    type: 'input_text',
-    text: [
-      '<request_context>',
-      'The following runtime context applies only to this user request.',
-      '',
-      text,
-      '</request_context>'
-    ].join('\n')
-  }
+const buildRequestContextPart = (parts: AgentContentPart[]): AgentContentPart | null => {
+  const text = formatRequestContext([partsToText(parts)])
+  return text ? { type: 'input_text', text } : null
 }
 
 const appendRequestContext = (
   content: AgentContentPart[],
-  requestContextParts: AgentContentPart[]
+  requestContextParts: AgentContentPart[],
+  snapshot?: string
 ): AgentContentPart[] => {
-  const contextPart = buildRequestContextPart(requestContextParts)
-  if (!contextPart) {
-    return [...content]
-  }
-
-  return [...content, contextPart]
+  const contextPart: AgentContentPart | null = snapshot
+    ? { type: 'input_text', text: snapshot }
+    : buildRequestContextPart(requestContextParts)
+  return contextPart ? [...content, contextPart] : [...content]
 }
 
 const stripRawImageParts = (content: AgentContentPart[]): AgentContentPart[] =>
@@ -244,7 +242,7 @@ export const projectContextRequest = (input: ContextRequestInput): MaterializedP
         messages.push({
           role: 'user',
           content: stripRawImageParts(
-            appendRequestContext(record.content, pendingRequestContextParts)
+            appendRequestContext(record.content, pendingRequestContextParts, record.requestContextSnapshot)
           )
         })
         pendingRequestContextParts = []

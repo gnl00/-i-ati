@@ -68,6 +68,7 @@ export const mapChatContext = (input: ChatContextMapperInput): ContextRecord[] =
         kind: 'user',
         timestamp,
         source: seed.source,
+        ...(seed.requestContextSnapshot ? { requestContextSnapshot: seed.requestContextSnapshot } : {}),
         content: partsFromUserContent(seed.content)
       }
       records.push(record)

@@ -502,6 +502,8 @@ declare interface TextAttachment {
 }
 
 declare interface ChatMessage extends BaseChatMessage {
+  /** Exact hidden runtime suffix sent with this user turn; replayed without changing content. */
+  requestContextSnapshot?: string
   /** Original composer text; content retains the complete API-visible text. */
   composerText?: string
   textAttachments?: TextAttachment[]

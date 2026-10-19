@@ -67,6 +67,23 @@ Request injection:
   `<request_context>` part and appends it to the following user protocol
   message.
 - Canonical transcript records retain their original hidden sources.
+- Before starting a new Chat run, `RunRequestFactory` stores the formatted suffix
+  as `ChatMessage.requestContextSnapshot` on the final user record (including a
+  vision observation when present). The existing message JSON owns this snapshot;
+  the visible `content`, segments, and search text stay unchanged.
+- `ChatContextMapper` restores that metadata. `projectContextRequest` prefers the
+  saved suffix and appends it exactly once, so rebuilding history on the next
+  turn does not drop or regenerate the previously sent context.
+- Snapshot text identifies its scope: old snapshots describe state at that turn;
+  the latest request snapshot provides current state and does not renew past
+  instructions or authorizations. Existing snapshots are replayed verbatim.
+- Legacy messages without snapshots keep their existing history representation;
+  snapshots are created only for new turns. No backfill or SQL migration occurs.
+- Normal context budgeting still measures snapshots and may compress or omit
+  complete old history. Stable suffix replay does not guarantee provider cache
+  hits, nor stability of tools, system policy, or assistant-step reconstruction.
+
+See [ADR 0049](../decisions/0049-persisted-request-context-snapshots.md).
 
 Hidden source:
 

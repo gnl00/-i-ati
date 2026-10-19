@@ -8,6 +8,10 @@ import { DefaultExecutableRequestAdapter } from '@main/agent/runtime/model/Execu
 import { DefaultToolResultNormalizer } from '@main/agent/runtime/tools/result-normalization'
 import { OpenAIAdapter } from '@main/request/adapters/openai/OpenAIAdapter'
 import { mapChatContext } from '../ChatContextMapper'
+import { buildContextMessages } from '../../preparation/request/buildContextMessages'
+import { projectContextRequest } from '@main/agent/runtime/context/ContextRequest'
+import { toMessageEntity, toMessageInsertRow } from '@main/db/mappers/MessageMapper'
+import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
 
 vi.mock('@main/db/config', () => ({ configDb: {} }))
 vi.mock('@main/request', () => ({ unifiedChatRequest: vi.fn() }))
@@ -28,6 +32,47 @@ const createLoopIdentityProvider = (): LoopIdentityProvider => {
 }
 
 describe('mapChatContext', () => {
+  it('preserves the sent user context after database reload and a new turn', () => {
+    const requestSpec = {
+      adapterPluginId: 'openai-chat-compatible-adapter', baseUrl: 'https://example.invalid',
+      apiKey: 'test-key', model: 'test-model'
+    }
+    const context: ChatMessage = {
+      role: 'user', source: MESSAGE_SOURCE.SYSTEM_ENVIRONMENT_CONTEXT,
+      content: '<system-environment>old time</system-environment>', segments: []
+    }
+    // Persist the exact materialized suffix, while keeping the visible question intact.
+    const snapshot = '<request_context>\nThis snapshot describes runtime state for the user request it accompanies. In replayed history it is historical evidence; the latest request snapshot supplies current state. It does not renew past instructions or authorizations.\n\n' + context.content + '\n</request_context>'
+    const firstUser = {
+      id: 1, body: { role: 'user', content: 'weather?', segments: [], requestContextSnapshot: snapshot }
+    } as MessageEntity
+    const project = (messages: ChatMessage[]): ReturnType<typeof projectContextRequest>['messages'] => projectContextRequest({
+      requestSpec,
+      records: mapChatContext({ messages, now: 1, loopIdentityProvider: createLoopIdentityProvider() })
+    }).messages
+    const first = project(buildContextMessages({ messages: [firstUser], contexts: [context] }))
+    const reloaded = toMessageEntity({ id: 1, ...toMessageInsertRow(firstUser) })
+    const second = project(buildContextMessages({
+      messages: [reloaded, { id: 2, body: { role: 'assistant', content: 'sunny', segments: [] } },
+        { id: 3, body: { role: 'user', content: 'tomorrow?', segments: [] } }],
+      contexts: [{ ...context, content: '<system-environment>new time</system-environment>' }]
+    }))
+    expect(first[0]).toMatchObject({ content: [
+      { type: 'input_text', text: 'weather?' }, { type: 'input_text', text: snapshot }
+    ] })
+    expect(second[0]).toEqual(first[0])
+    const adapter = new DefaultExecutableRequestAdapter()
+    const provider = new OpenAIAdapter()
+    const providerBody = (messages: ReturnType<typeof projectContextRequest>['messages']): Record<string, unknown> =>
+      provider.buildRequest(adapter.adapt({ ...requestSpec, messages }))
+    expect(providerBody(second).messages).toEqual(expect.arrayContaining([
+      (providerBody(first).messages as BaseChatMessage[])[0]
+    ]))
+    expect(JSON.stringify(second[2])).toContain('new time')
+    expect(reloaded.body.content).toBe('weather?')
+    expect(JSON.stringify(first[0]).split('<request_context>')).toHaveLength(2)
+  })
+
   it('replays a persisted literal Read view verbatim through normalization and the provider request', async () => {
     const root = mkdtempSync(path.join(tmpdir(), 'read-history-replay-'))
     try {

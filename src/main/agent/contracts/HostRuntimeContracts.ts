@@ -60,3 +60,5 @@ export type {
 export type { ToolOutputBatch } from '@shared/run/tool-events'
 
 export { createUserContextRecord } from '@main/agent/runtime/context/ContextRecords'
+
+export { formatRequestContext } from '@main/agent/runtime/context/ContextRequest'

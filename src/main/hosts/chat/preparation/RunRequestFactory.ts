@@ -5,6 +5,8 @@ import {
   getRequestAdapterThinkingCapability,
   toUnifiedRequestThinkingOption
 } from '@shared/plugins/requestAdapterThinking'
+import { chatDb } from '@main/db/chat'
+import { formatRequestContext } from '@main/agent/contracts/HostRuntimeContracts'
 import { pluginDb } from '@main/db/plugins'
 import { MESSAGE_SOURCE, isInteractiveMessageSource } from '@shared/messages/messageSources'
 import { AppConfigStore } from '../config'
@@ -86,16 +88,30 @@ export class RunRequestFactory {
       toolConditions.visionAnalysisAvailable
     )
 
+    const contexts = [
+      loadedSkillsContext,
+      userInfoContext,
+      knowledgebaseContext,
+      systemEnvironmentContext,
+      awakeContext,
+      availableImagesContext
+    ].filter((message): message is ChatMessage => Boolean(message))
+    // Match buildContextMessages: vision observations can be the final user record.
+    const currentUser = step.messageBuffer.findLast(message => message.body.role === 'user')
+    if (currentUser?.id != null && !currentUser.body.requestContextSnapshot) {
+      const snapshot = formatRequestContext(contexts.flatMap(message =>
+        typeof message.content === 'string'
+          ? [message.content]
+          : message.content.filter(part => part.type === 'text').map(part => part.text || '')
+      ))
+      if (snapshot) {
+        currentUser.body = { ...currentUser.body, requestContextSnapshot: snapshot }
+        chatDb.updateMessage(currentUser)
+      }
+    }
     const contextMessages = buildContextMessages({
       messages: step.messageBuffer,
-      contexts: [
-        loadedSkillsContext,
-        userInfoContext,
-        knowledgebaseContext,
-        systemEnvironmentContext,
-        awakeContext,
-        availableImagesContext
-      ].filter((message): message is ChatMessage => Boolean(message)),
+      contexts,
       userInstruction: mergedUserInstruction,
       summary: compressionSummary
     })

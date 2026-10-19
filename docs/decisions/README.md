@@ -72,3 +72,5 @@ Use sequential names such as `0001-chat-runtime-host-boundary.md`.
 - [0045: On-demand skill instructions and workspace script commands](0045-on-demand-skill-content-and-workspace-commands.md) - Accepted
 
 - [0046: Conditional tool availability](0046-conditional-tool-availability.md) - Accepted
+
+- [0049: Persist request context snapshots for Chat replay](0049-persisted-request-context-snapshots.md) - Accepted

@@ -23,6 +23,7 @@ export interface ContextUserRecord {
   kind: 'user'
   timestamp: number
   source?: string
+  requestContextSnapshot?: string
   content: AgentContentPart[]
 }
 

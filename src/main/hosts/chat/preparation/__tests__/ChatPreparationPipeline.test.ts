@@ -1,3 +1,5 @@
+import { mapChatContext } from '../../runtime/ChatContextMapper'
+import { projectContextRequest } from '@main/agent/runtime/context/ContextRequest'
 import { createHash } from 'node:crypto'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -43,6 +45,7 @@ vi.mock('@main/db/DatabaseService', () => ({
     getWorkContextByChatUuid: vi.fn(() => undefined),
     listRecentSmartMessageCandidateSummaries: vi.fn(() => []),
     saveMessage: vi.fn(),
+    updateMessage: vi.fn(),
     saveChat: vi.fn(),
     updateChat: vi.fn(),
     getActiveCompressedSummariesByChatId: vi.fn(() => []),
@@ -789,6 +792,8 @@ describe('ChatPreparationPipeline', () => {
     expect(
       prepared.chatContext.messageEntities[prepared.chatContext.messageEntities.length - 1]
     ).toBe(visionObservation)
+    expect(visionObservation.body.requestContextSnapshot).toContain('<request_context>')
+    expect(DatabaseService.updateMessage).toHaveBeenCalledWith(visionObservation)
     expect(prepared.runSpec.requestSpec.model).toBe('model-1')
     expect(prepared.runSpec.contextMessages).toEqual(
       expect.arrayContaining([
@@ -935,6 +940,36 @@ describe('ChatPreparationPipeline', () => {
     expect(chatContextContainsMarker(prepared.chatContext.messageEntities, '<awake_state>')).toBe(
       false
     )
+  })
+
+  it('persists the exact emitted context suffix without changing the visible question', async () => {
+    const prepared = await new ChatPreparationPipeline().prepare(input, { submissionId: 'snapshot-test', emit: vi.fn(), setChatMeta: vi.fn() })
+    const saved = vi.mocked(DatabaseService.updateMessage).mock.calls
+      .map(([message]) => message)
+      .find(message => message.body.requestContextSnapshot)
+    expect(saved?.body.content).toBe('hello')
+    expect(saved?.body.requestContextSnapshot).toContain('<system-environment>')
+    expect(saved?.body.requestContextSnapshot).toContain('<awake_state>')
+    const records = mapChatContext({
+      messages: prepared.runSpec.contextMessages, now: 1,
+      loopIdentityProvider: {
+        nextStepId: () => 'step', nextTranscriptRecordId: () => 'record', nextToolBatchId: () => 'batch'
+      }
+    })
+    const request = projectContextRequest({ records, requestSpec: prepared.runSpec.requestSpec })
+    const current = request.messages.find(message => message.role === 'user' &&
+      message.content.some(part => part.type === 'input_text' && part.text === 'hello'))
+    expect(current).toMatchObject({ content: [
+      { type: 'input_text', text: 'hello' },
+      { type: 'input_text', text: saved?.body.requestContextSnapshot }
+    ] })
+  })
+
+  it('stops preparation when saving the context snapshot fails', async () => {
+    vi.mocked(DatabaseService.updateMessage).mockImplementationOnce(() => { throw new Error('disk full') })
+    await expect(new ChatPreparationPipeline().prepare(input, {
+      submissionId: 'snapshot-failure', emit: vi.fn(), setChatMeta: vi.fn()
+    })).rejects.toThrow('disk full')
   })
 
   it('uses compressed canonical messages as runtime initial messages', async () => {

@@ -1,11 +1,16 @@
 # Prompt Cache Ordering
 
-**Status:** Accepted<br>
+**Status:** Accepted; snapshot persistence superseded by [ADR 0049](0049-persisted-request-context-snapshots.md)<br>
 **Date:** 2026-07-11<br>
 **Related architecture:** [Chat runtime](../architecture/chat-runtime-architecture-current.md)<br>
 **Related specs:** [Documentation governance](../specs/documentation-governance.md)<br>
 **Related architecture:** [System prompt runtime context](../architecture/system-prompt-runtime-context.md)<br>
 **Related decision:** [Minimal system prompt kernel](0012-minimal-system-prompt-kernel.md)
+
+The original decision below describes request-scoped context without history
+persistence. ADR 0049 retains the ordering and adds hidden per-turn snapshots
+for stable replay; current behavior is documented in
+[System prompt runtime context](../architecture/system-prompt-runtime-context.md).
 
 ## Goal
 
