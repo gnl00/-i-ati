@@ -36,6 +36,22 @@ const toolCallSegment = (args: {
 })
 
 describe('buildAssistantMessageFacts', () => {
+  it.each(['Saved delivery', [{ type: 'text' as const, text: 'Saved delivery' }]])('projects content-only text: %j', content => {
+    const facts = buildAssistantMessageFacts({ committedMessage: { role: 'assistant', content, segments: [] } })
+    expect(facts.transcript.committedSegments).toEqual([
+      { type: 'text', segmentId: 'content-fallback', content: 'Saved delivery', timestamp: 0 }
+    ])
+  })
+
+  it('preserves segment authority including hidden text', () => {
+    const facts = buildAssistantMessageFacts({ committedMessage: {
+      role: 'assistant', content: 'Do not expose', segments: [
+        { ...textSegment('hidden', 'Do not expose'), presentation: { transcriptVisible: false } }
+      ]
+    } })
+    expect(facts.transcript.committedSegments).toEqual([])
+  })
+
   it('filters emotion-only tool segments from transcript facts', () => {
     const facts = buildAssistantMessageFacts({
       committedMessage: {

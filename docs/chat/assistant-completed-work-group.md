@@ -124,3 +124,11 @@ run the assistant-message suites, web typecheck and affected ESLint. Run the
 applicable architecture and documentation path checks when imports or paths change.
 Changes to shared terminal metadata or render lifecycles also require both
 typechecks and full coverage.
+
+### Content-only assistant records
+
+When an assistant record has no raw segments, transcript projection uses its
+nonempty `content` text (including text parts in array content). This supports
+Telegram delivery records and older content-only messages in both clean and
+expanded output. Existing segments remain authoritative, including segments
+hidden from the transcript; their presence disables the content fallback.

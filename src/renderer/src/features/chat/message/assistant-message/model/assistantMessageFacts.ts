@@ -24,9 +24,16 @@ function hasMessageContent(message: ChatMessage | undefined): boolean {
 }
 
 function getVisibleTranscriptSegments(message: ChatMessage | undefined): MessageSegment[] {
-  return (message?.segments ?? []).filter(
-    segment => segment.presentation?.transcriptVisible !== false
-  )
+  const segments = message?.segments ?? []
+  if (segments.length === 0 && message) {
+    const content = typeof message.content === 'string'
+      ? message.content
+      : (message.content ?? []).filter(part => part.type === 'text').map(part => part.text ?? '').join('\n')
+    if (content.trim()) {
+      return [{ type: 'text', segmentId: 'content-fallback', content, timestamp: message.createdAt ?? 0 }]
+    }
+  }
+  return segments.filter(segment => segment.presentation?.transcriptVisible !== false)
 }
 
 export function buildAssistantMessageFacts(source: {

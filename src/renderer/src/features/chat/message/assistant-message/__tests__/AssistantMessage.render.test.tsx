@@ -245,6 +245,23 @@ beforeEach(() => {
     })
   })
 
+  it.each([false, true])('renders content-only Telegram delivery in cleanOutput=%s', async (cleanOutput) => {
+    useChatStore.setState({ runPhase: 'idle' })
+    useAppConfigStore.setState({ appConfig: { cleanOutput } })
+    const message: ChatMessage = {
+      ...createAssistantMessage([], 'Delivered gold price reminder'),
+      source: 'telegram_delivery',
+      typewriterCompleted: true
+    }
+    await act(async () => root.render(<AssistantMessage
+      index={0} committedMessage={message} isLatest={false} isHovered={false}
+      onHover={() => {}} onCopyClick={() => {}}
+    />))
+    expect(container.textContent).toContain('Delivered gold price reminder')
+    expect(container.textContent).not.toContain('Incomplete response')
+    expect(container.textContent).not.toContain('No response generated')
+  })
+
   it('shows an explicit empty result in clean history', async () => {
     useChatStore.setState({ runPhase: 'idle' })
     await act(async () => root.render(<AssistantMessage
