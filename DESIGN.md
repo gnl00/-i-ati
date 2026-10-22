@@ -502,9 +502,18 @@ falls back to `Working…`. Sentence boundaries use native Intl segmentation for
 English and Chinese; streaming candidates require terminal punctuation. Tool,
 approval, question and cancellation states take priority. Active tools use their existing `tool_call_reason` as
 the status text, with whitespace flattened into one line. Parallel calls show
-the latest available active reason first, followed by the active tool count
-(`Check build scripts Running 2 tools.`; singular `Running 1 tool.`); missing reasons
-fall back to the generic operation label. Model headers
+the latest available active reason as the summary. A separate static neutral
+badge shows `1 tool` / `N tools`, followed by plain muted tabular elapsed time,
+without dot separators. Missing reasons use the tool name or `Using tools…`.
+Both modes render elapsed time through WorkProgressMetadata, sharing the same
+calculation and timer implementation. Preview-only messages use the current
+user/pending submission timestamp when no assistant timestamp exists.
+Clean elapsed time uses the whole task's workStartedAt / workEndedAt, exactly
+like Work details. Text updates, phase changes and active-tool changes never
+restart the timer. Unknown task start time hides the duration; no local fallback
+start is invented. Approval/question/stopping retain the task elapsed time.
+Work details uses the same badge/time styling for cumulative calls and whole-run
+elapsed time, including frozen completion duration. Zero tool counts are hidden. Model headers
 remain; answer operations appear only after completion. Approval/question controls
 remain available in the composer.
 
@@ -513,9 +522,11 @@ a glyph-clipped highlight sweeping left-to-right over 2000ms, linear, at 400%
 background size. Approved comparison variant B increases contrast only: Light
 uses base `#8993a0` and highlight `#111827`; Dark uses base `#778393` and
 highlight `#ffffff`. Waiting/stopping and reduced-motion/forced-color text retain
-the Chat secondary token. The label node remains mounted across text changes so the sweep does
-not restart on every update. Text updates sample the latest target every 150ms;
-waiting/stopping update immediately. The previous blur/vertical swap is removed.
+the Chat secondary token. Changed summaries use a 150ms opacity/2px blur/4px
+vertical transition on an outer wrapper; the inner text starts its independent
+shimmer after 150ms. Unchanged summaries preserve the same nodes and sweep.
+Icons, counts and total duration stay outside the transition. Text updates sample the latest target every 150ms;
+waiting/stopping update immediately without transition or shimmer.
 Working/thinking/tools/writing shimmer; approval/question/stopping remain static.
 Reduced motion and forced colors disable the highlight while retaining base text.
 Reduced motion replaces the text immediately. A 14px LoaderCircle icon rotates
@@ -524,6 +535,23 @@ Approval, question and stopping retain static ShieldCheck, MessageCircleQuestion
 and Square icons respectively. The icon has no pulse or layer hint;
 phase and label update together. Phase is independent of user-provided reason
 text, including text that happens to begin with Waiting or Stopping.
+
+The Clean status row is select-none. When current detail exists, the whole row
+is a keyboard-accessible disclosure button with a trailing chevron. Expanded
+content is selectable and follows only the current stage: the current reasoning
+segment without a heading, active tool calls through the same nested AssistantSupportSegmentList /
+ToolCallGroup chain as ordinary Work details (including parallel active calls,
+with inline parameter/result expansion), or the current text segment without a heading. Completed
+prior steps are excluded. Working with no content has no disclosure affordance.
+The user's expansion choice survives phase changes; empty and interaction states
+hide the panel. The label and detail sample together. Content mounts only while
+expanded. Expanded reasoning and writing use local token-by-token playback
+through the existing reasoning typewriter cadence (28ms tokens, 32ms UI updates),
+without marking final-answer playback complete or owning automatic scrolling.
+Appended content continues the current segment; a new segment starts fresh.
+Collapsing stops playback, reopening replays current content. Reduced motion
+shows the full content immediately. Run completion
+returns to the existing Clean output answer reveal.
 
 Successful whole-run termination mounts complete Markdown and images at once,
 then reveals the answer with a continuous top-to-bottom opacity mask over 650ms.
@@ -539,3 +567,19 @@ Empty results display No response generated; image results remain visible.
 `projectCleanOutputContent()` owns answer selection and currently retains all
 visible nonblank text in order, rather than guessing commentary versus final text.
 Switching back to detailed output restores the existing work group presentation.
+
+Clean mode orders its status row as loading/state icon, whole-task duration,
+summary, active-tool badge, and disclosure chevron. Duration precedes the changing
+summary so text width changes cannot shift its position. Work details retains
+the cumulative tool badge followed by duration.
+
+WorkProgressMetadata has no outer margin. The Clean status row owns the 8px
+spacing between the icon, elapsed time, summary and tool badge. Elapsed numerals
+remain tabular. The separate time-ring prototype is not part of this design.
+
+Clean mode elapsed time uses approved elapsed-badge variant B: a static 20px
+high badge, 5px radius and 6px horizontal padding, with neutral background
+rgb(100 116 139 / 4%) in Light and rgb(220 228 238 / 3.5%) in Dark. It remains
+lighter than the tool badge, with tabular numerals, no border and no outer margin.
+Work details duration stays plain. Tool badges use `1 Tool` / `N Tools` in both
+modes, preserving their respective active/cumulative count semantics.

@@ -2,7 +2,7 @@ import { ModelBadgeV2 } from '@renderer/dev/experiments/model-badge/ModelBadgeV2
 import { ModelBadgeV3 } from '@renderer/dev/experiments/model-badge/ModelBadgeV3'
 import { ModelBadge } from '@renderer/features/chat/message/assistant-message/model-badge/ModelBadge'
 import { ReasoningSegment } from '@renderer/features/chat/message/assistant-message/segments/ReasoningSegment'
-import { ToolCallResult } from '@renderer/features/chat/message/assistant-message/toolcall/ToolCallResult'
+import { ToolCallGroup } from '@renderer/features/chat/message/assistant-message/toolcall/ToolCallGroup'
 
 const mockReasoningSegment: ReasoningSegment = {
   segmentId: 'model-badge-test:reasoning:1',
@@ -73,7 +73,7 @@ function DemoAssistantBubble({
           isStreaming={false}
         />
 
-        <ToolCallResult toolCall={mockToolCallSegment} index={0} />
+        <ToolCallGroup items={[{ key: mockToolCallSegment.segmentId, segment: mockToolCallSegment, layer: 'committed', order: 0, sourceIndex: 0, isStreamingTail: false }]} />
       </div>
     </div>
   )
@@ -183,7 +183,7 @@ export default function ModelBadgeTestPage() {
                 isStreaming={false}
               />
             )}
-            toolcall={<ToolCallResult toolCall={mockToolCallSegment} index={0} />}
+            toolcall={<ToolCallGroup items={[{ key: mockToolCallSegment.segmentId, segment: mockToolCallSegment, layer: 'committed', order: 0, sourceIndex: 0, isStreamingTail: false }]} />}
           />
           <DemoAssistantStack
             title="Matched Stack With ModelBadge"
@@ -194,7 +194,7 @@ export default function ModelBadgeTestPage() {
                 isStreaming={false}
               />
             )}
-            toolcall={<ToolCallResult toolCall={mockToolCallSegment} index={0} />}
+            toolcall={<ToolCallGroup items={[{ key: mockToolCallSegment.segmentId, segment: mockToolCallSegment, layer: 'committed', order: 0, sourceIndex: 0, isStreamingTail: false }]} />}
           />
         </div>
 
@@ -203,13 +203,13 @@ export default function ModelBadgeTestPage() {
             Output Header Variant
           </p>
           <h2 className="text-xl font-semibold tracking-tight">
-            Compare the current `ToolCallResult` card against an output-header-focused variant.
+            Compare the current tool group against an output-header-focused variant.
           </h2>
         </div>
 
         <div className="grid gap-6 xl:grid-cols-2">
           <DemoAssistantStack
-            title="ToolCallResult"
+            title="ToolCallGroup"
             badge={<ModelBadge model="MiniMax-M2.5" provider="minimax" animate />}
             reasoning={(
               <ReasoningSegment
@@ -217,7 +217,7 @@ export default function ModelBadgeTestPage() {
                 isStreaming={false}
               />
             )}
-            toolcall={<ToolCallResult toolCall={mockToolCallSegment} index={0} />}
+            toolcall={<ToolCallGroup items={[{ key: mockToolCallSegment.segmentId, segment: mockToolCallSegment, layer: 'committed', order: 0, sourceIndex: 0, isStreamingTail: false }]} />}
           />
         </div>
       </div>

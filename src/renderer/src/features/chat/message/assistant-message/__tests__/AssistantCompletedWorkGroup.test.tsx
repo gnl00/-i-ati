@@ -39,7 +39,7 @@ describe('AssistantCompletedWorkGroup', () => {
     await render('completed')
     expect(trigger.getAttribute('aria-expanded')).toBe('false')
     expect(container.querySelector('[data-testid="child"]')).toBe(child)
-    expect(container.textContent).toContain('4 tool calls')
+    expect(container.textContent).toContain('4 Tools')
     await act(async () => trigger.click())
     expect(trigger.getAttribute('aria-expanded')).toBe('true')
     await render('completed')
@@ -61,6 +61,15 @@ describe('AssistantCompletedWorkGroup', () => {
       expect(container.querySelector('button')!.textContent).toBe(`Work details${expected}`)
     }
   )
+
+  it('shows the tool badge before plain elapsed time and hides a zero count', async () => {
+    await act(async () => root.render(<AssistantCompletedWorkGroup toolCount={1} startedAt={1000} endedAt={13000}>Details</AssistantCompletedWorkGroup>))
+    expect(container.querySelector('button')?.textContent).toBe('Work details1 Tool12s')
+    expect(container.querySelector('[data-testid="work-tool-count"]')).not.toBeNull()
+    await act(async () => root.render(<AssistantCompletedWorkGroup toolCount={0} startedAt={1000} endedAt={13000}>Details</AssistantCompletedWorkGroup>))
+    expect(container.querySelector('[data-testid="work-tool-count"]')).toBeNull()
+    expect(container.querySelector('button')?.textContent).toBe('Work details12s')
+  })
 
   it('respects a manual reopen during execution across completion', async () => {
     const trigger = await render('running')

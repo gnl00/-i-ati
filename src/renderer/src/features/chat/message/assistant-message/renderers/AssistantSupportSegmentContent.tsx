@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { ToolCallResult } from '../toolcall/ToolCallResult'
+import { ToolCallGroup } from '../toolcall/ToolCallGroup'
 import { ErrorMessage } from '../../error-message'
 import { ReasoningSegment } from '../segments/ReasoningSegment'
 import type { SupportSegmentRenderItem } from '../model/assistantMessageMapper'
@@ -33,7 +33,7 @@ export const AssistantSupportSegmentContent = memo(({
   }
 
   if (segment.type === 'toolCall') {
-    return <ToolCallResult key={key} toolCall={segment} index={item.sourceIndex} />
+    return <ToolCallGroup key={key} items={[item]} fullWidth={fullWidth} nestedDisclosure={nestedDisclosure} />
   }
 
   if (segment.type === 'error') {

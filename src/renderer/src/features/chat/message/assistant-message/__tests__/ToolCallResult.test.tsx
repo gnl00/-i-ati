@@ -36,10 +36,10 @@ vi.mock('framer-motion', async () => {
 })
 
 import {
-  ToolCallInspectorDetails,
-  ToolCallResult
+  ToolCallInspectorDetails
 } from '../toolcall/ToolCallResult'
 import { ToolCallInspectorContent } from '../toolcall/ToolCallInspectorContent'
+import { ToolCallGroup } from '../toolcall/ToolCallGroup'
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
 
 const createToolCall = (
@@ -62,7 +62,9 @@ const createToolCall = (
   cost: status === 'running' ? undefined : 80
 })
 
-describe('ToolCallResult', () => {
+const ToolGroupFixture = ({ toolCall }: { toolCall: ToolCallSegment }): React.ReactElement => <ToolCallGroup items={[{ key: toolCall.segmentId, segment: toolCall, layer: 'committed', order: 0, sourceIndex: 0, isStreamingTail: false }]} />
+
+describe('tool call presentation', () => {
   let container: HTMLDivElement
   let root: Root
 
@@ -97,65 +99,31 @@ describe('ToolCallResult', () => {
   it('shows remote approval separately from actual tool execution', async () => {
     const pending = { confirmationId: 'approval', submissionId: 'run', chatUuid: 'chat-1', toolCallId: 'tool-1', name: 'search', status: 'pending' as const, version: 1, createdAt: 1, expiresAt: 300001 }
     useToolConfirmationStore.getState().apply(pending)
-    await act(async () => root.render(<ToolCallResult toolCall={createToolCall('pending')} index={0} />))
+    await act(async () => root.render(<ToolGroupFixture toolCall={createToolCall('pending')} />))
     expect(container.textContent).toContain('awaiting approval')
     act(() => useToolConfirmationStore.getState().apply({ ...pending, status: 'approved', version: 2 }))
     expect(container.textContent).toContain('approved')
     expect(container.querySelector('button')?.getAttribute('aria-label')).toContain('status approved')
-    await act(async () => root.render(<ToolCallResult toolCall={createToolCall('running')} index={0} />))
+    await act(async () => root.render(<ToolGroupFixture toolCall={createToolCall('running')} />))
     expect(container.querySelector('button')?.getAttribute('aria-label')).toContain('status running')
-    await act(async () => root.render(<ToolCallResult toolCall={createToolCall('completed')} index={0} />))
+    await act(async () => root.render(<ToolGroupFixture toolCall={createToolCall('completed')} />))
     expect(container.querySelector('button')?.getAttribute('aria-label')).toContain('status completed')
   })
 
-  it('opens the Tools tab and stores only the selected identity', async () => {
-    const toolCall = createToolCall()
-    await act(async () => root.render(<ToolCallResult toolCall={toolCall} index={0} />))
-
-    const result = container.querySelector('[data-testid="tool-call-result"]')
-    const trigger = container.querySelector('button')
-    const header = container.querySelector('[data-testid="tool-call-trigger-content-segment-tool-1"]')
-    const status = container.querySelector('[data-testid="tool-call-trigger-status-segment-tool-1"]')
-    const name = container.querySelector('[data-testid="tool-call-trigger-name-segment-tool-1"]')
-    const inspectorIcon = container.querySelector('[data-testid="tool-call-inspector-icon-segment-tool-1"]')
-    expect(result?.classList.contains('w-[90%]')).toBe(true)
-    expect(result?.classList.contains('max-w-full')).toBe(true)
-    expect(trigger?.classList.contains('w-full')).toBe(true)
-    expect(trigger?.classList.contains('duration-150')).toBe(true)
-    expect(trigger?.classList.contains('border-slate-200/24')).toBe(true)
-    expect(trigger?.classList.contains('hover:border-slate-200/36')).toBe(true)
-    expect(header?.classList.contains('grid-cols-[auto_minmax(0,1fr)_auto_auto]')).toBe(true)
-    expect(status?.classList.contains('h-5')).toBe(true)
-    expect(status?.classList.contains('rounded-md')).toBe(true)
-    expect(status?.classList.contains('border-emerald-200/70')).toBe(true)
-    expect(status?.classList.contains('bg-emerald-50/85')).toBe(true)
-    expect(status?.querySelector('svg')?.classList.contains('text-emerald-700')).toBe(true)
-    expect(name?.textContent).toBe('search')
-    expect(name?.classList.contains('uppercase')).toBe(true)
-    expect(inspectorIcon?.getAttribute('aria-hidden')).toBe('true')
-
-    await act(async () => {
-      trigger?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    })
-
-    expect(useChatStore.getState()).toMatchObject({
-      artifactsPanelOpen: true,
-      artifactsActiveTab: 'tools',
-      toolCallInspectorSelection: {
-        chatUuid: 'chat-1',
-        segmentId: 'segment-tool-1',
-        toolCallId: 'tool-1'
-      }
-    })
-    expect(container.querySelector('button')?.getAttribute('aria-pressed')).toBe('true')
-    expect(trigger?.classList.contains('border-slate-400/45')).toBe(true)
-    expect(status?.classList.contains('scale-[1.03]')).toBe(true)
-    expect(container.querySelector('[role="dialog"]')).toBeNull()
+  it('opens inline details and stores the selected identity without opening the Tools tab', async () => {
+    await act(async () => root.render(<ToolGroupFixture toolCall={createToolCall()} />))
+    const trigger = container.querySelector('button')!
+    expect(trigger.getAttribute('aria-expanded')).toBe('false')
+    await act(async () => trigger.click())
+    expect(trigger.getAttribute('aria-expanded')).toBe('true')
+    expect(container.textContent).toContain('latest status')
+    expect(useChatStore.getState().toolCallInspectorSelection?.segmentId).toBe('segment-tool-1')
+    expect(useChatStore.getState().artifactsPanelOpen).toBe(false)
   })
 
   it('animates pending and running tools and stops at terminal states', async () => {
     for (const status of ['pending', 'running', 'completed', 'failed']) {
-      await act(async () => root.render(<ToolCallResult toolCall={createToolCall(status)} index={0} />))
+      await act(async () => root.render(<ToolGroupFixture toolCall={createToolCall(status)} />))
       const icon = container.querySelector('[data-testid="tool-call-trigger-status-segment-tool-1"] svg')
       const active = status === 'pending' || status === 'running'
       expect(icon?.classList.contains('animate-spin')).toBe(active)
@@ -164,7 +132,7 @@ describe('ToolCallResult', () => {
   })
 
   it('keeps the terminal duration visible in the tool row', async () => {
-    await act(async () => root.render(<ToolCallResult toolCall={createToolCall()} index={0} />))
+    await act(async () => root.render(<ToolGroupFixture toolCall={createToolCall()} />))
     expect(container.textContent).toContain('0.08s')
   })
 
@@ -173,21 +141,21 @@ describe('ToolCallResult', () => {
       ...createToolCall(),
       cost: 1086
     }
-    await act(async () => root.render(<ToolCallResult toolCall={toolCall} index={0} />))
+    await act(async () => root.render(<ToolGroupFixture toolCall={toolCall} />))
 
     expect(container.textContent).toContain('1.09s')
     expect(container.textContent).not.toContain('1.086s')
   })
 
   it.each([[60_000, '1m'], [225_000, '3m45s']])('formats a long tool duration of %s ms', async (cost, expected) => {
-    await act(async () => root.render(<ToolCallResult toolCall={{ ...createToolCall(), cost: Number(cost) }} index={0} />))
+    await act(async () => root.render(<ToolGroupFixture toolCall={{ ...createToolCall(), cost: Number(cost) }} />))
     expect(container.textContent).toContain(expected)
   })
 
   it('updates the running duration from the execution start', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(10_000)
-    await act(async () => root.render(<ToolCallResult toolCall={createToolCall('running')} index={0} />))
+    await act(async () => root.render(<ToolGroupFixture toolCall={createToolCall('running')} />))
     expect(container.textContent).toContain('0.08s')
 
     await act(async () => vi.advanceTimersByTime(1000))
@@ -203,7 +171,7 @@ describe('ToolCallResult', () => {
     await act(async () => {
       root.render(
         <>
-          <ToolCallResult toolCall={toolCall} index={0} />
+          <ToolGroupFixture toolCall={toolCall} />
           <ToolCallInspectorDetails
             toolCall={toolCall}
             toolResponse={toolCall.content}

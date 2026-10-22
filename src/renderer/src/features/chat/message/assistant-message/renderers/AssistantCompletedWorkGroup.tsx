@@ -1,5 +1,5 @@
 import { SizeAnimatedPanel } from '@renderer/shared/components/ui/size-animated-panel'
-import { formatDuration } from '@renderer/shared/lib/formatDuration'
+import { WorkProgressMetadata } from './WorkProgressMetadata'
 import { cn } from '@renderer/shared/lib/utils'
 import { useReducedMotion } from 'framer-motion'
 import { ChevronRight } from 'lucide-react'
@@ -13,8 +13,6 @@ export interface AssistantCompletedWorkGroupProps {
   endedAt?: number
   forceReducedMotion?: boolean
 }
-
-const metadataBadgeClassName = 'inline-flex h-5 shrink-0 items-center whitespace-nowrap rounded-[5px] bg-(--app-surface-inset)/45 px-1.5 text-[10.5px] leading-4 tabular-nums text-(--chat-text-secondary)/85 dark:bg-(--chat-surface-raised)/55'
 
 const labels = {
   running: 'Working',
@@ -44,16 +42,6 @@ export const AssistantCompletedWorkGroup: React.FC<AssistantCompletedWorkGroupPr
   const isOpen = userExpanded ?? status !== 'completed'
   const prefersReducedMotion = useReducedMotion()
   const panelId = React.useId()
-  const [now, setNow] = React.useState(Date.now)
-  React.useEffect(() => {
-    if (status !== 'running' || startedAt == null) return
-    setNow(Date.now())
-    const timer = window.setInterval(() => setNow(Date.now()), 1000)
-    return (): void => window.clearInterval(timer)
-  }, [status, startedAt])
-  const duration = startedAt != null && (endedAt != null || status === 'running')
-    ? Math.max(0, Math.floor(((endedAt ?? now) - startedAt) / 1000))
-    : undefined
 
   return (
     <div data-testid="assistant-completed-work-group" className="my-1.5 w-full min-w-0">
@@ -69,14 +57,9 @@ export const AssistantCompletedWorkGroup: React.FC<AssistantCompletedWorkGroupPr
           'dark:text-(--chat-text-secondary) dark:hover:bg-(--chat-surface-hover) dark:active:bg-(--chat-surface-raised)'
         )}
       >
-        <ChevronRight aria-hidden="true" className={cn('h-3 w-3 shrink-0', isOpen && 'rotate-90')} />
         <span data-testid="completed-work-label">{labels[status]}</span>
-        {(duration != null || toolCount > 0) && (
-          <span className="inline-flex shrink-0 items-center gap-1.25">
-            {duration != null && <span className={metadataBadgeClassName}>{formatDuration(duration)}</span>}
-            {toolCount > 0 && <span className={metadataBadgeClassName}>{toolCount} {toolCount === 1 ? 'tool call' : 'tool calls'}</span>}
-          </span>
-        )}
+        <WorkProgressMetadata toolCount={toolCount} startedAt={startedAt} endedAt={endedAt} running={status === 'running'} />
+        <ChevronRight aria-hidden="true" className={cn('ml-1 h-3 w-3 shrink-0', isOpen && 'rotate-90')} />
       </button>
       <SizeAnimatedPanel
         id={panelId}

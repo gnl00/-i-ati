@@ -59,7 +59,7 @@ export const AssistantMessageBody: React.FC<AssistantMessageBodyProps> = memo(({
 
   if (model.cleanOutput) {
     if (model.cleanOutputActive) {
-      return <CleanOutputStatus progress={model.cleanOutputStatus ?? { phase: 'working', label: 'Working…' }} />
+      return <CleanOutputStatus progress={model.cleanOutputStatus ?? { phase: 'working', label: 'Working…' }} startedAt={model.workStartedAt} endedAt={model.workEndedAt} />
     }
     const content = projectCleanOutputContent(transcript)
     const revealCompleted = observedCleanRun.current && status === 'completed'

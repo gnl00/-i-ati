@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Gauge, Pause, Play, RotateCcw } from 'lucide-react'
 import { ModelBadge } from '@renderer/features/chat/message/assistant-message/model-badge/ModelBadge'
-import { ToolCallResult } from '@renderer/features/chat/message/assistant-message/toolcall/ToolCallResult'
+import { ToolCallGroup } from '@renderer/features/chat/message/assistant-message/toolcall/ToolCallGroup'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 
 interface ReasonPlaybackItem {
@@ -138,10 +138,9 @@ function ViewportProbe({
 
             <div className="flex w-full flex-col gap-1.5">
               {reasons.map((item, index) => (
-                <ToolCallResult
+                <ToolCallGroup
                   key={`${item.id}:${item.isTerminal ? 'terminal' : 'active'}`}
-                  toolCall={buildReasonToolCall(item, index)}
-                  index={index}
+                  items={[{ key: item.id, segment: buildReasonToolCall(item, index), layer: 'committed', order: index, sourceIndex: index, isStreamingTail: false }]}
                 />
               ))}
             </div>

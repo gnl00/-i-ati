@@ -66,10 +66,9 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
 }) => {
   const runPhase = useChatStore(state => state.runPhase)
   const messages = useChatStore(state => state.messages)
-  const hasPendingUserMessage = useChatStore(state => Boolean(
-    state.pendingUserMessage
-      && state.pendingUserMessage.chatUuid === state.currentChatUuid
-  ))
+  const pendingUserMessage = useChatStore(state => state.pendingUserMessage
+    && state.pendingUserMessage.chatUuid === state.currentChatUuid ? state.pendingUserMessage : null)
+  const hasPendingUserMessage = Boolean(pendingUserMessage)
   const selectedModelRef = useChatStore(state => state.selectedModelRef)
   const forkCurrentChatFromMessage = useChatStore(state => state.forkCurrentChatFromMessage)
   const providerDefinitions = useAppConfigStore(state => state.providerDefinitions)
@@ -124,6 +123,10 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
     || Boolean(previewMessage)
     || displayCommittedMessage.source === MESSAGE_SOURCE.STREAM_PREVIEW
   )
+  // Both modes use the same turn start, including the preview-only window.
+  const workStartedAt = isCurrentLiveResponse
+    ? pendingUserMessage?.createdAt ?? messages[latestUserIndex]?.body.createdAt ?? displayCommittedMessage.createdAt
+    : displayCommittedMessage.createdAt
   const presentationModeRef = useRef<{
     identity: AssistantMessageProjectionIdentity
     animateOnMount: boolean
@@ -302,7 +305,7 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
     workStatus: isLatest && isCurrentTurnResponse && ['submitting', 'streaming', 'cancelling'].includes(runPhase)
       ? 'running' as const
       : displayCommittedMessage.workStatus === 'running' ? 'incomplete' as const : displayCommittedMessage.workStatus,
-    workStartedAt: displayCommittedMessage.createdAt,
+    workStartedAt,
     workEndedAt: displayCommittedMessage.workEndedAt
   }), [
     index,
@@ -317,7 +320,7 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
     isCurrentTurnResponse,
     runPhase,
     displayCommittedMessage.workStatus,
-    displayCommittedMessage.createdAt,
+    workStartedAt,
     displayCommittedMessage.workEndedAt
   ])
 

@@ -4,7 +4,7 @@ import { cn } from '@renderer/shared/lib/utils'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 import { motion, useReducedMotion } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
-import { Check, FileText, List, Loader2, PanelRightOpen, PencilLine, Search, ShieldAlert, Trash2, X } from 'lucide-react'
+import { Check, FileText, List, Loader2, PencilLine, Search, ShieldAlert, Trash2, X } from 'lucide-react'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { WebSearchResults, type WebSearchResult } from './WebSearchResults'
 import { SubagentResults } from './SubagentResults'
@@ -14,16 +14,9 @@ import {
   type SupportSegmentHeaderTone
 } from '../renderers/SupportSegmentHeader'
 import { getReasonFromToolCall } from '../model/toolCallReason'
-import { useChatStore } from '@renderer/features/chat/state/chatStore'
 import type { ToolLiveOutput } from '@renderer/features/chat/state/chatRunUiStore'
-import { TOOL_CALL_RESULT_WIDTH_CLASS_NAME } from './toolCallLayout'
 import { findToolConfirmation, useToolConfirmationStore } from '@renderer/features/chat/state/toolConfirmationStore'
 import type { ToolConfirmationStatus } from '@shared/tools/confirmation'
-
-export interface ToolCallResultProps {
-  toolCall: ToolCallSegment
-  index: number
-}
 
 type ToolCallRenderContent = Record<string, unknown> | undefined
 export type ToolCallResponse = {
@@ -471,36 +464,6 @@ function getToolCallStatusIconMeta(args: {
   return {
     Icon: Check
   }
-}
-
-export function getToolCallTriggerButtonClassName({
-  isError,
-  isRunning,
-  isPending,
-  isSelected = false,
-  density = 'regular',
-  className
-}: {
-  isError: boolean
-  isRunning: boolean
-  isPending: boolean
-  isSelected?: boolean
-  density?: 'regular' | 'compact'
-  className?: string
-}): string {
-  return cn(
-    'group/toolcall inline-flex w-full cursor-pointer justify-start rounded-lg border text-left outline-hidden',
-    'transition-[background-color,border-color,box-shadow] duration-150 ease-out',
-    'border-slate-200/24 bg-white/34 hover:border-slate-200/36 hover:bg-slate-50/82',
-    'focus-visible:ring-2 focus-visible:ring-slate-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-    'dark:border-(--chat-border-subtle) dark:bg-(--chat-surface) dark:hover:border-(--chat-border-standard) dark:hover:bg-(--chat-surface-hover) dark:focus-visible:ring-slate-500/80',
-    density === 'compact' ? 'px-1.5 py-1' : 'px-2 py-1.5',
-    isError && 'border-red-200/38 hover:border-red-300/52 dark:border-red-900/28 dark:hover:border-red-800/42',
-    (isRunning || isPending) && !isError
-      && 'border-amber-200/34 hover:border-amber-300/48 dark:border-amber-900/24 dark:hover:border-amber-800/38',
-    isSelected && 'border-slate-400/45 bg-slate-100/88 shadow-xs dark:border-(--chat-accent) dark:bg-(--chat-surface-hover)',
-    className
-  )
 }
 
 export const ToolCallTriggerContent = React.memo(({
@@ -1254,71 +1217,3 @@ export const ToolCallInspectorDetails = React.memo(({
 })
 
 ToolCallInspectorDetails.displayName = 'ToolCallInspectorDetails'
-
-const ToolCallResultComponent: React.FC<ToolCallResultProps> = ({ toolCall: tc }) => {
-  const approval = useToolCallApproval(tc.toolCallId)
-  const currentChatUuid = useChatStore(state => state.currentChatUuid)
-  const inspectToolCall = useChatStore(state => state.inspectToolCall)
-  const isSelected = useChatStore(state => (
-    Boolean(currentChatUuid)
-    && state.toolCallInspectorSelection?.chatUuid === currentChatUuid
-    && state.toolCallInspectorSelection.segmentId === tc.segmentId
-  ))
-  const {
-    isError,
-    isPending,
-    isRunning,
-    statusLabel
-  } = getToolCallHeaderState(tc, approval)
-
-  return (
-    <motion.div
-      data-testid="tool-call-result"
-      initial={{ opacity: 0, y: 8, scale: 0.985 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ type: 'spring', stiffness: 360, damping: 30 }}
-      className={cn(TOOL_CALL_RESULT_WIDTH_CLASS_NAME, 'py-1 font-sans flow-root')}
-    >
-      <button
-        type="button"
-        aria-label={getToolCallTriggerAriaLabel(tc.name, statusLabel)}
-        aria-pressed={isSelected}
-        onClick={() => {
-          if (!currentChatUuid) return
-          inspectToolCall({
-            chatUuid: currentChatUuid,
-            segmentId: tc.segmentId,
-            toolCallId: tc.toolCallId
-          })
-        }}
-        className={getToolCallTriggerButtonClassName({
-          isError,
-          isRunning,
-          isPending,
-          isSelected
-        })}
-      >
-        <ToolCallTriggerContent
-          toolCall={tc}
-          isError={isError}
-          isRunning={isRunning}
-          isPending={isPending}
-          isSelected={isSelected}
-          className="w-full"
-          trailing={(
-            <PanelRightOpen
-              aria-hidden="true"
-              data-testid={`tool-call-inspector-icon-${tc.segmentId}`}
-              className="h-3.5 w-3.5"
-            />
-          )}
-        />
-      </button>
-    </motion.div>
-  )
-}
-
-export const ToolCallResult = React.memo(
-  ToolCallResultComponent,
-  (prevProps, nextProps) => areToolCallSegmentsEqual(prevProps.toolCall, nextProps.toolCall)
-)

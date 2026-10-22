@@ -100,19 +100,6 @@ vi.mock('../typewriter/StreamingMarkdownSwitch', () => ({
 }))
 
 vi.mock('../toolcall/ToolCallResult', async () => {
-  const React = await import('react')
-
-  const ToolCallResult = React.memo(({
-    toolCall
-  }: {
-    toolCall: ToolCallSegment
-    index: number
-  }) => {
-    const key = toolCall.segmentId
-    toolCallRenderCounts.set(key, (toolCallRenderCounts.get(key) ?? 0) + 1)
-    return <div data-testid={`tool-${toolCall.toolCallId}`}>{toolCall.name}</div>
-  })
-
   const ToolCallTriggerContent = ({
     toolCall
   }: {
@@ -124,9 +111,7 @@ vi.mock('../toolcall/ToolCallResult', async () => {
   }
 
   return {
-    ToolCallResult,
     ToolCallTriggerContent,
-    getToolCallTriggerButtonClassName: () => 'tool-call-trigger-button',
     getNormalizedStatus: (status: unknown) => typeof status === 'string' ? status.toLowerCase() : undefined,
     useToolCallApproval: (): undefined => undefined,
     getToolCallHeaderState: (segment: ToolCallSegment) => {
@@ -225,6 +210,30 @@ beforeEach(() => {
       providerDefinitions: [],
       accounts: []
     })
+  })
+
+  it('shows total elapsed time for a preview-only clean response and keeps it after commit', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(10_000)
+    try {
+      useAppConfigStore.setState({ appConfig: { cleanOutput: true } })
+      useChatStore.setState({ currentChatUuid: 'timed-chat', pendingUserMessage: {
+        submissionId: 'timed-run', chatUuid: 'timed-chat', text: 'Check timing', mediaCtx: [], createdAt: 7000
+      } })
+      const render = async (message?: ChatMessage, index = 0): Promise<void> => {
+        await act(async () => root.render(<AssistantMessage index={index} committedMessage={message} pendingModel={{ model: 'test-model' }} isLatest isHovered={false} onHover={() => {}} onCopyClick={() => {}} />))
+      }
+      await render()
+      expect(container.querySelector('[data-testid="work-duration"]')?.textContent).toBe('3s')
+      await act(async () => vi.advanceTimersByTime(2000))
+      expect(container.querySelector('[data-testid="work-duration"]')?.textContent).toBe('5s')
+      const message = { ...createAssistantMessage([textSegment('current', 'Current response')], 'Current response'), createdAt: 11000 }
+      await act(async () => useChatStore.setState({ pendingUserMessage: null, messages: [{ body: { role: 'user', content: 'Check timing', segments: [], createdAt: 7000 } }, { body: message }] }))
+      await render(message, 1)
+      expect(container.querySelector('[data-testid="work-duration"]')?.textContent).toBe('5s')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('keeps committed intermediate answers hidden until the run ends in clean output', async () => {

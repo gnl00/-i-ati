@@ -34,7 +34,7 @@
   -webkit-background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
-  animation: clean-status-shimmer 2000ms linear infinite;
+  animation: clean-status-shimmer 2000ms linear 150ms infinite;
 }
 
 @keyframes clean-status-shimmer {
