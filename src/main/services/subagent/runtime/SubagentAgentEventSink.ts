@@ -24,10 +24,12 @@ const maybeCollectFileTouch = (
 export class SubagentAgentEventSink implements AgentEventSink {
   private readonly toolsUsed = new Set<string>()
   private readonly filesTouched = new Set<string>()
+  private partialContent = ''
 
   async handle(event: AgentEvent): Promise<void> {
     switch (event.type) {
       case 'step.delta':
+        this.partialContent = event.snapshot.content.slice(-32_000)
         if (event.delta.type === 'tool_call_started') {
           this.toolsUsed.add(event.delta.toolName)
         }
@@ -40,11 +42,6 @@ export class SubagentAgentEventSink implements AgentEventSink {
         return
       case 'tool.confirmation_denied':
         this.toolsUsed.add(event.deniedResult.toolName)
-        maybeCollectFileTouch(
-          this.filesTouched,
-          event.deniedResult.toolName,
-          event.deniedResult.content
-        )
         return
       case 'tool.execution_progress':
         if (event.phase === 'started') {
@@ -56,7 +53,7 @@ export class SubagentAgentEventSink implements AgentEventSink {
           return
         }
         this.toolsUsed.add(event.result.toolName)
-        maybeCollectFileTouch(this.filesTouched, event.result.toolName, event.result.content)
+        if (event.result.status === 'success') maybeCollectFileTouch(this.filesTouched, event.result.toolName, event.result.content)
         return
       default:
         return
@@ -68,5 +65,9 @@ export class SubagentAgentEventSink implements AgentEventSink {
       tools_used: Array.from(this.toolsUsed),
       files_touched: Array.from(this.filesTouched)
     }
+  }
+
+  getPartialSummary(): string {
+    return this.partialContent.trim()
   }
 }

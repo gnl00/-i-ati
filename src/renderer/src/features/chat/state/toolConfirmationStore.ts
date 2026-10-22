@@ -82,5 +82,8 @@ export function findToolConfirmation(
   toolCallId?: string
 ): ToolConfirmation | undefined {
   if (!toolCallId) return undefined
-  return Object.values(records).filter(item => item.toolCallId === toolCallId).sort((a, b) => b.version - a.version)[0]
+  // Worker tool IDs belong to independent runtimes; their approval cards use confirmationId.
+  return Object.values(records)
+    .filter(item => item.toolCallId === toolCallId && item.agent?.kind !== 'subagent')
+    .sort((a, b) => b.version - a.version)[0]
 }

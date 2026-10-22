@@ -77,3 +77,6 @@ export const invokeRunTitleGenerate = (data: {
   account: ProviderAccount
   providerDefinition: ProviderDefinition
 }): Promise<{ title: string }> => invokeIpc(RUN_TITLE_GENERATE, data)
+
+export const invokeSubagentSnapshot = (chatUuid: string): Promise<import('@tools/subagent/index.d').SubagentRecord[]> =>
+  invokeIpc('subagent:snapshot', { chatUuid })

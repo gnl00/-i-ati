@@ -6,6 +6,7 @@ import type { AgentRequestSpec } from '../request/AgentRequestSpec'
 import { projectContextRequest, type MaterializedProtocolRequest } from '../context/ContextRequest'
 import { DefaultExecutableRequestAdapter } from '../model/ExecutableRequestAdapter'
 import { compactContext, type ContextCompressionInput } from './ContextCompactor'
+import { measureRequestComposition } from './RequestCompositionMetrics'
 import { RequestTokenizer, resolveContextBudget } from './RequestTokenizer'
 
 const logger = createLogger('ContextManager')
@@ -104,7 +105,7 @@ export class ContextManager {
     }
     const measure = async (
       request: MaterializedProtocolRequest
-    ): Promise<{ tokens: number; budget: ReturnType<typeof resolveContextBudget> }> => {
+    ): Promise<{ bodyBytes: number; tokens: number; budget: ReturnType<typeof resolveContextBudget> }> => {
       const unified = this.adapter.adapt(request)
       const body = this.options.measureRequest
         ? await this.options.measureRequest(unified)
@@ -117,6 +118,7 @@ export class ContextManager {
           }
       signal?.throwIfAborted()
       return {
+        bodyBytes: Buffer.byteLength(JSON.stringify(body)),
         tokens: this.tokenizer.countValue(body),
         budget: resolveContextBudget(
           this.requestSpec.contextWindowTokens,
@@ -142,7 +144,16 @@ export class ContextManager {
       throw new Error(
         `Required context exceeds the model token budget: input=${minimal.tokens}, budget=${measured.budget.input}`
       )
-    if (measured.tokens <= measured.budget.input) return request
+    if (measured.tokens <= measured.budget.input) {
+      logger.info('context.prepared', {
+        runId: this.identity.id, inputTokens: measured.tokens, inputBudget: measured.budget.input,
+        outputReserve: measured.budget.output, windowUnknown: measured.budget.windowUnknown,
+        encoding: this.tokenizer.encoding, estimated: this.tokenizer.estimated,
+        bodyBytes: measured.bodyBytes, parts: measureRequestComposition(request), systemPromptParts: this.requestSpec.systemPromptParts,
+        omittedRecords: this.records.length - retained.length, summarized: Boolean(this.summary)
+      })
+      return request
+    }
 
     // Old user turns and complete assistant/result batches are the only removable units.
     const groups: number[][] = []
@@ -212,6 +223,10 @@ export class ContextManager {
     this.summary = summary
     const finalMeasurement = await measure(request)
     logger.info('context.prepared', {
+      runId: this.identity.id,
+      bodyBytes: finalMeasurement.bodyBytes,
+      parts: measureRequestComposition(request),
+      systemPromptParts: this.requestSpec.systemPromptParts,
       inputTokens: finalMeasurement.tokens,
       inputBudget: finalMeasurement.budget.input,
       outputReserve: minimal.budget.output,

@@ -78,3 +78,9 @@ Use sequential names such as `0001-chat-runtime-host-boundary.md`.
 - [0048: Bounded awake activity context](0048-bounded-awake-activity-context.md) - Accepted
 
 - [0049: Persist request context snapshots for Chat replay](0049-persisted-request-context-snapshots.md) - Accepted
+
+- [0050: Supervised background subagent lifecycle](0050-supervised-subagent-lifecycle.md) - Accepted
+
+- [0051: Persistent subagent sessions, runs and messages](0051-persistent-subagent-sessions.md) - Accepted
+
+- [0052: Streamed command output artifacts](0052-streamed-command-output-artifacts.md) - Accepted

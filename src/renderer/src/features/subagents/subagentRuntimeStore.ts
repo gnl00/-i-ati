@@ -12,7 +12,7 @@ type SubagentRuntimeActions = {
 
 export const useSubagentRuntimeStore = create<SubagentRuntimeState & SubagentRuntimeActions>((set) => ({
   recordsById: {},
-  upsert: (record) => set((state) => ({
+  upsert: (record) => set((state) => (state.recordsById[record.id]?.revision ?? 0) > (record.revision ?? 0) ? state : ({
     recordsById: {
       ...state.recordsById,
       [record.id]: record

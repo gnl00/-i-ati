@@ -61,8 +61,8 @@ recorded in the [normalization spec](../specs/tools/tool-result-normalization.md
 - Raw UI/program output remains separate from model previews.
 - Character estimation can under/overestimate provider tokens; provider-specific
   token counting is outside this change.
-- Command collection still retains 512 KiB per stream; an artifact cannot recover
-  bytes discarded during collection. Streaming full command output is separate work.
+- Command previews retain 512 KiB per stream. [ADR-0052](0052-streamed-command-output-artifacts.md)
+  adds raw-byte capture during collection with explicit quotas and completeness.
 - Tool artifacts are retained with the workspace. No automatic expiry or cleanup
   is added; deleting a workspace can invalidate its saved output pointers.
 

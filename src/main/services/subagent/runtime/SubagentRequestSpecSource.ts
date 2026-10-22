@@ -5,7 +5,8 @@ import type { RunSpec } from '@main/agent/contracts'
 import { embeddedToolsRegistry } from '@tools/registry'
 
 export interface SubagentRequestSpecSourceOptions {
-  modelContext: RunSpec['modelContext']
+  modelContext?: RunSpec['modelContext']
+  requestSpec?: AgentRequestSpec
   systemPrompt: string
   allowedTools: string[]
 }
@@ -22,6 +23,15 @@ export class SubagentRequestSpecSource implements AgentRequestSpecSource {
   constructor(private readonly options: SubagentRequestSpecSourceOptions) {}
 
   resolve(_input: AgentRuntimeRunInput): AgentRequestSpec {
+    if (this.options.requestSpec) {
+      return {
+        ...this.options.requestSpec,
+        systemPrompt: this.options.systemPrompt,
+        systemPromptParts: { workerPolicy: { characters: this.options.systemPrompt.length, utf8Bytes: Buffer.byteLength(this.options.systemPrompt) } },
+        tools: buildAllowedTools(this.options.allowedTools)
+      }
+    }
+    if (!this.options.modelContext) throw new Error('Subagent model context is unavailable.')
     return {
       adapterPluginId: this.options.modelContext.providerDefinition.adapterPluginId,
       baseUrl: this.options.modelContext.account.apiUrl,
@@ -30,6 +40,7 @@ export class SubagentRequestSpecSource implements AgentRequestSpecSource {
       contextWindowTokens: this.options.modelContext.model.contextWindowTokens,
       modelType: this.options.modelContext.model.type,
       systemPrompt: this.options.systemPrompt,
+      systemPromptParts: { workerPolicy: { characters: this.options.systemPrompt.length, utf8Bytes: Buffer.byteLength(this.options.systemPrompt) } },
       stream: true,
       tools: buildAllowedTools(this.options.allowedTools),
       payloadExtensions: this.options.modelContext.providerDefinition.payloadExtensions,

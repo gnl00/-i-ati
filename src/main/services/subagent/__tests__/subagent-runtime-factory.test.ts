@@ -66,6 +66,7 @@ describe('SubagentRuntimeFactory', () => {
     }
     const runtimeRunner = {
       run: vi.fn<SubagentRuntimeRunner['run']>(async () => ({
+        status: 'completed',
         summary: 'runtime summary',
         artifacts: {
           tools_used: ['read'],
@@ -121,6 +122,7 @@ describe('SubagentRuntimeFactory', () => {
     }
     const runtimeRunner = {
       run: vi.fn<SubagentRuntimeRunner['run']>(async () => ({
+        status: 'completed',
         summary: 'inspected',
         artifacts: { tools_used: [], files_touched: [] }
       }))
@@ -176,6 +178,7 @@ describe('SubagentRuntimeFactory', () => {
     }
     const runtimeRunner = {
       run: vi.fn<SubagentRuntimeRunner['run']>(async () => ({
+        status: 'completed',
         summary: 'done',
         artifacts: { tools_used: [], files_touched: [] }
       }))
@@ -244,6 +247,7 @@ describe('SubagentRuntimeFactory', () => {
     const { SubagentRuntimeFactory } = await import('../subagent-runtime-factory')
     const runtimeRunner = {
       run: vi.fn<SubagentRuntimeRunner['run']>(async () => ({
+        status: 'completed',
         summary: 'continued',
         artifacts: { tools_used: [], files_touched: [] }
       }))
@@ -276,4 +280,28 @@ describe('SubagentRuntimeFactory', () => {
     const preparedContext = runtimeRunner.run.mock.calls[0][1]
     expect(preparedContext.userMessage).toContain(expectedWorkContext)
   })
+})
+
+it('inherits a CLI-only model request through its live parent channel without loading saved credentials', async () => {
+  const { SubagentRuntimeFactory } = await import('../subagent-runtime-factory')
+  const { subagentRuntimeBridge } = await import('../subagent-runtime-bridge')
+  const spec = { adapterPluginId: 'test-adapter', baseUrl: 'https://example.invalid', apiKey: 'temporary-test-key', model: 'cli-model', systemPrompt: 'parent policy' }
+  const modelRef = { accountId: 'cli-only', modelId: 'cli-model' }
+  const requireConfig = vi.fn(() => { throw new Error('No saved account') })
+  const runner: SubagentRuntimeRunner = { run: vi.fn(async () => ({ status: 'completed' as const, summary: 'done', artifacts: { tools_used: [], files_touched: [] } })) }
+  subagentRuntimeBridge.register('cli-parent-spec', {
+    requester: { request: vi.fn(async () => ({ approved: false })) },
+    emitter: { submissionId: 'cli-parent-spec', chatUuid: 'chat-1', setChatMeta: vi.fn(), emit: vi.fn() },
+    cancelConfirmation: vi.fn(), requestSpec: spec, modelRef
+  })
+  try {
+    const factory = new SubagentRuntimeFactory({ requireConfig } as unknown as AppConfigStore, undefined, runner)
+    const result = await factory.run({ task: 'inspect', role: 'researcher', contextMode: 'minimal', files: [], workspacePath: '/tmp', parentSubmissionId: 'cli-parent-spec', modelRef })
+    expect(requireConfig).not.toHaveBeenCalled()
+    expect(runner.run).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ requestSpec: spec, systemPrompt: buildSubagentSystemPrompt('researcher') }))
+    expect(JSON.stringify(result)).not.toContain('temporary-test-key')
+    expect(subagentRuntimeBridge.getRequestSpec('cli-parent-spec', { ...modelRef, modelId: 'different' })).toBeUndefined()
+  } finally {
+    subagentRuntimeBridge.releaseParent('cli-parent-spec')
+  }
 })

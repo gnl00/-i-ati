@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { subagentRuntimeBridge } from '@main/services/subagent/subagent-runtime-bridge'
+import subagentRunService from '@main/services/subagent/subagent-run-service'
 import { DuplicateSubmissionIdError } from '../errors'
 
 const {
@@ -54,6 +56,7 @@ vi.mock('../../infrastructure', () => ({
     resolve = vi.fn()
     cancelForSubmission = vi.fn()
     approvePendingForSubmission = vi.fn()
+    cancelForSubagent = vi.fn()
   }
 }))
 
@@ -69,6 +72,7 @@ const createManagerWithDeps = () => {
     resolve = vi.fn()
     cancelForSubmission = vi.fn()
     approvePendingForSubmission = vi.fn()
+    cancelForSubagent = vi.fn()
   })()
   const toolQuestionManager = new (class {
     cancelForSubmission = vi.fn()
@@ -79,7 +83,7 @@ const createManagerWithDeps = () => {
     eventEmitterFactory: new (class {
       create(meta: unknown): object {
         eventEmitterMetaMock(meta)
-        return {}
+        return { ...(meta as object), emit: vi.fn() }
       }
 
       createOptional() {
@@ -117,6 +121,36 @@ const input = {
 } as any
 
 describe('RunManager', () => {
+  it('registers real child approval and status wiring and retains it after normal parent completion', async () => {
+    const deferred = createDeferred<{ assistantMessageId: number; state: 'completed' }>()
+    runMock.mockReturnValueOnce(deferred.promise)
+    const { manager, toolConfirmationManager } = createManagerWithDeps()
+    const handle = manager.submit({ ...input, chatUuid: 'chat' })
+    const release = subagentRuntimeBridge.retain(input.submissionId)
+    deferred.resolve({ assistantMessageId: 1, state: 'completed' })
+    await handle.completion
+    expect(toolConfirmationManager.cancelForSubmission).toHaveBeenCalledWith(input.submissionId, 'parent_finished', false)
+    await expect(subagentRuntimeBridge.request(input.submissionId, { toolCallId: 'tool', name: 'exec', agent: { kind: 'subagent', subagentId: 'child' } })).resolves.toEqual({ approved: true })
+    expect(toolConfirmationManager.request).toHaveBeenCalledWith(expect.objectContaining({ submissionId: input.submissionId }), expect.objectContaining({ toolCallId: 'tool' }), [])
+    release()
+    await expect(subagentRuntimeBridge.request(input.submissionId, { toolCallId: 'tool', name: 'exec' })).resolves.toMatchObject({ approved: false })
+  })
+
+  it('cascades explicit Stop only to the resolved parent submission', async () => {
+    const deferred = createDeferred<{ assistantMessageId: number; state: 'completed' }>()
+    runMock.mockReturnValueOnce(deferred.promise)
+    const cancel = vi.spyOn(subagentRunService, 'cancelForParent')
+    const manager = createManager()
+    const handle = manager.submit({ ...input, chatUuid: 'chat' })
+    expect(manager.cancel({ submissionId: input.submissionId, chatUuid: 'wrong' })).toMatchObject({ cancelled: false })
+    expect(cancel).not.toHaveBeenCalled()
+    manager.cancel({ chatUuid: 'chat' })
+    expect(cancel).toHaveBeenCalledExactlyOnceWith(input.submissionId)
+    deferred.resolve({ assistantMessageId: 1, state: 'completed' })
+    await handle.completion
+    cancel.mockRestore()
+  })
+
   beforeEach(() => {
     emitAcceptedMock.mockReset()
     runMock.mockReset()
@@ -412,4 +446,18 @@ describe('RunManager', () => {
     deferred.resolve({ assistantMessageId: 11, state: 'completed' })
     await deferred.promise
   })
+  it('rejects an ID retained by an older child without leaving a new active run', async () => {
+    subagentRuntimeBridge.register('retained-id', {
+      emitter: { submissionId: 'retained-id', chatUuid: 'chat', setChatMeta: vi.fn(), emit: vi.fn() },
+      requester: { request: vi.fn(async () => ({ approved: false })) }, cancelConfirmation: vi.fn()
+    })
+    const release = subagentRuntimeBridge.retain('retained-id')
+    subagentRuntimeBridge.releaseParent('retained-id')
+    const manager = createManager()
+    expect(() => manager.submit({ ...input, submissionId: 'retained-id', chatUuid: 'chat' })).toThrow('already registered')
+    expect(manager.hasActiveRunForChat('chat')).toBe(false)
+    release()
+    await expect(manager.submit({ ...input, submissionId: 'retained-id', chatUuid: 'chat' }).completion).resolves.toMatchObject({ state: 'completed' })
+  })
+
 })

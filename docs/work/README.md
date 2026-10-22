@@ -11,6 +11,8 @@ An implemented feature can remain Active while runtime acceptance is pending.
 
 ## Plans and implementation acceptance
 
+- [Agent Harness 分批实施与验收](plans/agent-harness-implementation.md)
+
 - [Web Fetch 阶段耗时与后续优化](plans/web-fetch-phase-timing-optimization.md)
 
 - [Background Tool Result Compaction](../archive/2026/tools/2026-10-01-background-tool-result-compaction.md)

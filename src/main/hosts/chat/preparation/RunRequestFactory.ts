@@ -65,7 +65,8 @@ export class RunRequestFactory {
       interactiveInputAvailable: isInteractiveMessageSource(input.source)
     }
     const compressionSummary = this.compressionSummaryResolver.resolve(config, environment.chat.id)
-    const systemPrompts = await this.systemPromptComposer.compose(emotionEnabled)
+    let systemPromptParts: AgentRequestSpec['systemPromptParts']
+    const systemPrompts = await this.systemPromptComposer.compose(emotionEnabled, parts => { systemPromptParts = parts })
     const systemEnvironmentContext = this.systemEnvironmentContextProvider.build({
       workspacePath: environment.workspacePath
     })
@@ -125,6 +126,7 @@ export class RunRequestFactory {
           .map((prompt) => prompt.trim())
           .filter(Boolean)
           .join('\n'),
+        systemPromptParts,
         apiKey: environment.modelContext.account.apiKey,
         model: environment.modelContext.model.id,
         contextWindowTokens: environment.modelContext.model.contextWindowTokens,

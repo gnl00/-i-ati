@@ -5,6 +5,8 @@ import { Bot, CheckCircle2, Clock3, Loader2, ShieldAlert, XCircle } from 'lucide
 import React, { useMemo } from 'react'
 import type { BuiltInSubagentRole, SubagentAction, SubagentRecord, SubagentStatus } from '@tools/subagent/index.d'
 
+const ACTION_LABELS: Record<SubagentAction, string> = { spawn: 'SPAWN', wait: 'WAIT', cancel: 'CANCEL', inspect: 'INSPECT', list: 'LIST', send_message: 'MESSAGE', followup_task: 'FOLLOWUP', resume: 'RESUME', interrupt: 'INTERRUPT' }
+
 type SubagentResultsProps = {
   action?: SubagentAction
   payload: any
@@ -38,6 +40,14 @@ function getStatusMeta(status: SubagentStatus | undefined) {
         icon: XCircle,
         className: 'bg-red-100/85 text-red-700 dark:bg-red-900/24 dark:text-red-300'
       }
+    case 'cancelling':
+      return {
+        label: 'Cancelling',
+        icon: ShieldAlert,
+        className: 'bg-amber-100/85 text-amber-700 dark:bg-amber-900/24 dark:text-amber-200'
+      }
+    case 'interrupted':
+      return { label: 'Interrupted', icon: ShieldAlert, className: 'bg-amber-100/85 text-amber-700 dark:bg-amber-900/24 dark:text-amber-200' }
     case 'cancelled':
       return {
         label: 'Cancelled',
@@ -76,16 +86,27 @@ function normalizeSummary(summary?: string): string {
     .join('\n')
 }
 
-export const SubagentResults: React.FC<SubagentResultsProps> = React.memo(({ action, payload }) => {
-  const baseSubagent = (payload?.subagent ?? payload) as SubagentRecord | undefined
+export const SubagentResults = React.memo(function SubagentResultsView({ action, payload }: SubagentResultsProps): React.ReactElement | null {
+  const candidate = payload?.subagent ?? payload
+  const baseSubagent = typeof candidate?.id === 'string' && typeof candidate?.role === 'string'
+    ? candidate as SubagentRecord
+    : undefined
   const liveSubagent = useSubagentRuntimeStore(state => (
     baseSubagent?.id ? state.recordsById[baseSubagent.id] : undefined
   ))
-  const subagent = liveSubagent ?? baseSubagent
+  const subagent = liveSubagent
+    && (!baseSubagent?.run_id || liveSubagent.run_id === baseSubagent.run_id)
+    && (liveSubagent.revision ?? 0) >= (baseSubagent?.revision ?? 0)
+    ? liveSubagent
+    : baseSubagent
   const message = typeof payload?.message === 'string' ? payload.message : undefined
   const success = typeof payload?.success === 'boolean' ? payload.success : undefined
 
-  const waitingForApproval = useToolConfirmationStore(state => state.pendingRequests.some(item => item.agent?.subagentId === baseSubagent?.id && item.agent?.kind === 'subagent'))
+  const waitingForApproval = useToolConfirmationStore(state => state.pendingRequests.some(item => (
+    item.agent?.subagentId === subagent?.id && item.agent?.kind === 'subagent'
+    && (!subagent?.parent_submission_id || item.submissionId === subagent.parent_submission_id)
+    && (!subagent?.run_id || !liveSubagent?.run_id || liveSubagent.run_id === subagent.run_id)
+  )))
   const status = waitingForApproval && (subagent?.status === 'running' || subagent?.status === 'queued')
     ? 'waiting_for_confirmation'
     : subagent?.status ?? (action === 'spawn' ? 'queued' : undefined)
@@ -94,6 +115,7 @@ export const SubagentResults: React.FC<SubagentResultsProps> = React.memo(({ act
   const toolsUsed = subagent?.artifacts?.tools_used ?? []
   const filesTouched = subagent?.artifacts?.files_touched ?? []
   const summary = normalizeSummary(subagent?.summary)
+  const error = subagent?.persistence_error || subagent?.error
 
   const duration = useMemo(() => {
     if (!subagent?.started_at || !subagent?.finished_at) return undefined
@@ -101,7 +123,9 @@ export const SubagentResults: React.FC<SubagentResultsProps> = React.memo(({ act
   }, [subagent?.finished_at, subagent?.started_at])
 
   if (!subagent) {
-    return null
+    return Array.isArray(payload?.subagents)
+      ? <>{payload.subagents.map((record: SubagentRecord) => <SubagentResults key={record.id} action={action} payload={{ subagent: record }} />)}</>
+      : <p className="p-3 text-xs text-slate-500">{message ?? 'No subagent record.'}</p>
   }
 
   return (
@@ -135,17 +159,17 @@ export const SubagentResults: React.FC<SubagentResultsProps> = React.memo(({ act
           </div>
         </div>
         <span className="shrink-0 rounded-full bg-slate-200/65 px-2 py-1 text-[10px] font-mono text-slate-500 dark:bg-white/6 dark:text-slate-400">
-          {action === 'spawn' ? 'SPAWN' : 'WAIT'}
+          {action ? ACTION_LABELS[action] : 'WAIT'}
         </span>
       </div>
 
-      {(summary || subagent.error || message) && (
+      {(summary || error || message) && (
         <div className="rounded-xl bg-white/72 px-3 py-2 ring-1 ring-slate-200/45 dark:bg-white/4 dark:ring-white/6">
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
             {status === 'failed' ? 'Error' : 'Summary'}
           </p>
           <p className="mt-1 whitespace-pre-wrap text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">
-            {subagent.error || summary || message}
+            {error || summary || message}
           </p>
           {success === false && !subagent.error && message && !summary && (
             <p className="mt-1 text-[10px] text-red-600 dark:text-red-300">

@@ -110,6 +110,6 @@ describe('skill script command execution', () => {
     await expect(execute({}, {
       signal: controller.signal,
       onOutput: (): void => controller.abort()
-    })).rejects.toMatchObject({ name: 'AbortError' })
+    })).resolves.toMatchObject({ success: false, failure: { code: 'COMMAND_CANCELLED', termination: 'cancelled' }, stdout: expect.stringContaining('started') })
   })
 })

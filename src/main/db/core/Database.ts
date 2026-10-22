@@ -2,6 +2,7 @@ import { app } from 'electron'
 import path from 'path'
 import * as fs from 'fs'
 import Database from 'better-sqlite3'
+import { SUBAGENT_SCHEMA } from '../repositories/SubagentRepository'
 
 function bootstrapKnowledgebaseDb(db: Database.Database): void {
   db.exec(`
@@ -100,6 +101,8 @@ class AppDatabase {
 
     this.createTables()
     this.createIndexes()
+    this.db.exec(SUBAGENT_SCHEMA)
+    this.ensureColumn('subagent_runs', 'owner_pid', 'INTEGER NOT NULL DEFAULT 0')
 
     this.initialized = true
     return this.db

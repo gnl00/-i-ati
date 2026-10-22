@@ -1,3 +1,4 @@
+import { registerSubagentHandlers } from '@main/ipc/subagents'
 import { registerChatHandlers } from '@main/ipc/chat'
 import { registerConfigHandlers } from '@main/ipc/config'
 import { registerEmotionHandlers } from '@main/ipc/emotion'
@@ -31,6 +32,7 @@ function mainIPCSetup() {
   registerModelsHandlers()
   registerMessageHandlers()
   registerChatHandlers()
+  registerSubagentHandlers()
   registerTaskPlanHandlers()
   registerScheduledTaskHandlers()
   registerSmartMessageHandlers()

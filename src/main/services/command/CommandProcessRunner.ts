@@ -1,3 +1,4 @@
+import { CommandOutputSpool, type CommandOutputArtifacts } from './CommandOutputSpool'
 import { spawn, type ChildProcess } from 'child_process'
 import { join } from 'path'
 import { StringDecoder } from 'string_decoder'
@@ -8,6 +9,10 @@ export const COMMAND_TERMINATION_GRACE_MS = 2_000
 export const COMMAND_TERMINATION_DEADLINE_MS = 7_000
 
 const pendingProcessGroupCleanups = new Set<Promise<void>>()
+
+export function hasPendingCommandProcessCleanup(): boolean {
+  return pendingProcessGroupCleanups.size > 0
+}
 
 /** Wait for delayed process-group escalation scheduled by aborted commands. */
 export async function waitForCommandProcessCleanup(): Promise<void> {
@@ -23,11 +28,13 @@ export interface CommandProcessRunOptions {
   env: NodeJS.ProcessEnv
   timeoutMs: number
   signal?: AbortSignal
+  outputRoot?: string
   onOutput?: (chunk: EmbeddedToolOutputChunk) => void
   windowsVerbatimArguments?: boolean
 }
 
 export interface CommandProcessRunResult {
+  outputArtifacts?: CommandOutputArtifacts
   stdout: string
   stderr: string
   stdoutBytes: number
@@ -195,6 +202,7 @@ export function runCommandProcess(
   }
 
   return new Promise((resolve, reject) => {
+    const spool = options.outputRoot ? new CommandOutputSpool(options.outputRoot) : undefined
     const stdoutBuffer = new BoundedHeadTailBuffer(COMMAND_OUTPUT_LIMIT_BYTES)
     const stderrBuffer = new BoundedHeadTailBuffer(COMMAND_OUTPUT_LIMIT_BYTES)
     const stdoutDecoder = new StringDecoder('utf8')
@@ -212,6 +220,7 @@ export function runCommandProcess(
       exitCode: number | null,
       terminationSignal: NodeJS.Signals | null
     ): CommandProcessRunResult => ({
+      outputArtifacts: spool?.finish(),
       stdout: stdoutBuffer.toString(),
       stderr: stderrBuffer.toString(),
       stdoutBytes: stdoutBuffer.bytes,
@@ -295,17 +304,19 @@ export function runCommandProcess(
         windowsVerbatimArguments: options.windowsVerbatimArguments
       })
     } catch (error) {
-      reject(new CommandProcessSpawnError(error, emptyResult(startedAt)))
+      reject(new CommandProcessSpawnError(error, { ...emptyResult(startedAt), outputArtifacts: spool?.finish() }))
       return
     }
 
     child.stdout?.on('data', (value: Buffer | string) => {
       const chunk = Buffer.isBuffer(value) ? value : Buffer.from(value)
+      spool?.append('stdout', chunk)
       stdoutBuffer.append(chunk)
       emitOutput({ stream: 'stdout', text: stdoutDecoder.write(chunk) })
     })
     child.stderr?.on('data', (value: Buffer | string) => {
       const chunk = Buffer.isBuffer(value) ? value : Buffer.from(value)
+      spool?.append('stderr', chunk)
       stderrBuffer.append(chunk)
       emitOutput({ stream: 'stderr', text: stderrDecoder.write(chunk) })
     })

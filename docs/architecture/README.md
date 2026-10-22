@@ -22,7 +22,7 @@ in [specs](../specs/README.md); historical records live in [archive](../archive/
 - [@i 命令执行与文件工具安全边界](sandbox-design.md)
 - [Scheduled task architecture](scheduled-tasks.md)
 - [Streaming In Main With IPC Batching](streaming-main-ipc.md)
-- [Subagent MVP](subagent-mvp.md)
+- [Subagent runtime](subagent-mvp.md)
 - [System Prompt Runtime Context](system-prompt-runtime-context.md)
 - [Thinking Reasoning Replay](thinking-reasoning-replay.md)
 - [User Info System](user-info-system.md)

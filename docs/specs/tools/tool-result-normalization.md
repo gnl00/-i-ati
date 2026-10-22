@@ -50,7 +50,18 @@ and partial spawn failures). stdout and stderr each retain their suffix within
 12,000 JSON-serialized characters and 24,000 UTF-8 bytes. Truncation flags combine
 capture and projection loss; byte counts remain the original observed counts.
 Exit code, signal, timing and failure information stay in the view. Raw UI/history
-content remains the bounded process capture. No complete command log is promised.
+content retains the bounded process preview and command artifact references.
+Commands capture raw bytes under `.ati/artifacts/commands` as chunks arrive.
+`output_artifacts` reports path, saved byte count, completeness and errors per
+stream; `stdout_log_unsaved_bytes` / `stderr_log_unsaved_bytes` count bytes absent
+from the log file, some of which can still be in the preview. A complete artifact
+can recover preview-omitted content. Partial artifacts cannot independently
+recover an entire stream. Limits are 64 MiB per stream and 512 MiB of retained
+managed logs per workspace/app process. I/O failure or quota exhaustion is
+explicit and does not retry or stop the command. Cancellation after dispatch
+keeps partial command/skill output with `COMMAND_CANCELLED` failure metadata.
+Files stay with the workspace and have no age cleanup; deleting the workspace
+invalidates references. See [ADR-0052](../../decisions/0052-streamed-command-output-artifacts.md).
 
 `web_fetch` returns extracted text inline within 24,000 JSON-serialized characters
 and 48,000 UTF-8 bytes. Larger content stays in a single `.tmp/web-fetch/<uuid>.tmp` file.

@@ -392,9 +392,9 @@ describe('CommandProcessor.executeCommand filesystem scope', () => {
       filesystem_scope: 'workspace',
       filesystem_scope_reason: 'Read the current workspace directory.',
       chat_uuid: 'chat-abort'
-    })).rejects.toMatchObject({
-      name: 'AbortError',
-      message: 'Command execution aborted'
+    })).resolves.toMatchObject({
+      success: false,
+      failure: { code: 'COMMAND_CANCELLED', termination: 'cancelled' }
     })
   })
 

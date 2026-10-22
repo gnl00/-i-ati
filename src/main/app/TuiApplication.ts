@@ -96,7 +96,8 @@ export async function runTuiApplication(argv = process.argv.slice(2)): Promise<n
       { TuiView },
       { SkillService },
       { default: MemoryService },
-      { knowledgebaseService }
+      { knowledgebaseService },
+      { default: subagents }
     ] = await Promise.all([
       import('@main/tools'),
       import('@main/services/shellEnvironment'),
@@ -107,14 +108,17 @@ export async function runTuiApplication(argv = process.argv.slice(2)): Promise<n
       import('@main/hosts/tui/TuiView'),
       import('@main/services/skills/SkillService'),
       import('@main/services/memory/MemoryService'),
-      import('@main/services/knowledgebase/KnowledgebaseService')
+      import('@main/services/knowledgebase/KnowledgebaseService'),
+      import('@main/services/subagent/subagent-run-service')
     ])
     initializeMainEmbeddedTools()
+    await subagents.initialize()
     preserveCallerShellPathForCommands()
     setCommandWorkspaceBasePath(workspace)
     const session = new TuiSession(workspace)
     stop = async (): Promise<void> => {
       await session.close()
+      await subagents.shutdown()
       await waitForCommandProcessCleanup()
       mcpRuntimeService.disconnectAll()
     }

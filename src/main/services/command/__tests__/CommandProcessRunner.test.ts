@@ -6,6 +6,8 @@ import {
   COMMAND_OUTPUT_LIMIT_BYTES,
   COMMAND_TERMINATION_GRACE_MS,
   CommandProcessSpawnError,
+  hasPendingCommandProcessCleanup,
+  waitForCommandProcessCleanup,
   runCommandProcess
 } from '../CommandProcessRunner'
 
@@ -89,7 +91,10 @@ async function verifyDescendantCleanup(reason: 'timeout' | 'abort'): Promise<voi
       aborted: reason === 'abort'
     })
     expect(isProcessAlive(descendantPid)).toBe(true)
+    expect(hasPendingCommandProcessCleanup()).toBe(true)
     await waitForProcessExit(descendantPid, COMMAND_TERMINATION_GRACE_MS + 2_000)
+    await waitForCommandProcessCleanup()
+    expect(hasPendingCommandProcessCleanup()).toBe(false)
   } finally {
     if (descendantPid && isProcessAlive(descendantPid)) {
       try {

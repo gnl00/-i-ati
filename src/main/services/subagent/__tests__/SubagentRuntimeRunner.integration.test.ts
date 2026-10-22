@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ModelResponseChunk } from '@main/agent/runtime/model/ModelResponseChunk'
 import type { ModelStreamExecutor } from '@main/agent/runtime/model/ModelStreamExecutor'
-import { DefaultSubagentRuntimeRunner } from '../runtime/SubagentRuntimeRunner'
+import { DefaultSubagentRuntimeRunner, type PreparedSubagentRunContext } from '../runtime/SubagentRuntimeRunner'
 import { subagentRuntimeBridge } from '../subagent-runtime-bridge'
 
 const executeMock = vi.fn()
@@ -36,7 +36,7 @@ vi.mock('@main/agent/tools/ToolExecutor', () => ({
     constructor(private readonly config: any) {}
 
     async execute(calls: Array<{ id: string; index: number; function: string; args: string }>) {
-      executeMock(calls)
+      executeMock(calls, this.config.signal)
       const call = calls[0]
       const decision = await this.config.requestConfirmation?.({
         toolCallId: call.id,
@@ -87,6 +87,39 @@ const createAsyncStream = async function* (
 }
 
 describe('DefaultSubagentRuntimeRunner integration', () => {
+  it('cancels the model stream and preserves bounded partial output', async () => {
+    const controller = new AbortController()
+    let streamed!: () => void
+    const started = new Promise<void>(resolve => { streamed = resolve })
+    const modelStreamExecutor: ModelStreamExecutor = {
+      execute: vi.fn(async ({ signal }) => (async function* (): AsyncGenerator<ModelResponseChunk, void, unknown> {
+        yield { kind: 'delta' as const, content: 'Partial investigation evidence.' }
+        streamed()
+        await new Promise<void>((_resolve, reject) => {
+          signal?.addEventListener('abort', () => reject(signal.reason), { once: true })
+          if (signal?.aborted) reject(signal.reason)
+        })
+      })())
+    }
+    const runner = new DefaultSubagentRuntimeRunner(undefined, { modelStreamExecutor })
+    const running = runner.run({
+      subagentId: 'stream-cancel', task: 'inspect', role: 'researcher', contextMode: 'minimal', files: [],
+      signal: controller.signal, modelRef: { accountId: 'a', modelId: 'm' }
+    }, {
+      modelContext: {
+        providerDefinition: { adapterPluginId: 'test-adapter' },
+        account: { apiUrl: 'https://example.invalid', apiKey: 'test' },
+        model: { id: 'test-model', type: 'chat' }
+      } as unknown as PreparedSubagentRunContext['modelContext'],
+      systemPrompt: 'inspect', userMessage: 'inspect', allowedTools: [], workspacePath: '/tmp'
+    })
+    await started
+    controller.abort(new DOMException('User stopped', 'AbortError'))
+    expect(await running).toMatchObject({ status: 'cancelled', summary: 'Partial investigation evidence.' })
+    expect(modelStreamExecutor.execute).toHaveBeenCalledOnce()
+    expect(executeMock).not.toHaveBeenCalled()
+  })
+
   beforeEach(() => {
     executeMock.mockReset()
   })
@@ -153,9 +186,11 @@ describe('DefaultSubagentRuntimeRunner integration', () => {
       modelStreamExecutor
     })
 
+    const controller = new AbortController()
     const result = await runner.run(
       {
         subagentId: 'sub-1',
+        signal: controller.signal,
         task: 'Try exec and continue on denial',
         role: 'coder',
         contextMode: 'minimal',
@@ -226,8 +261,27 @@ describe('DefaultSubagentRuntimeRunner integration', () => {
       ])
     )
     const firstRuntimeRunInput = (modelStreamExecutor.execute as any).mock.calls[0][0]
-    expect(firstRuntimeRunInput.signal).toBeUndefined()
+    expect(firstRuntimeRunInput.signal).toBe(controller.signal)
+    expect(executeMock.mock.calls[0][1]).toBe(controller.signal)
 
     requestSpy.mockRestore()
   })
+  it('includes already queued information alongside the task before the first model request', async () => {
+    const messages = [{ queueItemId: 'queued-message', text: 'Preserve existing changes.', imageUrls: [], content: [{ type: 'input_text' as const, text: 'Preserve existing changes.' }] }]
+    const acknowledge = vi.fn()
+    const modelStreamExecutor: ModelStreamExecutor = { execute: vi.fn(async () => createAsyncStream([
+      { kind: 'delta', content: 'Reviewed queued information.', finishReason: 'stop' }, { kind: 'final' }
+    ])) }
+    const runner = new DefaultSubagentRuntimeRunner(undefined, { modelStreamExecutor })
+    await runner.run({ task: 'initial task', role: 'researcher', files: [], contextMode: 'minimal', modelRef: { accountId: 'a', modelId: 'm' }, steeringMessageSource: { take: () => messages.shift(), acknowledge } }, {
+      modelContext: { providerDefinition: { adapterPluginId: 'test-adapter' }, account: { apiUrl: 'https://example.invalid', apiKey: 'test' }, model: { id: 'test-model', type: 'chat' } } as unknown as PreparedSubagentRunContext['modelContext'],
+      systemPrompt: 'worker', userMessage: 'initial task', allowedTools: [], workspacePath: '/tmp'
+    })
+    expect(acknowledge).toHaveBeenCalledExactlyOnceWith('queued-message')
+    const call = vi.mocked(modelStreamExecutor.execute).mock.calls[0][0]
+    expect(JSON.stringify(call.request.messages)).toContain('initial task')
+    expect(JSON.stringify(call.request.messages)).toContain('Preserve existing changes.')
+    expect(executeMock).not.toHaveBeenCalled()
+  })
+
 })

@@ -20,6 +20,8 @@ import { telegramGatewayService } from '@main/services/telegram'
 import { modelsDevCacheService } from '@main/services/models/ModelsDevCacheService'
 import { imageAssetService } from '@main/services/images/ImageAssetService'
 import { emotionAssetService } from '@main/services/emotion/EmotionAssetService'
+import subagentRunService from '@main/services/subagent/subagent-run-service'
+import { hasPendingCommandProcessCleanup, waitForCommandProcessCleanup } from '@main/services/command/CommandProcessRunner'
 import { knowledgebaseService } from '@main/services/knowledgebase/KnowledgebaseService'
 import { installMainConsoleCapture } from '@main/logging/console-capture'
 import { createPerfLogger, logService } from '@main/logging/LogService'
@@ -34,6 +36,7 @@ export class MainApplication {
   private rendererSummaryScheduled = false
   private cleanupDone = false
   private lifecycleRegistered = false
+  private waitingForSubagents = false
   private readonly handleResume = (): void => schedulerService.wake()
 
   registerLifecycle(): void {
@@ -48,8 +51,19 @@ export class MainApplication {
         console.error('[App] Failed during app.whenReady bootstrap:', error)
       })
 
-    app.on('before-quit', () => {
+    app.on('before-quit', (event) => {
       setMainWindowAppQuitting(true)
+      if (subagentRunService.hasPending() || hasPendingCommandProcessCleanup()) {
+        event.preventDefault()
+        if (!this.waitingForSubagents) {
+          this.waitingForSubagents = true
+          void subagentRunService.shutdown()
+            .then(() => waitForCommandProcessCleanup())
+            .catch(error => console.error('[App] Subagent shutdown failed:', error))
+            .finally(() => app.quit())
+        }
+        return
+      }
       this.stop()
     })
 
@@ -71,6 +85,7 @@ export class MainApplication {
     console.log('[App] Initializing database service...')
     this.startupTracer.mark('db.init.start')
     await databaseRuntime.initialize()
+    await subagentRunService.initialize()
     this.startupTracer.mark('db.init.end')
     const appConfig = configDb.initConfig()
 

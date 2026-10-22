@@ -1,5 +1,7 @@
 import { resolveTelegramApprovalTargets } from '@main/services/telegram/TelegramApprovalTargets'
 import { AbortError } from './errors'
+import subagentRunService from '@main/services/subagent/subagent-run-service'
+import { subagentRuntimeBridge } from '@main/services/subagent/subagent-runtime-bridge'
 import type { ToolConfirmationRequester, ToolQuestionRequester } from '@main/agent/contracts'
 import { AgentRun } from './AgentRun'
 import { PostRunJobService } from '@main/orchestration/chat/postRun'
@@ -59,6 +61,7 @@ export class RunManager {
       run.emitAccepted()
     } catch (error) {
       this.cancelPendingInteractions(input.submissionId)
+      subagentRuntimeBridge.releaseParent(input.submissionId)
       this.registry.delete(input.submissionId)
       throw error
     }
@@ -77,8 +80,13 @@ export class RunManager {
           throw error
         }
         return result
+      } catch (error) {
+        subagentRunService.cancelForParent(input.submissionId)
+        throw error
       } finally {
-        this.cancelPendingInteractions(input.submissionId)
+        this.deps.toolConfirmationManager.cancelForSubmission(input.submissionId, 'parent_finished', false)
+        this.deps.toolQuestionManager?.cancelForSubmission(input.submissionId)
+        subagentRuntimeBridge.releaseParent(input.submissionId)
         this.registry.delete(input.submissionId)
       }
     })()
@@ -115,6 +123,7 @@ export class RunManager {
     }
 
     run.cancel()
+    subagentRunService.cancelForParent(run.submissionId)
     this.cancelPendingInteractions(run.submissionId)
     return { cancelled: true, submissionId: run.submissionId }
   }
@@ -200,6 +209,16 @@ export class RunManager {
       hostRenderSinks
     })
     this.registry.add(input.submissionId, run)
+    try {
+      subagentRuntimeBridge.register(input.submissionId, {
+        requester: toolConfirmationRequester,
+        emitter,
+        cancelConfirmation: (subagentId) => this.deps.toolConfirmationManager.cancelForSubagent(input.submissionId, subagentId)
+      })
+    } catch (error) {
+      this.registry.delete(input.submissionId)
+      throw error
+    }
     return run
   }
 

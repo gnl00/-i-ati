@@ -40,6 +40,8 @@ import {
 } from '../toolcall/ToolCallResult'
 import { ToolCallInspectorContent } from '../toolcall/ToolCallInspectorContent'
 import { ToolCallGroup } from '../toolcall/ToolCallGroup'
+import { SubagentResults } from '../toolcall/SubagentResults'
+import { useSubagentRuntimeStore } from '@renderer/features/subagents'
 import { useChatStore } from '@renderer/features/chat/state/chatStore'
 
 const createToolCall = (
@@ -88,6 +90,56 @@ describe('tool call presentation', () => {
       messages: [],
       preview: { message: null }
     })
+  })
+
+  it('renders live cancellation without regressing to an older subagent event', async () => {
+    const record = { id: 'child-cancel', role: 'coder', task: 'Inspect this module', status: 'running' as const, created_at: 1, revision: 2 }
+    useSubagentRuntimeStore.getState().clear()
+    await act(async () => root.render(<SubagentResults action="cancel" payload={{ subagent: record }} />))
+    expect(container.textContent).toContain('Running')
+    await act(async () => useSubagentRuntimeStore.getState().upsert({ ...record, status: 'cancelling', revision: 3 }))
+    expect(container.textContent).toContain('Cancelling')
+    expect(container.textContent).toContain('CANCEL')
+    await act(async () => useSubagentRuntimeStore.getState().upsert({ ...record, status: 'cancelled', revision: 4 }))
+    await act(async () => useSubagentRuntimeStore.getState().upsert(record))
+    expect(container.textContent).toContain('Cancelled')
+    expect(container.textContent).not.toContain('Running')
+    await act(async () => useSubagentRuntimeStore.getState().clear())
+  })
+
+  it('keeps an inspected historical run separate from the same child latest run', async () => {
+    const record = { id: 'child-history', run_id: 'run-a', parent_submission_id: 'parent-a', role: 'coder', task: 'Original task', status: 'completed' as const, created_at: 1, revision: 4, summary: 'Original evidence', artifacts: { tools_used: ['read'], files_touched: ['original.ts'] } }
+    useSubagentRuntimeStore.getState().clear()
+    useSubagentRuntimeStore.getState().upsert({ ...record, run_id: 'run-b', parent_submission_id: 'parent-b', task: 'Followup task', status: 'running', revision: 6, summary: 'Followup evidence', artifacts: { tools_used: [], files_touched: ['followup.ts'] } })
+    await act(async () => root.render(<SubagentResults action="inspect" payload={{ subagent: record }} />))
+    expect(container.textContent).toContain('Completed')
+    expect(container.textContent).toContain('Original task')
+    expect(container.textContent).toContain('Original evidence')
+    expect(container.textContent).toContain('original.ts')
+    expect(container.textContent).not.toContain('Followup')
+    expect(container.textContent).not.toContain('followup.ts')
+    await act(async () => useSubagentRuntimeStore.getState().clear())
+  })
+
+  it('does not replace a newer result with an older snapshot of the same run', async () => {
+    const record = { id: 'child-snapshot', run_id: 'run-a', role: 'coder', task: 'Inspect', status: 'completed' as const, created_at: 1, revision: 4 }
+    useSubagentRuntimeStore.getState().clear()
+    useSubagentRuntimeStore.getState().upsert({ ...record, status: 'running', revision: 2 })
+    await act(async () => root.render(<SubagentResults action="wait" payload={{ subagent: record }} />))
+    expect(container.textContent).toContain('Completed')
+    expect(container.textContent).not.toContain('Running')
+    await act(async () => useSubagentRuntimeStore.getState().clear())
+  })
+
+  it('does not project another run approval onto historical running evidence', async () => {
+    const record = { id: 'child-approval', run_id: 'run-a', parent_submission_id: 'parent', role: 'coder', task: 'Original task', status: 'running' as const, created_at: 1, revision: 2 }
+    useSubagentRuntimeStore.getState().clear()
+    useSubagentRuntimeStore.getState().upsert({ ...record, run_id: 'run-b', revision: 6 })
+    useToolConfirmationStore.getState().apply({ confirmationId: 'other-run', submissionId: 'parent', chatUuid: 'chat-1', toolCallId: 'exec', name: 'exec', status: 'pending', version: 1, createdAt: 1, expiresAt: 300001, agent: { kind: 'subagent', subagentId: record.id } })
+    await act(async () => root.render(<SubagentResults action="inspect" payload={{ subagent: record }} />))
+    expect(container.textContent).toContain('Running')
+    expect(container.textContent).not.toContain('Waiting for confirmation')
+    await act(async () => useSubagentRuntimeStore.getState().clear())
   })
 
   afterEach(async () => {

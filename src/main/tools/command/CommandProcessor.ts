@@ -44,6 +44,7 @@ function normalizeCommandTimeout(value: number | undefined): number {
 }
 
 function commandFailureForResult(result: CommandProcessRunResult, timeout: number): ToolFailure | undefined {
+  if (result.aborted) return createToolFailure({ category: 'operation', code: 'COMMAND_CANCELLED', message: 'Command execution was cancelled.', recovery: { action: 'stop', message: 'Inspect partial output before starting another operation.' }, termination: 'cancelled' })
   if (result.timedOut) {
     return createToolFailure({
       category: 'operation',
@@ -456,6 +457,7 @@ class CommandExecutor {
       let result: CommandProcessRunResult
       const runOptions = {
         cwd: workingDir,
+        outputRoot: workspaceBasePath,
         timeoutMs: timeout,
         env: execEnv,
         signal: context?.signal,
@@ -504,10 +506,10 @@ class CommandExecutor {
           stdoutBytes: result.stdoutBytes,
           stderrBytes: result.stderrBytes
         })
-        throw new AbortError('Command execution aborted')
+        // Keep partial output and recovery references on cancellation.
       }
 
-      const success = result.exitCode === 0
+      const success = !result.aborted && result.exitCode === 0
         && result.terminationSignal === null
         && !result.timedOut
       const failure = commandFailureForResult(result, timeout)
@@ -518,7 +520,7 @@ class CommandExecutor {
         exitCode: result.exitCode,
         terminationSignal: result.terminationSignal,
         timedOut: result.timedOut,
-        aborted: false,
+        aborted: result.aborted,
         stdoutBytes: result.stdoutBytes,
         stderrBytes: result.stderrBytes,
         stdoutTruncated: result.stdoutTruncated,
@@ -530,6 +532,9 @@ class CommandExecutor {
         command,
         stdout: result.stdout.trim(),
         stderr: result.stderr.trim(),
+        output_artifacts: result.outputArtifacts,
+        stdout_log_unsaved_bytes: Math.max(0, result.stdoutBytes - (result.outputArtifacts?.stdout.bytes ?? 0)),
+        stderr_log_unsaved_bytes: Math.max(0, result.stderrBytes - (result.outputArtifacts?.stderr.bytes ?? 0)),
         stdout_bytes: result.stdoutBytes,
         stderr_bytes: result.stderrBytes,
         stdout_truncated: result.stdoutTruncated,
@@ -565,6 +570,7 @@ class CommandExecutor {
         command,
         stdout: candidate?.stdout.trim() || '',
         stderr: candidate?.stderr.trim() || '',
+        output_artifacts: candidate?.outputArtifacts,
         stdout_bytes: candidate?.stdoutBytes ?? 0,
         stderr_bytes: candidate?.stderrBytes ?? 0,
         stdout_truncated: candidate?.stdoutTruncated ?? false,

@@ -62,9 +62,11 @@ describe('DefaultSubagentRuntimeRunner execution config', () => {
       runtime
     } as any)
 
+    const controller = new AbortController()
     await runner.run(
       {
         subagentId: 'sub-1',
+        signal: controller.signal,
         task: 'test execution config',
         role: 'general',
         contextMode: 'minimal',
@@ -100,6 +102,7 @@ describe('DefaultSubagentRuntimeRunner execution config', () => {
 
     expect(runtime.run).toHaveBeenCalledWith(
       expect.objectContaining({
+        signal: controller.signal,
         execution: {
           maxSteps: 80
         }

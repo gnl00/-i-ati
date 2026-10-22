@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ToolConfirmation, ToolConfirmationSnapshot } from '@shared/tools/confirmation'
 const ipc = vi.hoisted(() => ({ submit: vi.fn(), snapshot: vi.fn() }))
 vi.mock('@renderer/infrastructure/ipc', () => ({ invokeRunToolConfirm: ipc.submit, invokeToolConfirmationSnapshot: ipc.snapshot }))
-import { useToolConfirmationStore } from '../toolConfirmationStore'
+import { useToolConfirmationStore, findToolConfirmation } from '../toolConfirmationStore'
 
 const pending = (patch: Partial<ToolConfirmation> = {}): ToolConfirmation => ({
   confirmationId: 'approval', submissionId: 'run', chatUuid: 'chat', toolCallId: 'tool', name: 'exec',
@@ -16,6 +16,15 @@ beforeEach(() => {
 })
 
 describe('versioned approval projection', () => {
+  it('keeps a child approval with the same tool ID out of the parent tool projection', () => {
+    const parent = pending()
+    const child = pending({ confirmationId: 'child', version: 2, status: 'cancelled', agent: { kind: 'subagent', subagentId: 'worker' } })
+    store().apply(parent)
+    store().apply(child)
+    expect(findToolConfirmation(store().confirmations, 'tool')).toEqual(parent)
+    expect(findToolConfirmation({ child }, 'tool')).toBeUndefined()
+  })
+
   it('ends approval from another host immediately, before execution starts', () => {
     store().apply(pending())
     expect(store().pendingRequests).toHaveLength(1)

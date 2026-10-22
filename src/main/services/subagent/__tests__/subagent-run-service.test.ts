@@ -26,7 +26,7 @@ const deferred = <T>() => {
 
 describe('SubagentRunService', () => {
   it('spawns and completes a subagent run', async () => {
-    const runDeferred = deferred<{ summary: string, artifacts: { tools_used: string[], files_touched: string[] } }>()
+    const runDeferred = deferred<{ status: 'completed', summary: string, artifacts: { tools_used: string[], files_touched: string[] } }>()
     const service = new SubagentRunService(
       new SubagentRegistry(),
       {
@@ -49,6 +49,7 @@ describe('SubagentRunService', () => {
     expect(record.status).toBe('queued')
 
     runDeferred.resolve({
+      status: 'completed',
       summary: 'Found the loading path.',
       artifacts: {
         tools_used: ['grep', 'read'],

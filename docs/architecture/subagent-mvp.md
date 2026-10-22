@@ -1,287 +1,121 @@
-# Subagent MVP
+# Subagent runtime
 
-本文档描述当前仓库中已经落地的 `subagent` 第一阶段与第二阶段前半部分实现，不包含尚未完成的未来方案。
+当前子代理是主 agent 按需委派的持续 worker 会话。child ID 跨任务保持稳定，
+每次执行有独立 run ID。子代理仍在 Electron main 进程内使用统一 AgentRuntime
+和 AgentLoop；它拥有独立上下文、角色提示词和工具权限。主 agent 负责目标、
+集成与验收。执行 completed 和任务验收是两个事实。
 
-## 目标
+相关决策：[生命周期 ADR-0050](../decisions/0050-supervised-subagent-lifecycle.md)、
+[持久会话 ADR-0051](../decisions/0051-persistent-subagent-sessions.md)。
+实施和验收见 [Agent Harness 分批实施](../work/plans/agent-harness-implementation.md)。
 
-当前 `subagent` 的目标是：
+## 所有权与数据流
 
-- 让主代理把一个边界清晰的子任务派发到后台执行
-- 让子代理拥有独立上下文和独立工具执行能力
-- 让主代理后续通过 `subagent` (action: wait) 汇总结果
-- 让用户在 UI 中直接看到 subagent 的运行状态，而不依赖主代理必须再次调用 `subagent` (action: wait)
+```text
+Main RunManager / CLI runtime
+  -> SubagentRunService: child/run identity, queue, controllers, inbox
+      -> SubagentRuntimeFactory: model, workspace, role and task context
+          -> AgentRuntime -> AgentLoop -> model / ToolExecutor
+      -> db/subagents facade -> SQLite sessions / runs / messages
+  -> parent approval/status bridge -> existing confirmation UI / status cards
+Renderer mount -> validated read-only IPC snapshot -> revision-ordered store
+```
 
-当前实现不是 Worker Thread，也不是独立进程。
-
-- 子代理运行在 Electron main 进程内
-- 每个 subagent 是一个独立的内存态运行时
-- 结果默认不写回主 chat 消息历史，只通过 tool result 和运行时事件回流
-
-## 核心文件
-
-### shared schema
-
-- [definitions.ts](../../src/shared/tools/subagent/definitions.ts)
-- [index.d.ts](../../src/shared/tools/subagent/index.d.ts)
-- [subagent.ts](../../src/shared/prompts/subagent.ts): 独立 worker system prompt
-
-### main runtime
-
-- [subagent-run-service.ts](../../src/main/services/subagent/subagent-run-service.ts)
-- [subagent-runtime-factory.ts](../../src/main/services/subagent/subagent-runtime-factory.ts)
-- [subagent-registry.ts](../../src/main/services/subagent/subagent-registry.ts)
-- [subagent-runtime-bridge.ts](../../src/main/services/subagent/subagent-runtime-bridge.ts)
-- [types.ts](../../src/main/services/subagent/types.ts)
-
-### renderer
-
-- [SubagentResults.tsx](../../src/renderer/src/features/chat/message/assistant-message/toolcall/SubagentResults.tsx)
-- [subagentRuntimeStore.ts](../../src/renderer/src/features/subagents/subagentRuntimeStore.ts)
-- [useSubagentRuntime.ts](../../src/renderer/src/features/subagents/useSubagentRuntime.ts)
+- 宿主持有审批与状态通道，父 run 和存活 child 分别持有通道引用。
+- 父 run 正常结束保留后台 child 和其待审批请求；最后一个 child 收尾后释放通道。
+- 父 run 的显式 Stop、失败或中断取消该次委派；单独取消 child 只取消其自己的审批。
+- runtime 使用每个 child run 的独立 AbortSignal，贯穿模型流、工具和实际命令。
+- UI 状态事件和父模型获取结果分开。结果到达不会自动启动父模型，也不会唤醒被停止的用户任务。
+- Electron、CLI、TUI 的正常退出先停止接收新子任务，等待子任务和命令进程组收尾，再释放资源。
 
 ## 工具接口
 
-当前提供一个 `subagent` 工具，通过 `action` 区分两种操作：
-
-- `subagent` (action: spawn)
-- `subagent` (action: wait)
-
-### `subagent` (action: spawn)
-
-用途：
-
-- 创建并后台启动一个子代理任务
-
-主要参数：
-
-- `task`
-- `role`
-- `context_mode`
-- `files`
-- `background`
-
-运行时会额外自动注入：
-
-- `chat_uuid`
-- `model_ref`
-- `parent_submission_id`
-
-### `subagent` (action: wait)
-
-用途：
-
-- 等待指定 `subagent_id` 完成
-- 或在超时前返回当前状态
-
-## 运行模型
-
-### 1. 创建
-
-主代理调用 `subagent` (action: spawn) 后：
-
-- `SubagentRunService.spawn()` 创建一条内存态记录
-- 初始状态为 `queued`
-- 立即返回 tool result
-- 后台异步启动实际运行
-
-### 2. 执行
-
-`SubagentRuntimeFactory` 会：
-
-- 解析 `modelRef`
-- 通过 `buildSubagentSystemPrompt(role)` 构建独立 worker system prompt
-- 注入精简上下文
-- 将任务、模型、工作目录和角色工具权限交给 `DefaultSubagentRuntimeRunner`
-- runner 创建独立 `ToolExecutor` 并复用父 run 确认链
-- 在当前主路径里复用新的 runtime / tool execution 链路，而不是旧 `AgentRunKernel + AgentStepLoop`
-
-子代理不会把自己的中间消息直接插入主 chat。
-
-### Worker 提示词职责
-
-子代理使用独立执行提示词，聚焦委派任务、角色重点、仓库指令、证据、
-已有用户改动保护、工具权限与确认，以及结果交付。它向主代理报告缺失信息、
-权限或授权，最终结果包含发现或改动、证据位置、改动文件、验证和剩余限制。
-
-主会话的 `SystemPromptComposer` 继续负责 @i 身份、Soul、技能目录、用户资料、
-情绪和全局状态策略；这些模块不进入 worker prompt。主代理应在 `task` 中明确
-携带相关用户约束与任务授权范围，精简聊天片段只提供背景。
-
-这一职责分离不改变角色工具权限、执行审批、80 步上限和结果回流。
-决策与取舍见 [ADR 0040](../decisions/0040-independent-subagent-system-prompt.md)。
-
-### 3. 汇总
-
-执行完成后：
-
-- `SubagentRegistry` 将状态更新为 `completed` 或 `failed`
-- 保存：
-  - `summary`
-  - `artifacts.tools_used`
-  - `artifacts.files_touched`
-
-主代理如果需要拿最终结果，再调用 `subagent` (action: wait)。
-
-## 上下文注入
-
-`SubagentRuntimeFactory.buildUserTaskMessage()` 始终组合：
-
-- 当前任务描述
-- 文件提示 `files`
-- 结果交付要求
-
-`minimal` 模式只传入这些内容。`current_chat_summary` 模式存在父 chat 时还会加入：
-
-- 最近 8 条消息各截取最多 400 个字符的片段
-- 父 chat 的 work context 只读快照，缺失或读取失败时使用模板
-- 最多 5 条最近 activity journal 记录，读取失败时省略
-
-子 runtime 不注入主会话的 `<awake_state>`、`<user_info_context>` 或技能上下文。
-`files` 是定位提示，不是写入隔离边界；聊天片段也不保证包含完整任务约束。
-
-## 工具权限
-
-当前工具权限不是手写一个固定允许列表，而是：
-
-- 工具 metadata
-- agent kind / role
-- 运行时解析
-
-相关代码：
-
-- [metadata.ts](../../src/shared/tools/metadata.ts)
-- [permissions.ts](../../src/shared/tools/permissions.ts)
-- [registry.ts](../../src/shared/tools/registry.ts)
-
-当前 subagent 已允许常用工具，包括：
-
-- `ls`
-- `glob`
-- `grep`
-- `read`
-- `write`
-- `edit`
-- `web_search`
-- `web_fetch`
-- `memory_retrieval`
-- `history_search`
-- `activity_journal_search`
-- `exec`
-
-`write` 和 `edit` 只向 `general` / `coder` 开放。
-`researcher` / `reviewer` 仍可调用 `exec`，所以工具过滤不等于操作系统级只读隔离。
-
-当前仍未开放：
-
-- `plan`
-- `schedule`
-- `session_context` 和全局用户资料、情绪及技能管理工具
-- `subagent`，执行器也拒绝未授权的递归调用
-- 插件安装/卸载类工具
-
-## 确认链
-
-### approval policy
-
-当前 subagent 默认使用：
-
-- `relaxed`
-
-用户的 `permissionApprovalMode` 沿用父请求：
-
-- `manual` 下，`safe` 且没有文件系统范围风险的命令自动通过；
-  `warning / dangerous`、工作区外路径或需要确认的环境覆盖进入父确认链。
-- `auto` 下，运行时沿用既有自动批准策略。
-- 缺少父 submission 或确认通道时，需要确认的操作会被拒绝。
-
-相关代码：
-
-- [approval.ts](../../src/shared/tools/approval.ts)
-- [ToolExecutor.ts](../../src/main/agent/tools/ToolExecutor.ts)
-
-### 父 run 桥接
-
-子代理本身不直接拥有独立 UI 确认通道。
-
-当前实现是：
-
-- 旧设计里，主 chat run 曾通过 chat-side step factory 注册自己的：
-  - `ToolConfirmationRequester`
-  - `RunEventEmitter`
-- subagent 通过 [subagent-runtime-bridge.ts](../../src/main/services/subagent/subagent-runtime-bridge.ts) 复用父 run 的确认链
-
-这意味着：
-
-- subagent 的 `exec` 危险命令会回到主 chat 的确认 UI
-- renderer 不需要单独再开一套确认协议
-
-## UI 状态卡
-
-### 为什么不依赖 `subagent` (action: wait)
-
-用户需要看到的是：
-
-- 已创建
-- 正在运行
-- 是否卡在确认
-- 是否完成
-
-如果 UI 只能依赖 `subagent` (action: wait)，那么当主代理没有主动再次调用 `subagent` (action: wait) 时，用户就看不到显眼状态。
-
-因此当前 UI 设计是：
-
-- `subagent` (action: spawn) 和 `subagent` (action: wait) 都会渲染成轻量状态卡
-- 状态本身通过 chat run 事件实时更新
-
-### 当前状态流
-
-当前 renderer 可以显示：
-
-- `queued`
-- `running`
-- `waiting_for_confirmation`
-- `completed`
-- `failed`
-
-事件来源：
-
-- `subagent.updated`
-- `tool.confirmation.required`
-
-渲染方式：
-
-- [ToolCallResult.tsx](../../src/renderer/src/features/chat/message/assistant-message/toolcall/ToolCallResult.tsx) 对 `subagent` 做特殊分支
-- 实际卡片在 [SubagentResults.tsx](../../src/renderer/src/features/chat/message/assistant-message/toolcall/SubagentResults.tsx)
-
-### 当前行为
-
-- `subagent` (action: spawn) 不再永远停在创建时的静态 `Queued`
-- renderer 会根据运行时 store 把它更新为：
-  - `Running`
-  - `Waiting for confirmation`
-  - `Completed`
-  - `Failed`
-
-## 已知边界
-
-当前版本仍然有这些明确边界：
-
-- 子代理运行记录是内存态，不持久化
-- 子代理不会再 spawn 子代理
-- `plan` 工具没有开放给 subagent
-- `exec` 仍然受主确认链控制
-- `artifacts.files_touched` 只自动收集 `write` / `edit` 返回的路径；通过 `exec`
-  修改的文件仍需在最终文字交付中报告
-- `subagent` (action: wait) 主要用于让主代理拿最终结果，不负责 UI 状态可见性
-- 主 chat message 中的 tool call 投影仍然偏简化，完整中间过程更多依赖运行时事件和 subagent 状态卡
-
-## 下一步建议
-
-后续优先级建议：
-
-1. 把 `waiting_for_confirmation -> confirmed / cancelled` 的状态过渡补完整
-2. 优化 subagent 卡片的状态文案与动画
-3. 视需要再考虑：
-   - 持久化
-   - subagent 面板
-   - 更复杂的 role / policy
+一个 `subagent` 工具通过 action 区分操作；子代理本身没有此工具权限。
+
+| action | 参数与语义 |
+| --- | --- |
+| spawn | task 必填，role/context_mode/files 可选；创建 child 并启动首个 run |
+| wait | subagent_id 必填；可用 run_id 锁定执行，after_revision 等待版本变化；超时或停止等待不取消 child |
+| cancel / interrupt | subagent_id 必填；可用 run_id 避免误停新执行；保留历史 |
+| inspect | subagent_id、可选 run_id；读取持久 transcript 与消息收据 |
+| list | 返回当前 chat 的最新 child 记录 |
+| send_message | subagent_id、message_id、message；持久投递信息，空闲 child 保持空闲 |
+| followup_task / resume | subagent_id、message_id、task；同一 child 启动新 run，忙碌时明确拒绝 |
+
+宿主覆盖 model_ref、chat_uuid、parent_submission_id 和审批模式；wait/control
+检查 child 归属于当前 chat。每个新 run 使用当前父任务的审批模式与取消信号，
+保留该 child 的模型引用、角色及工作区快照。message_id 在 child 内命名空间化，
+同一内容与 ID 的重试返回同一 run；复用 ID 改内容会失败。单条消息/任务最多
+32 KiB，待投递信息 inbox 最多 16 项，ID 的本地部分最多 128 个字符。
+信息限额检查与插入在 SQLite immediate transaction 中完成；显式任务收据不占信息
+槽位，满 inbox 仍能续接并消费已有信息。首次 spawn task 也限制为 32 KiB，续接
+以经过限额检查的 task 与最多 16 条信息组成初始上下文。
+
+## 调度和状态
+
+运行上限为全局 4、父 chat 2；无 chat 时按父 submission 分组。最多排队
+16 个任务。调度选择最早可执行任务，一个父组饱和时，其他父组可使用空闲槽位。
+这些限制是单 app 进程内限制，不是跨进程调度器。
+
+- queued 取消后直接成为 cancelled，绝不启动执行。
+- running 取消先成为 cancelling，等待已启动 I/O 及命令进程组清理后成为 cancelled。
+- completed、failed、cancelled、interrupted 终态不被迟到回调覆盖。
+- revision 跨同一个 child 的 run 递增。wait 绑定当时的 run；旧 run 查询/取消不影响新 run。
+- after_revision 可等待下一次状态变化；wait 清理订阅、计时器与 abort 监听器。
+- waiting_for_confirmation 由 renderer 的持久审批记录派生，UI 还展示 Cancelling 和 Interrupted。
+- renderer 重新挂载、切换 chat 或重启后读取快照，并用 revision 合并期间的实时事件。
+- 历史结果卡只接受相同 run 的更新，较旧快照不覆盖较新结果；共享数据库中其他 host
+  已创建的新 run 优先于本地旧缓存，后续续接从最新 revision 开始。
+
+## 持久化与恢复
+
+profile SQLite 中的三个增量表为 subagent_sessions、subagent_runs 和
+subagent_messages。chat 删除级联删除对应记录。入队前保存输入与父归属，保存失败
+不启动模型；终态保存 transcript、摘要、工具/成功文件写入事实和 provider usage。
+result_ref 是可通过 inspect 的 run ID。后续存储失败单独出现在 persistence_error，
+不伪装成可靠持久结果。查询旧记录不需要恢复任何 controller 或执行对象。
+
+应用启动在接收任务前识别失去进程归属的非终态 run，标为 interrupted，并保留证据。
+其他存活 PID、无权限确认的 owner 和可能的 PID 重用采取保守策略，不抢占执行。
+启动恢复不运行模型或工具。进程初始化重复调用不重复扫描正在运行的任务。
+
+每个 run 仅保存新增 transcript records，并通过 previousRunId 连接历史，避免每轮复制全部历史。
+inspect 返回该 run 的增量证据及 previous_run_id；继续执行时按前驱顺序恢复并去重 record ID。
+持续历史来自 worker 自己的记录，不是完整父会话 fork。新指令追加在
+历史之后。旧 assistant 调用缺少结果时，补充“执行结果未知，先检查副作用”的记录，
+保持协议配对，不重放历史工具。准备阶段失败仍能沿 previousRunId 找回此前证据。
+
+消息按持久顺序投递。执行前已经排队的信息与任务一起进入首个模型请求。运行中的信息通过 loop 现有安全 checkpoint 消费，工具批次
+完整收口后才插入。空闲信息在显式 followup/resume 时进入新任务；不会自行执行。
+run 入队与任务收据绑定在同一 SQLite 事务中。中断交付转为 ambiguous，禁止自动
+重新投递。外部操作可能在崩溃前已经发生，显式恢复需要检查实际状态。
+
+## 提示词、上下文和权限
+
+[独立 worker prompt](../../src/shared/prompts/subagent.ts) 继续约束任务范围、证据、
+仓库指令、已有用户改动保护、工具审批和最终交付。主会话的身份、Soul、用户资料、
+情绪及技能目录不进入 worker prompt，见 [ADR-0040](../decisions/0040-independent-subagent-system-prompt.md)。
+
+minimal 只注入任务和文件提示。current_chat_summary 另外提供父 chat 最近 8 条
+消息各最多 400 字符的片段、work context 与最多 5 项 activity。主 agent 必须在
+任务中携带用户约束；files 是定位提示，不是写入隔离。
+
+每次 run 继续使用 80 步上限。工具由 metadata、agent kind 和 role 决定：
+write/edit 只向 general/coder 开放；researcher/reviewer 仍能使用 exec，因此不构成
+操作系统只读隔离。plan、schedule、递归 subagent 和全局管理工具继续关闭。
+manual 模式沿用现有风险/路径审批；auto 模式沿用已有自动批准策略。
+
+CLI 的临时模型请求规格通过匹配 model_ref 的活跃父通道传给 worker，父提示词和
+工具会被 worker 的策略替换。临时 API 凭据不落盘。父通道失效后，恢复需要同一
+模型引用仍可解析；否则明确失败，不自动选择另一个模型。
+
+## 证据与限制
+
+失败和取消保留已收集工具、成功 write/edit 路径及最多 32,000 字符的部分正文。
+exec 改文件仍需 worker 报告，files_touched 不等同完整 git diff。命令原始日志见
+[ADR-0052](../decisions/0052-streamed-command-output-artifacts.md)。usage 是各 run 的
+provider 计量；不要重复计入父 run，也不把缺失 usage 当成零。
+
+当前没有团队 roster、成员互相发消息、批次工具、worktree 集成或自动合并。
+日志/文本写入保护保持各自边界。正常退出保证依赖工具响应信号；强制杀进程、
+真实 provider 网络取消和原生 Windows 仍需对应平台验收。

@@ -31,6 +31,7 @@ export interface AgentRequestSpec {
   contextWindowTokens?: number
   modelType?: string
   systemPrompt?: string
+  systemPromptParts?: Record<string, { characters: number; utf8Bytes: number }>
   tools?: unknown[]
   stream?: boolean
   payloadExtensions?: ProviderPayloadExtensions

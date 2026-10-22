@@ -38,7 +38,7 @@ export interface ToolCallHeaderState {
   tone: SupportSegmentHeaderTone
 }
 type WikiAction = 'list' | 'read' | 'write' | 'delete' | 'search'
-type SubagentAction = 'spawn' | 'wait'
+type SubagentAction = 'spawn' | 'wait' | 'cancel' | 'inspect' | 'list' | 'send_message' | 'followup_task' | 'resume' | 'interrupt'
 type WikiResultRecord = Record<string, unknown>
 
 const TOOL_COST_TICK_MS = 1000
@@ -115,7 +115,7 @@ function getSubagentAction(args: ToolCallResponse['args']): SubagentAction | und
     return undefined
   }
   const action = value.action
-  return action === 'spawn' || action === 'wait'
+  return action === 'spawn' || action === 'wait' || action === 'cancel' || action === 'inspect' || action === 'list' || action === 'send_message' || action === 'followup_task' || action === 'resume' || action === 'interrupt'
     ? action
     : undefined
 }

@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => {
   })
 
   return {
+    subagentPending: vi.fn(() => false),
+    subagentShutdown: vi.fn(async () => {}),
     lifecycleHandlers,
     powerHandlers,
     powerMonitorOn: vi.fn((event: string, handler: () => void) => {
@@ -50,6 +52,8 @@ const mocks = vi.hoisted(() => {
     restoreWindow: vi.fn()
   }
 })
+
+vi.mock('@main/services/subagent/subagent-run-service', () => ({ default: { hasPending: mocks.subagentPending, shutdown: mocks.subagentShutdown, initialize: vi.fn(async () => {}) } }))
 
 vi.mock('electron', () => ({
   app: {
@@ -202,6 +206,25 @@ describe('MainApplication', () => {
     expect(mocks.powerHandlers.has('resume')).toBe(false)
     mocks.powerHandlers.get('resume')?.()
     expect(mocks.schedulerWake).toHaveBeenCalledOnce()
+  })
+
+  it('waits for child cleanup before completing application quit', async () => {
+    let finish!: () => void
+    mocks.subagentShutdown.mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve }))
+    mocks.subagentPending.mockReturnValue(true)
+    const application = new MainApplication()
+    application.registerLifecycle()
+    const event = { preventDefault: vi.fn() }
+    mocks.lifecycleHandlers.get('before-quit')?.(event)
+    mocks.lifecycleHandlers.get('before-quit')?.(event)
+    expect(event.preventDefault).toHaveBeenCalledTimes(2)
+    expect(mocks.subagentShutdown).toHaveBeenCalledOnce()
+    expect(mocks.quit).not.toHaveBeenCalled()
+    finish()
+    await vi.waitFor(() => expect(mocks.quit).toHaveBeenCalledOnce())
+    mocks.subagentPending.mockReturnValue(false)
+    mocks.lifecycleHandlers.get('before-quit')?.(event)
+    expect(mocks.disconnectMcp).toHaveBeenCalledOnce()
   })
 
   it('restores an existing window and recreates a missing window on activation', async () => {

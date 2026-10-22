@@ -129,6 +129,7 @@ export const runCliApplication = async (): Promise<number> => {
   let logServiceReady = false
   let disconnectMcp: (() => void) | undefined
   let waitForCommandCleanup: (() => Promise<void>) | undefined
+  let stopSubagents: (() => Promise<void>) | undefined
   let exitCode = 1
   try {
     // Direct-file Electron launches otherwise use the default Electron profile.
@@ -151,7 +152,8 @@ export const runCliApplication = async (): Promise<number> => {
       { waitForCommandProcessCleanup },
       { preserveCallerShellPathForCommands },
       { mcpRuntimeService },
-      { runCliTask }
+      { runCliTask },
+      { default: subagents }
     ] = await Promise.all([
       import('@main/logging/LogService'),
       import('@main/db/runtime'),
@@ -162,15 +164,18 @@ export const runCliApplication = async (): Promise<number> => {
       import('@main/services/command/CommandProcessRunner'),
       import('@main/services/shellEnvironment'),
       import('@main/services/mcpRuntime'),
-      import('@main/orchestration/cli/CliRunOrchestrator')
+      import('@main/orchestration/cli/CliRunOrchestrator'),
+      import('@main/services/subagent/subagent-run-service')
     ])
     disconnectMcp = (): void => mcpRuntimeService.disconnectAll()
     waitForCommandCleanup = waitForCommandProcessCleanup
+    stopSubagents = (): Promise<void> => subagents.shutdown()
 
     logService.setAdditionalRedactionSecrets(cliSecrets)
     await logService.initialize()
     logServiceReady = true
     await databaseRuntime.initialize()
+    await subagents.initialize()
     databaseReady = true
     const appConfig = configDb.initConfig()
     cliSecrets = [...cliSecrets, ...(appConfig.accounts ?? []).map(account => account.apiKey)]
@@ -225,6 +230,7 @@ export const runCliApplication = async (): Promise<number> => {
     process.off('SIGTERM', onSigterm)
 
     try {
+      await stopSubagents?.()
       await waitForCommandCleanup?.()
     } catch (error) {
       writeStderr(`${redactCliText(`CLI command cleanup failed: ${error instanceof Error ? error.message : String(error)}`, cliSecrets)}\n`)

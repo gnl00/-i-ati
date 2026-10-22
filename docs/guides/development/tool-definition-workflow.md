@@ -159,3 +159,18 @@ and hidden context aligned with the same snapshot; execution-time validation
 still handles configuration changes and unavailable services.
 
 See [ADR-0046](../../decisions/0046-conditional-tool-availability.md).
+
+## Subagent lifecycle actions
+
+`subagent` exposes spawn/wait/cancel/interrupt/inspect/list/send_message/followup_task/resume.
+Spawn returns distinct child/run IDs and a monotonic child revision. Global/per-parent
+running limits are 4/2, with at most 16 queued jobs. Wait can bind run_id and wait
+for after_revision; its timeout/abort ends only that wait. Queued cancellation
+never dispatches; active cancellation settles after started operations clean up.
+
+Message and followup actions require a stable message_id; repeat the same ID and
+content on retry. Messages never wake an idle child. Followup/resume require an
+explicit task and reject busy children. Old tool calls are restored as history,
+never re-executed. Interrupted delivery is ambiguous and is not automatically
+resent. Trusted parent/chat/model identity, fresh parent approval policy and
+current-chat target checks apply. See [Subagent architecture](../../architecture/subagent-mvp.md).

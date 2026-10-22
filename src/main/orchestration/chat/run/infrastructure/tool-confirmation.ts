@@ -55,6 +55,7 @@ export class ToolConfirmationManager {
     const existing = Array.from(this.pending.values()).find(item => (
       item.descriptor.submissionId === emitter.submissionId
       && item.descriptor.toolCallId === request.toolCallId
+      && item.descriptor.agent?.subagentId === request.agent?.subagentId
     ))
     if (existing) return existing.promise
     if (!emitter.chatUuid) throw new Error('Tool confirmation requires a prepared chat identity')
@@ -146,10 +147,18 @@ export class ToolConfirmationManager {
     }
   }
 
-  cancelForSubmission(submissionId: string, reason = 'aborted'): void {
+  cancelForSubmission(submissionId: string, reason = 'aborted', includeSubagents = true): void {
     for (const [id, item] of this.pending) {
-      if (item.descriptor.submissionId === submissionId) {
+      if (item.descriptor.submissionId === submissionId && (includeSubagents || item.descriptor.agent?.kind !== 'subagent')) {
         this.finish(id, { approved: false, reason }, 'cancelled', { host: 'system', cause: 'run_cancelled' })
+      }
+    }
+  }
+
+  cancelForSubagent(submissionId: string, subagentId: string): void {
+    for (const [id, item] of this.pending) {
+      if (item.descriptor.submissionId === submissionId && item.descriptor.agent?.subagentId === subagentId) {
+        this.finish(id, { approved: false, reason: 'user_cancelled' }, 'cancelled', { host: 'system', cause: 'run_cancelled' })
       }
     }
   }

@@ -621,12 +621,10 @@ export class ToolExecutor implements IToolExecutor {
     }
 
     if (toolName?.toLowerCase() === 'subagent') {
-      if (this.modelRef && !nextArgs.model_ref) {
+      if (this.modelRef) {
         nextArgs = { ...nextArgs, model_ref: this.modelRef }
       }
-      if (this.submissionId && !nextArgs.parent_submission_id) {
-        nextArgs = { ...nextArgs, parent_submission_id: this.submissionId }
-      }
+      nextArgs = { ...nextArgs, parent_submission_id: this.submissionId }
       nextArgs = {
         ...nextArgs,
         permission_approval_mode: normalizePermissionApprovalMode(this.approvalPolicy.permissionApprovalMode)

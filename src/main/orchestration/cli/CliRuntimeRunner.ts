@@ -13,6 +13,9 @@ import type { AgentLoopResult } from '@main/agent/runtime/loop/AgentLoopResult'
 import type { ToolCallProps } from '@main/agent/contracts'
 import { ToolExecutor, type ToolExecutionResult, type ToolExecutorConfig } from '@main/agent/tools'
 import type { CliApprovalMode } from '@main/hosts/cli/CliInputAdapter'
+import type { RunEventEmitter } from '@main/agent/contracts'
+import { subagentRuntimeBridge } from '@main/services/subagent/subagent-runtime-bridge'
+import subagentRunService from '@main/services/subagent/subagent-run-service'
 
 export interface CliRuntimeRunInput {
   runId: string
@@ -22,7 +25,7 @@ export interface CliRuntimeRunInput {
   approval: CliApprovalMode
   maxSteps: number
   profile: CliChatProfile
-  eventSink: AgentEventSink
+  eventSink: AgentEventSink & { emit?: (type: string, payload: Record<string, unknown>) => Promise<void> }
   signal: AbortSignal
 }
 
@@ -87,17 +90,45 @@ export const runCliRuntime = async (input: CliRuntimeRunInput): Promise<AgentLoo
     })
   })
 
-  return runtime.run({
-    hostRequest: {
-      hostType: 'cli',
-      hostRequestId: input.runId,
-      submittedAt: Date.now(),
-      userContent: [{ type: 'input_text', text: input.instruction }],
-      metadata: { contextMessages: input.profile.contextMessages }
-    },
-    execution: {
-      maxSteps: input.maxSteps
-    },
-    signal: input.signal
+  const emitter: RunEventEmitter = {
+    submissionId: input.runId,
+    chatUuid: input.chatUuid,
+    setChatMeta: () => {},
+    emit: (type, payload) => {
+      void input.eventSink.emit?.(type, payload as Record<string, unknown>)
+        .catch(error => console.warn('[CLI] Child status delivery failed:', error))
+    }
+  }
+  subagentRuntimeBridge.register(input.runId, {
+    emitter,
+    requestSpec: input.profile.requestSpec,
+    modelRef: input.profile.modelRef,
+    requester: { request: confirmationRequester(input.approval)! },
+    cancelConfirmation: () => {} // CLI approvals resolve immediately; no pending interaction exists.
   })
+  const onAbort = (): void => subagentRunService.cancelForParent(input.runId)
+  input.signal.addEventListener('abort', onAbort, { once: true })
+  try {
+    const result = await runtime.run({
+      hostRequest: {
+        hostType: 'cli',
+        hostRequestId: input.runId,
+        submittedAt: Date.now(),
+        userContent: [{ type: 'input_text', text: input.instruction }],
+        metadata: { contextMessages: input.profile.contextMessages }
+      },
+      execution: {
+        maxSteps: input.maxSteps
+      },
+      signal: input.signal
+    })
+    if (result.status !== 'completed') onAbort()
+    return result
+  } catch (error) {
+    onAbort()
+    throw error
+  } finally {
+    input.signal.removeEventListener('abort', onAbort)
+    subagentRuntimeBridge.releaseParent(input.runId)
+  }
 }

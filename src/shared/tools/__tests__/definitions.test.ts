@@ -136,7 +136,7 @@ describe('tool definitions', () => {
     expect(subagent?.function.parameters.required).toContain('action')
     expect(subagent?.function.parameters.properties.action).toEqual(expect.objectContaining({
       type: 'string',
-      enum: ['spawn', 'wait']
+      enum: ['spawn', 'wait', 'cancel', 'inspect', 'list', 'send_message', 'followup_task', 'resume', 'interrupt']
     }))
     expect(subagentNames).toHaveLength(1)
   })

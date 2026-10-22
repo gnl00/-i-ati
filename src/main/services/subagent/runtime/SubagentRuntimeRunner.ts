@@ -18,7 +18,12 @@ import type { ToolExecutorConfig } from '@main/agent/tools'
 import { DefaultSubagentHostRunRequestBuilder } from './SubagentHostRunRequestBuilder'
 import { SubagentRequestSpecSource } from './SubagentRequestSpecSource'
 import { SubagentAgentEventSink } from './SubagentAgentEventSink'
+import { restoreSubagentHistory } from './SubagentHistory'
+import type { AgentLoopInput } from '@main/agent/runtime/loop/AgentLoopInput'
+import type { AgentRequestSpec } from '@main/agent/runtime/request/AgentRequestSpec'
+import type { AgentSteeringMessage } from '@main/agent/runtime/steering/SteeringMessageSource'
 import { subagentRuntimeBridge } from '../subagent-runtime-bridge'
+import { waitForCommandProcessCleanup } from '@main/services/command/CommandProcessRunner'
 import type { SubagentExecutionResult, SubagentSpawnInput } from '../types'
 
 const SUBAGENT_APPROVAL_POLICY: ResolvedAgentApprovalPolicy = {
@@ -30,7 +35,8 @@ const DEFAULT_SUBAGENT_EXECUTION: LoopExecutionConfig = {
 }
 
 export interface PreparedSubagentRunContext {
-  modelContext: RunSpec['modelContext']
+  modelContext?: RunSpec['modelContext']
+  requestSpec?: AgentRequestSpec
   systemPrompt: string
   userMessage: string
   allowedTools: string[]
@@ -45,12 +51,12 @@ export interface SubagentRuntimeRunner {
 }
 
 export const createSubagentConfirmationRequester = (
-  input: Pick<SubagentSpawnInput, 'subagentId' | 'role' | 'task' | 'parentSubmissionId'>
+  input: Pick<SubagentSpawnInput, 'subagentId' | 'role' | 'task' | 'parentSubmissionId' | 'signal'>
 ): ToolExecutorConfig['requestConfirmation'] => {
   if (!input.parentSubmissionId) {
     return async () => ({
       approved: false,
-      reason: 'Subagent confirmation flow is not enabled in phase one.'
+      reason: 'Parent confirmation channel unavailable.'
     })
   }
 
@@ -63,7 +69,7 @@ export const createSubagentConfirmationRequester = (
         role: input.role,
         task: input.task
       }
-    })
+    }, input.signal)
 }
 
 export class DefaultSubagentRuntimeRunner implements SubagentRuntimeRunner {
@@ -87,7 +93,7 @@ export class DefaultSubagentRuntimeRunner implements SubagentRuntimeRunner {
 
     const runDescriptorSource: LoopRunDescriptorSource = {
       create: () => ({
-        runId: `subagent:${input.subagentId || hostRequest.hostRequestId}`
+        runId: input.runId ?? `subagent:${input.subagentId || hostRequest.hostRequestId}`
       })
     }
 
@@ -109,7 +115,7 @@ export class DefaultSubagentRuntimeRunner implements SubagentRuntimeRunner {
         workspaceRoot: context.workspacePath,
         modelRef: input.modelRef,
         submissionId: input.parentSubmissionId,
-        signal: undefined,
+        signal: input.signal,
         allowedTools: context.allowedTools,
         approvalPolicy: {
           ...SUBAGENT_APPROVAL_POLICY,
@@ -129,15 +135,36 @@ export class DefaultSubagentRuntimeRunner implements SubagentRuntimeRunner {
       new DefaultAgentRuntime({
         requestSpecSource: new SubagentRequestSpecSource({
           modelContext: context.modelContext,
+          requestSpec: context.requestSpec,
           systemPrompt: context.systemPrompt,
           allowedTools: context.allowedTools
         }),
         runDescriptorSource,
-        loopInputBootstrapper: new DefaultLoopInputBootstrapper(),
+        loopInputBootstrapper: {
+          bootstrap: (bootstrapInput): AgentLoopInput => {
+            const pending: AgentSteeringMessage[] = []
+            // Drain the bounded inbox before the first request; later arrivals use loop checkpoints.
+            for (let index = 0; index < 16; index++) {
+              const message = input.steeringMessageSource?.take()
+              if (!message) break
+              pending.push(message)
+            }
+            const initial = new DefaultLoopInputBootstrapper().bootstrap({
+              ...bootstrapInput,
+              hostRequest: { ...bootstrapInput.hostRequest, userContent: [
+                ...bootstrapInput.hostRequest.userContent,
+                ...pending.flatMap(message => message.content)
+              ] }
+            })
+            for (const message of pending) input.steeringMessageSource?.acknowledge(message.queueItemId)
+            return { ...initial, records: [...restoreSubagentHistory(input.history ?? []), ...initial.records] }
+          }
+        },
         runtimeInfrastructure,
         agentLoop: new DefaultAgentLoop(),
         agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
           agentEventBus: eventBus,
+          steeringMessageSource: input.steeringMessageSource,
           modelStreamExecutor: this.options.modelStreamExecutor,
           toolBatchAssembler: new DefaultToolBatchAssembler(
             runtimeInfrastructure.loopIdentityProvider,
@@ -153,21 +180,27 @@ export class DefaultSubagentRuntimeRunner implements SubagentRuntimeRunner {
         })
       })
 
-    const result = await runtime.run({
-      hostRequest,
-      execution: DEFAULT_SUBAGENT_EXECUTION
-    })
-
-    if (result.status === 'failed') {
-      throw new Error(result.failure.message || 'Subagent runtime failed')
+    let result: Awaited<ReturnType<AgentRuntime['run']>>
+    try {
+      result = await runtime.run({ hostRequest, execution: DEFAULT_SUBAGENT_EXECUTION, signal: input.signal })
+    } catch (error) {
+      if (input.signal?.aborted) await waitForCommandProcessCleanup()
+      return {
+        status: input.signal?.aborted ? 'cancelled' : 'failed',
+        error: error instanceof Error ? error.message : String(error),
+        summary: eventSink.getPartialSummary(), artifacts: eventSink.buildArtifacts()
+      }
     }
-
-    if (result.status === 'aborted') {
-      throw new Error(result.abortReason || 'Subagent runtime aborted')
-    }
+    if (input.signal?.aborted) await waitForCommandProcessCleanup()
 
     return {
-      summary: result.finalStep.content.trim(),
+      usage: result.usage,
+      transcript: result.transcript,
+      status: result.status === 'aborted' ? 'cancelled' : result.status,
+      error: result.status === 'failed' ? result.failure.message : result.status === 'aborted' ? result.abortReason : undefined,
+      summary: result.status === 'completed'
+        ? result.finalStep.content.trim()
+        : eventSink.getPartialSummary() || result.finalStep?.content.trim() || '',
       artifacts: eventSink.buildArtifacts()
     }
   }

@@ -186,6 +186,21 @@ are released for every resolved submission. `RunRegistry` remains in memory
 because it owns live `AgentRun` objects and their abort signals; durable
 accepted, state, tool, and terminal facts continue through `chat_run_events`.
 
+## Background subagent supervision
+
+`services/subagent/` owns per-child abort controllers, bounded scheduling and
+live control and revisioned records. SQLite sessions/runs/messages persist through
+`db/subagents.ts`; startup recovery marks abandoned runs interrupted without
+restarting them. The existing agent runtime remains the shared execution engine.
+`RunManager` registers the parent approval/status bridge before execution and
+releases its reference at parent completion; child references keep the channel
+alive until the last child settles. Explicit Stop and unsuccessful parent runs
+cancel their own children. Normal completion preserves background work and its
+pending approvals. CLI uses its own approval/event adapter. Application exits
+cancel children and wait for command process-group cleanup before closing their
+host resources. See [Subagent lifecycle](subagent-mvp.md) and
+[ADR-0050](../decisions/0050-supervised-subagent-lifecycle.md).
+
 ## Service and tool direction
 
 Service modules provide reusable application behavior. Tool processors adapt
@@ -424,6 +439,17 @@ returns `success: true`, `deliveryComplete: false` and delivered IDs, displays a
 local incomplete-delivery notice, and instructs the caller not to resend the full
 message. Local recording success remains separate in `deliveryRecorded`.
 See [ADR 0035](../decisions/0035-telegram-rich-output-and-drafts.md).
+
+## Request composition diagnostics
+
+ContextManager logs `context.prepared` for ordinary and compacted requests with
+run identity, local token estimate/encoding, serialized provider-body bytes and
+content-free protocol section sizes: system, tool schemas, conversation and tool
+results. SystemPromptComposer supplies separate policy, Soul, skill catalog,
+user and emotion policy sizes; worker specs supply their own policy size. These
+metrics do not enter provider payloads or change tool exposure. Provider usage
+remains a separate execution fact. Character/byte reductions are not token or cost
+claims; candidate disclosure strategies still require fixed-task comparisons.
 
 ## Runtime context ownership
 

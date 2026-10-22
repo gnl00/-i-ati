@@ -12,6 +12,7 @@ import {
   type SubagentRuntimeRunner
 } from './runtime/SubagentRuntimeRunner'
 import { DefaultSubagentContextReader, type SubagentContextReader } from './SubagentContextReader'
+import { subagentRuntimeBridge } from './subagent-runtime-bridge'
 
 export class SubagentRuntimeFactory {
   constructor(
@@ -22,16 +23,18 @@ export class SubagentRuntimeFactory {
   ) {}
 
   async run(input: SubagentSpawnInput): Promise<SubagentExecutionResult> {
-    const config = this.appConfigStore.requireConfig()
-    const modelContext = this.modelContextResolver.resolveOrThrow(config, input.modelRef)
+    input.signal?.throwIfAborted()
+    const requestSpec = subagentRuntimeBridge.getRequestSpec(input.parentSubmissionId, input.modelRef)
+    const modelContext = requestSpec ? undefined : this.modelContextResolver.resolveOrThrow(this.appConfigStore.requireConfig(), input.modelRef)
     const chat = input.chatUuid ? chatDb.getChatByUuid(input.chatUuid) : undefined
-    const workspacePath = input.chatUuid
+    const workspacePath = input.workspacePath ?? (input.chatUuid
       ? chatDb.getWorkspacePathByUuid(input.chatUuid) || chat?.workspacePath || process.cwd()
-      : process.cwd()
+      : process.cwd())
 
     const systemPrompt = buildSubagentSystemPrompt(input.role)
 
     const userMessage = await this.buildUserTaskMessage(input)
+    input.signal?.throwIfAborted()
     const allowedTools =
       resolveAllowedEmbeddedToolsForAgent({
         kind: 'subagent',
@@ -40,6 +43,7 @@ export class SubagentRuntimeFactory {
 
     const preparedContext: PreparedSubagentRunContext = {
       modelContext,
+      requestSpec,
       systemPrompt,
       userMessage,
       allowedTools,

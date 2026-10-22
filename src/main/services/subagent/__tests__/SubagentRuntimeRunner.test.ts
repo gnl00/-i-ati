@@ -81,7 +81,7 @@ describe('DefaultSubagentRuntimeRunner', () => {
         role: 'coder',
         task: 'run command'
       }
-    })
+    }, undefined)
     expect(decision).toEqual({
       approved: true,
       reason: 'approved',
@@ -109,7 +109,7 @@ describe('DefaultSubagentRuntimeRunner', () => {
       args: '{"command":"echo hi"}'
     })).resolves.toEqual({
       approved: false,
-      reason: 'Subagent confirmation flow is not enabled in phase one.'
+      reason: 'Parent confirmation channel unavailable.'
     })
   })
 })

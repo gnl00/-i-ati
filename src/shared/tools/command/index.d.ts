@@ -34,6 +34,9 @@ export interface ExecuteCommandResponse {
   success: boolean
   failure?: ToolFailure
   command?: string // 执行的命令
+  output_artifacts?: Record<'stdout' | 'stderr', { path?: string; bytes: number; complete: boolean; error?: string }>
+  stdout_log_unsaved_bytes?: number
+  stderr_log_unsaved_bytes?: number
   stdout?: string
   stderr?: string
   stdout_bytes?: number

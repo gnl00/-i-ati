@@ -80,3 +80,16 @@ describe('SystemPromptComposer', () => {
     expect(providerMocks.skills).toHaveBeenCalledWith()
   })
 })
+
+it('reports each fixed prompt module separately without changing the composed prompt', async () => {
+  const onMeasure = vi.fn()
+  const composer = new SystemPromptComposer()
+  const original = await composer.compose(false)
+  expect(await composer.compose(false, onMeasure)).toEqual(original)
+  expect(onMeasure).toHaveBeenCalledWith(expect.objectContaining({
+    skillCatalog: expect.objectContaining({ characters: expect.any(Number), utf8Bytes: expect.any(Number) }),
+    policy: expect.objectContaining({ characters: expect.any(Number) }),
+    emotionPolicy: { characters: 0, utf8Bytes: 0 }
+  }))
+  expect(JSON.stringify(onMeasure.mock.calls)).not.toContain('<skills')
+})
