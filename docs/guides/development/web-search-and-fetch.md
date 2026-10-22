@@ -1,6 +1,6 @@
 # Web Search and Fetch
 
-Last verified against source: 2026-10-09.
+Last verified against source: 2026-10-15.
 
 ## Runtime ownership
 
@@ -88,6 +88,51 @@ const result = await invokeWebSearchIPC({
 See [the shared channels](../../../src/shared/constants/index.ts) and
 [tool input definitions](../../../src/shared/tools/webTools/definitions.ts) for
 IPC and model-facing contracts. Keep ad hoc browser scripts out of renderer.
+
+## Evidence and completion policy
+
+The global tools policy and built-in `search-general` skill guide convergence.
+Read a supplied URL first; discover sources when needed. Reuse current evidence
+and recover existing artifacts or sections before fetching a source again. Refresh
+when requested or when evidence may be stale. Each additional retrieval should
+resolve a specific evidence gap. Finish when evidence supports the requested
+answer or artifact, covering each material side of comparisons. Missing evidence
+remains an explicit gap rather than proof against a claim.
+
+Global editing guidance ties each modification to a diagnostic or acceptance
+condition and verifies the result. Persistent diagnostics require inspecting why
+the previous change had no effect before revising the approach. Simplification
+preserves required facts and behavior. These are internal decision rules; they
+add no compulsory user-facing checklist, fixed call cap, semantic deduplicator,
+or automatic retry mechanism.
+
+## Fetch failure and recovery
+
+Failed fetches retain `success: false` and the readable `error`, and add the shared
+`ToolFailure` contract. ToolExecutor propagates it; the dispatcher/normalizer puts
+`[tool_failure]` recovery guidance before the model-visible result. Outer execution
+status can remain `success` when the processor returned a business failure.
+
+| Failure | Recovery |
+| --- | --- |
+| HTTP 400, 404, 410, 422 | `correct_input`: verify a supplied URL or known link; avoid guessed variants |
+| HTTP 401, 403 or a recognized verification/login page | `change_strategy`: accessible source or explain access needed |
+| HTTP 429 | `limited_retry`: respect wait guidance or use another source |
+| Other HTTP failures, including 5xx | `change_strategy`: ordinary documentation or an independent source; retry only with a concrete basis |
+| Empty, not-ready, oversized content, transport failure or timeout | `change_strategy`: address the cause or use another method/source |
+| Run cancellation | `stop`, with `termination: cancelled` |
+
+Direct HTTP errors preserve status and parse `Retry-After` delta seconds or an
+HTTP date into wait guidance; invalid/missing headers yield generic rate-limit
+advice. Rendered pages use Electron's main-frame `did-navigate` status, rejecting
+HTTP error bodies before extraction. That event exposes no headers, so rendered
+429 responses receive generic wait advice. Navigation listeners are removed on
+completion or failure. A timeout carries `termination: timeout`; this does not
+change cancellation propagation, deadlines, window capacity, or retry behavior.
+
+Prompt and transport tests establish instructions and delivered failure metadata.
+Provider behavior and performance require model-driven task runs; those checks
+must distinguish evidence quality from fewer calls.
 
 ## Fetch and workspace artifacts
 

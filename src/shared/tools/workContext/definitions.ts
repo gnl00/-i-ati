@@ -5,18 +5,18 @@ export const sessionContextTools = [
     type: 'function',
     function: {
       name: 'session_context',
-      description: 'Manage the current chat session work context. Use action get to read the current context or set to replace it with new Markdown content.',
+      description: 'Read or replace the current chat\'s work context.',
       parameters: {
         type: 'object',
         properties: {
           action: {
             type: 'string',
             enum: ['get', 'set'],
-            description: 'Session context operation to perform: get reads the current work context, set replaces it with new Markdown content.'
+            description: 'get reads; set replaces the full Markdown context.'
           },
           content: {
             type: 'string',
-            description: 'Complete markdown content to store as the current session work context. Only used for action set.'
+            description: 'Complete Markdown for set.'
           }
         },
         required: ['action'],

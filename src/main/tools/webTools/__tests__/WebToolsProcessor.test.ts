@@ -50,7 +50,15 @@ vi.mock('../BrowserWindowPool', () => ({
   getWindowPool: vi.fn(() => ({
     acquireSearchWindow: mocks.acquireSearchWindow,
     releaseSearchWindow: mocks.releaseSearchWindow,
-    acquireContentWindow: mocks.acquireContentWindow,
+    acquireContentWindow: async (...args: unknown[]): Promise<unknown> => {
+      const window = await mocks.acquireContentWindow(...args)
+      if (window && !window.webContents.on) {
+        const events = new EventEmitter()
+        window.webContents.on = events.on.bind(events)
+        window.webContents.removeListener = events.removeListener.bind(events)
+      }
+      return window
+    },
     releaseContentWindow: mocks.releaseContentWindow
   }))
 }))
@@ -279,7 +287,10 @@ describe('WebToolsProcessor', () => {
       }
     }
     mocks.acquireContentWindow.mockResolvedValueOnce(window)
-    expect(await processWebFetch({ url })).toMatchObject({ success: false, error })
+    expect(await processWebFetch({ url })).toMatchObject({
+      success: false, error,
+      failure: { code: error, recovery: { action: 'change_strategy' } }
+    })
     expect(mocks.releaseContentWindow).toHaveBeenCalledWith(window)
   })
 
@@ -302,7 +313,10 @@ describe('WebToolsProcessor', () => {
     const fetching = processWebFetch({ url }, { signal: controller.signal })
     await ready
     controller.abort(new Error('Run stopped'))
-    expect(await fetching).toMatchObject({ success: false, error: 'Run stopped' })
+    expect(await fetching).toMatchObject({
+      success: false, error: 'Run stopped',
+      failure: { code: 'WEB_FETCH_CANCELLED', termination: 'cancelled', recovery: { action: 'stop' } }
+    })
     await vi.waitFor(() => expect(mocks.releaseContentWindow).toHaveBeenCalledWith(window))
     expect(window.destroy).toHaveBeenCalledTimes(1)
   })
@@ -484,9 +498,78 @@ describe('WebToolsProcessor', () => {
     const fetching = processWebFetch({ url: 'https://example.com/article.txt' }, { signal: controller.signal })
     await ready
     controller.abort(new Error('Run stopped'))
-    expect(await fetching).toMatchObject({ success: false, error: 'Run stopped' })
+    expect(await fetching).toMatchObject({
+      success: false, error: 'Run stopped',
+      failure: { code: 'WEB_FETCH_CANCELLED', termination: 'cancelled', recovery: { action: 'stop' } }
+    })
     expect(transportSignal?.aborted).toBe(true)
     expect(mocks.acquireContentWindow).not.toHaveBeenCalled()
+  })
+
+  it.each([403, 404, 429, 500])('rejects rendered HTTP %s before extracting an error page', async (status) => {
+    const url = 'https://example.com/ask'
+    const events = new EventEmitter()
+    const window = createContentWindow(url, 'This server error body must not become evidence.')
+    Object.assign(window.webContents, {
+      on: events.on.bind(events), removeListener: events.removeListener.bind(events)
+    })
+    window.loadURL.mockImplementationOnce(async () => {
+      events.emit('did-navigate', {}, url, status, 'Error')
+    })
+    mocks.acquireContentWindow.mockResolvedValueOnce(window)
+    const result = await processWebFetch({ url })
+    expect(result).toMatchObject({
+      success: false, content: '', error: `Failed to fetch page: HTTP ${status}`,
+      failure: { sourceCode: status }
+    })
+    expect(window.webContents.executeJavaScript).not.toHaveBeenCalled()
+    expect(mocks.netFetch).not.toHaveBeenCalled()
+    expect(mocks.releaseContentWindow).toHaveBeenCalledWith(window)
+    expect(events.listenerCount('did-navigate')).toBe(0)
+    expect(window.webContents.session.listenerCount('will-download')).toBe(0)
+  })
+
+  it.each([
+    [400, 'input', 'WEB_FETCH_HTTP_ERROR', 'correct_input'],
+    [404, 'input', 'WEB_FETCH_HTTP_ERROR', 'correct_input'],
+    [410, 'input', 'WEB_FETCH_HTTP_ERROR', 'correct_input'],
+    [422, 'input', 'WEB_FETCH_HTTP_ERROR', 'correct_input'],
+    [401, 'policy', 'WEB_FETCH_ACCESS_DENIED', 'change_strategy'],
+    [403, 'policy', 'WEB_FETCH_ACCESS_DENIED', 'change_strategy'],
+    [429, 'operation', 'WEB_FETCH_RATE_LIMITED', 'limited_retry'],
+    [500, 'operation', 'WEB_FETCH_HTTP_ERROR', 'change_strategy'],
+    [503, 'operation', 'WEB_FETCH_HTTP_ERROR', 'change_strategy']
+  ])('returns recovery guidance for HTTP %s without retrying', async (status, category, code, action) => {
+    mocks.netFetch.mockResolvedValue(new Response('Unavailable', { status: Number(status) }))
+    const result = await processWebFetch({ url: 'https://example.com/article.md' })
+    expect(result).toMatchObject({
+      success: false,
+      error: `Failed to fetch page: HTTP ${status}`,
+      failure: { category, code, sourceCode: status, recovery: { action } }
+    })
+    expect(mocks.netFetch).toHaveBeenCalledOnce()
+    expect(mocks.acquireContentWindow).not.toHaveBeenCalled()
+    expect(await readdir(join(userDataDir, 'workspaces', 'tmp', '.tmp', 'web-fetch'))).toEqual([])
+  })
+
+  it.each([
+    ['60', 'Wait at least 60 seconds'],
+    ['0', 'Wait at least 0 seconds'],
+    ['Thu, 15 Oct 2026 00:01:30 GMT', 'Wait at least 90 seconds'],
+    ['Thu, 15 Oct 2026 00:00:00 GMT', 'Wait at least 0 seconds'],
+    ['-1', 'Wait for the rate limit to clear'],
+    ['later', 'Wait for the rate limit to clear'],
+    ['9999999999999999999999999', 'Wait for the rate limit to clear']
+  ])('honors Retry-After %s in recovery guidance', async (header, expected) => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-10-15T00:00:00Z'))
+    try {
+      mocks.netFetch.mockResolvedValue(new Response('', { status: 429, headers: { 'Retry-After': header } }))
+      const result = await processWebFetch({ url: 'https://example.com/limited.txt' })
+      expect(result.failure?.recovery.message).toContain(expected)
+      expect(mocks.netFetch).toHaveBeenCalledOnce()
+    } finally {
+      now.mockRestore()
+    }
   })
 
   it('uses Electron net.fetch for direct HTTP markdown URLs', async () => {
@@ -534,7 +617,8 @@ describe('WebToolsProcessor', () => {
       expect(result).toMatchObject({
         success: false,
         url,
-        error: expect.stringContaining('Timeout fetching page')
+        error: expect.stringContaining('Timeout fetching page'),
+        failure: { code: 'WEB_FETCH_TIMEOUT', termination: 'timeout', recovery: { action: 'change_strategy' } }
       })
       expect(mocks.logger.info).toHaveBeenCalledWith('web_fetch.timings', expect.objectContaining({
         success: false, route: 'render', inFlightPhases: ['queue'],

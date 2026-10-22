@@ -5,7 +5,7 @@ export const knowledgebaseTools = [
     type: 'function',
     function: {
       name: 'knowledgebase_search',
-      description: 'Search indexed local knowledgebase chunks from configured folders. Always provide both query and localized_query. query carries the main search intent. localized_query carries the same intent in the current conversation language for language-matched retrieval.',
+      description: 'Search indexed local knowledgebase chunks in configured folders. Always provide query and localized_query with the same intent.',
       parameters: {
         type: 'object',
         properties: {
@@ -15,7 +15,7 @@ export const knowledgebaseTools = [
           },
           localized_query: {
             type: 'string',
-            description: 'Language-matched version of the same search intent. Use Chinese in Chinese conversations, English in English conversations, and always match the current user language environment.'
+            description: 'Same search intent in the current user language.'
           },
           top_k: {
             type: 'number',

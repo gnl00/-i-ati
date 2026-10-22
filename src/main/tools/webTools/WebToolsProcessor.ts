@@ -18,7 +18,8 @@ import { waitForCondition } from './util/waitForCondition'
 import { PAGE_CONTENT_SNAPSHOT_SCRIPT, waitForPageContent } from './util/waitForPageContent'
 import { assertUsableWebContent, extractCleanContent } from './extract/ContentExtractor'
 import type { CleanMode } from './extract/postClean'
-import { downloadViaHttp } from './http/HttpFetcher'
+import { downloadViaHttp, WebFetchHttpError } from './http/HttpFetcher'
+import { createToolFailure, type ToolFailure } from '@shared/tools/toolFailure'
 import { WEB_FETCH_INLINE_MAX_CHARACTERS } from './artifacts/constants'
 import { WorkspaceWebFetchArtifactService } from './artifacts/WorkspaceWebFetchArtifactService'
 import {
@@ -208,7 +209,7 @@ function withTimeout<T>(
     }
     parentSignal?.addEventListener('abort', onAbort, { once: true })
     timer = setTimeout(() => {
-      const error = new Error(timeoutMessage)
+      const error = Object.assign(new Error(timeoutMessage), { code: 'WEB_OPERATION_TIMEOUT' })
       reject(error)
       controller.abort(error)
     }, timeoutMs)
@@ -618,7 +619,12 @@ async function fetchPageContentViaRender(
       downloadUrl = item.getURL()
       resolveDownload()
     }
+    let httpError: WebFetchHttpError | undefined
+    const onNavigate = (_event: Event, _url: string, status: number): void => {
+      httpError = status >= 400 ? new WebFetchHttpError(status) : undefined
+    }
     const session = contentWindow.webContents.session
+    contentWindow.webContents.on('did-navigate', onNavigate)
     session.on('will-download', onDownload)
     try {
       await measureFetchPhase(context, 'navigation', () => withTimeout(
@@ -642,8 +648,10 @@ async function fetchPageContentViaRender(
       ))
     } finally {
       session.removeListener('will-download', onDownload)
+      contentWindow.webContents.removeListener('did-navigate', onNavigate)
     }
     signal?.throwIfAborted()
+    if (httpError) throw httpError
     if (downloadUrl) {
       context.route = 'render-download'
       return await fetchPageContentViaHttp(downloadUrl, mode, context, signal)
@@ -1010,9 +1018,70 @@ const processWebSearch = async (
   }
 }
 
-/**
- * Web Fetch - 获取指定 URL 的页面内容
- */
+function createWebFetchFailure(caught: unknown, signal?: AbortSignal): ToolFailure {
+  const error = caught as { code?: string | number, message?: string } | undefined
+  if (signal?.aborted) {
+    return createToolFailure({
+      category: 'operation', code: 'WEB_FETCH_CANCELLED', message: 'The fetch was cancelled.',
+      recovery: { action: 'stop', message: 'Stop this fetch. Continue only if a new request authorizes more work.' },
+      termination: 'cancelled'
+    })
+  }
+  if (caught instanceof WebFetchHttpError) {
+    const status = caught.status
+    if (status === 429) {
+      const wait = caught.retryAfterSeconds !== undefined
+        ? `Wait at least ${caught.retryAfterSeconds} seconds before considering a retry, or use another source.`
+        : 'Wait for the rate limit to clear before considering a retry, or use another source.'
+      return createToolFailure({
+        category: 'operation', code: 'WEB_FETCH_RATE_LIMITED', message: 'The source is rate limited.',
+        sourceCode: status, recovery: { action: 'limited_retry', message: wait }
+      })
+    }
+    if (status === 401 || status === 403) {
+      return createToolFailure({
+        category: 'policy', code: 'WEB_FETCH_ACCESS_DENIED', message: 'The source denied access.',
+        sourceCode: status,
+        recovery: { action: 'change_strategy', message: 'Use an accessible source or explain the access required for this source.' }
+      })
+    }
+    const invalidTarget = status === 400 || status === 404 || status === 410 || status === 422
+    return createToolFailure({
+      category: invalidTarget ? 'input' : 'operation', code: 'WEB_FETCH_HTTP_ERROR',
+      message: `The source returned HTTP ${status}.`, sourceCode: status,
+      recovery: invalidTarget
+        ? { action: 'correct_input', message: 'Verify the URL using the user-provided address or a known source link. Avoid guessing URL variations.' }
+        : { action: 'change_strategy', message: 'Read ordinary documentation or an independent source. Retry this service or similar endpoints only with a concrete reason they can now succeed.' }
+    })
+  }
+  const code = error?.code ?? error?.message
+  if (code === 'WEB_OPERATION_TIMEOUT') {
+    return createToolFailure({
+      category: 'operation', code: 'WEB_FETCH_TIMEOUT', message: 'The fetch exceeded its time limit.',
+      recovery: { action: 'change_strategy', message: 'Use another source or method. Retry only when the timeout cause has been addressed.' },
+      termination: 'timeout'
+    })
+  }
+  if (code === 'WEB_FETCH_BLOCKED_PAGE') {
+    return createToolFailure({
+      category: 'policy', code, message: 'The page requires login, verification, or access permission.',
+      recovery: { action: 'change_strategy', message: 'Use an accessible source or explain the access needed. Repeating the same fetch does not resolve the barrier.' }
+    })
+  }
+  if (code === 'WEB_FETCH_EMPTY_CONTENT' || code === 'WEB_FETCH_CONTENT_NOT_READY' || code === 'WEB_FETCH_DOWNLOAD_TOO_LARGE') {
+    return createToolFailure({
+      category: 'operation', code, message: 'The requested content could not be read with this fetch.',
+      recovery: { action: 'change_strategy', message: 'Inspect the page with a suitable browser tool or read a smaller, accessible source. Do not treat missing content as evidence against a claim.' }
+    })
+  }
+  return createToolFailure({
+    category: 'operation', code: 'WEB_FETCH_FAILED', message: 'The page could not be fetched.',
+    recovery: { action: 'change_strategy', message: 'Inspect the error and address its cause, or use another source. Retry only with a concrete reason it can succeed.' },
+    ...(error?.code !== undefined ? { sourceCode: error.code } : {})
+  })
+}
+
+/** Web Fetch - 获取指定 URL 的页面内容 */
 const processWebFetch = async (
   { url, cleanMode, chat_uuid }: WebFetchProcessArgs,
   context?: EmbeddedToolExecutionContext
@@ -1068,7 +1137,8 @@ const processWebFetch = async (
       url: url,
       title: '',
       content: '',
-      error: failure
+      error: failure,
+      failure: createWebFetchFailure(caught, context?.signal)
     }
   } finally {
     const now = performance.now()

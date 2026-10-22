@@ -50,6 +50,27 @@ For model-output tools used only to constrain a maintenance request:
 
 When adding or changing a tool, verify the schema with targeted tests plus `pnpm run typecheck:node`. Include `pnpm run typecheck:web` when renderer IPC or UI reads the result.
 
+## Concise model-facing descriptions
+
+Tool descriptions state purpose, selection boundaries, and cross-field rules.
+Parameter descriptions state field semantics. Avoid repeating enum lists,
+unconditional required fields, or defaults already encoded in the schema.
+Keep conditional requirements, units, implicit defaults, continuation/version
+rules, approval/path boundaries, recovery guidance, and partial-success semantics.
+For flat action tools, retain the action-to-field mapping that the schema cannot
+express. Keep useful platform-specific examples for shell quoting and interpreters.
+
+The shared required `tool_call_reason` retains one self-contained sentence about
+why this tool is needed now and its observable outcome, in the user's language.
+It applies to embedded and external definitions, including independent subagents.
+
+`src/shared/tools/__tests__/definitions.test.ts` limits the complete flat embedded
+catalog (including `source: 'embedded'`) to 56,000 JSON characters. This is a
+deterministic regression budget, not provider token accounting. Review an
+intentional budget increase when adding capabilities. Description-only changes
+must preserve names, order, and every non-description schema value. See
+[First-turn context optimization](../../work/investigations/2026-10-18-first-turn-context-optimization.md).
+
 ## Telegram gateway lifecycle
 
 The `tg_gateway_tool` embedded tool accepts `{ action: 'start' | 'stop' | 'status' }`

@@ -7,14 +7,13 @@ export const computerUseTools = [
     function: {
       name: 'computer_use',
       description: [
-        'Control macOS apps through the native backend with a required action and flat fields.',
-        'status checks availability, signing and permissions; request_permissions triggers macOS Accessibility and Screen Recording prompts.',
-        'apps lists installed/running apps; running_apps lists running apps; open_app opens an app; windows lists its windows.',
-        'state captures accessibility nodes and an optional screenshot. Capture state before GUI actions.',
-        'click_element clicks an AX element; click_coordinate clicks screenshot pixels; type_text types into an explicit or focused editable element;',
-        'set_value sets AXValue; press_key sends a key combination; scroll scrolls an element; drag moves between screenshot pixels.',
-        'Coordinate clicks and drags require a screenshot-backed snapshot. Keep each action sequence in the same helper session.',
-        'finish releases the session and background activation state.',
+        'Control macOS apps with flat action fields.',
+        'status checks availability/signing/permissions; request_permissions prompts for Accessibility/Screen Recording.',
+        'apps lists installed/running apps; running_apps lists running apps; open_app opens one; windows lists its windows.',
+        'Capture state (AX nodes/optional screenshot) before GUI actions; keep the sequence in one helper session.',
+        'click_element uses AX; click_coordinate/drag use screenshot pixels and require a screenshot-backed snapshot.',
+        'type_text uses an explicit/focused editable element; set_value sets AXValue; press_key sends keys; scroll moves an element.',
+        'finish releases session/background activation.',
         ...Object.entries(computerUseActions).map(
           ([action, fields]) =>
             `${action}: required [${fields.required.join(', ')}]; optional [${fields.optional.join(', ')}].`
@@ -26,40 +25,40 @@ export const computerUseTools = [
           action: {
             type: 'string',
             enum: Object.keys(computerUseActions),
-            description: 'Operation to perform.'
+            description: 'Native operation.'
           },
           app: {
             type: 'string',
             description:
-              'App name or bundle id. open_app also accepts a partial name or .app path. Required for open_app, windows, state.'
+              'Name/bundle ID; required for open_app/windows/state. open_app also accepts partial names/.app paths.'
           },
           windowTitle: {
             type: 'string',
-            description: 'Optional window title filter.'
+            description: 'Window title filter.'
           },
           windowId: {
             type: 'number',
-            description: 'Optional native window id.'
+            description: 'Native window ID.'
           },
           includeScreenshot: {
             type: 'boolean',
             description:
-              'If true, include screenshot metadata or path. Coordinate actions require a screenshot-backed snapshot.'
+              'Include screenshot metadata/path.'
           },
           snapshotId: {
             type: 'string',
             description:
-              'Snapshot id returned by computer_use(action=state). Keep one action sequence tied to the same helper session.'
+              'Snapshot ID from state, in the same helper session.'
           },
           elementIndex: {
             type: 'number',
             description:
-              'Element index returned by state; required for click_element, set_value, scroll; optional for type_text.'
+              'Index from state; required for click_element/set_value/scroll, optional for type_text.'
           },
           includeScreenshotAfter: {
             type: 'boolean',
             description:
-              'If true, request a post-action screenshot from the native backend.'
+              'Request a post-action screenshot.'
           },
           x: {
             type: 'number',
@@ -74,7 +73,7 @@ export const computerUseTools = [
           key: {
             type: 'string',
             description:
-              'Key or key combination accepted by the native backend, for example Enter, Escape, Command+L.'
+              'Native key/combination, e.g. Enter, Escape, Command+L.'
           },
           direction: {
             type: 'string',

@@ -80,4 +80,11 @@ describe('LoadedSkillsContextProvider', () => {
     await expect(new LoadedSkillsContextProvider().build(7)).resolves.toBeNull()
     expect(SkillService.listSkills).not.toHaveBeenCalled()
   })
+
+  it('does not restore activation references absent from the current source catalog', async () => {
+    vi.mocked(DatabaseService.getSkills).mockReturnValue(['removed-skill'])
+    vi.mocked(SkillService.listSkills).mockResolvedValue([])
+    await expect(new LoadedSkillsContextProvider().build(7)).resolves.toBeNull()
+    expect(SkillService.getSkillContent).not.toHaveBeenCalled()
+  })
 })

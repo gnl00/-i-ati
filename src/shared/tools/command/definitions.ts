@@ -5,51 +5,51 @@ export const commandTools = [
     type: 'function',
     function: {
       name: 'exec',
-      description: "Execute a shell command in the workspace directory. Dangerous commands (like 'rm -rf', 'dd', etc.) will require user confirmation before execution. Returns stdout, stderr, exit code, execution time, and a structured failure with category, code, message, and recovery when execution fails.",
+      description: 'Run a workspace shell command; dangerous commands require user confirmation. Returns stdout, stderr, exit code, duration, and structured failure/recovery details.',
       parameters: {
         type: 'object',
         properties: {
           command: {
             type: 'string',
-            description: "The shell command to execute (e.g., 'npm install', 'git status', 'ls -la')"
+            description: 'Shell command.'
           },
           execution_reason: {
             type: 'string',
-            description: 'Why this command needs to be executed right now. Be concrete about the intended task outcome.'
+            description: 'Why now and the concrete task outcome.'
           },
           possible_risk: {
             type: 'string',
-            description: 'Possible risks or side effects of running this command, even if the risk seems low.'
+            description: 'Risks or side effects, including low risks.'
           },
           risk_score: {
             type: 'number',
-            description: 'Risk score from 0 to 10. Use 0 for no meaningful risk, 10 for highly destructive or irreversible actions.',
+            description: '0: no meaningful risk; 10: highly destructive or irreversible.',
             minimum: 0,
             maximum: 10
           },
           filesystem_scope: {
             type: 'string',
             enum: ['workspace', 'outside_workspace', 'unknown'],
-            description: "Declare whether this command's filesystem access stays inside the current workspace. Use outside_workspace for paths such as ~/.zshrc or /etc/hosts. Use unknown when shell expansion, variables, scripts, or command behavior make the boundary unclear."
+            description: 'Filesystem access boundary. Use unknown when expansion, variables, scripts, or command behavior obscure it.'
           },
           filesystem_scope_reason: {
             type: 'string',
-            description: 'Explain why the declared filesystem_scope is accurate. Mention any outside-workspace paths or uncertainty.'
+            description: 'Justify filesystem_scope, including outside paths and uncertainty.'
           },
           cwd: {
             type: 'string',
-            description: 'Working directory relative to the workspace root (optional). Absolute paths and parent traversal require explicit user approval.'
+            description: 'Workspace-relative cwd. Absolute paths and parent traversal require explicit user approval.'
           },
           timeout: {
             type: 'number',
-            description: 'Timeout in milliseconds (default: 30000). The command will be killed if it exceeds this time.',
+            description: 'Milliseconds before killing the command.',
             default: 30000,
             minimum: 1,
             maximum: 86400000
           },
           env: {
             type: 'object',
-            description: 'Additional environment variables for the command (optional). Executable or runtime loading overrides such as PATH, BASH_ENV, ENV, and NODE_OPTIONS require explicit user approval; an approved PATH takes precedence over the inherited PATH.',
+            description: 'Extra environment. Loading overrides (PATH, BASH_ENV, ENV, NODE_OPTIONS) require explicit user approval; approved PATH overrides inherited PATH.',
             additionalProperties: {
               type: 'string'
             }

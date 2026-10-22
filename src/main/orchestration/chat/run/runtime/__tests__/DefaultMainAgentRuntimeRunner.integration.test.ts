@@ -408,8 +408,15 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
     ).toHaveLength(1)
   })
 
-  it('sends the complete raw tool result to the immediate continuation', async () => {
+  it.each([false, true])('sends the complete tool result and failure guidance to continuation (failure=%s)', async (failed) => {
     const rawContent = `RAW:${'x'.repeat(20_000)}`
+    const failure = failed ? {
+      category: 'operation' as const,
+      code: 'WEB_FETCH_HTTP_ERROR',
+      message: 'The source returned HTTP 500.',
+      sourceCode: 500,
+      recovery: { action: 'change_strategy' as const, message: 'Read ordinary documentation or an independent source.' }
+    } : undefined
     let continuationToolContent: unknown
     const modelStreamExecutor: ModelStreamExecutor = {
       execute: vi.fn(async ({ request }) => {
@@ -467,6 +474,7 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
         index: 0,
         name: 'web_fetch',
         content: rawContent,
+        failure,
         cost: 1,
         status: 'success'
       }
@@ -488,7 +496,15 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
       }
     })
 
-    expect(continuationToolContent).toBe(rawContent)
+    if (failed) {
+      expect(continuationToolContent).toContain('[tool_failure]')
+      expect(continuationToolContent).toContain('code=WEB_FETCH_HTTP_ERROR')
+      expect(continuationToolContent).toContain('recovery_action=change_strategy')
+      expect(continuationToolContent).toContain(failure!.recovery.message)
+      expect(continuationToolContent).toContain(rawContent)
+    } else {
+      expect(continuationToolContent).toBe(rawContent)
+    }
   })
 
   it.each([undefined, 'tui', 'telegram'])(

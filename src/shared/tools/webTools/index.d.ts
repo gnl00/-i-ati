@@ -1,3 +1,5 @@
+import type { ToolFailure } from '../toolFailure'
+
 export interface WebSearchArgs {
   query: string
   engine?: 'bing' | 'google' | 'duckduckgo'
@@ -35,6 +37,7 @@ export interface WebFetchArtifact {
 
 export interface WebFetchResponse {
   success: boolean
+  failure?: ToolFailure
   url: string           // 最终 URL（可能经过重定向）
   title: string         // 页面标题
   content: string       // 提取的页面内容

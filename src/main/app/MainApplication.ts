@@ -92,7 +92,7 @@ export class MainApplication {
     }
     this.startupTracer.mark('knowledgebase.init.end')
 
-    void SkillService.initializeFromConfig(appConfig)
+    await SkillService.initializeFromConfig(appConfig)
     electronApp.setAppUserModelId('com.electron')
     app.on('browser-window-created', (_, window) => {
       optimizer.watchWindowShortcuts(window)

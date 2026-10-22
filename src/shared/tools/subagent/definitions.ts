@@ -5,22 +5,22 @@ export const subagentTools = [
     type: 'function',
     function: {
       name: 'subagent',
-      description: 'Spawn background subagents for isolated research, coding, or review work, and wait for their results. Set action to spawn to start a background task or wait to block until a previously spawned subagent finishes (or returns its current status).',
+      description: 'Spawn background subagents for isolated research, coding, or review; wait for results/status.',
       parameters: {
         type: 'object',
         properties: {
           action: {
             type: 'string',
             enum: ['spawn', 'wait'],
-            description: 'Operation to perform: spawn creates and starts a background subagent, wait blocks for a spawned subagent to finish or returns its current status.'
+            description: 'spawn starts a task; wait blocks until completion or timeout, returning status.'
           },
           task: {
             type: 'string',
-            description: 'Clear, self-contained task for the subagent to execute. Required for action=spawn.'
+            description: 'Self-contained task; required for spawn.'
           },
           role: {
             type: 'string',
-            description: 'Optional subagent role hint. Built-in examples: general, researcher, coder, reviewer.'
+            description: 'Role hint: general, researcher, coder, reviewer.'
           },
           context_mode: {
             type: 'string',
@@ -32,19 +32,19 @@ export const subagentTools = [
             items: {
               type: 'string'
             },
-            description: 'Optional file path hints the subagent should inspect first.'
+            description: 'File paths to inspect first.'
           },
           background: {
             type: 'boolean',
-            description: 'Whether to run in the background. Phase one always runs background tasks.'
+            description: 'Currently always runs in background.'
           },
           subagent_id: {
             type: 'string',
-            description: 'Identifier returned by action=spawn. Required for action=wait.'
+            description: 'ID from spawn; required for wait.'
           },
           timeout_seconds: {
             type: 'number',
-            description: 'Optional maximum time to wait before returning the current status. Defaults to 30 seconds.'
+            description: 'Seconds to wait before returning status; default 30.'
           }
         },
         required: ['action'],

@@ -16,7 +16,7 @@ project commands and record runtime acceptance separately from automated checks.
 - [Desktop packaging](development/desktop-packaging.md)
 - [Plugin Author Checklist](development/plugin-author-checklist.md)
 - [Schedule 每次尝试创建新会话：实施指导](development/schedule-fresh-chat-implementation.md)
-- [技能安装、残缺恢复与启动失败报告实施指导](development/skill-install-recovery-implementation.md)
+- [技能源目录扫描与直接使用](../integrations/skills.md)
 - [Tailwind CSS v4 Syntax Rules](development/tailwindcss-v4-syntax-rules.md)
 - [Tool Definition Workflow](development/tool-definition-workflow.md)
 - [Web Search and Fetch](development/web-search-and-fetch.md)

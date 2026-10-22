@@ -18,6 +18,15 @@ Main chat static prompt source:
 - [ADR 0012](../decisions/0012-minimal-system-prompt-kernel.md) defines module
   ownership and character budgets.
 
+The main kernel's `tools_execution` policy defines execution readiness: once
+required facts, constraints, and validation are clear, use the simplest sufficient
+approach and defaults for reversible choices. Revisit those choices for new
+evidence, conflicting constraints, or failed validation. Necessary fact checks
+and authorization gates remain prerequisites. Specialized workflows stay in
+existing skills; this change leaves their instructions untouched. This is prompt
+guidance, without runtime timers, call limits, or automatic interruption of model
+output.
+
 Background subagents use the independent
 [`buildSubagentSystemPrompt(role)`](../../src/shared/prompts/subagent.ts).
 It owns delegated execution and result delivery rules without inheriting the
@@ -85,11 +94,23 @@ Request injection:
 
 See [ADR 0049](../decisions/0049-persisted-request-context-snapshots.md).
 
+`AwakeContextProvider` serializes snapshot version 2 as compact JSON. It keeps one
+chat identity block, omits absent/empty work context, and bounds recent activity
+clues to three. Unrelated clues carry only titles and local dates; relevant task
+hits can include complete short summaries. Memory selection and the context's
+protocol position stay unchanged. See [ADR 0048](../decisions/0048-bounded-awake-activity-context.md).
+
 Hidden source:
 
 - `src/shared/messages/messageSources.ts`
 - Each runtime context family has an explicit `MESSAGE_SOURCE`.
 - Every request-context source is included in `HIDDEN_MESSAGE_SOURCES`.
+
+Available skill metadata comes from the in-memory source-folder catalog. Startup and
+source changes scan configured folders plus embedded resources; request preparation
+does not recover installed copies or scan the filesystem. Selected names missing
+from the current catalog are omitted from loaded-skills context. See
+[Source-folder skills](../decisions/0047-source-folder-skills.md).
 
 ## Extension Rule
 

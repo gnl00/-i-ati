@@ -37,6 +37,7 @@ vi.mock('@tools/registry', async () => {
         || name === 'knowledgebase_search'
         || name === 'run_skill_script'
         || name === 'image_analyze'
+        || name === 'web_fetch'
       )),
       getHandler: vi.fn(() => handlerMock),
       getToolMetadata: vi.fn((name: string) => embeddedToolMetadata[name])
@@ -524,7 +525,7 @@ describe('ToolExecutor runtime context', () => {
     expect(result.error).toBeInstanceOf(Error)
   })
 
-  it('carries processor failures through a successful tool execution result', async () => {
+  it.each(['plan', 'web_fetch'])('carries %s processor failures through a successful tool execution result', async (name) => {
     const failure = {
       category: 'policy' as const,
       code: 'PATH_OUTSIDE_WORKSPACE',
@@ -541,7 +542,7 @@ describe('ToolExecutor runtime context', () => {
 
     const [result] = await executor.execute([{
       id: 'call-structured-result',
-      function: 'plan',
+      function: name,
       args: JSON.stringify({ action: 'get_current_chat' })
     }])
 

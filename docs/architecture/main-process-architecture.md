@@ -91,6 +91,11 @@ logging
   -> background window pool and Telegram gateway
 ```
 
+Skill initialization awaits source-folder discovery before embedded tools and IPC
+are registered. It reads configured roots directly and publishes an in-memory
+catalog; installation copies and recovery are retired. See
+[ADR-0047](../decisions/0047-source-folder-skills.md).
+
 IPC registration completes before the main window is created. macOS activation
 restores or recreates the window, and `window-all-closed` preserves the usual
 menu-bar application behavior. Long-lived services stop during `before-quit`.

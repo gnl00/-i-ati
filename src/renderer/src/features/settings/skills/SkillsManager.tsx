@@ -1,21 +1,19 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { listAvailableSkills } from '@renderer/features/settings/skills/SkillService'
 import { getChatSkills } from '@renderer/infrastructure/persistence/ChatSkillRepository'
 import { useChatStore } from '@renderer/features/chat'
 import {
-  invokeCheckIsDirectory,
-  invokeDeleteSkill,
-  invokeImportSkills,
+  invokeRefreshSkills,
+  invokeSkillScanResult,
   invokeOpenPath,
   invokeRevealSkillInFolder,
   invokeSelectDirectory
 } from '@renderer/infrastructure/ipc'
 import { useAppConfigStore } from '@renderer/infrastructure/config/appConfig'
 import { toast } from 'sonner'
-import InlineDeleteConfirm from '../common/InlineDeleteConfirm'
 import { ChevronRight, FolderOpen, Search, X } from 'lucide-react'
 import ExpandableSearchInput from '../common/ExpandableSearchInput'
 import { cn } from '@renderer/shared/lib/utils'
+import { Switch } from '@renderer/shared/components/ui/switch'
 import {
   Tooltip,
   TooltipContent,
@@ -34,34 +32,6 @@ import {
   settingsPrimaryButtonClassName,
   settingsSecondaryButtonClassName
 } from '../common/SettingsLayout'
-
-type ImportSkillsResult = {
-  installed: SkillMetadata[]
-  renamed: Array<{ from: string; to: string }>
-  skipped: Array<{ path: string; reason: string }>
-  failed: Array<{ path: string; error: string }>
-}
-
-const normalizeImportResult = (
-  value: Partial<ImportSkillsResult> | null | undefined
-): ImportSkillsResult => {
-  return {
-    installed: Array.isArray(value?.installed) ? value.installed : [],
-    renamed: Array.isArray(value?.renamed) ? value.renamed : [],
-    skipped: Array.isArray(value?.skipped) ? value.skipped : [],
-    failed: Array.isArray(value?.failed) ? value.failed : []
-  }
-}
-
-const summarizeImport = (result: ImportSkillsResult): string => {
-  const parts: string[] = []
-  if (result.installed.length > 0)
-    parts.push(`${result.installed.length} installed`)
-  if (result.renamed.length > 0) parts.push(`${result.renamed.length} renamed`)
-  if (result.failed.length > 0) parts.push(`${result.failed.length} failed`)
-  if (parts.length === 0) return 'No skills found'
-  return parts.join(', ')
-}
 
 const getFolderDisplayParts = (
   folder: string
@@ -139,7 +109,8 @@ const SkillSummary: React.FC<{ name: string; text: string }> = ({
 }
 
 const SkillsManager: React.FC = () => {
-  const { currentChatId, currentChatUuid, chatSkillsRevisionByChatUuid } = useChatStore()
+  const { currentChatId, currentChatUuid, chatSkillsRevisionByChatUuid } =
+    useChatStore()
   const chatSkillsRevision = currentChatUuid
     ? (chatSkillsRevisionByChatUuid[currentChatUuid] ?? 0)
     : 0
@@ -148,15 +119,40 @@ const SkillsManager: React.FC = () => {
   const activeSkillsRequestSequenceRef = useRef(0)
   const { appConfig, setAppConfig } = useAppConfigStore()
   const [skills, setSkills] = useState<SkillMetadata[]>([])
+  const [issues, setIssues] = useState<SkillScanIssue[]>([])
   const [activeSkillsState, setActiveSkillsState] = useState<{
     chatId: number | null
     names: string[]
   }>({ chatId: null, names: [] })
-  const activeSkills = activeSkillsState.chatId === currentChatId ? activeSkillsState.names : []
+  const activeSkills =
+    activeSkillsState.chatId === currentChatId ? activeSkillsState.names : []
   const [folders, setFolders] = useState<string[]>([])
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false)
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [pendingFolders, setPendingFolders] = useState<Set<string>>(new Set())
+  const [savingSkill, setSavingSkill] = useState<string | null>(null)
+  const toggleLock = useRef(false)
+
+  const setSkillEnabled = async (name: string, enabled: boolean): Promise<void> => {
+    if (toggleLock.current) return
+    toggleLock.current = true
+    setSavingSkill(name)
+    try {
+      const disabledNames = new Set(appConfig.skills?.disabledNames ?? [])
+      if (enabled) disabledNames.delete(name)
+      else disabledNames.add(name)
+      await setAppConfig({
+        ...appConfig,
+        skills: { ...appConfig.skills, disabledNames: [...disabledNames].sort() }
+      })
+      setSkills(current => current.map(skill => skill.name === name ? { ...skill, enabled } : skill))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update skill')
+    } finally {
+      toggleLock.current = false
+      setSavingSkill(null)
+    }
+  }
 
   const sortedSkills = useMemo(() => {
     return [...skills].sort((a, b) => a.name.localeCompare(b.name))
@@ -165,7 +161,7 @@ const SkillsManager: React.FC = () => {
   const filteredSkills = useMemo(() => {
     if (!searchQuery.trim()) return sortedSkills
     const query = searchQuery.toLowerCase()
-    return sortedSkills.filter((skill) => {
+    return sortedSkills.filter(skill => {
       const haystack = [
         skill.name,
         skill.description,
@@ -181,8 +177,9 @@ const SkillsManager: React.FC = () => {
   const refreshSkills = async (): Promise<void> => {
     setIsRefreshing(true)
     try {
-      const result = await listAvailableSkills()
-      setSkills(result)
+      const result = await invokeSkillScanResult()
+      setSkills(result.skills)
+      setIssues(result.issues)
     } catch (error) {
       console.error('[SkillsManager] Failed to list skills:', error)
       toast.error('Failed to load skills')
@@ -200,12 +197,18 @@ const SkillsManager: React.FC = () => {
     }
     try {
       const result = await getChatSkills(chatId)
-      if (activeSkillsRequestSequenceRef.current !== requestSequence || currentChatIdRef.current !== chatId) {
+      if (
+        activeSkillsRequestSequenceRef.current !== requestSequence ||
+        currentChatIdRef.current !== chatId
+      ) {
         return
       }
       setActiveSkillsState({ chatId, names: result })
     } catch (error) {
-      if (activeSkillsRequestSequenceRef.current !== requestSequence || currentChatIdRef.current !== chatId) {
+      if (
+        activeSkillsRequestSequenceRef.current !== requestSequence ||
+        currentChatIdRef.current !== chatId
+      ) {
         return
       }
       console.error('[SkillsManager] Failed to load active skills:', error)
@@ -226,52 +229,35 @@ const SkillsManager: React.FC = () => {
     setFolders(appConfig.skills?.folders || [])
   }, [appConfig.skills?.folders])
 
-  const updateFolders = (nextFolders: string[]): void => {
-    setFolders(nextFolders)
-    void setAppConfig({
-      ...appConfig,
-      skills: { ...(appConfig.skills || {}), folders: nextFolders }
-    })
-  }
-
-  const setFolderPending = (folder: string, pending: boolean): void => {
-    setPendingFolders((prev) => {
-      const next = new Set(prev)
-      pending ? next.add(folder) : next.delete(folder)
-      return next
-    })
-  }
-
-  const scanFolder = async (folder: string): Promise<void> => {
-    setFolderPending(folder, true)
+  const updateFolders = async (nextFolders: string[]): Promise<void> => {
+    setPendingFolders(new Set([...folders, ...nextFolders]))
     try {
-      const result = normalizeImportResult(await invokeImportSkills(folder))
-      const summary = summarizeImport(result)
-      result.failed.length > 0 ? toast.error(summary) : toast.success(summary)
+      await setAppConfig({
+        ...appConfig,
+        skills: { ...(appConfig.skills || {}), folders: nextFolders }
+      })
+      setFolders(nextFolders)
       await refreshSkills()
-      await refreshActiveSkills()
-    } catch (error: unknown) {
-      console.error('[SkillsManager] Import failed:', error)
+    } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : 'Failed to import skills'
+        error instanceof Error
+          ? error.message
+          : 'Failed to update skill folders'
       )
     } finally {
-      setFolderPending(folder, false)
+      setPendingFolders(new Set())
     }
   }
 
   const handleAddFolder = async (): Promise<void> => {
     const result = await invokeSelectDirectory()
     if (!result.success || !result.path) return
-    const nextFolders = folders.includes(result.path)
-      ? folders
-      : [...folders, result.path]
-    updateFolders(nextFolders)
-    await scanFolder(result.path)
+    if (!folders.includes(result.path))
+      await updateFolders([...folders, result.path])
   }
 
-  const handleRemoveFolder = (folder: string): void => {
-    updateFolders(folders.filter((item) => item !== folder))
+  const handleRemoveFolder = async (folder: string): Promise<void> => {
+    await updateFolders(folders.filter(item => item !== folder))
   }
 
   const handleOpenFolder = async (folder: string): Promise<void> => {
@@ -290,91 +276,20 @@ const SkillsManager: React.FC = () => {
   }
 
   const scanAllFolders = async (): Promise<void> => {
-    if (folders.length === 0) return
+    setIsRefreshing(true)
     setPendingFolders(new Set(folders))
     try {
-      const directoryChecks = await Promise.allSettled(
-        folders.map((f) => invokeCheckIsDirectory(f))
-      )
-      const validFolders: string[] = []
-      const invalidFolders: string[] = []
-
-      directoryChecks.forEach((checkResult, index) => {
-        const folder = folders[index]
-        if (checkResult.status !== 'fulfilled') {
-          invalidFolders.push(folder)
-          return
-        }
-        const payload = checkResult.value
-        payload.success && payload.isDirectory
-          ? validFolders.push(folder)
-          : invalidFolders.push(folder)
-      })
-
-      if (invalidFolders.length > 0) {
-        updateFolders(folders.filter((f) => !invalidFolders.includes(f)))
-        toast.error(
-          `Removed invalid folder path(s):\n${invalidFolders.map((p) => `• ${p}`).join('\n')}`
-        )
-      }
-
-      if (validFolders.length === 0) {
-        toast.error('No valid skill folders found.')
-        return
-      }
-
-      const results = await Promise.allSettled(
-        validFolders.map((f) => invokeImportSkills(f))
-      )
-      let installedCount = 0,
-        renamedCount = 0,
-        failedCount = invalidFolders.length
-
-      results.forEach((result) => {
-        if (result.status === 'fulfilled') {
-          const n = normalizeImportResult(result.value)
-          installedCount += n.installed.length
-          renamedCount += n.renamed.length
-          failedCount += n.failed.length
-        } else {
-          failedCount += 1
-        }
-      })
-
-      const parts: string[] = []
-      if (installedCount > 0) parts.push(`${installedCount} installed`)
-      if (renamedCount > 0) parts.push(`${renamedCount} renamed`)
-      if (failedCount > 0) parts.push(`${failedCount} failed`)
-      const summary = parts.length > 0 ? parts.join(', ') : 'No skills found'
-
-      failedCount > 0
-        ? toast.error(`Rescan: ${summary}`)
-        : toast.success(`Rescan: ${summary}`)
-      await refreshSkills()
-      await refreshActiveSkills()
-    } catch (error: unknown) {
-      console.error('[SkillsManager] Rescan failed:', error)
+      const result = await invokeRefreshSkills()
+      setSkills(result.skills)
+      setIssues(result.issues)
+      toast.success(`${result.skills.length} skills available`)
+    } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : 'Failed to rescan folders'
+        error instanceof Error ? error.message : 'Failed to scan skill folders'
       )
     } finally {
+      setIsRefreshing(false)
       setPendingFolders(new Set())
-    }
-  }
-
-  const handleDeleteSkill = async (name: string): Promise<void> => {
-    try {
-      await invokeDeleteSkill(name)
-      toast.success(`Removed skill: ${name}`)
-      await refreshSkills()
-      await refreshActiveSkills()
-    } catch (error: unknown) {
-      console.error('[SkillsManager] Failed to delete skill:', error)
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : `Failed to remove skill: ${name}`
-      )
     }
   }
 
@@ -397,12 +312,12 @@ const SkillsManager: React.FC = () => {
     <SettingsPageShell contentClassName="gap-2">
       <SettingsSectionHeader
         title="Skills"
-        description="Manage skill folders and view available skills."
+        description="Use skills directly from source folders."
       />
 
       <div className="mx-4 shrink-0 overflow-hidden rounded-lg border border-gray-100 bg-gray-50/60 dark:border-(--app-border-subtle) dark:bg-(--app-surface-inset)">
         <SettingsSubsectionHeader
-          title="Folders"
+          title="Source Folders"
           className="flex-wrap items-center border-t-0 bg-transparent px-3 py-2 dark:bg-transparent [&>div:last-child]:max-w-full"
           badges={
             <span className="text-[11px] text-gray-400 dark:text-(--app-text-muted)">
@@ -417,9 +332,7 @@ const SkillsManager: React.FC = () => {
                     <span className="inline-flex shrink-0">
                       <button
                         onClick={scanAllFolders}
-                        disabled={
-                          folders.length === 0 || pendingFolders.size > 0
-                        }
+                        disabled={isRefreshing || pendingFolders.size > 0 || savingSkill !== null}
                         className={settingsSecondaryButtonClassName}
                         aria-label="Rescan skill folders"
                       >
@@ -437,6 +350,7 @@ const SkillsManager: React.FC = () => {
               </TooltipProvider>
               <button
                 onClick={handleAddFolder}
+                disabled={isRefreshing || pendingFolders.size > 0 || savingSkill !== null}
                 className={settingsPrimaryButtonClassName}
               >
                 <i className="ri-folder-add-line text-[12px]" />
@@ -453,7 +367,7 @@ const SkillsManager: React.FC = () => {
             </span>
           ) : (
             <>
-              {folders.map((folder) => {
+              {folders.map(folder => {
                 const isPending = pendingFolders.has(folder)
                 const display = getFolderDisplayParts(folder)
                 return (
@@ -493,13 +407,14 @@ const SkillsManager: React.FC = () => {
                       </span>
                     ) : (
                       <button
-                        onPointerDown={(event) => event.stopPropagation()}
-                        onKeyDown={(event) => event.stopPropagation()}
-                        onClick={(event) => {
+                        onPointerDown={event => event.stopPropagation()}
+                        onKeyDown={event => event.stopPropagation()}
+                        onClick={event => {
                           event.stopPropagation()
-                          handleRemoveFolder(folder)
+                          void handleRemoveFolder(folder)
                         }}
                         className="h-6 w-6 flex items-center justify-center rounded text-gray-400 hover:text-rose-500 dark:hover:text-rose-400 opacity-0 group-hover/f:opacity-100 group-focus-within/f:opacity-100 transition-[color,opacity,transform] duration-150 active:scale-95 shrink-0"
+                        disabled={isRefreshing || pendingFolders.size > 0 || savingSkill !== null}
                         aria-label={`Remove folder ${folder}`}
                       >
                         <X className="h-2.5 w-2.5" />
@@ -513,9 +428,25 @@ const SkillsManager: React.FC = () => {
         </SettingsToolbar>
       </div>
 
+      {issues.length > 0 && (
+        <details className="mx-4 mb-2 rounded-md border border-gray-200 px-3 py-2 text-xs text-gray-500 dark:border-(--app-border-subtle) dark:text-(--app-text-secondary)">
+          <summary className="cursor-pointer">
+            {issues.length} source notices
+          </summary>
+          <ul className="mt-2 space-y-2">
+            {issues.map((issue, index) => (
+              <li key={`${issue.path}-${index}`} className="break-all">
+                <span className="font-medium">{issue.path}</span>:{' '}
+                {issue.message}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
       <div className="mx-4 mb-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-gray-100 bg-gray-50/60 dark:border-(--app-border-subtle) dark:bg-(--app-surface-inset)">
         <SettingsSubsectionHeader
-          title="Installed Skills"
+          title="Available Skills"
           className="flex-wrap items-center border-t-0 bg-transparent px-3 dark:bg-transparent [&>div:last-child]:max-w-full"
           badges={
             <span className="text-[11px] text-gray-400 dark:text-(--app-text-muted)">
@@ -529,7 +460,7 @@ const SkillsManager: React.FC = () => {
               <ExpandableSearchInput
                 value={searchQuery}
                 onChange={setSearchQuery}
-                placeholder="Search installed skills"
+                placeholder="Search available skills"
                 expandedWidth="w-[min(260px,40vw)]"
               />
               <TooltipProvider delayDuration={400}>
@@ -537,21 +468,21 @@ const SkillsManager: React.FC = () => {
                   <TooltipTrigger asChild>
                     <span className="inline-flex shrink-0">
                       <button
-                        onClick={refreshSkills}
-                        disabled={isRefreshing}
+                        onClick={scanAllFolders}
+                        disabled={isRefreshing || pendingFolders.size > 0 || savingSkill !== null}
                         className={cn(settingsSecondaryButtonClassName, 'h-8')}
-                        aria-label="Reload skills list"
+                        aria-label="Refresh skill sources"
                       >
                         <i
                           className={`ri-refresh-line text-[12px] ${isRefreshing ? 'animate-spin' : ''}`}
                         />
-                        Reload
+                        Refresh
                       </button>
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>
                     <p className="font-medium">
-                      Refresh the currently loaded skills list.
+                      Scan source folders for available skills.
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -596,13 +527,15 @@ const SkillsManager: React.FC = () => {
             )
           )}
 
-          {filteredSkills.map((skill) => {
-            const isActive = activeSkills.includes(skill.name)
+          {filteredSkills.map(skill => {
+            const isEnabled = skill.enabled !== false
+            const isActive = isEnabled && activeSkills.includes(skill.name)
             const isBuiltIn = skill.source === 'built-in'
             const hasDetails =
               !!skill.allowedTools?.length || !!skill.compatibility
             const metadata = (
               <>
+                {!isEnabled && <span>Disabled</span>}
                 {isActive && (
                   <span
                     className="text-emerald-600 dark:text-emerald-400"
@@ -611,7 +544,13 @@ const SkillsManager: React.FC = () => {
                     Active
                   </span>
                 )}
-                {isBuiltIn && <span>Built-in</span>}
+                {isBuiltIn ? (
+                  <span>Built-in</span>
+                ) : (
+                  <span className="max-w-full break-all" title={skill.path}>
+                    {skill.source}
+                  </span>
+                )}
                 {!!skill.allowedTools?.length && (
                   <span>{skill.allowedTools.length} tools</span>
                 )}
@@ -640,7 +579,7 @@ const SkillsManager: React.FC = () => {
                               Allowed tools
                             </p>
                             <div className="flex min-w-0 flex-wrap gap-x-3 gap-y-1 font-mono">
-                              {skill.allowedTools.map((tool) => (
+                              {skill.allowedTools.map(tool => (
                                 <span
                                   key={tool}
                                   className="max-w-full break-all"
@@ -664,30 +603,34 @@ const SkillsManager: React.FC = () => {
                       </div>
                     </details>
                   ) : (
-                    (isActive || isBuiltIn) && (
+                    (!isEnabled || isActive || !!skill.source) && (
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10.5px] text-gray-400 dark:text-(--app-text-muted)">
                         {metadata}
                       </div>
                     )
                   )}
                 </div>
-                <div className="flex w-[66px] shrink-0 self-center flex-col items-center gap-1">
+                <div className="flex h-7 w-[68px] shrink-0 self-center items-center gap-2">
+                  <Switch
+                    className={cn(
+                      'h-4.5 w-8 [&>span]:size-3.5 [&>span]:shadow-none [&>span[data-state=checked]]:translate-x-3.5',
+                      savingSkill !== null && savingSkill !== skill.name && 'disabled:opacity-100'
+                    )}
+                    checked={isEnabled}
+                    onCheckedChange={enabled => void setSkillEnabled(skill.name, enabled)}
+                    disabled={savingSkill !== null || isRefreshing || pendingFolders.size > 0}
+                    aria-label={`Enable ${skill.name}`}
+                    title={isEnabled ? 'Included in model context' : 'Excluded from model context'}
+                  />
                   <button
                     type="button"
                     onClick={() => void handleRevealSkill(skill.name)}
-                    className="h-6 w-6 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 dark:hover:text-(--app-text-primary) hover:bg-gray-100 dark:hover:bg-(--app-surface-hover) opacity-0 group-hover:opacity-100 focus:opacity-100 transition-[color,background-color,opacity,transform] duration-150 active:scale-95"
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-400 hover:text-gray-700 dark:text-(--app-text-muted) dark:hover:text-(--app-text-primary) hover:bg-gray-100 dark:hover:bg-(--app-surface-hover) opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 dark:focus-visible:outline-(--app-accent) transition-[color,background-color,opacity,transform] duration-150 active:scale-95"
                     aria-label={`Show ${skill.name} in folder`}
                     title="Show in folder"
                   >
                     <FolderOpen className="h-3.5 w-3.5" />
                   </button>
-                  {!isBuiltIn && (
-                    <InlineDeleteConfirm
-                      onConfirm={() => handleDeleteSkill(skill.name)}
-                      ariaLabel="Remove skill"
-                      revealOnGroupHover
-                    />
-                  )}
                 </div>
               </SettingsListItem>
             )

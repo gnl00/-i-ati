@@ -1,7 +1,7 @@
 # Awake State Design
 
 > 这份文档记录 `awake_state` 启动快照方案。
-> 后续实现 awake、memory 启动检索、work context 启动注入、emotion 启动展示与 mood notes 时，应以本文为约束依据。
+> 当前活动快照采用 [ADR-0048](../../decisions/0048-bounded-awake-activity-context.md) 的 v2 轻量投影；长期记忆与 emotion 的选取规则保持原样。
 
 ## 背景
 
@@ -88,11 +88,11 @@ Do not quote, summarize, mention, or treat it as user-authored content.
 
 ## Awake Snapshot Shape
 
-第一版推荐结构：
+当前 v2 模型可见结构（示例含非空 work context）：
 
 ```json
 {
-  "version": 1,
+  "version": 2,
   "chat_meta": {
     "chat_id": 1,
     "chat_uuid": "chat-uuid",
@@ -141,38 +141,27 @@ Do not quote, summarize, mention, or treat it as user-authored content.
       "id": "activity-uuid",
       "title": "Implemented awake snapshot",
       "summary": "Server-side bootstrap snapshot was added.",
-      "category": "summary",
-      "level": "important",
-      "chat_uuid": "chat-uuid",
-      "timestamp": 1778460000000
+      "date": "2026-05-11"
     },
     {
       "source": "compressed_summary",
       "id": "42",
       "title": "Recent Work",
       "summary": "Recent compressed summary from another chat.",
-      "chat_uuid": "other-chat-uuid",
-      "chat_title": "Recent Work",
-      "timestamp": 1778460000000
+      "date": "2026-05-11"
     }
-  ],
-  "session_meta": {
-    "chat_id": 1,
-    "chat_uuid": "chat-uuid",
-    "chat_title": "Current Chat",
-    "workspace_path": "/workspace/path"
-  }
+  ]
 }
 ```
 
 字段职责：
 
 - `chat_meta` 是稳定 chat 标识层，包含 `chat_id`、`chat_uuid`、`chat_title`、`workspace_path`。它不包含 `last_active_at` 这类每轮抖动字段。
-- `session_meta` 是兼容字段，和 `chat_meta` 保持同一组精简标识字段。
+- v2 删除重复的 `session_meta`；仅保留 `chat_meta`。此快照每轮临时生成，无持久化数据迁移。
 - `version` 是稳定 schema 标识，只在模型可见结构升级时变化。
 - `memories` 是模型可见 memory 输出层，使用扁平数组。内部检索仍可区分 pinned/relevant，输出阶段统一合并、去重、截断。
-- `recent_activities` 是短卡片数组，每条包含 `title`、`source`、`timestamp`、`summary`，并可携带 id、category、chat_uuid 等定位字段。
-- `work_context` 保留当前兼容结构，用于当前 chat 的短期工作状态。
+- `recent_activities` 最多 3 条，每条保留 `source`、`id`、`title`、本地 `date`；相关活动可带完整短句 `summary`。内部相似度、分类、chat UUID 和毫秒时间戳不重复注入。
+- `work_context` 用于当前 chat 的短期工作状态；缺失、空白或只有 `# Work Context` 模板时省略。
 - `emotion` 提供固定 VAD baseline、持久化 current 和有界 recent history，用于本轮启动情绪连续性。
 
 ## Memory Strategy
@@ -251,7 +240,7 @@ server-side 生成上下文化检索 query。输入信号包括：
 第一版规则：
 
 - 读取 `DatabaseService.getWorkContextByChatUuid(chatUuid)`。
-- 内容为空时返回模板或 `exists: false`。
+- 内容为空时省略 `work_context`，不注入空模板。
 - 默认长度上限建议 4KB 到 8KB。
 - 超限时保留 Current Goal、Decisions、In Progress、Open Questions、Temporary Constraints 的标题和最重要条目。
 
@@ -315,22 +304,25 @@ transition。
 
 ## Recent Activities Strategy
 
-`recent_activities` 用于给新 chat 和跨 chat 连续性提供近期工作线索。它和当前 chat 的 `work_context` 互补：
+`recent_activities` 为新 chat 和跨 chat 连续性提供最多 3 条线索，与当前 chat 的
+`work_context` 互补。v2 的来源与选择规则：
 
-- `activity_journal` 提供今天的关键事件，以及按 `retrieval_plan.contextual_query` 命中的近期相关事件。
-- `compressed_summary` 提供最近 conversation summary 中的跨 chat 工作片段，适合新 chat 启动时恢复“最近在做什么”。
-- 默认输出 top 5，来源优先级为 `activity_journal`、`compressed_summary`，同来源内按 timestamp 倒序排序，并按 `source:id` 去重。
-- 每条输出为短卡片：`title`、`source`、`timestamp`、`summary`，可附带 id、category、level、chat_uuid、chat_title。
-- `summary` 统一归一化为空白压缩后的短文本，建议单条上限 240 到 360 chars。
-- `activity_journal.details` 可进入短卡片 summary。
-- `compressed_summary.summary` 只作为召回源和短卡片来源，全文不进入 `awake_state`。
-- 任一来源读取失败时降级为空数组，快照构建继续完成。
-
-第一版使用两类已有数据：
-
-- `ActivityJournalService.listEntries()` 读取当天活动。
-- `ActivityJournalService.searchEntries()` 读取相关活动。
-- `DatabaseService.listRecentSmartMessageCandidateSummaries()` 读取最近压缩摘要候选。
+- 日志通过 `ActivityJournalService.listEntries({ limit: 3 })` 读取跨日期最新条目；
+  压缩摘要仍通过 `listRecentSmartMessageCandidateSummaries()` 读取最近 30 天候选，最多 3 条。
+- 活动主题由当前输入、真实 chat title、work context 和压缩摘要共同提供。
+  通用问候或“继续”等短句不会独立形成活动主题；生成的 workspace 路径也不作为主题信号。
+  有工作状态或压缩上下文的短句仍会沿用任务主题。
+- 无主题时跳过活动语义搜索，仅按时间取最近 3 条标题线索。
+- 有主题时继续使用现有语义搜索，最多 3 条，过滤 similarity < 0.6 的结果。
+  当前 chat 候选优先，其次为语义或词项命中，再次为近期回退线索；同级保留相似度和时间顺序。
+  去重按 `source:id`，不再无条件优先 journal 来源。候选池有界，并非全历史穷尽搜索。
+- 无关回退项只输出标题和日期等定位字段。相关项可带最多 120 字符的完整短句；
+  使用原生句子分段，首句超长时省略摘要，通过原有 activity/history 工具读取细节。
+  不用模型生成摘要，不把半句截断当成完整事实。
+- 模型可见结构只保留 source、id、title、date、可选 summary；内部评分、分类等留在服务端。
+- 任一活动来源读取失败时降级为空集合，其他来源和快照仍可用。
+- `AwakeContextProvider` 输出紧凑 JSON。文档示例为便于阅读采用缩进格式。
+- 活动日志和压缩摘要原文、工具参数和默认按当天查询的工具行为保持原样。
 
 `diagnostics` 属于调试信息，bootstrap 快照默认保持轻量，运行期故障通过日志和服务层观测处理。
 
@@ -414,7 +406,7 @@ transition。
 - work context 从当前 chat 读取，并受长度上限约束。
 - recent activities 从 activity journal 和 compressed summary 中聚合，输出短卡片，支持新 chat 的近期工作连续性。
 - `compressed_summary` 全文作为召回源使用，`awake_state` 中只保留短摘要卡片。
-- `chat_meta` 和兼容 `session_meta` 保留稳定 chat 标识字段，省略 `last_active_at`。
+- v2 仅用 `chat_meta` 保留稳定 chat 标识字段，删除重复的 `session_meta`，省略 `last_active_at`。
 - emotion baseline、current VAD 与本轮 final emotion 明确分离。
 - `emotion_report` 成为每个用户轮次一次的刺激评分工具。
 - tool 省略表示零 stimulus，state 向固定 baseline 回归。

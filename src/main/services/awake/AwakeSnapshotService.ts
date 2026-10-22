@@ -38,9 +38,9 @@ const PINNED_MEMORY_LIMIT = 3
 const RELEVANT_MEMORY_LIMIT = 5
 const MEMORY_OUTPUT_LIMIT = 10
 const MEMORY_CONTENT_LIMIT = 720
-const RECENT_ACTIVITY_LIMIT = 5
+const RECENT_ACTIVITY_LIMIT = 3
 const RECENT_ACTIVITY_TITLE_LIMIT = 96
-const RECENT_ACTIVITY_SUMMARY_LIMIT = 320
+const RECENT_ACTIVITY_SUMMARY_LIMIT = 120
 const WORK_CONTEXT_LIMIT = 8 * 1024
 const CONTEXT_SIGNAL_LIMIT = 8
 const RECENT_SUMMARY_WINDOW_DAYS = 30
@@ -182,50 +182,95 @@ const flattenMemorySnapshot = (snapshot: AwakeMemorySnapshot): AwakeMemoryItem[]
     .map(toOutputMemoryItem)
 }
 
+type RecentActivityCandidate = {
+  source: AwakeRecentActivity['source']
+  id: string
+  title: string
+  summary: string
+  timestamp: number
+  chatUuid?: string
+  similarity?: number
+}
+
 const toActivityItem = (
   entry: ActivityJournalEntry | ActivityJournalSearchItem
-): AwakeRecentActivity => ({
+): RecentActivityCandidate => ({
   source: 'activity_journal',
   id: entry.id,
   title: truncateText(entry.title, RECENT_ACTIVITY_TITLE_LIMIT),
-  summary: truncateText(entry.details || entry.title, RECENT_ACTIVITY_SUMMARY_LIMIT),
-  category: entry.category,
-  level: entry.level,
-  ...(entry.chatUuid ? { chat_uuid: entry.chatUuid } : {}),
+  summary: entry.details || '',
+  chatUuid: entry.chatUuid,
+  ...('similarity' in entry ? { similarity: entry.similarity } : {}),
   timestamp: entry.createdAt
 })
 
-const toSummaryActivityItem = (summary: SmartMessageCandidateSummary): AwakeRecentActivity => ({
+const toSummaryActivityItem = (summary: SmartMessageCandidateSummary): RecentActivityCandidate => ({
   source: 'compressed_summary',
   id: String(summary.id),
   title: truncateText(summary.chat_title || `Chat ${summary.chat_uuid}`, RECENT_ACTIVITY_TITLE_LIMIT),
-  summary: truncateText(summary.summary, RECENT_ACTIVITY_SUMMARY_LIMIT),
-  chat_uuid: summary.chat_uuid,
-  chat_title: summary.chat_title,
+  summary: summary.summary,
+  chatUuid: summary.chat_uuid,
   timestamp: summary.compressed_at
 })
 
-const getRecentActivitySourceRank = (source: AwakeRecentActivity['source']): number => (
-  source === 'activity_journal' ? 0 : 1
-)
-
-const dedupeRecentActivities = (items: AwakeRecentActivity[]): AwakeRecentActivity[] => {
-  const byKey = new Map<string, AwakeRecentActivity>()
+const dedupeRecentActivities = (items: RecentActivityCandidate[]): RecentActivityCandidate[] => {
+  const byKey = new Map<string, RecentActivityCandidate>()
 
   for (const item of items) {
     const key = `${item.source}:${item.id}`
     const existing = byKey.get(key)
-    if (!existing || existing.timestamp < item.timestamp) {
-      byKey.set(key, item)
-    }
+    byKey.set(key, existing
+      ? { ...(existing.timestamp > item.timestamp ? existing : item), similarity: Math.max(existing.similarity ?? 0, item.similarity ?? 0) }
+      : item)
   }
 
   return Array.from(byKey.values())
-    .sort((a, b) => (
-      getRecentActivitySourceRank(a.source) - getRecentActivitySourceRank(b.source)
-      || b.timestamp - a.timestamp
-    ))
-    .slice(0, RECENT_ACTIVITY_LIMIT)
+}
+
+// Keep complete sentences only; a long first sentence stays available through retrieval.
+const toActivitySummary = (content: string): string | undefined => {
+  const normalized = compactText(content)
+  if (!normalized) return undefined
+  if (normalized.length <= RECENT_ACTIVITY_SUMMARY_LIMIT) return normalized
+  let summary = ''
+  for (const { segment } of new Intl.Segmenter('en', { granularity: 'sentence' }).segment(normalized)) {
+    if ((summary + segment).trim().length > RECENT_ACTIVITY_SUMMARY_LIMIT) break
+    summary += segment
+  }
+  return summary.trim() || undefined
+}
+
+const buildActivityQuery = (input: {
+  currentQuery?: string
+  chatTitle?: string
+  workContextSummary?: string
+  compressionSummary?: string
+}): string => {
+  const raw = input.currentQuery?.trim() || ''
+  // Weak messages still inherit real task context; generated chat paths are not topic evidence.
+  const weakQuery = /^(?:yo|hi|hello|hey|ok|okay|thanks|continue|go on|你好|您好|在吗|早|早上好|谢谢|好的|继续|接着|继续吧)[\s\p{P}]*$/iu.test(raw)
+  const title = /^(?:new\s*chat|new conversation|新对话)$/iu.test(input.chatTitle?.trim() || '')
+    ? '' : input.chatTitle
+  return [
+    weakQuery ? '' : raw,
+    title,
+    input.workContextSummary,
+    input.compressionSummary?.slice(0, 1200)
+  ].filter(Boolean).join('\n').trim()
+}
+
+const activityMatchesQuery = (item: RecentActivityCandidate, query: string): boolean => {
+  const text = `${item.title}\n${compactText(item.summary)}`.toLowerCase()
+  const signals = query.toLowerCase().match(/[a-z0-9_.\-/]{3,}|[\u4e00-\u9fff]{2,}/g) ?? []
+  return signals.some(signal => {
+    if (/^(?:the|and|for|with|this|that|what|how|should|please|continue|current|goal|decisions|progress|temporary|constraints|work|context)$/.test(signal)) return false
+    if (/^[\u4e00-\u9fff]+$/.test(signal)) {
+      // Chinese prose has no spaces; require at least two matching adjacent bigrams.
+      const bigrams = Array.from({ length: signal.length - 1 }, (_, index) => signal.slice(index, index + 2))
+      return signal.length === 2 ? text.includes(signal) : bigrams.filter(part => text.includes(part)).length >= 2
+    }
+    return text.includes(signal)
+  })
 }
 
 const extractHeadingSection = (content: string, heading: string): string => {
@@ -463,7 +508,12 @@ export class AwakeSnapshotService {
 
     const [memorySnapshot, recentActivities] = await Promise.all([
       this.buildMemorySnapshot(input.chat.id, retrievalPlan),
-      this.buildRecentActivities(retrievalPlan)
+      this.buildRecentActivities(input.chat.uuid, buildActivityQuery({
+        currentQuery: input.currentQuery,
+        chatTitle: input.chat.title,
+        workContextSummary,
+        compressionSummary: input.compressionSummary?.summary
+      }))
     ])
     const chatMeta = {
       chat_id: input.chat.id,
@@ -473,19 +523,18 @@ export class AwakeSnapshotService {
     }
 
     return {
-      version: 1,
+      version: 2,
       chat_meta: chatMeta,
       memories: flattenMemorySnapshot(memorySnapshot),
-      work_context: {
+      ...(workContextExists && workContextContent?.trim() && workContextContent.trim() !== EMPTY_WORK_CONTEXT ? { work_context: {
         exists: workContextExists,
         content: workContext.content,
         truncated: workContext.truncated
-      },
+      } } : {}),
       ...(input.emotionEnabled !== false
         ? { emotion: this.buildEmotion(input.chat.id), mood_notes: [] }
         : {}),
-      recent_activities: recentActivities,
-      session_meta: chatMeta
+      recent_activities: recentActivities
     }
   }
 
@@ -536,26 +585,43 @@ export class AwakeSnapshotService {
   }
 
   private async buildRecentActivities(
-    retrievalPlan: AwakeRetrievalPlan
+    chatUuid: string,
+    query: string
   ): Promise<AwakeRecentActivity[]> {
-    const items: AwakeRecentActivity[] = []
+    const items: RecentActivityCandidate[] = []
 
-    const todayJournal = await this.safeListTodayJournal()
-    items.push(...todayJournal.map(toActivityItem))
+    const recentJournal = await this.safeListRecentJournal()
+    items.push(...recentJournal.map(toActivityItem))
 
-    const searchedJournal = await this.safeSearchJournal(retrievalPlan.contextual_query || retrievalPlan.raw_query)
-    items.push(...searchedJournal.map(toActivityItem))
+    const searchedJournal = await this.safeSearchJournal(query)
+    items.push(...searchedJournal.filter(item => item.similarity >= DEFAULT_THRESHOLD).map(toActivityItem))
 
     const summaries = this.safeListRecentSummaries()
     items.push(...summaries.map(toSummaryActivityItem))
 
+    const rank = (item: RecentActivityCandidate): number => item.chatUuid === chatUuid ? 2
+      : query && ((item.similarity ?? 0) >= DEFAULT_THRESHOLD || activityMatchesQuery(item, query)) ? 1 : 0
     return dedupeRecentActivities(items)
+      .sort((a, b) => rank(b) - rank(a)
+        || (rank(a) > 0 ? (b.similarity ?? 0) - (a.similarity ?? 0) : 0)
+        || b.timestamp - a.timestamp
+        || a.id.localeCompare(b.id))
+      .slice(0, RECENT_ACTIVITY_LIMIT)
+      .map(item => {
+        const summary = rank(item) > 0 ? toActivitySummary(item.summary) : undefined
+        return {
+          source: item.source,
+          id: item.id,
+          title: item.title,
+          date: activityJournalService.getDateKey(new Date(item.timestamp)),
+          ...(summary ? { summary } : {})
+        }
+      })
   }
 
-  private async safeListTodayJournal(): Promise<ActivityJournalEntry[]> {
+  private async safeListRecentJournal(): Promise<ActivityJournalEntry[]> {
     try {
       return await activityJournalService.listEntries({
-        dateKey: activityJournalService.getDateKey(),
         limit: RECENT_ACTIVITY_LIMIT
       })
     } catch {

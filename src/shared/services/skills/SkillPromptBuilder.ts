@@ -1,6 +1,5 @@
 export const buildSkillsPrompt = (
-  availableSkills: SkillMetadata[],
-  _loadedSkills: Array<{ name: string; content: string }> = []
+  availableSkills: SkillMetadata[]
 ): string => {
   if (availableSkills.length === 0) {
     return ''

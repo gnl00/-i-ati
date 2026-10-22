@@ -216,7 +216,7 @@ describe('ClaudeAdapter request mapping', () => {
     const inputSchema = requestBody.tools[0].input_schema
     expect(inputSchema.properties[TOOL_CALL_REASON_PARAMETER_NAME]).toEqual(expect.objectContaining({
       type: 'string',
-      description: expect.stringContaining('same language the user is currently using')
+      description: expect.stringContaining("user's language")
     }))
     expect(inputSchema.required).toEqual(['query', TOOL_CALL_REASON_PARAMETER_NAME])
   })

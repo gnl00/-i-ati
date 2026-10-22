@@ -1,205 +1,93 @@
-import { execFile } from 'child_process'
 import path from 'path'
 import * as fs from 'fs/promises'
-import { promisify } from 'util'
-import { SKILL_FILE } from './SkillParser'
-import { isSkillInternalDirectory } from './SkillInstallation'
+import { SKILL_FILE, parseSkillMetadata } from './SkillParser'
+import { resolveSkillPath } from './SkillPathResolver'
 
-export type ArchiveType = 'zip' | 'tar' | 'targz'
+/** Configured folders win in order; embedded skills fill remaining names. */
+export const scanSkillSources = async (
+  folders: string[],
+  builtInRoot: string
+): Promise<SkillScanResult> => {
+  const skills = new Map<string, SkillMetadata>()
+  const seenSkills = new Set<string>()
+  const seenRoots = new Set<string>()
+  const issues: SkillScanIssue[] = []
+  const sources = [
+    ...folders.map(folder => ({ root: folder, source: folder })),
+    { root: builtInRoot, source: 'built-in' }
+  ]
 
-const execFileAsync = promisify(execFile)
-const COMMAND_TIMEOUT_MS = 30_000
-const FETCH_TIMEOUT_MS = 60_000
-
-export const isUrl = (value: string): boolean => /^https?:\/\//i.test(value)
-
-export const getArchiveType = (source: string): ArchiveType | null => {
-  const pathname = isUrl(source) ? new URL(source).pathname : source
-  const lower = pathname.toLowerCase()
-  if (lower.endsWith('.tar.gz') || lower.endsWith('.tgz')) return 'targz'
-  if (lower.endsWith('.tar')) return 'tar'
-  if (lower.endsWith('.zip')) return 'zip'
-  return null
-}
-
-const runCommand = async (
-  command: string,
-  args: string[],
-  timeoutMs = COMMAND_TIMEOUT_MS
-): Promise<string> => {
-  try {
-    const result = await execFileAsync(command, args, {
-      maxBuffer: 10 * 1024 * 1024,
-      timeout: timeoutMs
-    })
-    return result.stdout?.toString() || ''
-  } catch (error: any) {
-    if (error?.code === 'ENOENT') {
-      const joined = [command, ...args].join(' ')
-      throw new Error(`Command not available: ${joined}`)
-    }
-    if (error?.killed || error?.signal === 'SIGTERM') {
-      const joined = [command, ...args].join(' ')
-      throw new Error(`Command timed out after ${timeoutMs}ms: ${joined}`)
-    }
-    throw error
-  }
-}
-
-const tryCommand = async (command: string, args: string[]): Promise<string | null> => {
-  try {
-    return await runCommand(command, args)
-  } catch (error: any) {
-    if (error?.message?.startsWith('Command not available')) {
-      return null
-    }
-    throw error
-  }
-}
-
-const isUnsafeArchivePath = (entry: string): boolean => {
-  const normalized = entry.replace(/\\/g, '/')
-  if (!normalized) return false
-  if (normalized.startsWith('/') || normalized.startsWith('\\')) return true
-  if (/^[A-Za-z]:/.test(normalized)) return true
-  if (normalized.includes('..')) {
-    const parts = normalized.split('/')
-    if (parts.includes('..')) return true
-  }
-  return false
-}
-
-const listArchiveEntries = async (archivePath: string, type: ArchiveType): Promise<string[]> => {
-  if (type === 'zip') {
-    const output = await tryCommand('unzip', ['-Z', '-1', archivePath])
-    if (output !== null) {
-      return output.split(/\r?\n/).filter(Boolean)
-    }
-    const tarOutput = await runCommand('tar', ['-tf', archivePath])
-    return tarOutput.split(/\r?\n/).filter(Boolean)
-  }
-
-  const args = type === 'targz' ? ['-tzf', archivePath] : ['-tf', archivePath]
-  const output = await runCommand('tar', args)
-  return output.split(/\r?\n/).filter(Boolean)
-}
-
-export const extractArchive = async (
-  archivePath: string,
-  destDir: string,
-  type: ArchiveType
-): Promise<void> => {
-  const entries = await listArchiveEntries(archivePath, type)
-  const hasUnsafe = entries.some(isUnsafeArchivePath)
-  if (hasUnsafe) {
-    throw new Error('Archive contains unsafe paths')
-  }
-
-  if (type === 'zip') {
-    const unzipOutput = await tryCommand('unzip', ['-q', archivePath, '-d', destDir])
-    if (unzipOutput !== null) {
-      return
-    }
-    await runCommand('tar', ['-xf', archivePath, '-C', destDir])
-    return
-  }
-
-  if (type === 'targz') {
-    await runCommand('tar', ['-xzf', archivePath, '-C', destDir])
-    return
-  }
-
-  await runCommand('tar', ['-xf', archivePath, '-C', destDir])
-}
-
-export const findSkillDirectories = async (rootDir: string, maxDepth = 5): Promise<string[]> => {
-  const results: string[] = []
-  const queue: Array<{ dir: string; depth: number }> = [{ dir: rootDir, depth: 0 }]
-
-  while (queue.length > 0) {
-    const current = queue.shift()
-    if (!current) continue
-
-    const entries = await fs.readdir(current.dir, { withFileTypes: true })
-    const hasSkill = entries.some(
-      entry => (entry.isFile() || entry.isSymbolicLink()) && entry.name === SKILL_FILE
-    )
-    if (hasSkill) {
-      results.push(current.dir)
+  for (const { root, source } of sources) {
+    let canonicalRoot: string
+    try {
+      canonicalRoot = await fs.realpath(root)
+      if (!(await fs.stat(canonicalRoot)).isDirectory())
+        throw new Error('Not a directory')
+    } catch (error) {
+      issues.push({ path: root, kind: 'unavailable', message: String(error) })
       continue
     }
-
-    if (current.depth >= maxDepth) {
-      continue
-    }
-
-    for (const entry of entries) {
-      if (entry.isDirectory() && !isSkillInternalDirectory(entry.name)) {
-        queue.push({ dir: path.join(current.dir, entry.name), depth: current.depth + 1 })
+    if (seenRoots.has(canonicalRoot)) continue
+    seenRoots.add(canonicalRoot)
+    const queue = [{ directory: canonicalRoot, depth: 0 }]
+    for (let index = 0; index < queue.length; index++) {
+      const { directory, depth } = queue[index]
+      try {
+        const entries = await fs.readdir(directory, { withFileTypes: true })
+        const skillFile = entries.find(entry => entry.name === SKILL_FILE)
+        if (skillFile) {
+          const resolved = await resolveSkillPath(
+            directory,
+            SKILL_FILE,
+            'Skill file'
+          )
+          if (!(await fs.stat(resolved.canonicalPath)).isFile())
+            throw new Error('SKILL.md must be a regular file')
+          if (seenSkills.has(resolved.canonicalSkillRoot)) continue
+          seenSkills.add(resolved.canonicalSkillRoot)
+          const content = await fs.readFile(resolved.canonicalPath, 'utf-8')
+          const { metadata } = parseSkillMetadata(content)
+          const winner = skills.get(metadata.name)
+          if (winner) {
+            issues.push({
+              path: resolved.canonicalPath,
+              kind: 'shadowed',
+              message: `${metadata.name} is shadowed by ${winner.path}`
+            })
+          } else {
+            skills.set(metadata.name, {
+              ...metadata,
+              source,
+              path: path.join(resolved.canonicalSkillRoot, SKILL_FILE)
+            })
+          }
+          continue
+        }
+        if (depth >= 5) continue
+        for (const entry of entries.sort((a, b) =>
+          a.name.localeCompare(b.name)
+        )) {
+          if (
+            entry.isDirectory() &&
+            !['.git', 'node_modules'].includes(entry.name)
+          ) {
+            queue.push({
+              directory: path.join(directory, entry.name),
+              depth: depth + 1
+            })
+          }
+        }
+      } catch (error) {
+        issues.push({
+          path: directory,
+          kind: 'invalid',
+          message: String(error)
+        })
       }
     }
   }
-
-  return results
-}
-
-const createTimeoutSignal = (timeoutMs: number): {
-  signal: AbortSignal
-  dispose: () => void
-} => {
-  const timeout = (AbortSignal as typeof AbortSignal & {
-    timeout?: (milliseconds: number) => AbortSignal
-  }).timeout
-  if (timeout) {
-    return {
-      signal: timeout(timeoutMs),
-      dispose: () => undefined
-    }
-  }
-
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeoutMs)
   return {
-    signal: controller.signal,
-    dispose: () => clearTimeout(timer)
+    skills: [...skills.values()].sort((a, b) => a.name.localeCompare(b.name)),
+    issues
   }
-}
-
-const readFetchResponseWithTimeout = async <T>(
-  url: string,
-  read: (response: Response) => Promise<T>,
-  timeoutMs = FETCH_TIMEOUT_MS
-): Promise<T> => {
-  const { signal, dispose } = createTimeoutSignal(timeoutMs)
-  try {
-    const response = await fetch(url, { signal })
-    if (!response.ok) {
-      throw new Error(`Failed to fetch skill from URL: ${response.status} ${response.statusText}`)
-    }
-    return await read(response)
-  } catch (error: any) {
-    if (error?.name === 'AbortError' || error?.name === 'TimeoutError') {
-      throw new Error(`Fetch timed out after ${timeoutMs}ms: ${url}`)
-    }
-    throw error
-  } finally {
-    dispose()
-  }
-}
-
-export const fetchUrlText = async (url: string, timeoutMs?: number): Promise<string> => {
-  return await readFetchResponseWithTimeout(url, response => response.text(), timeoutMs)
-}
-
-export const fetchUrlToFile = async (
-  url: string,
-  destPath: string,
-  timeoutMs?: number
-): Promise<void> => {
-  const buffer = await readFetchResponseWithTimeout(
-    url,
-    async response => Buffer.from(await response.arrayBuffer()),
-    timeoutMs
-  )
-  await fs.writeFile(destPath, buffer)
 }

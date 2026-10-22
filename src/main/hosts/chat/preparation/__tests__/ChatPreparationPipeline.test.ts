@@ -921,8 +921,11 @@ describe('ChatPreparationPipeline', () => {
     expect(currentUserIndex).toBeGreaterThan(awakeIndex)
     expect(messages[environmentIndex].content).toContain('"workspacePath": "./workspaces/chat-1"')
     expect(messages[environmentIndex].content).toContain('"currentTime"')
-    expect(messages[awakeIndex].content).toContain('"version": 1')
-    expect(messages[awakeIndex].content).toContain('"chat_title": "NewChat"')
+    const awakeSnapshot = JSON.parse(String(messages[awakeIndex].content).replace('<awake_state>', '').replace('</awake_state>', ''))
+    expect(awakeSnapshot.version).toBe(2)
+    expect(awakeSnapshot.chat_meta.chat_title).toBe('NewChat')
+    expect(awakeSnapshot).not.toHaveProperty('session_meta')
+    expect(messages[awakeIndex].content).not.toContain('\n  "')
     expect(messages[awakeIndex].content).toContain('"summary"')
     expect(messages[environmentIndex]).toEqual(
       expect.objectContaining({

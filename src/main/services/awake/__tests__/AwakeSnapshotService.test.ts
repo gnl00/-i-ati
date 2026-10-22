@@ -58,7 +58,7 @@ const chat = {
   updateTime: 200
 } as unknown as ChatEntity
 
-const longCompressedSummary = `<summary>${'A'.repeat(420)} LONG_TAIL_MARKER</summary>`
+const longCompressedSummary = `<summary>Awake snapshot was added. ${'A'.repeat(420)} LONG_TAIL_MARKER</summary>`
 const currentVector = { valence: 6, arousal: 4, dominance: 5 }
 const currentProjection = projectEmotionVector(currentVector)
 
@@ -172,7 +172,7 @@ describe('AwakeSnapshotService', () => {
         start_message_id: 1,
         end_message_id: 5,
         compressed_at: 122,
-        chat_title: 'Recent Work',
+        chat_title: 'Awake snapshot work',
         chat_update_time: 122,
         chat_msg_count: 5
       }
@@ -194,8 +194,8 @@ describe('AwakeSnapshotService', () => {
       workspace_path: './workspaces/chat-7'
     })
     expect(snapshot.chat_meta).not.toHaveProperty('last_active_at')
-    expect(snapshot.session_meta).toEqual(snapshot.chat_meta)
-    expect(snapshot.session_meta).not.toHaveProperty('last_active_at')
+    expect(snapshot.version).toBe(2)
+    expect(snapshot).not.toHaveProperty('session_meta')
     expect(snapshot).not.toHaveProperty('memory')
     expect(snapshot.memories).toEqual([
       expect.objectContaining({
@@ -249,7 +249,7 @@ describe('AwakeSnapshotService', () => {
         id: '42'
       })
     )
-    expect(compressedActivity?.summary.length).toBeLessThanOrEqual(320)
+    expect(compressedActivity?.summary).toBe('Awake snapshot was added.')
     expect(compressedActivity?.summary).not.toContain('LONG_TAIL_MARKER')
     expect(compressedActivity?.summary).not.toContain('<summary>')
   })
@@ -266,5 +266,98 @@ describe('AwakeSnapshotService', () => {
     expect('diagnostics' in snapshot).toBe(false)
     expect(snapshot.emotion!.current.label).toBe(currentProjection.label)
     expect(snapshot.emotion!.summary).toContain(`Current emotion: ${currentProjection.label}`)
+  })
+
+  it('keeps only the latest three title clues across dates and sources for a context-free greeting', async () => {
+    getWorkContextByChatUuidMock.mockReturnValue(undefined)
+    const entries = [500, 400, 300].map(timestamp => ({
+      id: `entry-${timestamp}`, title: `Milestone ${timestamp}`, details: 'Unrelated task details.',
+      category: 'task', level: 'info', createdAt: timestamp
+    }))
+    listActivityEntriesMock.mockResolvedValue(entries)
+    listRecentSmartMessageCandidateSummariesMock.mockReturnValue([{
+      id: 55, chat_uuid: 'other-chat', chat_title: 'Other recent task', summary: 'Unrelated summary.', compressed_at: 450
+    }])
+    const snapshot = await new AwakeSnapshotService().build({
+      chat: { ...chat, title: 'NewChat' }, currentQuery: 'yo', workspacePath: '/workspaces/new-chat-7', emotionEnabled: false
+    })
+    expect(listActivityEntriesMock).toHaveBeenCalledWith({ limit: 3 })
+    expect(searchActivityEntriesMock).not.toHaveBeenCalled()
+    expect(snapshot.recent_activities.map(item => item.id)).toEqual(['entry-500', '55', 'entry-400'])
+    for (const item of snapshot.recent_activities) {
+      expect(Object.keys(item).sort()).toEqual(['date', 'id', 'source', 'title'])
+    }
+    expect(snapshot).not.toHaveProperty('work_context')
+    expect(snapshot).not.toHaveProperty('session_meta')
+    expect(snapshot.memories[0].content).toBe('用户偏好直接、低废话的工程讨论')
+  })
+
+  it('retains task continuity for a short continuation and rejects weak semantic hits', async () => {
+    listActivityEntriesMock.mockResolvedValue([{
+      id: 'unrelated', title: 'Other domain', details: 'Unrelated details.', createdAt: 900
+    }])
+    listRecentSmartMessageCandidateSummariesMock.mockReturnValue([])
+    searchActivityEntriesMock.mockResolvedValue([
+      { id: 'current', chatUuid: chat.uuid, title: 'Current task', details: 'Ready to implement.', createdAt: 100, similarity: 0.7 },
+      { id: 'related', title: 'Related task', details: 'Relevant evidence.', createdAt: 800, similarity: 0.9 },
+      { id: 'weak', title: 'Weak hit', details: 'Weak evidence.', createdAt: 1000, similarity: 0.59 }
+    ])
+    const snapshot = await new AwakeSnapshotService().build({ chat: { ...chat, title: 'NewChat' }, currentQuery: '继续' })
+    expect(searchActivityEntriesMock).toHaveBeenCalledWith(expect.stringContaining('Implement awake state.'), { limit: 3, withinDays: 14 })
+    expect(snapshot.work_context?.content).toContain('Implement awake state.')
+    expect(snapshot.recent_activities.map(item => item.id)).toEqual(['current', 'related', 'unrelated'])
+    expect(snapshot.recent_activities[0].summary).toBe('Ready to implement.')
+    expect(snapshot.recent_activities[2]).not.toHaveProperty('summary')
+  })
+
+  it('preserves semantic ranking when a search hit duplicates a recent entry', async () => {
+    listActivityEntriesMock.mockResolvedValue([
+      { id: 'newer', title: 'Newer task', createdAt: 300 },
+      { id: 'older', title: 'Older task', createdAt: 200 }
+    ])
+    listRecentSmartMessageCandidateSummariesMock.mockReturnValue([])
+    searchActivityEntriesMock.mockResolvedValue([
+      { id: 'newer', title: 'Newer task', createdAt: 300, similarity: 0.7 },
+      { id: 'older', title: 'Older task', createdAt: 200, similarity: 0.9 }
+    ])
+    const snapshot = await new AwakeSnapshotService().build({ chat, currentQuery: 'Review repository ownership' })
+    expect(snapshot.recent_activities.map(item => item.id)).toEqual(['older', 'newer'])
+  })
+
+  it('omits an overlong unsplittable summary instead of cutting an assertion in half', async () => {
+    listActivityEntriesMock.mockResolvedValue([{
+      id: 'long', chatUuid: chat.uuid, title: 'Current task', details: 'A'.repeat(300), createdAt: 1
+    }])
+    listRecentSmartMessageCandidateSummariesMock.mockReturnValue([])
+    const snapshot = await new AwakeSnapshotService().build({ chat, currentQuery: '继续' })
+    expect(JSON.parse(JSON.stringify(snapshot.recent_activities[0]))).not.toHaveProperty('summary')
+  })
+
+  it('uses compression context for continuation and preserves complete Chinese summary sentences', async () => {
+    getWorkContextByChatUuidMock.mockReturnValue({ content: '# Work Context' })
+    listActivityEntriesMock.mockResolvedValue([])
+    searchActivityEntriesMock.mockResolvedValue([])
+    listRecentSmartMessageCandidateSummariesMock.mockReturnValue([{
+      id: 77, chat_uuid: 'other-chat', chat_title: '技能开关优化',
+      summary: `已完成技能开关验证。${'还有一个需要进一步研究的问题'.repeat(20)}`, compressed_at: 10
+    }])
+    const snapshot = await new AwakeSnapshotService().build({
+      chat: { ...chat, title: 'NewChat' }, currentQuery: '继续',
+      compressionSummary: { summary: '继续优化技能开关' } as CompressedSummaryEntity
+    })
+    expect(searchActivityEntriesMock).toHaveBeenCalledWith(expect.stringContaining('继续优化技能开关'), expect.any(Object))
+    expect(snapshot.recent_activities[0].summary).toBe('已完成技能开关验证。')
+    expect(snapshot).not.toHaveProperty('work_context')
+  })
+
+  it('builds a usable snapshot when work context and both activity sources fail', async () => {
+    getWorkContextByChatUuidMock.mockImplementationOnce(() => { throw new Error('Unavailable') })
+    listActivityEntriesMock.mockRejectedValueOnce(new Error('Unavailable'))
+    searchActivityEntriesMock.mockRejectedValueOnce(new Error('Unavailable'))
+    listRecentSmartMessageCandidateSummariesMock.mockImplementationOnce(() => { throw new Error('Unavailable') })
+    const snapshot = await new AwakeSnapshotService().build({ chat })
+    expect(snapshot.recent_activities).toEqual([])
+    expect(snapshot.memories.length).toBeGreaterThan(0)
+    expect(snapshot).not.toHaveProperty('work_context')
   })
 })

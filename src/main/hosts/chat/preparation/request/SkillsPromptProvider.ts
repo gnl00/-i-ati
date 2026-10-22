@@ -3,7 +3,7 @@ import { buildSkillsSystemPrompt } from '@shared/prompts'
 import { buildSkillsPrompt } from '@shared/services/skills/SkillPromptBuilder'
 
 export class SkillsPromptProvider {
-  async build(_chatId?: number): Promise<string> {
+  async build(): Promise<string> {
     try {
       const availableSkills = await SkillService.listSkills()
 

@@ -5,14 +5,14 @@ export const userInfoTools = [
     type: 'function',
     function: {
       name: 'user_info',
-      description: 'Manage the persisted global user profile used for prompt injection. Set action to get or set; the processor validates action-specific fields.',
+      description: 'Read or replace the persisted global profile used in prompts.',
       parameters: {
         type: 'object',
         properties: {
           action: {
             type: 'string',
             enum: ['get', 'set'],
-            description: 'Operation to perform: get retrieves the current user profile, set replaces the full user profile.'
+            description: 'get reads; set replaces the full profile.'
           },
           name: {
             type: 'string',

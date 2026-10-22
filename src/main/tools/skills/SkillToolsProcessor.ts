@@ -1,4 +1,3 @@
-import { app } from 'electron'
 import path from 'path'
 import * as fs from 'fs/promises'
 import { chatDb } from '@main/db/chat'
@@ -11,18 +10,6 @@ import type { ExecuteCommandResponse } from '@tools/command/index.d'
 
 interface LoadSkillArgs {
   name: string
-  chat_uuid?: string
-}
-
-interface InstallSkillArgs {
-  source: string
-  name?: string
-  allowOverwrite?: boolean
-  chat_uuid?: string
-}
-
-interface ImportSkillsArgs {
-  folderPath: string
   chat_uuid?: string
 }
 
@@ -51,13 +38,6 @@ interface RunSkillScriptArgs {
   chat_uuid?: string
 }
 
-interface InstallSkillResponse {
-  success: boolean
-  name?: string
-  skill?: SkillMetadata
-  message?: string
-}
-
 interface LoadSkillResponse {
   success: boolean
   name?: string
@@ -65,15 +45,6 @@ interface LoadSkillResponse {
   contextInjected?: boolean
   content?: string
   skill_root?: string
-  message?: string
-}
-
-interface ImportSkillsResponse {
-  success: boolean
-  installed?: SkillMetadata[]
-  renamed?: Array<{ from: string; to: string }>
-  skipped?: Array<{ path: string; reason: string }>
-  failed?: Array<{ path: string; error: string }>
   message?: string
 }
 
@@ -105,25 +76,9 @@ interface RunSkillScriptResponse extends ExecuteCommandResponse {
   script_path?: string
 }
 
-const isUrl = (value: string): boolean => /^https?:\/\//i.test(value)
 const SKILL_NAME_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const DEFAULT_DIRECTORY_ENTRY_LIMIT = 100
 const MAX_DIRECTORY_ENTRY_LIMIT = 500
-
-const resolveSourcePath = (source: string, chatUuid?: string): string => {
-  if (isUrl(source) || path.isAbsolute(source)) {
-    return source
-  }
-
-  if (chatUuid) {
-    const workspacePath = chatDb.getWorkspacePathByUuid(chatUuid)
-    if (workspacePath) {
-      return path.join(workspacePath, source)
-    }
-  }
-
-  return path.join(app.getPath('userData'), source)
-}
 
 const resolveSkillRootPath = async (name: string): Promise<string> => {
   if (!SKILL_NAME_REGEX.test(name)) {
@@ -199,61 +154,6 @@ export async function processLoadSkill(args: LoadSkillArgs): Promise<LoadSkillRe
       success: false,
       loaded: false,
       message: `Failed to load skill: ${message}`
-    }
-  }
-}
-
-export async function processInstallSkill(args: InstallSkillArgs): Promise<InstallSkillResponse> {
-  try {
-    if (!args?.source) {
-      return { success: false, message: 'source is required' }
-    }
-
-    const skill = await SkillService.loadSkill({
-      source: resolveSourcePath(args.source, args.chat_uuid),
-      name: args.name,
-      allowOverwrite: args.allowOverwrite
-    })
-
-    return {
-      success: true,
-      name: skill.name,
-      skill,
-      message: 'Skill installed.'
-    }
-  } catch (error) {
-    console.error('[SkillTools] Failed to install skill:', error)
-    const message = error instanceof Error ? error.message : String(error)
-    return {
-      success: false,
-      message: `Failed to install skill: ${message}`
-    }
-  }
-}
-
-export async function processImportSkills(args: ImportSkillsArgs): Promise<ImportSkillsResponse> {
-  try {
-    if (!args?.folderPath) {
-      return { success: false, message: 'folderPath is required' }
-    }
-
-    const summary = await SkillService.importSkillsFromFolder(
-      resolveSourcePath(args.folderPath, args.chat_uuid)
-    )
-    return {
-      success: true,
-      installed: summary.installed,
-      renamed: summary.renamed,
-      skipped: summary.skipped,
-      failed: summary.failed,
-      message: 'Skills imported.'
-    }
-  } catch (error) {
-    console.error('[SkillTools] Failed to import skills:', error)
-    const message = error instanceof Error ? error.message : String(error)
-    return {
-      success: false,
-      message: `Failed to import skills: ${message}`
     }
   }
 }

@@ -3,17 +3,16 @@ import { chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'fs/pro
 import { join } from 'path'
 import { tmpdir } from 'os'
 import { processRunSkillScript } from '../SkillToolsProcessor'
+import { SkillService } from '@main/services/skills/SkillService'
 import { waitForCommandProcessCleanup } from '@main/services/command/CommandProcessRunner'
 
 const fixture = vi.hoisted(() => ({ root: '', workspace: '', skillRoot: '' }))
 
-vi.mock('electron', () => ({ app: { getPath: (): string => fixture.root } }))
+vi.mock('electron', () => ({ app: { isPackaged: false, getPath: (): string => fixture.root } }))
 vi.mock('@main/db/DatabaseService', () => ({
   default: { getWorkspacePathByUuid: (): string => fixture.workspace }
 }))
-vi.mock('@main/services/skills/SkillService', () => ({
-  SkillService: { resolveSkillRootPath: async (): Promise<string> => fixture.skillRoot }
-}))
+vi.mock('@main/db/config', () => ({ configDb: { getConfig: (): object => ({}) } }))
 vi.mock('@main/logging/LogService', () => ({
   createLogger: (): Record<string, ReturnType<typeof vi.fn>> => ({
     debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn()
@@ -29,11 +28,13 @@ describe('skill script command execution', () => {
   beforeEach(async () => {
     fixture.root = await mkdtemp(join(tmpdir(), 'ati-skill-command-'))
     fixture.workspace = join(fixture.root, 'task workspace')
-    fixture.skillRoot = join(fixture.root, 'installed skill')
+    fixture.skillRoot = join(fixture.root, 'source skill')
     await mkdir(fixture.workspace)
     await mkdir(join(fixture.skillRoot, 'scripts'), { recursive: true })
     await writeFile(join(fixture.workspace, 'input.txt'), 'task input')
     await writeFile(join(fixture.skillRoot, 'resource.txt'), 'skill resource')
+    await writeFile(join(fixture.skillRoot, 'SKILL.md'), '---\nname: fixture\ndescription: Source execution fixture.\n---\nRun in place.')
+    await SkillService.initializeFromConfig({ skills: { folders: [fixture.skillRoot] } } as IAppConfig)
   })
 
   afterEach(async () => {

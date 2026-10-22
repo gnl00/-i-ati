@@ -16,7 +16,7 @@ export class LoadedSkillsContextProvider {
 
       const availableSkills = await SkillService.listSkills()
       const pathsByName = new Map(availableSkills.map(skill => [skill.name, skill.path]))
-      const skills = skillNames.map(name => ({
+      const skills = skillNames.filter(name => pathsByName.has(name)).map(name => ({
         name,
         path: pathsByName.get(name)
       }))

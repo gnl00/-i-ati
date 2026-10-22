@@ -65,7 +65,7 @@ export class RunRequestFactory {
       interactiveInputAvailable: isInteractiveMessageSource(input.source)
     }
     const compressionSummary = this.compressionSummaryResolver.resolve(config, environment.chat.id)
-    const systemPrompts = await this.systemPromptComposer.compose(environment.chat.id, emotionEnabled)
+    const systemPrompts = await this.systemPromptComposer.compose(emotionEnabled)
     const systemEnvironmentContext = this.systemEnvironmentContextProvider.build({
       workspacePath: environment.workspacePath
     })

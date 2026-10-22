@@ -3,22 +3,20 @@ import { buildSkillsPrompt } from '@shared/services/skills/SkillPromptBuilder'
 
 describe('buildSkillsPrompt', () => {
   it('returns empty string when no skills are provided', () => {
-    expect(buildSkillsPrompt([], [])).toBe('')
+    expect(buildSkillsPrompt([])).toBe('')
   })
 
   it('renders available skills list', () => {
     const prompt = buildSkillsPrompt(
-      [{ name: 'pdf-processing', description: 'Handle PDFs.' }],
-      []
+      [{ name: 'pdf-processing', description: 'Handle PDFs.' }]
     )
     expect(prompt).toContain('## Skills')
     expect(prompt).toContain('- pdf-processing: Handle PDFs.')
   })
 
-  it('omits loaded skills content from the initial prompt', () => {
+  it('renders only discovery metadata rather than skill instructions', () => {
     const prompt = buildSkillsPrompt(
-      [{ name: 'data-analysis', description: 'Analyze data.' }],
-      [{ name: 'data-analysis', content: '---\nname: data-analysis\n---\nDo work.' }]
+      [{ name: 'data-analysis', description: 'Analyze data.' }]
     )
     expect(prompt).toContain('- data-analysis: Analyze data.')
     expect(prompt).not.toContain('<skill name="data-analysis">')

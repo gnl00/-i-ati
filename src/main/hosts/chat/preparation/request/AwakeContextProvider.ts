@@ -26,7 +26,7 @@ export class AwakeContextProvider {
       source: MESSAGE_SOURCE.AWAKE_CONTEXT,
       content: [
         '<awake_state>',
-        JSON.stringify(snapshot, null, 2),
+        JSON.stringify(snapshot),
         '</awake_state>'
       ].join('\n'),
       segments: []

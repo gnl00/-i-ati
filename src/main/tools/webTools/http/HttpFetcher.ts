@@ -28,6 +28,23 @@ export class WebFetchDownloadTooLargeError extends Error {
   }
 }
 
+export class WebFetchHttpError extends Error {
+  readonly retryAfterSeconds?: number
+
+  constructor(readonly status: number, retryAfter: string | null = null) {
+    super(`Failed to fetch page: HTTP ${status}`)
+    this.name = 'WebFetchHttpError'
+    const value = retryAfter?.trim()
+    if (value && /^\d+$/.test(value)) {
+      const seconds = Number(value)
+      if (Number.isSafeInteger(seconds)) this.retryAfterSeconds = seconds
+    } else if (value && /^[A-Za-z]{3}, /.test(value)) {
+      const date = Date.parse(value)
+      if (Number.isFinite(date)) this.retryAfterSeconds = Math.max(0, Math.ceil((date - Date.now()) / 1000))
+    }
+  }
+}
+
 function resolveDefaultHttpFetch(): { fetchImpl: FetchLike, transport: HttpFetchTransport } {
   if (typeof net?.fetch === 'function') {
     return { fetchImpl: net.fetch.bind(net) as FetchLike, transport: 'electron-net-fetch' }
@@ -150,7 +167,8 @@ export async function downloadViaHttp(
 
   if (!response.ok) {
     await rm(spool.absolutePath, { force: true })
-    throw new Error(`Failed to fetch page: HTTP ${response.status}`)
+    void response.body?.cancel().catch(() => {})
+    throw new WebFetchHttpError(response.status, response.headers.get('retry-after'))
   }
 
   try {

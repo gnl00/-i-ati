@@ -12,10 +12,10 @@ export class SystemPromptComposer {
     private readonly soulPromptProvider = new SoulPromptProvider()
   ) {}
 
-  async compose(chatId?: number, emotionEnabled = true): Promise<string[]> {
+  async compose(emotionEnabled = true): Promise<string[]> {
     const baseSystemPrompt = systemPromptBuilder()
     const userInfoPrompt = await this.userInfoPromptProvider.build()
-    const skillsPrompt = await this.skillsPromptProvider.build(chatId)
+    const skillsPrompt = await this.skillsPromptProvider.build()
     const emotionPrompt = emotionEnabled ? this.emotionPromptProvider.build() : ''
     const soulPrompt = this.soulPromptProvider.build()
     const composedSystemPrompt = [

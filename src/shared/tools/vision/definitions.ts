@@ -5,7 +5,7 @@ export const visionTools = [
     type: 'function',
     function: {
       name: 'image_analyze',
-      description: 'Analyze current or historical images with the configured vision model. Call this when the user asks to read, inspect, OCR, compare, or extract information from an image. Use refs from <available_images>, such as message:101#image:1 or message:101. Write prompt as the direct visual task for the vision model.',
+      description: 'Inspect, OCR, compare, or extract from current/historical images with the configured vision model. Prefer refs from <available_images>.',
       parameters: {
         type: 'object',
         additionalProperties: false,
@@ -18,24 +18,24 @@ export const visionTools = [
               properties: {
                 ref: {
                   type: 'string',
-                  description: 'Image ref from <available_images>. Use message:<id>#image:<1-based index> for one image or message:<id> for all images in that message.'
+                  description: '<available_images> ref: message:<id>#image:<1-based index> for one image; message:<id> for all in a message.'
                 },
                 url: {
                   type: 'string',
-                  description: 'Direct image URL or data URL to analyze.'
+                  description: 'Image URL or data URL.'
                 },
                 raw_data: {
                   type: 'string',
-                  description: 'Direct raw image data, usually a data URL or base64 payload.'
+                  description: 'Image data URL or base64.'
                 },
                 file: {
                   type: 'string',
-                  description: 'Workspace-relative image file path. The runtime reads it and sends it to the vision model as a base64 data URL.'
+                  description: 'Workspace-relative image path; sent as a base64 data URL.'
                 }
               },
               additionalProperties: false
             },
-            description: 'Images to analyze. Prefer ref values from <available_images>. Direct url/raw_data and workspace-relative file paths are supported.'
+            description: 'Images by ref, URL, raw data, or workspace-relative path.'
           },
           image_refs: {
             type: 'array',
@@ -43,7 +43,7 @@ export const visionTools = [
             items: {
               type: 'string'
             },
-            description: 'Top-level image refs from <available_images>, such as message:101#image:1 or message:101.'
+            description: '<available_images> refs, using the images.ref format.'
           },
           urls: {
             type: 'array',
@@ -51,7 +51,7 @@ export const visionTools = [
             items: {
               type: 'string'
             },
-            description: 'Top-level direct image URLs to analyze.'
+            description: 'Direct image URLs.'
           },
           raw_data: {
             type: 'array',
@@ -59,7 +59,7 @@ export const visionTools = [
             items: {
               type: 'string'
             },
-            description: 'Top-level direct raw image data values, usually data URLs or base64 payloads.'
+            description: 'Image data URLs or base64 payloads.'
           },
           files: {
             type: 'array',
@@ -67,21 +67,21 @@ export const visionTools = [
             items: {
               type: 'string'
             },
-            description: 'Top-level workspace-relative image file paths. The runtime converts each file to a base64 data URL.'
+            description: 'Workspace-relative paths; sent as base64 data URLs.'
           },
           chat_uuid: {
             type: 'string',
-            description: 'Runtime chat UUID used to resolve image refs. The runtime injects this when available.'
+            description: 'Runtime-injected chat UUID for image refs, when available.'
           },
           prompt: {
             type: 'string',
-            description: 'Direct visual task for the vision model. Example: "Read the screenshot and extract the total amount."'
+            description: 'Direct visual task for the vision model.'
           },
           timeout_seconds: {
             type: 'number',
             minimum: 5,
             maximum: 120,
-            description: 'Optional maximum analysis wait time in seconds. Defaults to 60 seconds and is clamped from 5 to 120 seconds.'
+            description: 'Wait in seconds; default 60, clamped to 5-120.'
           }
         },
         required: ['prompt'],

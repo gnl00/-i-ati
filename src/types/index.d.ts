@@ -90,6 +90,7 @@ declare interface IAppConfig {
   }
   skills?: {
     folders?: string[]
+    disabledNames?: string[]
   }
   knowledgebase?: KnowledgebaseConfig
   plugins?: {
@@ -339,8 +340,20 @@ declare interface McpRuntimeSnapshot {
   servers: McpRuntimeServerStatus[]
 }
 
+declare interface SkillScanIssue {
+  path: string
+  kind: 'unavailable' | 'invalid' | 'shadowed'
+  message: string
+}
+
+declare interface SkillScanResult {
+  skills: SkillMetadata[]
+  issues: SkillScanIssue[]
+}
+
 declare interface SkillMetadata {
   name: string
+  enabled?: boolean
   frontmatterName?: string
   description: string
   license?: string

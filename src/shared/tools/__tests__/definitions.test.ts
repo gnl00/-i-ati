@@ -8,6 +8,12 @@ import {
 import type { ToolDefinition } from '../registry'
 
 describe('tool definitions', () => {
+  it('keeps the complete embedded catalog within its description budget', () => {
+    const catalog = tools.map(tool => ({ ...tool.function, source: 'embedded' }))
+
+    expect(JSON.stringify(catalog).length).toBeLessThanOrEqual(56_000)
+  })
+
   it('requires file versions for guarded writes and literal batch edits', () => {
     const definitions = tools as ToolDefinition[]
     const read = definitions.find(tool => tool.function.name === 'read')!.function.parameters
@@ -139,10 +145,36 @@ describe('tool definitions', () => {
     for (const tool of tools as ToolDefinition[]) {
       expect(tool.function.parameters.properties[TOOL_CALL_REASON_PARAMETER_NAME]).toEqual(expect.objectContaining({
         type: 'string',
-        description: expect.stringContaining('same language the user is currently using')
+        description: expect.stringContaining("user's language")
       }))
+      expect(tool.function.parameters.properties[TOOL_CALL_REASON_PARAMETER_NAME].description)
+        .toMatch(/One sentence: why this tool now and its observable outcome/)
       expect(tool.function.parameters.required).toContain(TOOL_CALL_REASON_PARAMETER_NAME)
     }
+  })
+
+  it('retains operational boundaries that parameter types cannot express', () => {
+    const definition = (name: string): ToolDefinition['function'] =>
+      tools.find(tool => tool.function.name === name)!.function
+
+    expect(definition('memory_retrieval').parameters.properties.query.description).toContain('English')
+    expect(definition('memory_save').parameters.properties.context_en.description)
+      .toContain('required even when the original is English')
+    expect(definition('exec').parameters.properties.cwd.description).toContain('explicit user approval')
+    expect(definition('exec').parameters.properties.env.description).toContain('explicit user approval')
+    expect(definition('read').description).toContain('next_start_line/next_start_column')
+    expect(definition('edit').description).toContain('blocks must not overlap')
+    expect(definition('write').parameters.properties.expected_version.description)
+      .toContain('Null requires a missing file')
+    expect(definition('schedule').description).toContain('empty chat')
+    expect(definition('schedule').parameters.properties.payload.description).toContain('No source history')
+    expect(definition('telegram_send_message').description)
+      .toContain('do not resend for deliveryRecorded/deliveryComplete=false')
+    expect(definition('computer_use').description).toContain('require a screenshot-backed snapshot')
+    const command = definition('run_skill_script').parameters.properties.command.description
+    expect(command).toContain('explicit interpreter')
+    expect(command).toContain('"$SKILL_SCRIPT"')
+    expect(command).toContain('"%SKILL_SCRIPT%"')
   })
 
   it('defines ask_user_question as a bounded recommendation-backed interaction', () => {

@@ -1,90 +1,76 @@
-import {
-  listInstalledSkillMetadata,
-  listSkillMetadata,
-  readSkillContent,
-  deleteInstalledSkill,
-  ensureSkillsDir,
-  markSkillCacheDirty,
-  resolveSkillRootPath as resolveSkillRootPathImpl
-} from './SkillCache'
-import { loadSkill as installSkill, type LoadSkillArgs } from './SkillInstaller'
-import {
-  importSkillsFromFolder as importSkillsFromFolderImpl,
-  type SkillImportSummary
-} from './SkillImporter'
-import { recoverSkillInstallTransactions, withSkillRootLock } from './SkillInstallation'
-
-let skillMutationQueue: Promise<void> = Promise.resolve()
-
-const enqueueSkillMutation = async <T>(operation: () => Promise<T>): Promise<T> => {
-  const result = skillMutationQueue.then(operation, operation)
-  skillMutationQueue = result.then(() => undefined, () => undefined)
-  return await result
-}
+import { app } from 'electron'
+import path from 'path'
+import * as fs from 'fs/promises'
+import { configDb } from '@main/db/config'
+import { scanSkillSources } from './SkillCollector'
+import { SKILL_FILE, validateSkillName } from './SkillParser'
+import { resolveSkillPath } from './SkillPathResolver'
 
 class SkillService {
-  static async listSkills(): Promise<SkillMetadata[]> {
-    return await listSkillMetadata()
+  private static catalog: SkillScanResult = { skills: [], issues: [] }
+  private static pending: Promise<SkillScanResult> | undefined
+  private static scanQueue: Promise<void> = Promise.resolve()
+
+  static initializeFromConfig(config?: IAppConfig): Promise<SkillScanResult> {
+    const folders = [...(config?.skills?.folders ?? [])]
+    const builtInRoot = path.join(
+      app.isPackaged
+        ? process.resourcesPath
+        : path.join(process.cwd(), 'resources'),
+      'skills'
+    )
+    const pending = this.scanQueue.then(async () => {
+      const result = await scanSkillSources(folders, builtInRoot)
+      this.catalog = result
+      return result
+    })
+    this.scanQueue = pending.then(
+      () => undefined,
+      () => undefined
+    )
+    this.pending = pending
+    return pending
   }
 
-  static async listInstalledSkills(): Promise<SkillMetadata[]> {
-    return await listInstalledSkillMetadata()
+  static async refresh(): Promise<SkillScanResult> {
+    await this.initializeFromConfig(configDb.getConfig())
+    return await this.getScanResult()
+  }
+
+  static async listSkills(): Promise<SkillMetadata[]> {
+    const result = await this.getScanResult()
+    return result.skills.filter(skill => skill.enabled !== false)
+  }
+
+  static async getScanResult(): Promise<SkillScanResult> {
+    await (this.pending ?? this.refresh())
+    const disabledNames = new Set(configDb.getConfig()?.skills?.disabledNames ?? [])
+    return {
+      skills: this.catalog.skills.map(skill => ({ ...skill, enabled: !disabledNames.has(skill.name) })),
+      issues: [...this.catalog.issues]
+    }
+  }
+
+  static async resolveSkillRootPath(name: string, options: { allowDisabled?: boolean } = {}): Promise<string> {
+    validateSkillName(name)
+    const { skills } = await this.getScanResult()
+    const skill = skills.find(item => item.name === name)
+    if (skill?.enabled === false && !options.allowDisabled) {
+      throw new Error(`Skill "${name}" is disabled. Enable it in Settings > Skills.`)
+    }
+    if (!skill?.path)
+      throw new Error(
+        `Skill "${name}" is not available in configured source folders or embedded skills. Refresh sources to discover changes.`
+      )
+    const root = path.dirname(skill.path)
+    await resolveSkillPath(root, SKILL_FILE, 'Skill file')
+    return root
   }
 
   static async getSkillContent(name: string): Promise<string> {
-    return await readSkillContent(name)
-  }
-
-  static async resolveSkillRootPath(name: string): Promise<string> {
-    return await resolveSkillRootPathImpl(name)
-  }
-
-  static async deleteSkill(name: string): Promise<void> {
-    await enqueueSkillMutation(() => deleteInstalledSkill(name))
-  }
-
-  static async loadSkill(args: LoadSkillArgs): Promise<SkillMetadata> {
-    return await enqueueSkillMutation(() => installSkill(args))
-  }
-
-  static async importSkillsFromFolder(folderPath: string): Promise<SkillImportSummary> {
-    return await enqueueSkillMutation(
-      () => importSkillsFromFolderImpl(folderPath, () => SkillService.listInstalledSkills())
-    )
-  }
-
-  static async initializeFromConfig(config?: IAppConfig): Promise<void> {
-    const folders = config?.skills?.folders || []
-    try {
-      await enqueueSkillMutation(async () => {
-        const root = await ensureSkillsDir()
-        await withSkillRootLock(root, async () => {
-          await recoverSkillInstallTransactions(root)
-          markSkillCacheDirty()
-        })
-      })
-    } catch (error) {
-      console.error('[SkillService] Failed to recover skill installations on startup:', error)
-    }
-
-    for (const folder of folders) {
-      try {
-        const summary = await SkillService.importSkillsFromFolder(folder)
-        if (summary.failed.length > 0) {
-          console.error(
-            '[SkillService] Skill import reported failures on startup:',
-            folder,
-            summary.failed.map(item => `${item.path}: ${item.error}`).join('; ')
-          )
-        }
-      } catch (error) {
-        console.error(
-          '[SkillService] Failed to import skills from folder on startup:',
-          folder,
-          error
-        )
-      }
-    }
+    const root = await this.resolveSkillRootPath(name)
+    const resolved = await resolveSkillPath(root, SKILL_FILE, 'Skill file')
+    return await fs.readFile(resolved.canonicalPath, 'utf-8')
   }
 }
 

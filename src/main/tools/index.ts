@@ -30,8 +30,6 @@ import { processHistorySearch } from '@main/tools/history/HistoryToolsProcessor'
 import { processSessionContext } from '@main/tools/workContext/WorkContextToolsProcessor'
 import { processExecuteCommand } from '@main/tools/command/CommandProcessor'
 import {
-  processInstallSkill,
-  processImportSkills,
   processLoadSkill,
   processReadSkillFile,
   processRunSkillScript,
@@ -101,9 +99,7 @@ export const toolHandlers: Record<
   computer_use: processComputerUse,
   session_context: processSessionContext,
   exec: processExecuteCommand,
-  install_skill: processInstallSkill,
   load_skill: processLoadSkill,
-  import_skills: processImportSkills,
   unload_skill: processUnloadSkill,
   read_skill_file: processReadSkillFile,
   run_skill_script: processRunSkillScript,

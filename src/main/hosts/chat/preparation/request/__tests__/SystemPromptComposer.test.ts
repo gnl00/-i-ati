@@ -2,8 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 const providerMocks = vi.hoisted(() => ({
   soul: vi.fn(() => '<soul_prompt>soul</soul_prompt>'),
-  skills: vi.fn(async (chatId?: number) => {
-    void chatId
+  skills: vi.fn(async () => {
     return [
       '<skills_system>',
       '<skills_context>catalog</skills_context>',
@@ -24,8 +23,8 @@ vi.mock('../SoulPromptProvider', () => ({
 
 vi.mock('../SkillsPromptProvider', () => ({
   SkillsPromptProvider: class {
-    async build(chatId?: number): Promise<string> {
-      return providerMocks.skills(chatId)
+    async build(): Promise<string> {
+      return providerMocks.skills()
     }
   }
 }))
@@ -50,7 +49,7 @@ import { SystemPromptComposer } from '../SystemPromptComposer'
 
 describe('SystemPromptComposer', () => {
   it('omits emotion policy while retaining the other modules when disabled', async () => {
-    const [prompt] = await new SystemPromptComposer().compose(42, false)
+    const [prompt] = await new SystemPromptComposer().compose(false)
     expect(prompt).not.toContain('<emotion_system>')
     expect(prompt).toContain('<soul_prompt>')
     expect(prompt).toContain('<skills_system>')
@@ -58,7 +57,7 @@ describe('SystemPromptComposer', () => {
   })
 
   it('composes every stable module exactly once in cache-stable order', async () => {
-    const [prompt] = await new SystemPromptComposer().compose(42)
+    const [prompt] = await new SystemPromptComposer().compose()
     const orderedMarkers = [
       '<identity_role>',
       '<core_operating_policy>',
@@ -78,6 +77,6 @@ describe('SystemPromptComposer', () => {
     const positions = orderedMarkers.map(marker => prompt.indexOf(marker))
     expect(positions).toEqual([...positions].sort((left, right) => left - right))
     expect(prompt).toContain('<skills_context>catalog</skills_context>')
-    expect(providerMocks.skills).toHaveBeenCalledWith(42)
+    expect(providerMocks.skills).toHaveBeenCalledWith()
   })
 })

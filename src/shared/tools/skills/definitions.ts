@@ -4,41 +4,14 @@ export const skillTools = [
   {
     type: 'function',
     function: {
-      name: 'install_skill',
-      description: 'Install a skill from a URL or local path (supports SKILL.md, skill directory, zip/tar archives).',
-      parameters: {
-        type: 'object',
-        properties: {
-          source: {
-            type: 'string',
-            description: 'URL or local path to SKILL.md or a skill directory.'
-          },
-          name: {
-            type: 'string',
-            description: 'Expected skill name to validate.'
-          },
-          allowOverwrite: {
-            type: 'boolean',
-            description: 'Overwrite an existing installed skill with the same name.',
-            default: false
-          }
-        },
-        required: ['source'],
-        $schema: 'http://json-schema.org/draft-07/schema#'
-      }
-    }
-  },
-  {
-    type: 'function',
-    function: {
       name: 'load_skill',
-      description: 'Activate an available skill and return its SKILL.md instructions and skill_root. Also returns the instructions when already active. Use them directly without rereading SKILL.md; read_skill_file is for additional files or missing content.',
+      description: 'Activate a skill and return its SKILL.md instructions and skill_root, even when already active. Use without rereading SKILL.md; read_skill_file recovers additional/missing content.',
       parameters: {
         type: 'object',
         properties: {
           name: {
             type: 'string',
-            description: 'Installed skill name to load.'
+            description: 'Available skill name to load.'
           }
         },
         required: ['name'],
@@ -49,26 +22,8 @@ export const skillTools = [
   {
     type: 'function',
     function: {
-      name: 'import_skills',
-      description: 'Import all skills found in a folder recursively. Handles conflicts by renaming when needed.',
-      parameters: {
-        type: 'object',
-        properties: {
-          folderPath: {
-            type: 'string',
-            description: 'Folder path to scan recursively for SKILL.md based skills.'
-          }
-        },
-        required: ['folderPath'],
-        $schema: 'http://json-schema.org/draft-07/schema#'
-      }
-    }
-  },
-  {
-    type: 'function',
-    function: {
       name: 'unload_skill',
-      description: 'Remove a previously loaded skill from the current chat (does not uninstall).',
+      description: 'Remove a previously loaded skill from the current chat (keeps source files).',
       parameters: {
         type: 'object',
         properties: {
@@ -92,11 +47,11 @@ export const skillTools = [
         properties: {
           name: {
             type: 'string',
-            description: 'Installed skill name.'
+            description: 'Available skill name.'
           },
           path: {
             type: 'string',
-            description: 'Relative path inside the skill directory (e.g. SKILL.md, references/REFERENCE.md, scripts, or . for the skill root).'
+            description: 'Skill-relative file/directory path; "." lists the root.'
           },
           encoding: {
             type: 'string',
@@ -112,7 +67,7 @@ export const skillTools = [
           },
           max_entries: {
             type: 'integer',
-            description: 'Maximum number of directory entries to return when path is a directory (default: 100, max: 500).',
+            description: 'Directory entry limit; default 100.',
             minimum: 1,
             maximum: 500
           }
@@ -126,36 +81,36 @@ export const skillTools = [
     type: 'function',
     function: {
       name: 'run_skill_script',
-      description: 'Run a shell command for a script bundled inside an available skill. Resolves the script in place and provides SKILL_ROOT and SKILL_SCRIPT environment variables. Select the interpreter in command. Defaults to the current task workspace; use cwd to override. Reuses exec execution, output, cancellation and approval behavior.',
+      description: 'Run a bundled script in place with SKILL_ROOT and SKILL_SCRIPT. Uses exec output, cancellation and approvals. Defaults to the current task workspace; cwd overrides it.',
       parameters: {
         type: 'object',
         properties: {
           name: {
             type: 'string',
-            description: 'Installed skill name.'
+            description: 'Available skill name.'
           },
           script: {
             type: 'string',
-            description: 'Relative script path inside the skill directory, e.g. scripts/amap.ts.'
+            description: 'Skill-relative script path, e.g. scripts/amap.ts.'
           },
           command: {
             type: 'string',
-            description: 'Complete shell command including the interpreter and arguments. POSIX example: node "$SKILL_SCRIPT" render diagrams/example.json. Windows cmd example: node "%SKILL_SCRIPT%" render diagrams/example.json. Quote script paths; no executable permission is needed when using an interpreter.'
+            description: 'Shell command with explicit interpreter/arguments: POSIX node "$SKILL_SCRIPT"; Windows cmd node "%SKILL_SCRIPT%". Quote paths; interpreter needs no script executable bit.'
           },
           cwd: {
             type: 'string',
-            description: 'Working directory, absolute or relative to the task workspace. Defaults to the task workspace. To run from the skill directory, pass skill_root returned by load_skill. Scripts and resources remain in their installed location.'
+            description: 'Absolute or task-relative cwd; default task workspace. Use load_skill\'s skill_root for the skill directory. Resources stay in the source directory.'
           },
           env: {
             type: 'object',
-            description: 'Additional environment variables. SKILL_ROOT and SKILL_SCRIPT are set by the runtime and cannot be overridden.',
+            description: 'Extra variables; runtime SKILL_ROOT/SKILL_SCRIPT cannot be overridden.',
             additionalProperties: {
               type: 'string'
             }
           },
           timeout: {
             type: 'number',
-            description: 'Timeout in milliseconds (default: 30000).',
+            description: 'Timeout in milliseconds.',
             default: 30000
           }
         },

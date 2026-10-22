@@ -4,7 +4,7 @@ export const TOOL_CALL_REASON_PARAMETER_NAME = 'tool_call_reason'
 
 const TOOL_CALL_REASON_PARAMETER_SCHEMA = {
   type: 'string',
-  description: 'Brief reason for choosing this tool now. Write this field in the same language the user is currently using, and state the intended observable outcome in one sentence.'
+  description: "One sentence: why this tool now and its observable outcome, in the user's language."
 }
 
 const isObjectSchema = (value: unknown): value is Record<string, any> => (

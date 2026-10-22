@@ -1,3 +1,7 @@
+Documentation mode: Historical
+
+Superseded by [source-folder skills](../integrations/skills.md) on 2026-10-18.
+
 # 技能安装、残缺恢复与启动失败报告实施指导
 
 日期：2026-09-03。状态：实现与独立复核完成，本机 pdf 副本已恢复。
@@ -119,8 +123,8 @@ ATI 扫描的 `<userData>/skills/pdf/SKILL.md` 缺失。真实目录验证和修
   和历史 `.tmp` 从列表及收集器排除。
 - `SkillService.ts` 串行化当前进程的修改操作。启动即使没有配置导入目录
   也执行遗留恢复；每个来源依次导入并报告 `summary.failed`。
-- [ADR-0020](../../decisions/0020-skill-install-recovery.md) 和
-  [Skills](../../integrations/skills.md) 同步了现行安装契约。
+- [ADR-0020](../decisions/0020-skill-install-recovery.md) 和
+  [Skills](../integrations/skills.md) 同步了现行安装契约。
 
 验证结果：
 

@@ -78,6 +78,15 @@ export class ActivityJournalRepository {
   }
 
   listEntries(options: ActivityJournalListOptions): Omit<ActivityJournalEntryRow, 'search_text'>[] {
+    if (!options.dateKey) {
+      return this.db.prepare(`
+        SELECT id, chat_uuid, chat_id, title, details, category, level, tags_json, source, indexed, created_at
+        FROM activity_journal_entries
+        ${options.chatUuid ? 'WHERE chat_uuid = ?' : ''}
+        ORDER BY created_at DESC, id ASC
+        LIMIT ?
+      `).all(...(options.chatUuid ? [options.chatUuid, options.limit] : [options.limit])) as Omit<ActivityJournalEntryRow, 'search_text'>[]
+    }
     const startAt = new Date(`${options.dateKey}T00:00:00`).getTime()
     const endAt = startAt + 86400000
 

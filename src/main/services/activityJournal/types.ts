@@ -32,7 +32,7 @@ export interface ActivityJournalAppendInput {
 }
 
 export interface ActivityJournalListOptions {
-  dateKey: string
+  dateKey?: string
   limit: number
   chatUuid?: string
 }

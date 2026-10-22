@@ -208,7 +208,7 @@ describe('OpenAIAdapter request mapping', () => {
     const parameters = requestBody.tools[0].function.parameters
     expect(parameters.properties[TOOL_CALL_REASON_PARAMETER_NAME]).toEqual(expect.objectContaining({
       type: 'string',
-      description: expect.stringContaining('same language the user is currently using')
+      description: expect.stringContaining("user's language")
     }))
     expect(parameters.required).toEqual(['query', TOOL_CALL_REASON_PARAMETER_NAME])
   })

@@ -72,67 +72,67 @@ export const planTools = [
     type: 'function',
     function: {
       name: 'plan',
-      description: 'Manage task plans. Set action to create, update, update_status, get_by_id, get_current_chat, delete, or step_upsert; the processor validates action-specific fields.',
+      description: 'Manage task plans and steps; action-specific fields are validated at execution.',
       parameters: {
         type: 'object',
         properties: {
           action: {
             type: 'string',
             enum: ['create', 'update', 'update_status', 'get_by_id', 'get_current_chat', 'delete', 'step_upsert'],
-            description: 'Operation to perform: create makes a plan, update changes a plan, update_status changes plan or step status, get_by_id retrieves one plan, get_current_chat retrieves plans for this chat, delete removes a plan, and step_upsert creates or updates one step.'
+            description: 'get_current_chat lists this chat\'s plans; update_status changes plan/step status; step_upsert creates or updates a step.'
           },
           goal: {
             type: 'string',
-            description: 'Goal for action=create. Required when creating a plan.'
+            description: 'Required for create.'
           },
           context: {
             type: 'object',
-            description: 'Relevant context for action=create.'
+            description: 'Context for create.'
           },
           constraints: {
             ...constraintsSchema,
-            description: 'Plan constraints for action=create.'
+            description: 'Constraints for create.'
           },
           steps: {
             type: 'array',
             items: planStepSchema,
-            description: 'Plan steps for action=create. Required when creating a plan.'
+            description: 'Required for create.'
           },
           plan: {
             ...planSchema,
-            description: 'Partial plan update for action=update. plan.id is required.'
+            description: 'Partial update for update; plan.id required.'
           },
           id: {
             type: 'string',
-            description: 'Plan id for action=update_status, action=get_by_id, and action=delete.'
+            description: 'Plan ID for update_status, get_by_id, delete.'
           },
           status: {
             ...planStatusSchema,
-            description: 'New plan status for action=update_status. Required with id.'
+            description: 'Required with id for update_status.'
           },
           currentStepId: {
             type: 'string',
-            description: 'Optional current step id for action=update_status.'
+            description: 'Current step ID for update_status.'
           },
           failureReason: {
             type: 'string',
-            description: 'Optional failure reason for action=update_status.'
+            description: 'Failure reason for update_status.'
           },
           stepId: {
             type: 'string',
-            description: 'Optional step id for action=update_status when changing a step.'
+            description: 'Step ID for update_status; required with stepStatus.'
           },
           stepStatus: {
             ...planStepStatusSchema,
-            description: 'Optional step status for action=update_status. stepId is required when stepStatus is provided.'
+            description: 'Step status for update_status; requires stepId.'
           },
           planId: {
             type: 'string',
-            description: 'Plan id for action=step_upsert. Required when upserting a step.'
+            description: 'Required for step_upsert.'
           },
           step: {
             ...planStepSchema,
-            description: 'Step payload for action=step_upsert. Required when upserting a step.'
+            description: 'Required for step_upsert.'
           }
         },
         required: ['action'],

@@ -105,6 +105,17 @@ describe('shared prompts systemPrompt', () => {
     expect(prompt).not.toContain('Subagents')
   })
 
+  it('bounds retrieval and edits by evidence and acceptance conditions', () => {
+    const prompt = systemPrompt()
+    expect(prompt).toContain('specific evidence gap')
+    expect(prompt).toContain('Distinguish missing evidence from a negative finding')
+    expect(prompt).toContain('diagnostic or acceptance condition')
+    expect(prompt).toContain('inspect why the change had no effect')
+    expect(prompt).toContain('Preserve required facts and behavior')
+    expect(prompt).toContain('only with a concrete reason it can succeed')
+    expect(prompt).toContain('without adding routine user-facing narration')
+  })
+
   it('keeps output guidance to three global principles', () => {
     const prompt = systemPrompt()
     const outputPolicy = prompt.match(/<output_standards>\n([\s\S]*?)\n<\/output_standards>/)?.[1]

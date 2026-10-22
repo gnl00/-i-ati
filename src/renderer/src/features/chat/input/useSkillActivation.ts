@@ -10,6 +10,7 @@ import {
 import { invokeEnsureWorkspaceDirectory } from '@renderer/infrastructure/tools/workspace/renderer/WorkspaceInvoker'
 import { saveChat, updateChat } from '@renderer/infrastructure/persistence/ChatRepository'
 import { getChatSkills } from '@renderer/infrastructure/persistence/ChatSkillRepository'
+import { useAppConfigStore } from '@renderer/infrastructure/config/appConfig'
 import { getDefaultWorkspacePath } from '@shared/workspace/workspacePaths'
 import { useChatStore } from '../state/chatStore'
 import { useToolUserQuestionStore } from '../state/toolUserQuestionStore'
@@ -33,6 +34,7 @@ export function useSkillActivation(options: {
   const skillsRevision = useChatStore(state => state.currentChatUuid
     ? (state.chatSkillsRevisionByChatUuid[state.currentChatUuid] ?? 0)
     : 0)
+  const disabledNames = useAppConfigStore(state => state.appConfig.skills?.disabledNames ?? EMPTY_ACTIVE_SKILLS)
   const [skills, setSkills] = useState<SkillMetadata[]>([])
   const [activeSkillsState, setActiveSkillsState] = useState<{ chatId: number | null; names: string[] }>({
     chatId: null,
@@ -70,7 +72,7 @@ export function useSkillActivation(options: {
       })
   }, [])
 
-  useEffect(refreshSkills, [refreshSkills])
+  useEffect(refreshSkills, [refreshSkills, disabledNames])
 
   useEffect(() => {
     if (!chatId) {
@@ -257,8 +259,10 @@ export function useSkillActivation(options: {
   }, [chatId, chatUuid])
 
   return {
-    skills,
-    activeSkills: activeSkillsState.chatId === chatId ? activeSkillsState.names : EMPTY_ACTIVE_SKILLS,
+    skills: skills.filter(skill => !disabledNames.includes(skill.name)),
+    activeSkills: activeSkillsState.chatId === chatId
+      ? activeSkillsState.names.filter(name => !disabledNames.includes(name))
+      : EMPTY_ACTIVE_SKILLS,
     loading,
     loadError,
     refreshSkills,

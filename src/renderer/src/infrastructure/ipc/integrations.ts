@@ -8,10 +8,10 @@ import {
   MCP_DISCONNECT,
   MCP_STATUS,
   MCP_TOOL_CALL,
-  SKILL_DELETE_ACTION,
   SKILL_GET_ACTION,
-  SKILL_IMPORT_ACTION,
   SKILL_LIST_ACTION,
+  SKILL_REFRESH_ACTION,
+  SKILL_SCAN_RESULT_ACTION,
   SKILL_LOAD_ACTION,
   SKILL_REVEAL_ACTION,
   SKILL_UNLOAD_ACTION,
@@ -49,13 +49,8 @@ export const invokeSkillUnload = (name: string, chatUuid: string): Promise<{
   removed: boolean
   message?: string
 }> => invokeIpc(SKILL_UNLOAD_ACTION, { name, chat_uuid: chatUuid })
-export const invokeImportSkills = (folderPath: string): Promise<{
-  installed: SkillMetadata[]
-  renamed: Array<{ from: string; to: string }>
-  skipped: Array<{ path: string; reason: string }>
-  failed: Array<{ path: string; error: string }>
-}> => invokeIpc(SKILL_IMPORT_ACTION, { folderPath })
-export const invokeDeleteSkill = (name: string): Promise<void> => invokeIpc(SKILL_DELETE_ACTION, { name })
+export const invokeRefreshSkills = (): Promise<SkillScanResult> => invokeIpc(SKILL_REFRESH_ACTION)
+export const invokeSkillScanResult = (): Promise<SkillScanResult> => invokeIpc(SKILL_SCAN_RESULT_ACTION)
 export const invokeRevealSkillInFolder = (name: string): Promise<{ success: boolean; error?: string }> =>
   invokeIpc(SKILL_REVEAL_ACTION, { name })
 

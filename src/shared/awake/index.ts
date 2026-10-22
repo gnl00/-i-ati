@@ -30,12 +30,8 @@ export type AwakeRecentActivity = {
   source: 'activity_journal' | 'compressed_summary'
   id: string
   title: string
-  summary: string
-  category?: string
-  level?: string
-  chat_uuid?: string
-  chat_title?: string
-  timestamp: number
+  date: string
+  summary?: string
 }
 
 export type AwakeMemorySnapshot = {
@@ -45,7 +41,7 @@ export type AwakeMemorySnapshot = {
 }
 
 export type AwakeSnapshot = {
-  version: 1
+  version: 2
   chat_meta: {
     chat_id?: number
     chat_uuid?: string
@@ -53,7 +49,7 @@ export type AwakeSnapshot = {
     workspace_path?: string
   }
   memories: AwakeMemoryItem[]
-  work_context: {
+  work_context?: {
     exists: boolean
     content: string
     truncated: boolean
@@ -85,10 +81,4 @@ export type AwakeSnapshot = {
     ts: number
   }>
   recent_activities: AwakeRecentActivity[]
-  session_meta: {
-    chat_id?: number
-    chat_uuid?: string
-    chat_title?: string
-    workspace_path?: string
-  }
 }

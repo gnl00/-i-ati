@@ -11,12 +11,13 @@ const mocks = vi.hoisted(() => ({
     currentChatUuid: 'chat-1' as string | null,
     chatSkillsRevisionByChatUuid: {} as Record<string, number>
   },
-  appConfig: { skills: { folders: ['/team/skills'] } },
+  appConfig: { skills: { folders: ['/team/skills'] } } as { skills: { folders: string[]; disabledNames?: string[] } },
   list: vi.fn(),
   active: vi.fn(),
   open: vi.fn(),
   reveal: vi.fn(),
-  remove: vi.fn(),
+  refresh: vi.fn(),
+  select: vi.fn(),
   config: vi.fn()
 }))
 vi.mock('../skills/SkillService', () => ({ listAvailableSkills: mocks.list }))
@@ -37,11 +38,10 @@ vi.mock('@renderer/infrastructure/config/appConfig', () => ({
 }))
 vi.mock('@renderer/infrastructure/ipc', () => ({
   invokeOpenPath: mocks.open,
-  invokeDeleteSkill: mocks.remove,
   invokeRevealSkillInFolder: mocks.reveal,
-  invokeCheckIsDirectory: vi.fn(),
-  invokeImportSkills: vi.fn(),
-  invokeSelectDirectory: vi.fn()
+  invokeSkillScanResult: mocks.list,
+  invokeRefreshSkills: mocks.refresh,
+  invokeSelectDirectory: mocks.select
 }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
@@ -71,11 +71,14 @@ const click = async (label: string): Promise<void> => {
 }
 beforeEach(() => {
   vi.clearAllMocks()
+  mocks.appConfig = { skills: { folders: ['/team/skills'] } }
   mocks.chatState.currentChatId = 1
   mocks.chatState.currentChatUuid = 'chat-1'
   mocks.chatState.chatSkillsRevisionByChatUuid = {}
   mocks.active.mockReset()
-  mocks.list.mockResolvedValue(skills)
+  mocks.list.mockResolvedValue({ skills, issues: [] })
+  mocks.refresh.mockResolvedValue({ skills, issues: [] })
+  mocks.config.mockResolvedValue(undefined)
   mocks.active.mockResolvedValue(['code-review'])
   mocks.open.mockResolvedValue({ success: true })
   container = document.createElement('div')
@@ -96,7 +99,7 @@ it('keeps details collapsed, shows current-chat state, and filters hidden metada
   ).not.toBeNull()
   expect(container.querySelectorAll('details')).toHaveLength(1)
   const input = container.querySelector<HTMLInputElement>(
-    '[placeholder="Search installed skills"]'
+    '[placeholder="Search available skills"]'
   )!
   await act(async () => {
     Object.getOwnPropertyDescriptor(
@@ -178,17 +181,22 @@ it('opens folders separately from removing their configuration', async () => {
   expect(mocks.config).toHaveBeenCalledWith({ skills: { folders: [] } })
   expect(container.textContent).toContain('0 folders')
 })
-it('preserves built-in protection and delete confirmation on failure', async () => {
+it('never offers deletion of source skill files and displays scan notices', async () => {
+  mocks.list.mockResolvedValueOnce({ skills, issues: [{ path: '/team/other/pdf/SKILL.md', kind: 'shadowed', message: 'pdf is shadowed by /team/skills/pdf/SKILL.md' }] })
   await render()
-  const builtIn = button('Show guide in folder').closest('.group')!
-  expect(builtIn.querySelector('[aria-label="Remove skill"]')).toBeNull()
-  await click('Remove skill')
-  expect(mocks.remove).not.toHaveBeenCalled()
-  mocks.remove.mockRejectedValueOnce(new Error('Unavailable'))
-  await click('Yes')
-  expect(mocks.remove).toHaveBeenCalledWith('code-review')
-  expect(container.textContent).toContain('Review changes.')
-  expect(container.textContent).toContain('3 skills')
+  expect(container.querySelector('[aria-label="Remove skill"]')).toBeNull()
+  expect(container.textContent).toContain('1 source notices')
+  expect(container.textContent).toContain('pdf is shadowed')
+})
+
+it('refreshes sources without deleting unavailable configured folders', async () => {
+  await render()
+  mocks.refresh.mockResolvedValueOnce({ skills: [], issues: [{ path: '/team/skills', kind: 'unavailable', message: 'Directory unavailable' }] })
+  await click('Rescan skill folders')
+  expect(mocks.refresh).toHaveBeenCalledOnce()
+  expect(mocks.config).not.toHaveBeenCalled()
+  expect(container.textContent).toContain('Directory unavailable')
+  expect(container.textContent).toContain('1 folders')
 })
 
 it('reveals skill files quietly and reports failures', async () => {
@@ -203,4 +211,41 @@ it('reveals skill files quietly and reports failures', async () => {
   })
   await click('Show code-review in folder')
   expect(toast.error).toHaveBeenCalledWith('File unavailable')
+})
+
+it('saves per-skill context switches, preserving folders and other disabled names', async () => {
+  mocks.appConfig.skills.disabledNames = ['guide']
+  await render()
+  const control = button('Enable code-review')
+  expect(control.getAttribute('role')).toBe('switch')
+  expect(control.getAttribute('aria-checked')).toBe('true')
+  await click('Enable code-review')
+  expect(mocks.config).toHaveBeenCalledWith({ skills: { folders: ['/team/skills'], disabledNames: ['code-review', 'guide'] } })
+  expect(button('Enable code-review').getAttribute('aria-checked')).toBe('false')
+  expect(container.querySelector('[title="Active in the current chat"]')).toBeNull()
+  expect(container.textContent).toContain('Disabled')
+  expect(button('Show code-review in folder')).toBeDefined()
+  await click('Enable code-review')
+  expect(mocks.config).toHaveBeenLastCalledWith({ skills: { folders: ['/team/skills'], disabledNames: ['guide'] } })
+  expect(button('Enable code-review').getAttribute('aria-checked')).toBe('true')
+})
+
+it('retains availability on save failure and prevents concurrent toggle saves', async () => {
+  await render()
+  let rejectSave: (error: Error) => void = () => undefined
+  mocks.config.mockReturnValueOnce(new Promise<void>((_resolve, reject) => { rejectSave = reject }))
+  await click('Enable guide')
+  expect(button('Enable guide').disabled).toBe(true)
+  expect(button('Enable code-review').disabled).toBe(true)
+  expect(button('Enable code-review').classList.contains('disabled:opacity-100')).toBe(true)
+  expect(button('Enable guide').classList.contains('disabled:opacity-100')).toBe(false)
+  expect(button('Enable code-review').getAttribute('aria-checked')).toBe('true')
+  await click('Enable code-review')
+  expect(mocks.config).toHaveBeenCalledTimes(1)
+  expect(button('Rescan skill folders').disabled).toBe(true)
+  await act(async () => rejectSave(new Error('Storage unavailable')))
+  expect(button('Enable guide').getAttribute('aria-checked')).toBe('true')
+  expect(button('Enable guide').disabled).toBe(false)
+  expect(button('Enable code-review').classList.contains('disabled:opacity-100')).toBe(false)
+  expect(toast.error).toHaveBeenCalledWith('Storage unavailable')
 })

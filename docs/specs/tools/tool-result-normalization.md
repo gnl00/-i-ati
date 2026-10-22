@@ -1,6 +1,6 @@
 # Tool-result model content and recovery
 
-Updated: 2026-10-01<br>
+Updated: 2026-10-15<br>
 Decision: [ADR-0033](../../decisions/0033-stable-tool-result-model-content.md)<br>
 Implementation: [ToolResultNormalizer](../../../src/main/agent/runtime/tools/result-normalization/ToolResultNormalizer.ts)
 
@@ -62,3 +62,11 @@ failed or cancelled writes are removed, and completed files are not age-pruned.
 `web_search` returns discovery metadata only. It does not use the fetch
 materializer or create fetched-source artifacts; source bodies are read through
 explicit `web_fetch` calls.
+
+`web_fetch` business failures include shared `failure` metadata while preserving
+`success: false` and the readable `error`. ToolExecutor carries the processor
+failure even when outer execution status is `success`; the model view begins with
+`[tool_failure]`, code, source status, recovery action/advice, and optional
+termination. This reuses the normal failure projection and stable replay path;
+it introduces no retry or result-rewriting lifecycle. See
+[fetch recovery](../../guides/development/web-search-and-fetch.md#fetch-failure-and-recovery).

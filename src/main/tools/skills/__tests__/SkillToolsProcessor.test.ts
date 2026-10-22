@@ -69,7 +69,7 @@ describe('SkillToolsProcessor', () => {
     vi.mocked(SkillService.getSkillContent).mockResolvedValue(
       '---\nname: pdf-processing\ndescription: Handle PDFs.\n---\nUse PDF workflow.'
     )
-    vi.mocked(SkillService.resolveSkillRootPath).mockResolvedValue('/tmp/user-data/skills/amap')
+    vi.mocked(SkillService.resolveSkillRootPath).mockResolvedValue('/tmp/skill-source/amap')
   })
 
   it('fails when name is missing', async () => {
@@ -111,7 +111,7 @@ describe('SkillToolsProcessor', () => {
       contextInjected: true
     })
     expect(result.content).toContain('Use PDF workflow.')
-    expect(result.skill_root).toBe('/tmp/user-data/skills/amap')
+    expect(result.skill_root).toBe('/tmp/skill-source/amap')
     expect(DatabaseService.getSkills).toHaveBeenCalledWith(1)
     expect(DatabaseService.addSkill).toHaveBeenCalledWith(1, 'pdf-processing')
     expect(SkillService.getSkillContent).toHaveBeenCalledWith('pdf-processing')
@@ -131,7 +131,7 @@ describe('SkillToolsProcessor', () => {
       message: 'Skill already active. Use the returned SKILL.md instructions.'
     })
     expect(result.content).toContain('Use PDF workflow.')
-    expect(result.skill_root).toBe('/tmp/user-data/skills/amap')
+    expect(result.skill_root).toBe('/tmp/skill-source/amap')
     expect(DatabaseService.getSkills).toHaveBeenCalledWith(1)
     expect(DatabaseService.addSkill).toHaveBeenCalledTimes(0)
     expect(SkillService.getSkillContent).toHaveBeenCalledWith('pdf-processing')
@@ -162,9 +162,9 @@ describe('SkillToolsProcessor', () => {
 
     expect(result).toMatchObject({
       success: true,
-      skill_root: '/tmp/user-data/skills/amap',
+      skill_root: '/tmp/skill-source/amap',
       file_path: '.',
-      absolute_path: '/tmp/user-data/skills/amap',
+      absolute_path: '/tmp/skill-source/amap',
       total_entries: 3,
       truncated: false,
       entries: [
@@ -209,9 +209,9 @@ describe('SkillToolsProcessor', () => {
 
     expect(result).toMatchObject({
       success: true,
-      skill_root: '/tmp/user-data/skills/amap',
+      skill_root: '/tmp/skill-source/amap',
       file_path: 'references/examples.md',
-      absolute_path: '/tmp/user-data/skills/amap/references/examples.md',
+      absolute_path: '/tmp/skill-source/amap/references/examples.md',
       content: 'second\nthird',
       lines: 3
     })
@@ -285,7 +285,7 @@ describe('SkillToolsProcessor', () => {
     vi.mocked(fs.realpath).mockImplementation(async value => {
       const target = String(value)
       return target.endsWith('/references/current.md')
-        ? '/tmp/user-data/skills/amap/references/v2.md'
+        ? '/tmp/skill-source/amap/references/v2.md'
         : target
     })
     vi.mocked(fs.readFile).mockResolvedValue('internal content')
@@ -296,12 +296,12 @@ describe('SkillToolsProcessor', () => {
     })
 
     expect(fs.readFile).toHaveBeenCalledWith(
-      '/tmp/user-data/skills/amap/references/v2.md',
+      '/tmp/skill-source/amap/references/v2.md',
       'utf-8'
     )
     expect(result).toMatchObject({
       success: true,
-      absolute_path: '/tmp/user-data/skills/amap/references/current.md',
+      absolute_path: '/tmp/skill-source/amap/references/current.md',
       content: 'internal content'
     })
   })
@@ -327,8 +327,8 @@ describe('SkillToolsProcessor', () => {
         timeout: 10000,
         env: {
           AMAP_MAPS_API_KEY: 'key',
-          SKILL_ROOT: '/tmp/user-data/skills/amap',
-          SKILL_SCRIPT: '/tmp/user-data/skills/amap/scripts/amap.ts'
+          SKILL_ROOT: '/tmp/skill-source/amap',
+          SKILL_SCRIPT: '/tmp/skill-source/amap/scripts/amap.ts'
         },
         chat_uuid: 'chat-1',
         execution_reason: 'Run skill script amap/scripts/amap.ts',
@@ -340,8 +340,8 @@ describe('SkillToolsProcessor', () => {
     )
     expect(result).toMatchObject({
       success: true,
-      skill_root: '/tmp/user-data/skills/amap',
-      script_path: '/tmp/user-data/skills/amap/scripts/amap.ts',
+      skill_root: '/tmp/skill-source/amap',
+      script_path: '/tmp/skill-source/amap/scripts/amap.ts',
       stdout: 'ok'
     })
   })
@@ -402,8 +402,8 @@ describe('SkillToolsProcessor', () => {
     expect(processExecuteCommand).toHaveBeenCalledWith(expect.objectContaining({
       cwd: 'input',
       env: {
-        SKILL_SCRIPT: '/tmp/user-data/skills/amap/scripts/amap.ts',
-        SKILL_ROOT: '/tmp/user-data/skills/amap',
+        SKILL_SCRIPT: '/tmp/skill-source/amap/scripts/amap.ts',
+        SKILL_ROOT: '/tmp/skill-source/amap',
         CUSTOM: 'value'
       }
     }), undefined)
@@ -438,8 +438,8 @@ describe('SkillToolsProcessor', () => {
 
     expect(result).toMatchObject({
       success: false,
-      skill_root: '/tmp/user-data/skills/amap',
-      script_path: '/tmp/user-data/skills/amap/scripts/external.sh'
+      skill_root: '/tmp/skill-source/amap',
+      script_path: '/tmp/skill-source/amap/scripts/external.sh'
     })
     expect(result.error).toContain('symlink escapes skill directory')
     expect(processExecuteCommand).not.toHaveBeenCalled()
@@ -462,8 +462,8 @@ describe('SkillToolsProcessor', () => {
 
     expect(result).toMatchObject({
       success: false,
-      skill_root: '/tmp/user-data/skills/amap',
-      script_path: '/tmp/user-data/skills/amap/scripts/dangling.sh',
+      skill_root: '/tmp/skill-source/amap',
+      script_path: '/tmp/skill-source/amap/scripts/dangling.sh',
       error: 'Script symlink target cannot be resolved: scripts/dangling.sh'
     })
     expect(processExecuteCommand).not.toHaveBeenCalled()
@@ -474,7 +474,7 @@ describe('SkillToolsProcessor', () => {
     vi.mocked(fs.realpath).mockImplementation(async value => {
       const target = String(value)
       return target.endsWith('/scripts/current.sh')
-        ? '/tmp/user-data/skills/amap/scripts/v2.ts'
+        ? '/tmp/skill-source/amap/scripts/v2.ts'
         : target
     })
 
@@ -483,7 +483,7 @@ describe('SkillToolsProcessor', () => {
         name: 'amap',
         script: 'scripts/current.sh',
         command: 'bun "$SKILL_SCRIPT"',
-        cwd: '/tmp/user-data/skills/amap'
+        cwd: '/tmp/skill-source/amap'
       },
       { metadataConfirmationApproved: true }
     )
@@ -491,12 +491,12 @@ describe('SkillToolsProcessor', () => {
     expect(processExecuteCommand).toHaveBeenCalledWith(
       expect.objectContaining({
         command: 'bun "$SKILL_SCRIPT"',
-        cwd: '/tmp/user-data/skills/amap',
+        cwd: '/tmp/skill-source/amap',
         confirmed: true
       }),
       expect.objectContaining({ metadataConfirmationApproved: true })
     )
-    expect(result.script_path).toBe('/tmp/user-data/skills/amap/scripts/v2.ts')
+    expect(result.script_path).toBe('/tmp/skill-source/amap/scripts/v2.ts')
   })
 
   it('rejects directory script paths', async () => {
@@ -510,8 +510,8 @@ describe('SkillToolsProcessor', () => {
 
     expect(result).toMatchObject({
       success: false,
-      skill_root: '/tmp/user-data/skills/amap',
-      script_path: '/tmp/user-data/skills/amap/scripts',
+      skill_root: '/tmp/skill-source/amap',
+      script_path: '/tmp/skill-source/amap/scripts',
       error: 'Script path is a directory: scripts'
     })
     expect(processExecuteCommand).not.toHaveBeenCalled()

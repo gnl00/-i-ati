@@ -1,9 +1,11 @@
 # ADR-0020: Skill installation publication and recovery
 
-**Status:** Accepted<br>
+**Status:** Superseded by [ADR-0047](0047-source-folder-skills.md)<br>
 **Date:** 2026-09-03<br>
-**Related guide:** [Skill installation, recovery, and startup failure reporting](../guides/development/skill-install-recovery-implementation.md)<br>
+**Related guide:** [Skill installation, recovery, and startup failure reporting](../archive/2026-10-18-skill-install-recovery-implementation.md)<br>
 **Related integration:** [Skills](../integrations/skills.md)<br>
+
+Documentation mode: Historical
 
 ## Context
 

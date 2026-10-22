@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   parseFrontmatter,
   parseSkillMetadata,
-  resolveSkillNameForDirectory
+  resolveSkillName
 } from '../SkillParser'
 
 describe('SkillParser', () => {
@@ -101,7 +101,7 @@ describe('SkillParser', () => {
     )
   })
 
-  it('keeps already normalized directory names stable', () => {
-    expect(resolveSkillNameForDirectory('pdf-processing')).toBe('pdf-processing')
+  it('keeps canonical skill identifiers stable', () => {
+    expect(resolveSkillName('pdf-processing')).toBe('pdf-processing')
   })
 })

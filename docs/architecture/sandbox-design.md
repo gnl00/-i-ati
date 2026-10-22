@@ -135,7 +135,7 @@ pnpm run test:main-architecture
 
 ### Skill 文件与脚本安全边界
 
-`read_skill_file`、`run_skill_script` 和 `SkillCache` 通过共享的
+`read_skill_file`、`run_skill_script` 和 `SkillService` 通过共享的
 `SkillPathResolver` 访问已安装或内置 skill。resolver 接受 skill-relative 路径，
 执行 lexical containment、skill root `realpath`、目标 `lstat` 与目标 `realpath`，
 最终通过 `path.relative()` 验证 canonical target 位于 canonical skill root 内。

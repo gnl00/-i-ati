@@ -15,52 +15,52 @@ export const todoTools = [
     type: 'function',
     function: {
       name: 'todo',
-      description: 'Manage durable user-visible todo items. Set action to add, list, update, or delete; the processor validates action-specific fields.',
+      description: 'Manage durable user-visible todos; delete is a soft delete.',
       parameters: {
         type: 'object',
         properties: {
           action: {
             type: 'string',
             enum: ['add', 'list', 'update', 'delete'],
-            description: 'Operation to perform: add creates a todo, list retrieves todos, update changes a todo, and delete soft-deletes a todo.'
+            description: 'Todo operation.'
           },
           id: {
             type: 'string',
-            description: 'Todo id. Required for action=update and action=delete.'
+            description: 'Required for update/delete.'
           },
           title: {
             type: 'string',
-            description: 'Short todo title. Required for action=add; optional replacement title for action=update.'
+            description: 'Short title; required for add, replacement for update.'
           },
           notes: {
             type: ['string', 'null'],
-            description: 'Optional details for action=add, or updated notes for action=update. Use null to clear notes during update.'
+            description: 'Notes for add/update; null clears on update.'
           },
           status: {
             ...todoStatusSchema,
-            description: 'For action=list, filter by open, done, or all. For action=update, set open or done.'
+            description: 'list: filter open/done/all; update: set open/done.'
           },
           priority: {
             ...todoPrioritySchema,
-            description: 'Optional priority for action=add or action=list, or replacement priority for action=update. Use null to clear priority during update.'
+            description: 'add: priority; list: filter; update: replace or null to clear.'
           },
           tags: {
             type: 'array',
             items: { type: 'string' },
-            description: 'Optional tags for action=add, or replacement tag list for action=update.'
+            description: 'Tags for add; replacement list for update.'
           },
           scope: {
             type: 'string',
             enum: ['current_chat', 'all'],
-            description: 'For action=list, select current chat or all chats. Defaults to all.'
+            description: 'List scope; default all.'
           },
           tag: {
             type: 'string',
-            description: 'Optional tag filter for action=list.'
+            description: 'Tag filter for list.'
           },
           limit: {
             type: 'number',
-            description: 'Optional maximum todos to return for action=list. Defaults to 50, max 200.'
+            description: 'List limit; default 50, max 200.'
           }
         },
         required: ['action'],

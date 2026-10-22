@@ -1,75 +1,109 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import path from 'path'
 import os from 'os'
 import * as fs from 'fs/promises'
-import { extractArchive, fetchUrlToFile } from '../SkillCollector'
+import { scanSkillSources } from '../SkillCollector'
 
-const execFileMock = vi.hoisted(() =>
-  vi.fn((
-    _command: string,
-    _args: string[],
-    _options: unknown,
-    callback: (error: Error | null, stdout?: string) => void
-  ) => {
-    callback(null, '')
-  })
-)
+let root: string
+let embedded: string
+const skill = async (
+  directory: string,
+  name: string,
+  description = name
+): Promise<string> => {
+  await fs.mkdir(directory, { recursive: true })
+  const file = path.join(directory, 'SKILL.md')
+  await fs.writeFile(
+    file,
+    `---\nname: ${name}\ndescription: ${description}\n---\nOriginal instructions.\n`
+  )
+  return file
+}
 
-vi.mock('child_process', () => ({
-  execFile: execFileMock
-}))
+beforeEach(async () => {
+  root = await fs.mkdtemp(path.join(os.tmpdir(), 'skill-sources-'))
+  embedded = path.join(root, 'embedded')
+  await fs.mkdir(embedded)
+})
+afterEach(async () => {
+  await fs.rm(root, { recursive: true, force: true })
+})
 
-describe('SkillCollector', () => {
-  afterEach(() => {
-    vi.clearAllMocks()
-    vi.unstubAllGlobals()
-  })
-
-  it('applies a timeout to archive commands', async () => {
-    await extractArchive('/tmp/archive.tar', '/tmp/output', 'tar')
-
-    expect(execFileMock).toHaveBeenCalledTimes(2)
-    expect(execFileMock.mock.calls[0][2]).toMatchObject({
-      maxBuffer: 10 * 1024 * 1024,
-      timeout: 30_000
+describe('source skill discovery', () => {
+  it('reads nested sources in place with source order overriding embedded names', async () => {
+    const first = path.join(root, 'first')
+    const second = path.join(root, 'second')
+    const winner = await skill(
+      path.join(first, 'nested', 'directory-alias'),
+      'pdf',
+      'First source'
+    )
+    const other = await skill(path.join(second, 'pdf'), 'pdf', 'Second source')
+    await skill(path.join(embedded, 'pdf'), 'pdf', 'Embedded')
+    await skill(path.join(embedded, 'fallback'), 'fallback')
+    const before = await fs.readFile(winner, 'utf8')
+    const awaitOther = await fs.realpath(other)
+    const result = await scanSkillSources([first, second, first], embedded)
+    expect(result.skills.map(item => item.name)).toEqual(['fallback', 'pdf'])
+    expect(result.skills[1]).toMatchObject({
+      description: 'First source',
+      source: first,
+      path: await fs.realpath(winner)
     })
-    expect(execFileMock.mock.calls[1][2]).toMatchObject({
-      maxBuffer: 10 * 1024 * 1024,
-      timeout: 30_000
-    })
+    expect(result.issues.filter(item => item.kind === 'shadowed')).toHaveLength(
+      2
+    )
+    expect(result.issues.some(item => item.path === awaitOther)).toBe(true)
+    expect(await fs.readFile(winner, 'utf8')).toBe(before)
+    expect((await fs.readdir(root)).sort()).toEqual([
+      'embedded',
+      'first',
+      'second'
+    ])
   })
 
-  it('downloads URL content with an abort signal', async () => {
-    const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'skill-collector-test-'))
-    const destPath = path.join(tempDir, 'skill.zip')
-    let fetchInit: RequestInit | undefined
-    vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {
-      fetchInit = init
-      return {
-        ok: true,
-        arrayBuffer: async () => new Uint8Array([97, 98, 99]).buffer
-      } as Response
-    }))
+  it('deduplicates overlapping roots by real path and preserves healthy siblings', async () => {
+    const source = path.join(root, 'source')
+    const directory = path.join(source, 'pdf')
+    await skill(directory, 'pdf')
+    await fs.mkdir(path.join(source, 'invalid'))
+    await fs.writeFile(path.join(source, 'invalid', 'SKILL.md'), 'invalid')
+    const result = await scanSkillSources(
+      [path.join(root, 'missing'), source, directory],
+      embedded
+    )
+    expect(result.skills.map(item => item.name)).toEqual(['pdf'])
+    expect(result.issues.map(item => item.kind)).toEqual([
+      'unavailable',
+      'invalid'
+    ])
+  })
 
-    try {
-      await fetchUrlToFile('https://example.com/skill.zip', destPath)
+  it('limits traversal and excludes dependency/version-control directories', async () => {
+    await skill(path.join(root, 'source', '.git', 'hidden'), 'hidden')
+    await skill(
+      path.join(root, 'source', 'node_modules', 'dependency'),
+      'dependency'
+    )
+    await skill(path.join(root, 'source', ...Array(6).fill('deep')), 'too-deep')
+    const result = await scanSkillSources([path.join(root, 'source')], embedded)
+    expect(result.skills).toEqual([])
+  })
 
-      await expect(fs.readFile(destPath, 'utf-8')).resolves.toBe('abc')
-      expect(fetchInit?.signal).toBeInstanceOf(AbortSignal)
-    } finally {
-      await fs.rm(tempDir, { recursive: true, force: true })
+  it.skipIf(process.platform === 'win32')(
+    'accepts an explicitly configured symlink root and rejects escaping skill files',
+    async () => {
+      const source = path.join(root, 'source')
+      await skill(path.join(source, 'good'), 'good')
+      const outside = await skill(path.join(root, 'outside'), 'outside')
+      await fs.mkdir(path.join(source, 'escape'))
+      await fs.symlink(outside, path.join(source, 'escape', 'SKILL.md'))
+      const alias = path.join(root, 'alias')
+      await fs.symlink(source, alias)
+      const result = await scanSkillSources([alias, source], embedded)
+      expect(result.skills.map(item => item.name)).toEqual(['good'])
+      expect(result.issues).toHaveLength(1)
+      expect(result.issues[0].message).toContain('escapes skill directory')
     }
-  })
-
-  it('reports URL fetch timeouts clearly', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => {
-      const error = new Error('aborted')
-      error.name = 'AbortError'
-      throw error
-    }))
-
-    await expect(
-      fetchUrlToFile('https://example.com/slow.zip', '/tmp/slow.zip', 5)
-    ).rejects.toThrow('Fetch timed out after 5ms')
-  })
+  )
 })

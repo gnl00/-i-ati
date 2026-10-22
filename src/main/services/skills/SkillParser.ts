@@ -153,22 +153,14 @@ export const normalizeSkillName = (value: string): string => {
     .replace(/^-+|-+$/g, '')
 }
 
-export const trimToMaxLength = (value: string, max: number): string => {
-  if (value.length <= max) return value
-  return value.slice(0, max).replace(/-+$/g, '')
-}
-
-export const resolveSkillNameForDirectory = (frontmatterName: string): string => {
+export const resolveSkillName = (frontmatterName: string): string => {
   const normalized = normalizeSkillName(frontmatterName)
   return normalized || frontmatterName
 }
 
-export const buildSkillMetadata = (
-  frontmatter: SkillFrontmatter,
-  options?: { name?: string; frontmatterName?: string }
-): SkillMetadata => ({
-  name: options?.name ?? frontmatter.name,
-  frontmatterName: options?.frontmatterName ?? frontmatter.name,
+export const buildSkillMetadata = (frontmatter: SkillFrontmatter): SkillMetadata => ({
+  name: resolveSkillName(frontmatter.name),
+  frontmatterName: frontmatter.name,
   description: frontmatter.description,
   license: frontmatter.license,
   compatibility: frontmatter.compatibility,
@@ -177,12 +169,11 @@ export const buildSkillMetadata = (
 })
 
 export const parseSkillMetadata = (
-  content: string,
-  options?: { name?: string; frontmatterName?: string }
+  content: string
 ): ParsedSkillMetadata => {
   const parsed = parseFrontmatter(content)
   const rawName = parsed.frontmatter.name
-  const normalizedName = resolveSkillNameForDirectory(rawName)
+  const normalizedName = resolveSkillName(rawName)
   validateSkillName(normalizedName)
   validateSkillDescription(parsed.frontmatter.description)
   validateOptionalLength(parsed.frontmatter.compatibility, 500, 'Skill compatibility')
@@ -191,9 +182,6 @@ export const parseSkillMetadata = (
     parsed,
     rawName,
     normalizedName,
-    metadata: buildSkillMetadata(parsed.frontmatter, {
-      name: options?.name ?? normalizedName,
-      frontmatterName: options?.frontmatterName ?? rawName
-    })
+    metadata: buildSkillMetadata(parsed.frontmatter)
   }
 }

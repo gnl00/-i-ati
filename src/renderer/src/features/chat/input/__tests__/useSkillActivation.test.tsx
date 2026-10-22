@@ -8,6 +8,7 @@ import type { ChatStore } from '../../state/chatStore'
 
 const mocks = vi.hoisted(() => ({
   state: {} as ChatStore,
+  disabledNames: [] as string[],
   epoch: 0,
   pendingQuestions: [] as unknown[],
   invokeSkillList: vi.fn(),
@@ -20,6 +21,11 @@ const mocks = vi.hoisted(() => ({
   updateChat: vi.fn(),
   success: vi.fn(),
   error: vi.fn()
+}))
+
+vi.mock('@renderer/infrastructure/config/appConfig', () => ({
+  useAppConfigStore: (selector: (state: { appConfig: { skills: { disabledNames: string[] } } }) => unknown): unknown =>
+    selector({ appConfig: { skills: { disabledNames: mocks.disabledNames } } })
 }))
 
 vi.mock('../../state/chatStore', () => ({
@@ -89,6 +95,7 @@ describe('useSkillActivation', () => {
   beforeEach(() => {
     ;(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
     vi.clearAllMocks()
+    mocks.disabledNames = []
     mocks.epoch = 0
     mocks.pendingQuestions = []
     mocks.invokeSkillList.mockReset().mockResolvedValue([{ name: 'pdf', description: 'Work with PDFs' }])
@@ -616,5 +623,24 @@ describe('useSkillActivation', () => {
     expect(await pending).toBe(true)
     expect(snapshot.activeSkills).toEqual([])
     expect(mocks.success).toHaveBeenCalledWith('Skill deactivated: pdf')
+  })
+
+  it('hides disabled choices and selected chips, refreshing the catalog when re-enabled', async () => {
+    mocks.state.currentChatId = 1
+    mocks.state.currentChatUuid = 'chat-a'
+    mocks.getChatSkills.mockResolvedValue(['pdf'])
+    await render()
+    expect(snapshot.skills.map(skill => skill.name)).toEqual(['pdf'])
+    expect(snapshot.activeSkills).toEqual(['pdf'])
+    mocks.disabledNames = ['pdf']
+    mocks.invokeSkillList.mockResolvedValue([])
+    await render()
+    expect(snapshot.skills).toEqual([])
+    expect(snapshot.activeSkills).toEqual([])
+    mocks.disabledNames = []
+    mocks.invokeSkillList.mockResolvedValue([{ name: 'pdf', description: 'Work with PDFs' }])
+    await render()
+    expect(snapshot.skills.map(skill => skill.name)).toEqual(['pdf'])
+    expect(snapshot.activeSkills).toEqual(['pdf'])
   })
 })

@@ -27,7 +27,7 @@ Use sequential names such as `0001-chat-runtime-host-boundary.md`.
 - [0017: Emotion stimulus scoring and VAD state projection](0017-emotion-stimulus-scoring.md) - Accepted
 - [0018: Electron CLI Host boundary](0018-electron-cli-host-boundary.md) - Accepted
 - [0019: Workspace tool failure contract](0019-workspace-tool-failure-contract.md) - Accepted
-- [0020: Skill installation publication and recovery](0020-skill-install-recovery.md) - Accepted
+- [0020: Skill installation publication and recovery](0020-skill-install-recovery.md) - Superseded by 0047
 - [0021: Fresh execution chats for scheduled attempts](0021-scheduled-fresh-execution-chats.md) - Accepted
 - [0022: Interactive terminal host](0022-interactive-terminal-host.md) - Accepted
 - [0023: Assistant work completion presentation](0023-assistant-work-completion-presentation.md) - Accepted
@@ -72,5 +72,9 @@ Use sequential names such as `0001-chat-runtime-host-boundary.md`.
 - [0045: On-demand skill instructions and workspace script commands](0045-on-demand-skill-content-and-workspace-commands.md) - Accepted
 
 - [0046: Conditional tool availability](0046-conditional-tool-availability.md) - Accepted
+
+- [0047: Direct source-folder skills](0047-source-folder-skills.md) - Accepted
+
+- [0048: Bounded awake activity context](0048-bounded-awake-activity-context.md) - Accepted
 
 - [0049: Persist request context snapshots for Chat replay](0049-persisted-request-context-snapshots.md) - Accepted

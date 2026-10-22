@@ -5,7 +5,7 @@ export const historyTools = [
     type: 'function',
     function: {
       name: 'history_search',
-      description: 'Search recent chat history from the last 3 days by default, up to 30 days when requested. Supports title and message matching, and returns compact message windows for model context. For multiple synonyms or languages, always pass query as an array, for example ["呼和浩特", "Hohhot", "呼市"].',
+      description: 'Search recent chat titles/messages and return compact windows. For synonyms or multiple languages pass query as an array.',
       parameters: {
         type: 'object',
         properties: {
@@ -13,11 +13,11 @@ export const historyTools = [
             type: 'array',
             items: { type: 'string' },
             minItems: 1,
-            description: 'Optional keyword list to search against recent chat titles and message content. Use one array item per independent keyword. When omitted, returns the most recent history windows.'
+            description: 'One independent keyword per item; omitted returns latest windows.'
           },
           limit: {
             type: 'number',
-            description: 'Maximum number of history windows to return. Required. Recommended range: 1-8, max 10.'
+            description: 'Window limit; recommended 1-8, max 10.'
           },
           scope: {
             type: 'string',
