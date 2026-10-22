@@ -86,7 +86,26 @@ ToolExecutor、命令处理器和审批 manager。真实 SQLite 验证重新打�
 父引用释放后的审批、审批中取消、持续 child 的增量历史、新 run、重复任务 ID 与旧 run 查询。
 生产状态卡在 Electron renderer fixture 中检查 Light/Dark、1050/650 逻辑像素宽度并截图。
 
-真实 provider 网络取消、完整 Chat 中物理输入点击 Stop、长时间多轮/配额延迟、
+阶段提交后的 dev Chat 使用已配置的真实 provider 完成以下操作：
+
+- 委派命令输出启动标记后，在完整 Chat 中通过 UI 自动化点击 Stop；child 最终
+  Cancelled，命令 SIGTERM，部分 stdout 与日志引用保留，未输出结束标记。
+- 同一个 child 显式 followup 生成新 run，仅依据恢复的历史回答，未重跑命令。
+  父模型重复提交相同 message_id 时复用既有 run，最终只有两个 run、一次命令。
+- 单步 inspect 正常最终回复；实际结果卡分别显示旧 run Cancelled、新 run Completed。
+- 刷新 renderer 后，从聊天列表重新打开本轮 Chat，消息与工具记录恢复。
+- 父回复正常结束后，后台 child 的待审批卡仍可操作；点击 Execute 后命令只执行
+  一次，输出指定标记，child 正常 Completed。
+- 另一 child 等待审批时点击 Chat Stop，审批卡立即撤销，child Cancelled；
+  命令未启动，没有新增命令日志或待执行标记。
+
+多步骤父模型汇总出现重复 followup/wait/inspect，20 次工具调用后人工停止；
+此项不计为自动完成通过，幂等收据防止了 worker 重复执行。单步查询随后正常结束。
+待审批 UI 曾被 Mac 锁屏阻挡，用户解锁后已完成。验收使用的审批与输出设置已恢复
+原值 Auto/Clean output，主题保持 System。dev 应用保留运行，测试会话与证据保留。
+
+真实 provider 网络中途取消、人工物理输入、长时间多轮/配额延迟、
 跨进程 PID 重用和原生 Windows 仍未验收。局部同步日志写入延迟不作为已经测量
-的性能收益。没有执行付费模型对照任务，不声称 token、费用、缓存率或完成率改善。
+的性能收益。本轮真实模型仅执行功能验收，没有执行模型收益对照任务，
+不声称 token、费用、缓存率或完成率改善。
 当前工具披露和团队模式的默认策略保持原样。
