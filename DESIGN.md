@@ -210,6 +210,8 @@ Light 使用 `#f0f2f4` 底色和 `#343a41` 文字，Dark 使用 `#2e3135` 底色
 
 ### 4.6 卡片、列表与 disclosure
 
+- 简洁输出模式的终止状态使用透明背景单行提示，与正文左边缘对齐，上方间隔 8px；采用 12px 字号、18px 行高、12px 静态图标和 8px 图文间距。停止显示 `Response stopped`，失败显示 `Response failed`，不完整显示 `Incomplete response`；文字使用 Chat secondary token，停止与失败图标使用低饱和 rose（Dark 对应提亮）。空回复仅保留该状态，有正文时置于正文末尾；停止状态下 Copy 和分支按钮保持可见但 disabled，分支操作文案统一为 `New branch from here`；操作提示复用 Portal Tooltip，自动避让窗口边缘（8px），最大宽度 240px 并允许换行；具体错误直接展示，省略重复终止标签和 `No response generated`。
+
 - 常规卡片使用 12px 圆角，紧凑控件和 disclosure 使用 8px 至 10px 圆角。
 - 助手消息操作行的 token usage 位于右侧时间戳前，使用 12px 用量图标与 11px 系统字体数值，图标与数值间隔 4px；背景透明，无 badge padding、边框或圆角。操作图标、用量图标与数值、时间戳统一使用 Chat muted text token，用量图标不单独降低 opacity；按钮 hover 使用 Chat secondary text 与 hover surface，禁用按钮沿用同色并降至 50% opacity；usage 与时间戳之间使用 1×10px standard border token 竖线，竖线两侧各间隔 12px，仅两项同时存在时显示。详细用量保留在 tooltip 中。usage 与时间戳同组靠右，窄窗口时整组可换行靠右，整行沿用消息 hover 显示规则。
 - 长用户消息使用 140px 折叠预览，实际内容超过 164px 时显示折叠操作。仅预览末尾 32px 渐隐，不叠加模糊；左下角使用 11px 次级文字与小箭头的 `Show more` / `Show less`，按钮左边缘与正文左边缘对齐，默认透明，hover 显示轻背景，保留 28px 点击高度。展开与收起即时切换，展开正文随内容自然增长；收起时若消息顶部已被视口或顶部 overlay 遮住，通过 MessageScroller 将该消息顶部恢复到可读位置。

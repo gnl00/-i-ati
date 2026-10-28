@@ -4,6 +4,7 @@ import {
   type CopyActionHandler
 } from '@renderer/shared/hooks/useCopyFeedback'
 import { cn } from '@renderer/shared/lib/utils'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@renderer/shared/components/ui/tooltip'
 import { ChartNoAxesColumn, Split } from 'lucide-react'
 import React, { useState } from 'react'
 import { toast } from 'sonner'
@@ -37,6 +38,7 @@ export interface MessageOperationButtonsProps {
   onBranchClick?: () => void
   showRegenerate?: boolean
   showBranch?: boolean
+  isStopped?: boolean
 }
 
 const operationMetaTextClassName = 'min-w-0 truncate text-[11px] font-medium leading-none text-(--chat-text-muted) tabular-nums'
@@ -69,58 +71,55 @@ const OperationButton: React.FC<OperationButtonProps> = ({
   variant = 'default',
   disabled = false
 }) => {
-  const [showTooltip, setShowTooltip] = useState(false)
   const isCompact = variant === 'compact'
 
   return (
-    <div className="relative group">
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={disabled}
-        onMouseEnter={isCompact || disabled ? undefined : (): void => setShowTooltip(true)}
-        onMouseLeave={isCompact || disabled ? undefined : (): void => setShowTooltip(false)}
-        className={cn(
-          'flex items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2',
-          operationButtonMotionClassName,
-          'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:active:scale-100 dark:disabled:hover:bg-transparent',
-          isCompact
-            ? [
-              'h-6 w-6 text-(--chat-text-muted)',
-              'hover:bg-(--chat-surface-hover) hover:text-(--chat-text-secondary)',
-              'focus-visible:ring-zinc-400/40 dark:focus-visible:ring-zinc-500/60'
-            ]
-            : [
-              'h-7 w-7 text-(--chat-text-muted)',
-              'hover:bg-(--chat-surface-hover) hover:text-(--chat-text-secondary)',
-              'focus-visible:ring-blue-500/30',
-              'backdrop-blur-sm'
-            ]
-        )}
-        aria-label={label}
-        title={isCompact ? label : undefined}
-      >
-        {icon}
-      </button>
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={onClick}
+            disabled={disabled}
+            className={cn(
+              'flex items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2',
+              operationButtonMotionClassName,
+              'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:active:scale-100 dark:disabled:hover:bg-transparent',
+              isCompact
+                ? [
+                  'h-6 w-6 text-(--chat-text-muted)',
+                  'hover:bg-(--chat-surface-hover) hover:text-(--chat-text-secondary)',
+                  'focus-visible:ring-zinc-400/40 dark:focus-visible:ring-zinc-500/60'
+                ]
+                : [
+                  'h-7 w-7 text-(--chat-text-muted)',
+                  'hover:bg-(--chat-surface-hover) hover:text-(--chat-text-secondary)',
+                  'focus-visible:ring-blue-500/30',
+                  'backdrop-blur-sm'
+                ]
+            )}
+            aria-label={label}
+            title={isCompact ? label : undefined}
+          >
+            {icon}
+          </button>
 
-      {!isCompact && (
-        <div
-          role="tooltip"
-          className={cn(
-            'absolute bottom-full left-1/2 -translate-x-1/2 mb-2',
-            'px-2 py-1 rounded text-xs font-medium whitespace-nowrap',
-            operationTooltipSurfaceClassName,
-            'pointer-events-none transition-[opacity,transform] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none',
-            showTooltip
-              ? 'opacity-100 translate-y-0'
-              : 'opacity-0 translate-y-1'
-          )}
-        >
-          {label}
-          <div className={operationTooltipArrowClassName} />
-        </div>
-      )}
-    </div>
+        </TooltipTrigger>
+        {!isCompact && !disabled && (
+          <TooltipContent
+            side="top"
+            sideOffset={8}
+            collisionPadding={8}
+            className={cn(
+              'max-w-[min(240px,calc(100vw-16px))] whitespace-normal wrap-break-word px-2 py-1 text-xs font-medium',
+              operationTooltipSurfaceClassName
+            )}
+          >
+            {label}
+          </TooltipContent>
+        )}
+      </Tooltip>
+    </TooltipProvider>
   )
 }
 
@@ -129,13 +128,15 @@ export interface CopyButtonProps {
   label?: string
   variant?: 'default' | 'compact'
   feedbackKey?: unknown
+  disabled?: boolean
 }
 
 export const CopyButton: React.FC<CopyButtonProps> = ({
   onClick,
   label = 'Copy',
   variant = 'default',
-  feedbackKey
+  feedbackKey,
+  disabled = false
 }) => {
   const { copied, successCount, triggerCopy } = useCopyFeedback(onClick, {
     resetKey: feedbackKey,
@@ -173,6 +174,7 @@ export const CopyButton: React.FC<CopyButtonProps> = ({
         onClick={(): void => {
           void triggerCopy()
         }}
+        disabled={disabled}
         label={currentLabel}
         variant={variant}
       />
@@ -242,7 +244,8 @@ export const MessageOperations: React.FC<MessageOperationButtonsProps> = ({
   onRegenerateClick,
   onBranchClick,
   showRegenerate = false,
-  showBranch = false
+  showBranch = false,
+  isStopped = false
 }) => {
   const isUser = type === 'user'
   const assistantDateLabel = !isUser && typeof message?.createdAt === 'number'
@@ -256,7 +259,7 @@ export const MessageOperations: React.FC<MessageOperationButtonsProps> = ({
   )
   const actionControls = (
     <>
-      <CopyButton onClick={onCopyClick} />
+      <CopyButton onClick={onCopyClick} disabled={!isUser && isStopped} />
 
       {!isUser && showRegenerate && onRegenerateClick && (
         <OperationButton
@@ -270,7 +273,8 @@ export const MessageOperations: React.FC<MessageOperationButtonsProps> = ({
         <OperationButton
           icon={<Split className="h-3.5 w-3.5" />}
           onClick={onBranchClick}
-          label="Branch chat"
+          label="New branch from here"
+          disabled={isStopped}
         />
       )}
 

@@ -73,11 +73,6 @@ describe('MessageOperations', () => {
       button?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
-    const tooltip = container.querySelector('[role="tooltip"]')
-    expect(tooltip?.className).toContain('dark:bg-(--app-surface-raised)')
-    expect(tooltip?.className).toContain('dark:border-(--app-border-standard)')
-    expect(tooltip?.className).toContain('dark:text-(--app-text-primary)')
-    expect(tooltip?.firstElementChild?.className).toContain('dark:border-t-(--app-surface-raised)')
     expect(onClick).toHaveBeenCalledOnce()
     expect(button?.getAttribute('aria-label')).toBe('Copy result')
     expect(container.querySelector('[role="status"]')?.textContent).toBe('')
@@ -88,7 +83,6 @@ describe('MessageOperations', () => {
     })
 
     expect(button?.getAttribute('aria-label')).toBe('Copied')
-    expect(tooltip?.textContent).toContain('Copied')
     expect(container.querySelector('[role="status"]')?.textContent).toBe('Copied')
     expect(container.querySelector('[data-testid="copy-icon"]')?.getAttribute('class')).toContain('opacity-0')
     expect(container.querySelector('[data-testid="copy-success-icon"]')?.getAttribute('class')).toContain('opacity-100')
@@ -374,9 +368,9 @@ describe('MessageOperations', () => {
 
     const actionsGroup = container.querySelector('[data-testid="assistant-message-actions"]')
     const metaGroup = container.querySelector('[data-testid="assistant-message-meta"]')
-    expect(actionsGroup?.textContent).toContain('Copy')
-    expect(actionsGroup?.textContent).toContain('Regenerate')
-    expect(actionsGroup?.textContent).toContain('Edit')
+    expect(actionsGroup?.querySelector('[aria-label="Copy"]')).not.toBeNull()
+    expect(actionsGroup?.querySelector('[aria-label="Regenerate"]')).not.toBeNull()
+    expect(actionsGroup?.querySelector('[aria-label="Edit"]')).not.toBeNull()
     expect(actionsGroup?.textContent).not.toContain('165.2k')
     expect(metaGroup?.textContent).toContain('165.2k')
     const pad = (value: number): string => String(value).padStart(2, '0')
@@ -411,7 +405,7 @@ describe('MessageOperations', () => {
       )
     })
 
-    const branchButton = container.querySelector<HTMLButtonElement>('[aria-label="Branch chat"]')
+    const branchButton = container.querySelector<HTMLButtonElement>('[aria-label="New branch from here"]')
     expect(branchButton).not.toBeNull()
 
     act(() => {
@@ -419,6 +413,49 @@ describe('MessageOperations', () => {
     })
 
     expect(onBranchClick).toHaveBeenCalledOnce()
+  })
+
+  it('disables copy and branching for stopped replies, then enables them when completed', () => {
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+    const onCopyClick = vi.fn()
+    const onBranchClick = vi.fn()
+    const render = (isStopped: boolean): void => {
+      act(() => root?.render(<MessageOperations
+        type="assistant" message={{ createdAt: 1 }} isHovered showBranch
+        isStopped={isStopped} onCopyClick={onCopyClick} onBranchClick={onBranchClick}
+      />))
+    }
+    render(true)
+    const copy = container.querySelector<HTMLButtonElement>('[aria-label="Copy"]')!
+    const branch = container.querySelector<HTMLButtonElement>('[aria-label="New branch from here"]')!
+    expect(copy.disabled).toBe(true)
+    expect(branch.disabled).toBe(true)
+    act(() => { copy.click(); branch.click() })
+    expect(onCopyClick).not.toHaveBeenCalled()
+    expect(onBranchClick).not.toHaveBeenCalled()
+    render(false)
+    expect(copy.disabled).toBe(false)
+    expect(branch.disabled).toBe(false)
+  })
+
+  it('opens the full branch tooltip in a portal on keyboard focus', async () => {
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+    await act(async () => root?.render(<MessageOperations
+      type="assistant" message={{ createdAt: 1 }} isHovered showBranch
+      onCopyClick={vi.fn()} onBranchClick={vi.fn()}
+    />))
+    const button = container.querySelector<HTMLButtonElement>('[aria-label="New branch from here"]')!
+    await act(async () => button.focus())
+    const tooltip = document.body.querySelector('[role="tooltip"]')
+    expect(tooltip?.textContent).toBe('New branch from here')
+    expect(container.contains(tooltip)).toBe(false)
+    const surface = tooltip?.parentElement
+    expect(surface?.className).toContain('whitespace-normal')
+    expect(surface?.className).toContain('dark:bg-(--app-surface-raised)')
   })
 
   it('keeps edit disabled while the operation is unavailable', () => {

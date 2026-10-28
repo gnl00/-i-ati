@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { buildAssistantMessageLayoutModels } from '../model/assistantMessageLayoutModels'
+import { buildAssistantMessageFooterModel, buildAssistantMessageLayoutModels } from '../model/assistantMessageLayoutModels'
 
 describe('buildAssistantMessageLayoutModels', () => {
   it('projects shell, header, body, and footer models from pure inputs', () => {
@@ -74,6 +74,7 @@ describe('buildAssistantMessageLayoutModels', () => {
     })
     expect(models.body.transcript.isOverlayPreview).toBe(true)
     expect(models.footer).toEqual({
+      isStopped: false,
       messageMeta: undefined,
       tokenUsageDisplay: {
         compactLabel: '165.2k',
@@ -95,6 +96,17 @@ describe('buildAssistantMessageLayoutModels', () => {
       onBranchClick,
       onEditClick
     })
+  })
+
+  it.each(['aborted', 'completed', 'failed', 'incomplete'] as const)('projects operation availability for %s', workStatus => {
+    const footer = buildAssistantMessageFooterModel({
+      committedMessage: { role: 'assistant', content: 'Partial answer', segments: [], workStatus },
+      isHovered: true,
+      footerState: { showOperations: true, showRegenerate: false, showBranch: true },
+      onCopyClick: vi.fn(), onRegenerateClick: vi.fn(), onBranchClick: vi.fn(), onEditClick: vi.fn()
+    })
+    expect(footer.isStopped).toBe(workStatus === 'aborted')
+    expect(footer.showBranch).toBe(true)
   })
 
   it('carries the history presentation mode through shell and body models', () => {

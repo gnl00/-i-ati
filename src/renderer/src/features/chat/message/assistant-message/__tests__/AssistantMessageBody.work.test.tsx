@@ -74,7 +74,19 @@ describe('whole-turn work presentation', () => {
   it.each(['failed', 'aborted', 'incomplete'] as const)('reveals partial text after %s in clean output', async status => {
     await render(status, 'completed', false, false, true, true)
     expect(container.querySelector('[data-testid="answer"]')?.textContent).toContain('Result')
-    expect(container.textContent).toContain(status === 'aborted' ? 'Stopped' : status === 'failed' ? 'Failed' : 'Incomplete response')
+    expect(container.textContent).toContain(status === 'aborted' ? 'Response stopped' : status === 'failed' ? 'Response failed' : 'Incomplete response')
+  })
+
+  it('shows the specific error without a redundant terminal status', async () => {
+    await render('failed', 'completed', true, false, true, true)
+    expect(container.textContent).toContain('Failed')
+    expect(container.textContent).not.toContain('Response failed')
+    expect(container.textContent).not.toContain('No response generated')
+  })
+
+  it('places the stopped status after partial output', async () => {
+    await render('aborted', 'completed', false, false, true, true)
+    expect(container.textContent).toMatch(/Result.*Response stopped/)
   })
 
   it('keeps all text outside one stable work group through completion', async () => {

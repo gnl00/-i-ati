@@ -335,6 +335,7 @@ const AssistantMessageContainerComponent: React.FC<AssistantMessageProps> = memo
     onEditClick: handleEdit
   }), [
     displayCommittedMessage.createdAt,
+    displayCommittedMessage.workStatus,
     tokenUsage,
     isHovered,
     footerState,

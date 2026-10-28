@@ -279,9 +279,24 @@ beforeEach(() => {
     />))
     expect(container.textContent).toBe('')
     await act(async () => useAppConfigStore.setState({ appConfig: { cleanOutput: true } }))
-    expect(container.textContent).toContain('No response generated')
+    expect(container.textContent).toContain('Incomplete response')
+    expect(container.textContent).not.toContain('No response generated')
     await act(async () => useAppConfigStore.setState({ appConfig: { cleanOutput: false } }))
     expect(container.textContent).toBe('')
+  })
+
+  it.each(['aborted', 'failed', 'incomplete'] as const)('renders a single empty %s status in clean history', async workStatus => {
+    useChatStore.setState({ runPhase: 'idle' })
+    useAppConfigStore.setState({ appConfig: { cleanOutput: true } })
+    await act(async () => root.render(<AssistantMessage
+      index={0} committedMessage={{ ...createAssistantMessage([], ''), workStatus }} isLatest={false} isHovered={false}
+      onHover={() => {}} onCopyClick={() => {}}
+    />))
+    expect(container.querySelectorAll('[role="status"]')).toHaveLength(1)
+    expect(container.querySelector('[role="status"]')?.textContent).toBe(
+      workStatus === 'aborted' ? 'Response stopped' : workStatus === 'failed' ? 'Response failed' : 'Incomplete response'
+    )
+    expect(container.textContent).not.toContain('No response generated')
   })
 
   it('scopes approval status to the current conversation while keeping the answer buffered', async () => {

@@ -9,6 +9,7 @@ export interface AssistantMessageFooterActionsModel {
   showOperations: boolean
   showRegenerate: boolean
   showBranch: boolean
+  isStopped?: boolean
   onCopyClick: CopyActionHandler
   onRegenerateClick: () => void
   onBranchClick: () => void
@@ -21,7 +22,7 @@ export interface AssistantMessageFooterActionsProps {
 
 export const AssistantMessageFooterActions: React.FC<AssistantMessageFooterActionsProps> = memo(({
   model
-}) => {
+}: AssistantMessageFooterActionsProps) => {
   const {
     messageMeta,
     tokenUsageDisplay,
@@ -47,6 +48,7 @@ export const AssistantMessageFooterActions: React.FC<AssistantMessageFooterActio
       isHovered={isHovered}
       showRegenerate={showRegenerate}
       showBranch={showBranch}
+      isStopped={model.isStopped}
       onCopyClick={onCopyClick}
       onRegenerateClick={onRegenerateClick}
       onBranchClick={onBranchClick}
@@ -54,3 +56,5 @@ export const AssistantMessageFooterActions: React.FC<AssistantMessageFooterActio
     />
   )
 })
+
+AssistantMessageFooterActions.displayName = 'AssistantMessageFooterActions'

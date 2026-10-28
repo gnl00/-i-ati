@@ -2,6 +2,7 @@ import { parseImageShowResult, isImageDisplayTool } from '@shared/tools/image/ty
 import { ImageShowResult } from './image/ImageShowResult'
 import React, { memo, useRef } from 'react'
 import { useReducedMotion } from 'framer-motion'
+import { Ban, CircleAlert, CircleDashed } from 'lucide-react'
 import { AssistantTextSegmentList } from './renderers/AssistantTextSegmentList'
 import { AssistantCompletedWorkGroup } from './renderers/AssistantCompletedWorkGroup'
 import { AssistantSupportSegmentList } from './renderers/AssistantSupportSegmentList'
@@ -64,13 +65,10 @@ export const AssistantMessageBody: React.FC<AssistantMessageBodyProps> = memo(({
     const content = projectCleanOutputContent(transcript)
     const revealCompleted = observedCleanRun.current && status === 'completed'
       && isLatest && model.animateOnMount !== false && !reducedMotion
+    const StatusIcon = status === 'aborted' ? Ban : status === 'failed' ? CircleAlert : CircleDashed
+    const showStatus = !hasError && (['failed', 'aborted', 'incomplete'].includes(status) || !content.hasVisibleContent)
     return (
       <div className="flex min-w-0 flex-col" data-testid="clean-output-content">
-        {['failed', 'aborted', 'incomplete'].includes(status) && (
-          <p className="px-2 text-xs text-(--chat-text-secondary)">
-            {status === 'failed' ? 'Failed' : status === 'aborted' ? 'Stopped' : 'Incomplete response'}
-          </p>
-        )}
         <CleanOutputReveal reveal={revealCompleted}>
           <AssistantTextSegmentList
             index={index}
@@ -86,8 +84,14 @@ export const AssistantMessageBody: React.FC<AssistantMessageBodyProps> = memo(({
         </CleanOutputReveal>
         {content.errorItems.map(item => item.segment.type === 'error'
           ? <ErrorMessage key={item.key} error={item.segment.error} /> : null)}
-        {!content.hasVisibleContent && (
-          <p className="px-2 text-sm text-(--chat-text-secondary)">No response generated</p>
+        {showStatus && (
+          <p className="mt-2 flex items-center gap-2 px-2 text-xs leading-[18px] text-(--chat-text-secondary)" role="status">
+            <StatusIcon
+              aria-hidden="true"
+              className={`h-3 w-3 shrink-0 ${status === 'aborted' || status === 'failed' ? 'text-rose-400 dark:text-rose-300/80' : ''}`}
+            />
+            <span>{status === 'aborted' ? 'Response stopped' : status === 'failed' ? 'Response failed' : 'Incomplete response'}</span>
+          </p>
         )}
       </div>
     )

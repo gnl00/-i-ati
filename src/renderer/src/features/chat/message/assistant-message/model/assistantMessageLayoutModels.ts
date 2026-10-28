@@ -98,6 +98,7 @@ export function buildAssistantMessageFooterModel(
     showOperations: input.footerState.showOperations,
     showRegenerate: input.footerState.showRegenerate,
     showBranch: input.footerState.showBranch,
+    isStopped: input.committedMessage.workStatus === 'aborted',
     onCopyClick: input.onCopyClick,
     onRegenerateClick: input.onRegenerateClick,
     onBranchClick: input.onBranchClick,
