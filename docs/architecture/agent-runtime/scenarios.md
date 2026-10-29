@@ -25,3 +25,10 @@ provider 或工具失败沿现有事件路径通知 Host，已稳定的事实仍
 batch 缺少结果时不补造结果，不发 continuation。终态调用 context.snapshot()，
 AgentLoopResult.transcript 作为 Host / CLI 的完整证据产物。
 最大步骤数和 wall-clock limit 保持 LoopExecutionConfig 的现有语义。
+
+## 技能上下文刷新
+
+Loop 将完整工具结果批次交给现有技能上下文 provider。Chat provider 判断成功的
+load_skill/unload_skill 后才读取技能状态；无关、失败和拒绝调用不读取。返回记录
+保留 skills_context 来源，参与最新动态上下文选择。null 结果保持原有无追加语义。
+核心循环不识别具体工具名称，也不直接访问技能服务或数据库。

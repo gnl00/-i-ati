@@ -89,3 +89,14 @@ input and obsolete documentation paths. ToolBatchAssembler and approval policies
 remain intact. Runtime/tool suites, Node typecheck, main boundaries, main architecture
 and active doc paths passed; scoped lint retains only pre-existing return-type
 errors in AgentLoop. This is a maintenance reduction, not a latency claim.
+
+### Stage 6 — complete
+
+Moved skill tool-name/status matching into the Chat skill provider; loop passes
+results and appends the returned record. Provider reads skill state only once per
+successful skill-changing batch. Preserved the source metadata previously lost by
+the runtime adapter, so hidden context retains its ownership semantics. Null-context
+fallback remains unchanged. Runtime, provider and main-run integration suites:
+35 passed. Node typecheck, main boundary/architecture/doc paths passed. Scoped lint
+has no new errors, including the new provider tests. Full coverage/build and
+isolated Electron acceptance are running as final cross-stage verification.

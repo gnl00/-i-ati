@@ -15,6 +15,12 @@ export class ChatLoadedSkillsTranscriptContextProvider implements RuntimeLoadedS
   async build(
     input: LoadedSkillsTranscriptContextProviderInput
   ): Promise<ContextUserRecord | null> {
+    const changed = input.results.some((result) =>
+      result.status === 'success' &&
+      (result.toolName === 'load_skill' || result.toolName === 'unload_skill')
+    )
+    if (!changed) return null
+
     const message = await this.loadedSkillsContextProvider.build(this.chatId)
     if (!message || typeof message.content !== 'string') {
       return null
@@ -24,6 +30,7 @@ export class ChatLoadedSkillsTranscriptContextProvider implements RuntimeLoadedS
       recordId: input.recordId,
       kind: 'user',
       timestamp: input.timestamp,
+      source: message.source,
       content: [
         {
           type: 'input_text',

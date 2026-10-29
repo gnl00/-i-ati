@@ -611,17 +611,8 @@ export class DefaultAgentLoop implements AgentLoop {
       return []
     }
 
-    const shouldRefreshSkillsContext = results.some(
-      (result) =>
-        (result.toolName === 'load_skill' || result.toolName === 'unload_skill') &&
-        result.status === 'success'
-    )
-
-    if (!shouldRefreshSkillsContext) {
-      return []
-    }
-
     const record = await dependencies.loadedSkillsTranscriptContextProvider.build({
+      results,
       recordId: dependencies.loopIdentityProvider.nextTranscriptRecordId(),
       timestamp: dependencies.runtimeClock.now()
     })
