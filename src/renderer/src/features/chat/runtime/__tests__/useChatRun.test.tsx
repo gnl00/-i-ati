@@ -81,8 +81,8 @@ vi.mock('@renderer/infrastructure/ipc', () => ({
   subscribeRunEvents
 }))
 
-vi.mock('../collectRunTools', () => ({
-  collectRunTools: vi.fn(() => [])
+vi.mock('../collectRunToolSelection', () => ({
+  collectRunToolSelection: vi.fn(() => ({ webSearchEnabled: false, toolNames: [] }))
 }))
 
 vi.mock('uuid', () => ({

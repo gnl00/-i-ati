@@ -56,7 +56,7 @@ export class RunRequestFactory {
     step: StepBootstrap,
     input: HostRunInputState
   ): Promise<RunRequestBuildResult> {
-    const mergedUserInstruction = this.mergeRequestUserInstruction(input)
+    const mergedUserInstruction = this.mergeRequestUserInstruction(input, environment.chat)
     const config = this.appConfigStore.requireConfig()
     const emotionEnabled = config.emotion?.enabled ?? true
     const toolConditions = {
@@ -135,7 +135,8 @@ export class RunRequestFactory {
         ),
         modelType: environment.modelContext.model.type,
         tools: this.toolListBuilder.build(input.tools, {
-          conditions: toolConditions
+          conditions: toolConditions,
+          selection: input.toolSelection
         }),
         options: this.resolveRequestOptions(environment, input.options),
         stream: input.stream,
@@ -183,8 +184,11 @@ export class RunRequestFactory {
     }
   }
 
-  private mergeRequestUserInstruction(input: HostRunInputState): string | undefined {
-    const baseInstruction = input.userInstruction?.trim()
+  private mergeRequestUserInstruction(input: HostRunInputState, chat: ChatEntity): string | undefined {
+    const baseInstruction = [...new Set([
+      input.chatUserInstruction ?? chat.userInstruction,
+      input.userInstruction
+    ].map(part => part?.trim()).filter(Boolean))].join('\n\n')
 
     if (input.source !== MESSAGE_SOURCE.SCHEDULE) {
       return baseInstruction || undefined

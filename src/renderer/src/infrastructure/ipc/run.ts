@@ -1,3 +1,4 @@
+import type { RunToolSelection } from '@shared/run/toolSelection'
 import {
   RUN_CANCEL,
   RUN_COMPRESSION_EXECUTE,
@@ -30,7 +31,7 @@ export const invokeRunStart = (data: {
     textCtx: string
     textAttachments?: TextAttachment[]
     mediaCtx: ClipbordImg[] | string[]
-    tools?: unknown[]
+    toolSelection?: RunToolSelection
     options?: IUnifiedRequest['options']
     stream?: boolean
     chatUserInstruction?: string

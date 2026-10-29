@@ -1,3 +1,4 @@
+import type { RunToolSelection } from '@shared/run/toolSelection'
 import type { RunModelContext, RunSpec } from '@main/agent/contracts'
 
 export type HostRunInputState = {
@@ -7,6 +8,7 @@ export type HostRunInputState = {
   source?: string
   host?: ChatMessageHostMeta
   tools?: any[]
+  toolSelection?: RunToolSelection
   userInstruction?: string
   options?: IUnifiedRequest['options']
   stream?: boolean

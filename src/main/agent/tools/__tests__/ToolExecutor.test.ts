@@ -458,7 +458,9 @@ describe('ToolExecutor runtime context', () => {
 
   it('rejects tools that are not allowed in the current runtime', async () => {
     handlerMock.mockClear()
+    const requestConfirmation = vi.fn()
     const executor = new ToolExecutor({
+      requestConfirmation,
       allowedTools: ['plan']
     })
 
@@ -473,6 +475,7 @@ describe('ToolExecutor runtime context', () => {
 
     expect(result.status).toBe('error')
     expect(result.error?.message).toContain('not allowed')
+    expect(requestConfirmation).not.toHaveBeenCalled()
     expect(handlerMock).not.toHaveBeenCalled()
   })
 

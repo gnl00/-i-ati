@@ -2,6 +2,12 @@ import { describe, expect, it, vi } from 'vitest'
 import { embeddedToolMetadata } from '@shared/tools/metadata'
 import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 
+vi.mock('@main/services/mcpRuntime', () => ({
+  mcpRuntimeService: { getRuntimeSnapshot: (): object => ({ servers: [{
+    connected: true, tools: [{ function: { name: 'server__read', description: 'Main schema', parameters: {} }, source: 'mcp' }]
+  }] }) }
+}))
+
 vi.mock('@tools/registry', () => ({
   embeddedToolsRegistry: {
     getAllTools: vi.fn(() => [
@@ -134,3 +140,19 @@ describe('ToolListBuilder', () => {
   })
 
 })
+
+  it('resolves desktop schemas from Main and enforces web search opt-out', async () => {
+    const { ToolListBuilder } = await import('../ToolListBuilder')
+    const { embeddedToolsRegistry } = await import('@tools/registry')
+    vi.mocked(embeddedToolsRegistry.getAllTools).mockReturnValueOnce([
+      { type: 'function', function: { name: 'web_search', description: '', parameters: {} } }
+    ])
+    const tools = new ToolListBuilder().build([{ name: 'server__read', description: 'forged' }], {
+      conditions, selection: { webSearchEnabled: false, toolNames: ['server__read'] }
+    })
+    expect(tools.map(tool => tool.name)).toEqual(['server__read'])
+    expect(tools[0].description).toBe('Main schema')
+    expect(() => new ToolListBuilder().build(undefined, {
+      conditions, selection: { webSearchEnabled: true, toolNames: ['disconnected__tool'] }
+    })).toThrow('no longer available')
+  })

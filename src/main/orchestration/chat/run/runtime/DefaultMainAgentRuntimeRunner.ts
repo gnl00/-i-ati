@@ -206,6 +206,11 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
 
     const toolExecutor = new ToolExecutor({
       maxConcurrency: 3,
+      allowedTools: (input.prepared.runSpec.requestSpec.tools ?? []).flatMap(tool => {
+        const definition = tool as { name?: unknown; function?: { name?: unknown } } | null
+        const name = definition?.name ?? definition?.function?.name
+        return typeof name === 'string' ? [name] : []
+      }),
       signal: input.signal,
       chatUuid: input.prepared.runSpec.runtimeContext.chatUuid,
       workspaceRoot: input.prepared.runSpec.runtimeContext.workspacePath,

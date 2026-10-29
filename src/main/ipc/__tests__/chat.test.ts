@@ -110,6 +110,14 @@ describe('registerChatHandlers', () => {
     await expect(start({}, input)).resolves.toEqual({ accepted: true, submissionId: 'run-1' })
     expect(runServiceSubmitMock).toHaveBeenCalledWith(input)
     await expect(start({}, { ...input, modelRef: null })).rejects.toThrow('Invalid run submission')
+    for (const invalid of [
+      { tools: [{ name: 'exec' }] },
+      { toolSelection: { webSearchEnabled: false, toolNames: [null] } },
+      { chatUserInstruction: 42 }
+    ]) {
+      await expect(start({}, { ...input, input: { ...input.input, ...invalid } }))
+        .rejects.toThrow('Invalid run submission')
+    }
     expect(runServiceSubmitMock).toHaveBeenCalledTimes(1)
   })
 

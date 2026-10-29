@@ -54,3 +54,19 @@ local deterministic providers. No push, release or packaging is included in this
 ## Progress
 
 Plan recorded; implementation pending.
+
+### Stage 1 — submission intent
+
+Implemented Chat instruction fallback/explicit-empty/additive semantics and desktop
+name-only tool intent. Main resolves MCP schemas and the web-search toggle; the
+prepared request names constrain execution before approval. Existing host defaults
+are retained. New shared contract has no database migration.
+
+Verification: 135 targeted cases across ChatPreparationPipeline, ToolListBuilder,
+ToolExecutor, Chat IPC, DefaultMainAgentRuntimeRunner integration, useChatRun and
+collectRunToolSelection passed (including focused reruns after fixture fixes).
+`pnpm run typecheck`, both boundary checks and architecture test commands, both
+active documentation path checks and `git diff --check` passed. Changed-file ESLint
+was run and compared to HEAD: existing lint errors remain in legacy files; newly
+added files/tests have zero errors. Formatting warnings follow the existing style.
+Electron acceptance and full coverage are scheduled after all stages.

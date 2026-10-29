@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useMcpRuntimeStore } from '@renderer/features/settings'
-import { collectRunTools } from '../collectRunTools'
+import { collectRunToolSelection } from '../collectRunToolSelection'
 
 const mcpTool = (
   serverName: string,
@@ -21,11 +21,14 @@ const mcpTool = (
   }
 })
 
-const state = (webSearchEnable = false) => ({
+const state = (webSearchEnable = false): { webSearchEnable: boolean } => ({
   webSearchEnable
-} as any)
+})
 
-describe('collectRunTools', () => {
+describe('collectRunToolSelection', () => {
+  it('preserves the explicit web search toggle', () => {
+    expect(collectRunToolSelection(state(true), {}).webSearchEnabled).toBe(true)
+  })
   beforeEach(() => {
     useMcpRuntimeStore.setState({
       availableMcpTools: new Map(),
@@ -41,19 +44,9 @@ describe('collectRunTools', () => {
     ])
     useMcpRuntimeStore.getState().addSelectedServer('alpha')
 
-    expect(collectRunTools(state(), {})).toEqual([
-      {
-        name: 'alpha__search',
-        description: 'Search alpha',
-        parameters: {
-          type: 'object',
-          properties: {}
-        },
-        source: 'mcp',
-        serverName: 'alpha',
-        originalName: 'search'
-      }
-    ])
+    expect(collectRunToolSelection(state(), {})).toEqual({
+      webSearchEnabled: false, toolNames: ['alpha__search']
+    })
   })
 
   it('includes tools from all connected mcp servers', () => {
@@ -65,19 +58,19 @@ describe('collectRunTools', () => {
     ])
     useMcpRuntimeStore.getState().addSelectedServer('alpha')
 
-    expect(collectRunTools(state(), {}).map(tool => tool.name).sort()).toEqual([
+    expect(collectRunToolSelection(state(), {}).toolNames.sort()).toEqual([
       'alpha__search',
       'beta__search'
     ])
   })
 
-  it('lets explicit run tools override selected mcp tools with the same name', () => {
+  it('deduplicates explicit tool names and leaves schema resolution to Main', () => {
     useMcpRuntimeStore.getState().addServerTools('alpha', [
       mcpTool('alpha', 'shared_tool', 'MCP version')
     ])
     useMcpRuntimeStore.getState().addSelectedServer('alpha')
 
-    expect(collectRunTools(state(), {
+    expect(collectRunToolSelection(state(), {
       tools: [
         {
           name: 'alpha__shared_tool',
@@ -85,12 +78,6 @@ describe('collectRunTools', () => {
           parameters: { type: 'object' }
         }
       ]
-    })).toEqual([
-      {
-        name: 'alpha__shared_tool',
-        description: 'Explicit version',
-        parameters: { type: 'object' }
-      }
-    ])
+    })).toEqual({ webSearchEnabled: false, toolNames: ['alpha__shared_tool'] })
   })
 })

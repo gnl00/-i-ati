@@ -149,7 +149,8 @@ const prepared = {
       model: 'model-1',
       modelType: 'llm',
       stream: true,
-      systemPrompt: 'system prompt'
+      systemPrompt: 'system prompt',
+      tools: [{ name: 'read' }, { name: 'web_fetch' }]
     },
     contextMessages: [],
     runtimeContext: {
@@ -586,6 +587,7 @@ describe('DefaultMainAgentRuntimeRunner integration', () => {
       })
 
       const options = toolExecutorOptionsMock.mock.calls[0][0]
+      expect(options.allowedTools).toEqual(['read', 'web_fetch'])
       expect(typeof options.requestUserQuestion).toBe(
         source === 'telegram' ? 'undefined' : 'function'
       )

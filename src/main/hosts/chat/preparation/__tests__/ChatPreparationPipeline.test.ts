@@ -1196,6 +1196,20 @@ describe('ChatPreparationPipeline', () => {
     })
   })
 
+  it.each([
+    [undefined, 'Saved instruction'],
+    ['Desktop override', 'Desktop override'],
+    ['', '']
+  ])('combines chat instruction %s with run additions', async (chatUserInstruction, expected) => {
+    vi.mocked(DatabaseService.getChatById).mockReturnValue({ ...chatEntity, userInstruction: 'Saved instruction' })
+    const prepared = await new ChatPreparationPipeline().prepare({
+      ...input, input: { ...input.input, chatUserInstruction, userInstruction: 'Run addition' }
+    }, { emit: vi.fn(), setChatMeta: vi.fn() } as unknown as RunEventEmitter)
+    const instruction = prepared.runSpec.contextMessages.find(message =>
+      typeof message.content === 'string' && message.content.includes('<user_instruction>'))?.content
+    expect(instruction).toBe(`<user_instruction>\n${[expected, 'Run addition'].filter(Boolean).join('\n\n')}\n</user_instruction>`)
+  })
+
   it('appends schedule execution context only for schedule-triggered runs', async () => {
     const service = new ChatPreparationPipeline()
     const emitter = {

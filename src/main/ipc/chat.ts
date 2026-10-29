@@ -87,6 +87,13 @@ function validateRunStartRequest(data: unknown): data is MainAgentRunInput {
     && typeof input?.textCtx === 'string'
     && Array.isArray(input.mediaCtx)
     && isTextAttachmentList(input.textAttachments)
+    && input.tools === undefined
+    && (input.chatUserInstruction === undefined || typeof input.chatUserInstruction === 'string')
+    && (input.toolSelection === undefined || (
+      typeof input.toolSelection?.webSearchEnabled === 'boolean'
+      && Array.isArray(input.toolSelection.toolNames)
+      && input.toolSelection.toolNames.every(isNonEmptyString)
+    ))
     && (request.chatId === undefined || Number.isSafeInteger(request.chatId))
     && (request.chatUuid === undefined || isNonEmptyString(request.chatUuid))
 }

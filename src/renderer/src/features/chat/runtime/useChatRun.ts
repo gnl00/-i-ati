@@ -5,7 +5,7 @@ import type { RunCancelRequest, RunCancelResult } from '@shared/run/cancellation
 import { v4 as uuidv4 } from 'uuid'
 import { toast } from 'sonner'
 import { bindChatRunEvents } from './chatRunEvent'
-import { collectRunTools } from './collectRunTools'
+import { collectRunToolSelection } from './collectRunToolSelection'
 import type { LastRunErrorMessage } from './reconcileRunErrorMessage'
 
 const ABORT_FALLBACK_TIMEOUT_MS = 3000
@@ -212,7 +212,7 @@ export default function useChatRun() {
           textCtx,
           ...(options.textAttachments?.length ? { textAttachments: options.textAttachments } : {}),
           mediaCtx,
-          tools: collectRunTools(state, options),
+          toolSelection: collectRunToolSelection(state, options),
           options: options.options,
           stream: options.stream,
           chatUserInstruction: state.userInstruction,

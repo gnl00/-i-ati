@@ -225,6 +225,10 @@ export class ToolExecutor implements IToolExecutor {
         return this.createAbortedResult(call)
       }
 
+      if (this.allowedTools && !this.allowedTools.has(toolName)) {
+        throw new Error(`Tool "${toolName}" is not allowed in this runtime`)
+      }
+
       let runtimeArgs = this.normalizeArgs(call)
       if (requiresPlanReview && this.requestConfirmation) {
         const decision = await this.requestConfirmation({
@@ -431,10 +435,6 @@ export class ToolExecutor implements IToolExecutor {
   ): Promise<any> {
     const toolName = call.function
     const toolCallId = resolvedToolCallId ?? call.id ?? `call_${uuidv4()}`
-
-    if (this.allowedTools && !this.allowedTools.has(toolName)) {
-      throw new Error(`Tool "${toolName}" is not allowed in this runtime`)
-    }
 
     if (embeddedToolsRegistry.isRegistered(toolName)) {
       const safeArgs = this.stripToolCallReason(runtimeArgs ?? this.normalizeArgs(call))
