@@ -36,7 +36,7 @@ export const compactContext = async (input: ContextCompressionInput): Promise<st
     options: {
       maxTokens: Math.min(
         2_048,
-        Math.max(1, Math.floor((spec.contextWindowTokens ?? 32_768) * 0.2))
+        Math.max(1, Math.floor((spec.contextWindowTokens ?? 262_144) * 0.2))
       )
     },
     requestOverrides: resolveRequestOverrides(spec.requestOverrides, 'compression')

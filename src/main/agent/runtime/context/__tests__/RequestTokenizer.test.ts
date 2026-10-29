@@ -19,6 +19,9 @@ describe('RequestTokenizer', () => {
     expect(tokenizer.estimated).toBe(true)
     const budget = resolveContextBudget(undefined, {}, tokenizer.estimated)
     expect(budget.windowUnknown).toBe(true)
+    expect(budget.window).toBe(262_144)
+    expect(budget.output).toBe(8_192)
+    expect(budget.input).toBe(214_630)
     expect(budget.input + budget.output).toBeLessThan(budget.window)
   })
   it('reserves overridden output limits and scales beyond the old character ceiling', () => {

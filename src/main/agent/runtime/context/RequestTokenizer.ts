@@ -55,7 +55,7 @@ export const resolveContextBudget = (
     typeof contextWindowTokens === 'number' &&
     Number.isFinite(contextWindowTokens) &&
     contextWindowTokens > 0
-  const window = known ? Math.floor(contextWindowTokens) : 32_768
+  const window = known ? Math.floor(contextWindowTokens) : 262_144
   const explicit = [
     body.max_tokens,
     body.max_completion_tokens,
