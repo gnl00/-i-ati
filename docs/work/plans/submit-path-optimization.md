@@ -128,3 +128,18 @@ doc-path checks passed. Scoped ESLint matches existing baseline errors; new retr
 and SQL tests have zero errors. SQL fixtures verify the pinned index and threshold
 boundary; cache tests verify concurrent reuse, eviction, option keys and mutation
 isolation. Full coverage and Electron remain final integration gates.
+
+### Stage 5 — scheduling and measurement
+
+Split independent request-context preparation from final message assembly. Vision and
+context run concurrently; prompt/profile/skills/retrieval also start together. A single
+application-config snapshot feeds model, vision, capabilities and provider policy.
+Failure cancels and drains the sibling preparation branch. Structured phase timings
+cover success, failure and cancellation without logging prompt content.
+
+Verification: deterministic overlap fixture measures 80ms + 120ms tasks completing in
+120ms; configuration mutation and sibling-failure tests pass. Related preparation,
+vision, Chat and actual subagent suites cover 140 cases. Main boundary/architecture
+checks pass. Node typecheck initially encountered unrelated temporary benchmark source;
+that source was removed by its owning task and the normal check was rerun. Scoped lint
+comparison retains baseline errors only. Full coverage/build/Electron remain final gates.

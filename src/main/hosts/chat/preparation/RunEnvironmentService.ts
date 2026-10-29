@@ -16,7 +16,7 @@ export class RunEnvironmentService {
     options?: RunPreparationOptions
   ): Promise<RunEnvironment> {
     options?.signal?.throwIfAborted()
-    const config = this.appConfigStore.requireConfig()
+    const config = structuredClone(this.appConfigStore.requireConfig())
     const modelContext =
       options?.modelContext ??
       this.chatModelContextResolver.resolveOrThrow(config, input.modelRef)
@@ -28,6 +28,7 @@ export class RunEnvironmentService {
     const historyMessages = this.chatSessionStore.loadHistoryMessages(chat)
 
     return {
+      config,
       chat,
       modelContext,
       workspacePath,

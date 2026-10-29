@@ -38,6 +38,7 @@ export type RunPreparationOptions = {
 }
 
 export type RunEnvironment = {
+  config: IAppConfig
   chat: ChatEntity
   modelContext: RunModelContext
   workspacePath: string

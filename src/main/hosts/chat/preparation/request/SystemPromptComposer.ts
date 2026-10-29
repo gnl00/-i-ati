@@ -15,8 +15,9 @@ export class SystemPromptComposer {
 
   async compose(emotionEnabled = true, onMeasure?: (parts: NonNullable<AgentRequestSpec['systemPromptParts']>) => void): Promise<string[]> {
     const baseSystemPrompt = systemPromptBuilder()
-    const userInfoPrompt = await this.userInfoPromptProvider.build()
-    const skillsPrompt = await this.skillsPromptProvider.build()
+    const [userInfoPrompt, skillsPrompt] = await Promise.all([
+      this.userInfoPromptProvider.build(), this.skillsPromptProvider.build()
+    ])
     const emotionPrompt = emotionEnabled ? this.emotionPromptProvider.build() : ''
     const soulPrompt = this.soulPromptProvider.build()
     onMeasure?.(Object.fromEntries(Object.entries({ policy: baseSystemPrompt, soul: soulPrompt, skillCatalog: skillsPrompt, userPolicy: userInfoPrompt, emotionPolicy: emotionPrompt })

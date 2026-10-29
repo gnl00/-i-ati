@@ -20,8 +20,8 @@ export class KnowledgebaseContextProvider {
     private readonly appConfigStore = new AppConfigStore()
   ) {}
 
-  async build(query?: string, signal?: AbortSignal): Promise<ChatMessage | null> {
-    const content = await this.buildContent(query, signal)
+  async build(query?: string, signal?: AbortSignal, appConfig?: IAppConfig): Promise<ChatMessage | null> {
+    const content = await this.buildContent(query, signal, appConfig)
     if (!content.trim()) {
       return null
     }
@@ -34,9 +34,9 @@ export class KnowledgebaseContextProvider {
     }
   }
 
-  private async buildContent(query?: string, signal?: AbortSignal): Promise<string> {
+  private async buildContent(query?: string, signal?: AbortSignal, appConfig?: IAppConfig): Promise<string> {
     signal?.throwIfAborted()
-    const config = this.appConfigStore.getConfig()?.knowledgebase
+    const config = (appConfig ?? this.appConfigStore.getConfig())?.knowledgebase
     if (!(config?.enabled ?? false) || (config?.folders?.length ?? 0) === 0) {
       return ''
     }

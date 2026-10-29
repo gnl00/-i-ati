@@ -12,10 +12,10 @@ export class UserInfoPromptProvider {
     return buildUserInfoSystemPrompt()
   }
 
-  async buildContext(): Promise<ChatMessage> {
+  async buildContext(config?: IAppConfig): Promise<ChatMessage> {
     const record = await UserInfoService.getUserInfo()
     const content = buildUserInfoContextContent(record.info, {
-      telegram: this.buildTelegramRuntime()
+      telegram: this.buildTelegramRuntime(config)
     })
 
     return {
@@ -26,8 +26,8 @@ export class UserInfoPromptProvider {
     }
   }
 
-  private buildTelegramRuntime() {
-    const telegram = this.appConfigStore.getConfig()?.telegram
+  private buildTelegramRuntime(config?: IAppConfig) {
+    const telegram = (config ?? this.appConfigStore.getConfig())?.telegram
 
     return {
       enabled: telegram?.enabled,

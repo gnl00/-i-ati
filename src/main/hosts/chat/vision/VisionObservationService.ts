@@ -20,6 +20,7 @@ export type VisionObservationServiceDeps = {
 }
 
 export type VisionObservationInput = {
+  config?: IAppConfig
   chat: ChatEntity
   userMessage: MessageEntity
   textCtx: string
@@ -97,6 +98,7 @@ export class VisionObservationService {
       }
 
       const result = await this.visionRequestService.analyze({
+        config: input.config,
         imageUrls,
         prompt: buildVisionUserText(input, imageUrls.length),
         systemPrompt: VISION_OBSERVATION_SYSTEM_PROMPT,

@@ -10,7 +10,6 @@ import { chatDb } from '@main/db/chat'
 import { formatRequestContext } from '@main/agent/contracts/HostRuntimeContracts'
 import { pluginDb } from '@main/db/plugins'
 import { MESSAGE_SOURCE, isInteractiveMessageSource } from '@shared/messages/messageSources'
-import { AppConfigStore } from '../config'
 import {
   AwakeContextProvider,
   AvailableImagesContextProvider,
@@ -38,9 +37,17 @@ export type RunRequestBuildResult = {
   contextMessages: ChatMessage[]
 }
 
+type PreparedRequestContext = {
+  emotionEnabled: boolean
+  requestSpec: AgentRequestSpec
+  contexts: ChatMessage[]
+  compressionSummary: CompressedSummaryEntity | null
+  userInstruction?: string
+  visionAnalysisAvailable: boolean
+}
+
 export class RunRequestFactory {
   constructor(
-    private readonly appConfigStore = new AppConfigStore(),
     private readonly compressionSummaryResolver = new CompressionSummaryResolver(),
     private readonly systemPromptComposer = new SystemPromptComposer(),
     private readonly toolListBuilder = new ToolListBuilder(),
@@ -52,15 +59,14 @@ export class RunRequestFactory {
     private readonly availableImagesContextProvider = new AvailableImagesContextProvider()
   ) {}
 
-  async build(
+  async prepare(
     environment: RunEnvironment,
-    step: StepBootstrap,
     input: HostRunInputState,
     signal?: AbortSignal
-  ): Promise<RunRequestBuildResult> {
+  ): Promise<PreparedRequestContext> {
     signal?.throwIfAborted()
     const mergedUserInstruction = this.mergeRequestUserInstruction(input, environment.chat)
-    const config = this.appConfigStore.requireConfig()
+    const config = environment.config
     const emotionEnabled = config.emotion?.enabled ?? true
     const toolConditions = {
       emotionSystemEnabled: emotionEnabled,
@@ -68,38 +74,72 @@ export class RunRequestFactory {
       interactiveInputAvailable: isInteractiveMessageSource(input.source)
     }
     const compressionSummary = this.compressionSummaryResolver.resolve(config, environment.chat.id)
+    const tools = this.toolListBuilder.build(input.tools, { conditions: toolConditions, selection: input.toolSelection })
+    const requestOptions = this.resolveRequestOptions(environment, input.options)
+    const currentQuery = expandTextAttachments(input.textCtx, input.textAttachments)
     let systemPromptParts: AgentRequestSpec['systemPromptParts']
-    const systemPrompts = await abortableWait(() => this.systemPromptComposer.compose(emotionEnabled, parts => { systemPromptParts = parts }), signal)
     const systemEnvironmentContext = this.systemEnvironmentContextProvider.build({
       workspacePath: environment.workspacePath
     })
-    const [loadedSkillsContext, userInfoContext, knowledgebaseContext, awakeContext] =
+    const [systemPrompts, loadedSkillsContext, userInfoContext, knowledgebaseContext, awakeContext] =
       await abortableWait(() => Promise.all([
+        this.systemPromptComposer.compose(emotionEnabled, parts => { systemPromptParts = parts }),
         this.loadedSkillsContextProvider.build(environment.chat.id),
-        this.userInfoPromptProvider.buildContext(),
-        this.knowledgebaseContextProvider.build(expandTextAttachments(input.textCtx, input.textAttachments), signal),
+        this.userInfoPromptProvider.buildContext(config),
+        this.knowledgebaseContextProvider.build(currentQuery, signal, config),
         this.awakeContextProvider.build({
           signal,
           emotionEnabled,
           chat: environment.chat,
           workspacePath: environment.workspacePath,
-          currentQuery: expandTextAttachments(input.textCtx, input.textAttachments),
+          currentQuery,
           compressionSummary
         })
       ]), signal)
     signal?.throwIfAborted()
+    const contexts = [loadedSkillsContext, userInfoContext, knowledgebaseContext,
+      systemEnvironmentContext, awakeContext].filter((message): message is ChatMessage => Boolean(message))
+    return {
+      emotionEnabled,
+      requestSpec: {
+        adapterPluginId: environment.modelContext.providerDefinition.adapterPluginId,
+        baseUrl: environment.modelContext.account.apiUrl,
+        systemPrompt: systemPrompts
+          .map((prompt) => prompt.trim())
+          .filter(Boolean)
+          .join('\n'),
+        systemPromptParts,
+        apiKey: environment.modelContext.account.apiKey,
+        model: environment.modelContext.model.id,
+        contextWindowTokens: environment.modelContext.model.contextWindowTokens,
+        contextCompression: Boolean(
+          config.compression?.enabled && config.compression?.autoCompress
+        ),
+        modelType: environment.modelContext.model.type,
+        tools,
+        options: requestOptions,
+        stream: input.stream,
+        payloadExtensions: environment.modelContext.providerDefinition.payloadExtensions,
+        requestOverrides: environment.modelContext.providerDefinition.requestOverrides
+      },
+      contexts,
+      compressionSummary,
+      userInstruction: mergedUserInstruction,
+      visionAnalysisAvailable: toolConditions.visionAnalysisAvailable
+    }
+  }
+
+  build(step: StepBootstrap, prepared: PreparedRequestContext, signal?: AbortSignal): RunRequestBuildResult {
+    signal?.throwIfAborted()
+    const { compressionSummary, userInstruction } = prepared
     const availableImagesContext = this.availableImagesContextProvider.build(
       step.messageBuffer,
       compressionSummary,
-      toolConditions.visionAnalysisAvailable
+      prepared.visionAnalysisAvailable
     )
 
     const contexts = [
-      loadedSkillsContext,
-      userInfoContext,
-      knowledgebaseContext,
-      systemEnvironmentContext,
-      awakeContext,
+      ...prepared.contexts,
       availableImagesContext
     ].filter((message): message is ChatMessage => Boolean(message))
     // Match buildContextMessages: vision observations can be the final user record.
@@ -118,38 +158,11 @@ export class RunRequestFactory {
     const contextMessages = buildContextMessages({
       messages: step.messageBuffer,
       contexts,
-      userInstruction: mergedUserInstruction,
+      userInstruction,
       summary: compressionSummary
     })
 
-    return {
-      emotionEnabled,
-      requestSpec: {
-        adapterPluginId: environment.modelContext.providerDefinition.adapterPluginId,
-        baseUrl: environment.modelContext.account.apiUrl,
-        systemPrompt: systemPrompts
-          .map((prompt) => prompt.trim())
-          .filter(Boolean)
-          .join('\n'),
-        systemPromptParts,
-        apiKey: environment.modelContext.account.apiKey,
-        model: environment.modelContext.model.id,
-        contextWindowTokens: environment.modelContext.model.contextWindowTokens,
-        contextCompression: Boolean(
-          config.compression?.enabled && config.compression?.autoCompress
-        ),
-        modelType: environment.modelContext.model.type,
-        tools: this.toolListBuilder.build(input.tools, {
-          conditions: toolConditions,
-          selection: input.toolSelection
-        }),
-        options: this.resolveRequestOptions(environment, input.options),
-        stream: input.stream,
-        payloadExtensions: environment.modelContext.providerDefinition.payloadExtensions,
-        requestOverrides: environment.modelContext.providerDefinition.requestOverrides
-      },
-      contextMessages
-    }
+    return { emotionEnabled: prepared.emotionEnabled, requestSpec: prepared.requestSpec, contextMessages }
   }
 
   private resolveRequestOptions(

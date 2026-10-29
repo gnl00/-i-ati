@@ -1,9 +1,12 @@
+import { createLogger } from '@main/logging/LogService'
 import { RunEnvironmentService } from './RunEnvironmentService'
 import { RunRequestFactory } from './RunRequestFactory'
 import { StepBootstrapService } from './StepBootstrapService'
 import { ChatEventMapper } from '../mapping'
 import type { RunEventEmitter } from '@main/agent/contracts'
 import type { MainAgentRunInput, RunPreparationOptions, RunPreparationResult } from './types'
+
+const logger = createLogger('ChatPreparation')
 
 export class ChatPreparationPipeline {
   constructor(
@@ -17,49 +20,79 @@ export class ChatPreparationPipeline {
     emitter: RunEventEmitter,
     options?: RunPreparationOptions
   ): Promise<RunPreparationResult> {
-    options?.signal?.throwIfAborted()
-    const environment = await this.runEnvironmentService.prepare(input, emitter, options)
-    options?.signal?.throwIfAborted()
-    const chatEventMapper = new ChatEventMapper(emitter)
-    chatEventMapper.emitChatReady(environment.chat, environment.workspacePath)
-    if (environment.historyMessages.length > 0) {
-      chatEventMapper.emitMessagesLoaded(environment.historyMessages)
+    const startedAt = performance.now()
+    const durationsMs: Record<string, number> = {}
+    let completed = false
+    const controller = new AbortController()
+    const signal = options?.signal ? AbortSignal.any([options.signal, controller.signal]) : controller.signal
+    const measure = async <T>(phase: string, operation: () => Promise<T>): Promise<T> => {
+      const start = performance.now()
+      try { return await operation() }
+      finally { durationsMs[phase] = performance.now() - start }
     }
-    const step = await this.stepBootstrapService.bootstrap(environment, input, emitter, options?.signal)
-    const requestBuild = await this.runRequestFactory.build(environment, step, input.input, options?.signal)
-    options?.signal?.throwIfAborted()
-    if (options?.systemPrompt)
-      requestBuild.requestSpec.systemPrompt = options.systemPrompt
-    if (options?.options?.thinking) {
-      requestBuild.requestSpec.options = {
-        ...requestBuild.requestSpec.options,
-        ...options.options
+    try {
+      options?.signal?.throwIfAborted()
+      const environment = await measure('environment', () => this.runEnvironmentService.prepare(input, emitter, { ...options, signal }))
+      options?.signal?.throwIfAborted()
+      const chatEventMapper = new ChatEventMapper(emitter)
+      chatEventMapper.emitChatReady(environment.chat, environment.workspacePath)
+      if (environment.historyMessages.length > 0) {
+        chatEventMapper.emitMessagesLoaded(environment.historyMessages)
       }
-    }
-    const createdMessages = step.messageBuffer.slice(environment.historyMessages.length)
-
-    return {
-      runSpec: {
-        submissionId: input.submissionId,
-        modelContext: environment.modelContext,
-        requestSpec: requestBuild.requestSpec,
-        contextMessages: requestBuild.contextMessages,
-        runtimeContext: {
-          chatId: environment.chat.id,
-          chatUuid: environment.chat.uuid,
-          workspacePath: environment.workspacePath
+      const stepPromise = measure('bootstrap', () => this.stepBootstrapService.bootstrap(environment, input, emitter, signal))
+      const contextPromise = measure('context', () => this.runRequestFactory.prepare(environment, input.input, signal))
+      let step: Awaited<typeof stepPromise>
+      let context: Awaited<typeof contextPromise>
+      try {
+        [step, context] = await Promise.all([stepPromise, contextPromise])
+      } catch (error) {
+        controller.abort(error)
+        await Promise.allSettled([stepPromise, contextPromise])
+        throw error
+      }
+      signal.throwIfAborted()
+      const requestBuild = await measure('assembly', async () => this.runRequestFactory.build(step, context, signal))
+      signal.throwIfAborted()
+      if (options?.systemPrompt)
+        requestBuild.requestSpec.systemPrompt = options.systemPrompt
+      if (options?.options?.thinking) {
+        requestBuild.requestSpec.options = {
+          ...requestBuild.requestSpec.options,
+          ...options.options
         }
-      },
-      chatContext: {
-        emotionEnabled: requestBuild.emotionEnabled,
-        chat: environment.chat,
-        workspacePath: environment.workspacePath,
-        historyMessages: environment.historyMessages,
-        createdMessages,
-        earlyEmittedMessageIds: step.earlyEmittedMessageIds,
-        messageEntities: step.messageBuffer,
-        assistantDraft: step.assistantDraft
       }
+      const createdMessages = step.messageBuffer.slice(environment.historyMessages.length)
+
+      completed = true
+      return {
+        runSpec: {
+          submissionId: input.submissionId,
+          modelContext: environment.modelContext,
+          requestSpec: requestBuild.requestSpec,
+          contextMessages: requestBuild.contextMessages,
+          runtimeContext: {
+            chatId: environment.chat.id,
+            chatUuid: environment.chat.uuid,
+            workspacePath: environment.workspacePath
+          }
+        },
+        chatContext: {
+          emotionEnabled: requestBuild.emotionEnabled,
+          chat: environment.chat,
+          workspacePath: environment.workspacePath,
+          historyMessages: environment.historyMessages,
+          createdMessages,
+          earlyEmittedMessageIds: step.earlyEmittedMessageIds,
+          messageEntities: step.messageBuffer,
+          assistantDraft: step.assistantDraft
+        }
+      }
+    } finally {
+      logger.info('preparation.measured', {
+        submissionId: input.submissionId,
+        status: completed ? 'completed' : options?.signal?.aborted ? 'aborted' : 'failed',
+        durationsMs: { ...durationsMs, total: performance.now() - startedAt }
+      })
     }
   }
 }

@@ -31,6 +31,7 @@ export class StepBootstrapService {
     }
     const visionObservation = normalizeMediaUrls(input.input.mediaCtx).length > 0
       ? await this.visionObservationService.observe({
+        config: environment.config,
         chat: environment.chat,
         userMessage: userMessageEntity,
         textCtx: expandTextAttachments(input.input.textCtx, input.input.textAttachments),

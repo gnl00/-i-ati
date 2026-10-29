@@ -20,6 +20,7 @@ export type VisionRequestServiceDeps = {
 }
 
 export type VisionRequestInput = {
+  config?: IAppConfig
   imageUrls: string[]
   prompt: string
   systemPrompt: string
@@ -103,7 +104,7 @@ export class VisionRequestService {
     const redactionSecrets: string[] = []
 
     try {
-      const config = this.appConfigStore.requireConfig()
+      const config = input.config ?? this.appConfigStore.requireConfig()
       if (!config.tools?.visionModel) {
         throw new Error('Vision model is not configured. Select a vision model in Settings > Tools.')
       }

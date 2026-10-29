@@ -39,3 +39,22 @@ Main admission resolves an existing conversation before preparation and rejects 
 second primary run with `CHAT_RUN_BUSY`. The registry retains ownership through Stop
 cleanup, then permits the next submit. ID-only and UUID-only submissions share the
 same ownership. New conversations omit both fields; stale identities fail explicitly.
+
+## Preparation scheduling and measurements
+
+Environment resolution captures one application-config snapshot. Model selection,
+vision slot, capability conditions, user runtime context and knowledgebase policy use
+that snapshot. Skill content remains a separately read service snapshot and existing
+approval-mode updates remain live.
+
+After the user input is persisted, vision/bootstrap and request-context preparation
+overlap. System prompt, loaded skills, user profile, knowledgebase and Awake context
+are independent concurrent work. Final assembly waits for both branches, preserves
+message order and writes the request snapshot once. Failure aborts the sibling branch
+and waits for its cancellation boundary before returning.
+
+`ChatPreparation` logs `preparation.measured` with submission ID, terminal status and
+monotonic environment/bootstrap/context/assembly/total milliseconds. It records no
+prompt bodies or credentials. Deterministic fixtures with 80ms vision and 120ms context
+complete in 120ms, demonstrating overlap; these are simulated timings, not provider or
+real-device latency claims.

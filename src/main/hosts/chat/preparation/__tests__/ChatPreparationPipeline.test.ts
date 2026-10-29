@@ -3,6 +3,11 @@ import { projectContextRequest } from '@main/agent/runtime/context/ContextReques
 import { createHash } from 'node:crypto'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+const preparationLogs = vi.hoisted(() => ({ info: vi.fn() }))
+vi.mock('@main/logging/LogService', () => ({ createLogger: (): object => ({
+  info: preparationLogs.info, debug: vi.fn(), warn: vi.fn(), error: vi.fn()
+}) }))
+
 vi.mock('node:fs/promises', () => ({
   mkdir: vi.fn(async () => undefined),
   readFile: vi.fn(
@@ -260,6 +265,71 @@ describe('ChatPreparationPipeline', () => {
     ])
   })
 
+  it('overlaps vision and context work while freezing the run configuration', async () => {
+    const { LoadedSkillsContextProvider } = await import('../request/LoadedSkillsContextProvider')
+    const localConfig = structuredClone(config)
+    vi.mocked(DatabaseService.getConfig).mockReturnValue(localConfig)
+    let clock = 0
+    const now = vi.spyOn(performance, 'now').mockImplementation(() => clock)
+    let releaseVision!: () => void
+    let releaseContext!: () => void
+    let visionStarted!: () => void
+    let contextStarted!: () => void
+    const visionEntered = new Promise<void>(resolve => { visionStarted = resolve })
+    const contextEntered = new Promise<void>(resolve => { contextStarted = resolve })
+    const visionGate = new Promise<void>(resolve => { releaseVision = resolve })
+    const contextGate = new Promise<void>(resolve => { releaseContext = resolve })
+    const observe = vi.fn(async (): Promise<MessageEntity> => {
+      visionStarted()
+      await visionGate
+      return { id: 202, body: { role: 'user', content: 'observation', segments: [] } }
+    })
+    const skills = vi.spyOn(LoadedSkillsContextProvider.prototype, 'build').mockImplementationOnce(async () => {
+      contextStarted()
+      await contextGate
+      return null
+    })
+    try {
+      const pending = new ChatPreparationPipeline(undefined,
+        new StepBootstrapService(undefined, { observe } as unknown as ConstructorParameters<typeof StepBootstrapService>[1])
+      ).prepare({ ...input, input: { ...input.input, mediaCtx: ['data:image/png;base64,abc'] } },
+        { emit: vi.fn(), setChatMeta: vi.fn() } as unknown as RunEventEmitter)
+      await Promise.all([visionEntered, contextEntered])
+      localConfig.accounts[0].models[0].id = 'changed-during-preparation'
+      localConfig.emotion = { enabled: false }
+      clock = 80
+      releaseVision()
+      await new Promise<void>(resolve => setImmediate(resolve))
+      clock = 120
+      releaseContext()
+      const prepared = await pending
+      expect(prepared.runSpec.requestSpec.model).toBe('model-1')
+      expect(prepared.chatContext.emotionEnabled).toBe(true)
+      expect(preparationLogs.info).toHaveBeenLastCalledWith('preparation.measured', expect.objectContaining({
+        status: 'completed', durationsMs: { environment: 0, bootstrap: 80, context: 120, assembly: 0, total: 120 }
+      }))
+    } finally { skills.mockRestore(); now.mockRestore() }
+  })
+
+  it('cancels sibling vision work when required context preparation fails', async () => {
+    const { SkillsPromptProvider } = await import('../request/SkillsPromptProvider')
+    let visionSignal: AbortSignal | undefined
+    const observe = vi.fn(async ({ signal }: { signal: AbortSignal }): Promise<MessageEntity> => {
+      visionSignal = signal
+      return new Promise((_, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }))
+    })
+    const skills = vi.spyOn(SkillsPromptProvider.prototype, 'build').mockRejectedValueOnce(new Error('catalog unavailable'))
+    try {
+      await expect(new ChatPreparationPipeline(undefined,
+        new StepBootstrapService(undefined, { observe } as unknown as ConstructorParameters<typeof StepBootstrapService>[1])
+      ).prepare({ ...input, input: { ...input.input, mediaCtx: ['data:image/png;base64,abc'] } },
+        { emit: vi.fn(), setChatMeta: vi.fn() } as unknown as RunEventEmitter))
+        .rejects.toThrow('catalog unavailable')
+      expect(visionSignal?.aborted).toBe(true)
+      expect(DatabaseService.updateMessage).not.toHaveBeenCalled()
+    } finally { skills.mockRestore() }
+  })
+
   it('stops preparation without late context persistence after cancellation', async () => {
     const { LoadedSkillsContextProvider } = await import('../request/LoadedSkillsContextProvider')
     let finish!: (value: null) => void
@@ -325,6 +395,7 @@ describe('ChatPreparationPipeline', () => {
     const environment = await service.prepare(input, emitter)
 
     expect(environment).toEqual<RunEnvironment>({
+      config,
       chat: chatEntity,
       modelContext: {
         model: config.accounts[0].models[0],
@@ -905,10 +976,7 @@ describe('ChatPreparationPipeline', () => {
       emitter
     )
 
-    await Promise.resolve()
-    await Promise.resolve()
-
-    expect(visionObservationService.observe).toHaveBeenCalled()
+    await vi.waitFor(() => expect(visionObservationService.observe).toHaveBeenCalled())
     expect(emitter.emit).toHaveBeenNthCalledWith(1, CHAT_HOST_EVENTS.CHAT_READY, {
       chatEntity,
       workspacePath: './workspaces/chat-1'
