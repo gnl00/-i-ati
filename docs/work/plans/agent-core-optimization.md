@@ -56,3 +56,15 @@ and reasoning chunks), Node typecheck, main boundaries, main architecture (8 tes
 and active doc paths passed. Scoped lint comparison retains baseline errors only.
 The removed growing-array copy had quadratic element-copy work; no wall-clock
 speedup is claimed from the functional tests.
+
+### Stage 3 — complete
+
+Tokenizer caches only strings up to 8192 characters (128 entries, at most about
+2 MiB of UTF-16 keys); provider measurement serializes once. Historical trimming
+uses binary prefix probes while preserving complete groups and final budget checks.
+BPE counts need not be strictly monotonic: this is a bounded valid selection, not
+a promise of mathematically maximal retention. A 256-group regression fixture
+requires at most 15 provider measurements and preserves required/current context.
+Context suites (34 tests), Node typecheck, main boundary/architecture/doc-path checks
+passed; scoped ESLint comparison has no new errors. Updated the stale documented
+unknown-window default to the existing 262144 implementation.

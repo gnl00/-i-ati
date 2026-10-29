@@ -117,9 +117,10 @@ export class ContextManager {
             ...unified.requestOverrides
           }
       signal?.throwIfAborted()
+      const serialized = JSON.stringify(body)
       return {
-        bodyBytes: Buffer.byteLength(JSON.stringify(body)),
-        tokens: this.tokenizer.countValue(body),
+        bodyBytes: Buffer.byteLength(serialized),
+        tokens: this.tokenizer.count(serialized),
         budget: resolveContextBudget(
           this.requestSpec.contextWindowTokens,
           body,
@@ -170,15 +171,35 @@ export class ContextManager {
     const removed = new Set<number>()
     // Leave space for a bounded summary and omission notice; all required facts survive unchanged.
     const target = Math.max(minimal.tokens, Math.floor(measured.budget.input * 0.85))
-    for (const indexes of groups) {
-      indexes.forEach((index) => removed.add(index))
+    // Search complete historical prefixes instead of measuring after every single group.
+    // BPE boundary effects can change exact counts; every selected request is still measured.
+    const selectPrefix = (count: number): void => {
+      removed.clear()
+      for (let i = 0; i < count; i++) {
+        groups[i].forEach((index) => removed.add(index))
+      }
       retained = this.records.filter(
         (_record, i) => required.has(i) || (i >= this.covered && !removed.has(i))
       )
       request = makeRequest(retained, undefined, true)
-      measured = await measure(request)
-      if (measured.tokens <= target) break
     }
+    let low = 1
+    let high = groups.length
+    let selected = groups.length
+    let lastProbe = 0
+    while (low <= high) {
+      const middle = Math.floor((low + high) / 2)
+      selectPrefix(middle)
+      lastProbe = middle
+      measured = await measure(request)
+      if (measured.tokens <= target) {
+        selected = middle
+        high = middle - 1
+      } else {
+        low = middle + 1
+      }
+    }
+    if (lastProbe !== selected) selectPrefix(selected)
     const removedRecords = this.records.filter((_record, index) => removed.has(index))
     let summary: string | undefined
     let compressionFailed = false

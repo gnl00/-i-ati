@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { RequestTokenizer, resolveContextBudget } from '../RequestTokenizer'
 import { ContextManager } from '../ContextManager'
 import type { ContextRecord, ContextToolResultRecord } from '../../context/ContextRecord'
 import type { AgentRequestSpec } from '../../request/AgentRequestSpec'
@@ -71,6 +72,25 @@ const manager = (records: ContextRecord[], request = spec, options = {}): Contex
   new ContextManager(records, request, { id: 'run', timestamp: 1 }, options)
 
 describe('ContextManager', () => {
+  it('bounds provider measurements while trimming many complete historical groups', async () => {
+    const records = Array.from({ length: 128 }, (_, i) => [
+      user(`old goal ${i}`), assistant(`old-${i}`, [], 'evidence line\n'.repeat(20))
+    ]).flat()
+    records.push(user('current goal'))
+    const measureRequest = vi.fn(async (request: IUnifiedRequest) => ({ messages: request.messages }))
+    const context = manager(records, spec, { measureRequest })
+    const request = await context.prepare()
+    expect(measureRequest.mock.calls.length).toBeLessThanOrEqual(15)
+    expect(JSON.stringify(request.messages)).toContain('current goal')
+    expect(JSON.stringify(request.messages)).toContain('evidence line')
+    expect(context.snapshot().records).toEqual(records)
+    const tokenizer = new RequestTokenizer(spec.model)
+    const body = { messages: request.messages }
+    expect(tokenizer.countValue(body)).toBeLessThanOrEqual(
+      resolveContextBudget(spec.contextWindowTokens, body, tokenizer.estimated).input
+    )
+  })
+
   it('regression: million-token model accepts a short follow-up after a large aggregated historical tool group', async () => {
     const calls = Array.from({ length: 11 }, (_, i) => call(`c${i}`))
     const records = [

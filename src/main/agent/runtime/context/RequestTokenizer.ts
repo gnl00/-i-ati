@@ -31,8 +31,11 @@ export class RequestTokenizer {
       tokens += this.encoder.countTokens(text.slice(start, end), { disallowedSpecial: new Set() })
       start = end
     }
-    if (this.cache.size >= 128) this.cache.delete(this.cache.keys().next().value!)
-    this.cache.set(text, tokens)
+    // At most 128 small strings (about 2 MiB of UTF-16 keys), never full large requests.
+    if (text.length <= 8_192) {
+      if (this.cache.size >= 128) this.cache.delete(this.cache.keys().next().value!)
+      this.cache.set(text, tokens)
+    }
     return tokens
   }
 
