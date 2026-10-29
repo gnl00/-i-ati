@@ -90,3 +90,5 @@ Use sequential names such as `0001-chat-runtime-host-boundary.md`.
 - [0054: MCP enablement and nonblocking TUI startup](0054-mcp-enablement-and-tui-startup.md) - Accepted
 
 - [0055: Telegram current conversation](0055-telegram-current-conversation.md) - Accepted
+
+- [0056: Agent core attempts and state](0056-agent-core-attempts-and-state.md) - Accepted

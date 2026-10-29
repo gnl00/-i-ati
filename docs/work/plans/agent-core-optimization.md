@@ -35,3 +35,14 @@ gap explicitly. Performance claims require measurements; algorithmic bounds alon
 ## Progress
 
 - Plan recorded; implementation pending.
+
+### Stage 1 — complete
+
+Empty-response attempts consume maxSteps, emit failed steps and contribute known
+usage. Failed/cancelled streams preserve received usage. Chat drops incomplete
+previews. Checks: `pnpm exec vitest run src/main/agent/runtime/__tests__/AgentRuntime.test.ts src/main/hosts/shared/render/__tests__` (35 passed),
+`pnpm run typecheck:node`, and `git diff --check` passed. Scoped ESLint reports
+13 baseline errors (8 explicit-return-type, 5 any); comparison against HEAD found
+the same rule counts. Existing repository Prettier configuration also reports
+format warnings; no broad formatting rewrite was performed. Electron acceptance
+and full shared-runtime coverage remain scheduled for final verification.

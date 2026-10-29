@@ -316,7 +316,7 @@ export class DefaultAgentLoop implements AgentLoop {
               startedAt,
               completedAt: dependencies.runtimeClock.now(),
               context,
-              usage,
+              usage: mergeUsage(usage, draft.snapshot.usage),
               abortReason: 'Loop aborted during streaming',
               dependencies,
               finalStep: lastStableStep,
@@ -345,6 +345,7 @@ export class DefaultAgentLoop implements AgentLoop {
           }
         }
       } catch (error) {
+        usage = mergeUsage(usage, draft.snapshot.usage)
         if (isAbortError(error, input.signal)) {
           return this.finalizeAborted({
             startedAt,
@@ -386,10 +387,31 @@ export class DefaultAgentLoop implements AgentLoop {
         })
       }
 
+      usage = mergeUsage(usage, draft.snapshot.usage)
+
       if (draft.snapshot.toolCalls.length === 0 && !hasVisibleAssistantContent(draft)) {
         const nextRecoveryAttempt = incompleteResponseRecoveryAttempts + 1
 
-        if (nextRecoveryAttempt <= MAX_INCOMPLETE_RESPONSE_RECOVERY_ATTEMPTS) {
+        const completedAt = dependencies.runtimeClock.now()
+        const failure: AgentStepFailureInfo = {
+          name: 'IncompleteModelResponseError',
+          code: INCOMPLETE_MODEL_RESPONSE_CODE,
+          message: formatIncompleteModelResponseMessage({
+            recoveryAttempts: incompleteResponseRecoveryAttempts,
+            draft
+          })
+        }
+        const failedStep = dependencies.agentStepMaterializer.materialize({
+          draft: { ...draft, status: 'failed', updatedAt: completedAt },
+          completedAt,
+          failure
+        }) as Extract<AgentStep, { status: 'failed' }>
+        await dependencies.agentEventEmitter.emitStepFailed({ timestamp: completedAt, step: failedStep })
+
+        if (
+          nextRecoveryAttempt <= MAX_INCOMPLETE_RESPONSE_RECOVERY_ATTEMPTS &&
+          stepIndex + 1 < maxSteps
+        ) {
           incompleteResponseRecoveryAttempts = nextRecoveryAttempt
           logger.warn('response.incomplete_retry_scheduled', {
             runId: input.run.runId,
@@ -400,23 +422,16 @@ export class DefaultAgentLoop implements AgentLoop {
             finishReason: draft.snapshot.finishReason,
             reasoningCharacters: draft.snapshot.reasoning?.length ?? 0
           })
+          stepIndex += 1
           continue
         }
 
-        const completedAt = dependencies.runtimeClock.now()
         return this.finalizeFailed({
           startedAt,
           completedAt,
           context,
           usage,
-          failure: {
-            name: 'IncompleteModelResponseError',
-            code: INCOMPLETE_MODEL_RESPONSE_CODE,
-            message: formatIncompleteModelResponseMessage({
-              recoveryAttempts: incompleteResponseRecoveryAttempts,
-              draft
-            })
-          },
+          failure,
           dependencies,
           finalStep: lastStableStep
         })
@@ -434,7 +449,6 @@ export class DefaultAgentLoop implements AgentLoop {
         completedAt
       }) as Extract<AgentStep, { status: 'completed' }>
       lastStableStep = step
-      usage = mergeUsage(usage, step.usage)
 
       await dependencies.agentEventEmitter.emitStepCompleted({
         timestamp: completedAt,

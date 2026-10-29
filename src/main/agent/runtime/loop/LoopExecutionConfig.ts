@@ -11,6 +11,6 @@
  * - 它不负责表达外部取消通道，取消仍应通过 `AbortSignal`
  */
 export interface LoopExecutionConfig {
-  /** Maximum model steps per run; defaults to 80. */
+  /** Maximum model response attempts per run, including empty-response recovery; defaults to 80. Transport retries before a stream is returned remain bounded separately. */
   maxSteps?: number
 }

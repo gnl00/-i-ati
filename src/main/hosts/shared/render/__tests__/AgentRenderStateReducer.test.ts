@@ -2,6 +2,28 @@ import { describe, expect, it } from 'vitest'
 import { AgentRenderStateReducer } from '../AgentRenderStateReducer'
 
 describe('AgentRenderStateReducer', () => {
+  it('discards incomplete response reasoning before a recovery attempt', () => {
+    const reducer = new AgentRenderStateReducer()
+    reducer.apply({ type: 'step.started', stepId: 'empty', stepIndex: 0, timestamp: 1 })
+    reducer.apply({
+      type: 'step.delta', stepId: 'empty', stepIndex: 0, timestamp: 2,
+      delta: { type: 'reasoning_delta', reasoning: 'unfinished', timestamp: 2 },
+      snapshot: { content: '', reasoning: 'unfinished', toolCalls: [] }
+    })
+    const state = reducer.apply({
+      type: 'step.failed', timestamp: 3,
+      step: {
+        status: 'failed', stepId: 'empty', stepIndex: 0, startedAt: 1, completedAt: 3,
+        content: '', reasoning: 'unfinished', toolCalls: [],
+        failure: { code: 'INCOMPLETE_MODEL_RESPONSE', message: 'Empty response' }
+      }
+    })
+    expect(state.preview).toBeNull()
+    expect(state.committed.blocks).toEqual([])
+    reducer.apply({ type: 'step.started', stepId: 'retry', stepIndex: 1, timestamp: 4 })
+    expect(reducer.snapshot().committed.blocks).toEqual([])
+  })
+
   it('keeps tool execution timing separate from tool block appearance timing', () => {
     const reducer = new AgentRenderStateReducer()
 

@@ -139,3 +139,11 @@ runtime 里的事件至少要分成三类：
   - `completed` / `failed` / `aborted` 必须携带 result
   - `started` 与 `output` 按 tool call 串行投递，terminal event 等待队列完成
   - terminal progress 的 identity 以 `result` 为准，不再在顶层重复展开
+
+## Empty-response recovery
+
+Each empty model response emits `step.failed` with `INCOMPLETE_MODEL_RESPONSE` before
+retry or loop failure. Its known usage contributes to run totals. Chat discards that
+preview without committing reasoning as an answer. Recovery consumes a model step and
+requires remaining `maxSteps` budget; at most one consecutive recovery is allowed.
+Transport setup retries remain separately bounded in ModelStreamExecutor.

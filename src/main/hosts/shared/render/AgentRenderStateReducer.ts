@@ -394,6 +394,11 @@ export class AgentRenderStateReducer {
         this.commitStep(event.step)
         return this.snapshot()
       case 'step.failed':
+        // An incomplete response is discarded before retry; it is not a committed answer.
+        if (event.step.failure.code === 'INCOMPLETE_MODEL_RESPONSE') {
+          this.state = { ...this.state, preview: null }
+          return this.snapshot()
+        }
         this.commitStep(event.step)
         return this.snapshot()
       case 'step.aborted':

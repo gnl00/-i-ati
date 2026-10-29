@@ -590,7 +590,8 @@ describe('DefaultAgentRuntime', () => {
             kind: 'delta',
             responseId: 'resp-incomplete',
             model: 'test-model',
-            reasoning: 'I will answer shortly.'
+            reasoning: 'I will answer shortly.',
+            usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 }
           },
           {
             kind: 'final',
@@ -622,6 +623,9 @@ describe('DefaultAgentRuntime', () => {
       }
     })
 
+    expect(result.usage).toEqual({ promptTokens: 20, completionTokens: 10, totalTokens: 30 })
+    expect(agentEventEmitter.emitStepFailed).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(agentEventEmitter.emitStepStarted).mock.calls.map(([event]) => event.stepIndex)).toEqual([0, 1])
     expect(result.status).toBe('failed')
     if (result.status !== 'failed') {
       throw new Error('Expected failed result')
@@ -636,6 +640,70 @@ describe('DefaultAgentRuntime', () => {
     )
     expect(result.transcript.records.map((record) => record.kind)).toEqual(['user'])
     expect(modelStreamExecutor.execute).toHaveBeenCalledTimes(2)
+    expect(agentEventEmitter.emitStepCompleted).not.toHaveBeenCalled()
+    expect(agentEventEmitter.emitLoopCompleted).not.toHaveBeenCalled()
+    expect(agentEventEmitter.emitLoopFailed).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not retry an empty response beyond maxSteps', async () => {
+    const modelStreamExecutor: ModelStreamExecutor = {
+      execute: vi.fn(async () =>
+        createAsyncStream([
+          {
+            kind: 'delta',
+            responseId: 'resp-incomplete',
+            model: 'test-model',
+            reasoning: 'I will answer shortly.',
+            usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 }
+          },
+          {
+            kind: 'final',
+            responseId: 'resp-incomplete',
+            model: 'test-model'
+          }
+        ])
+      )
+    }
+    const agentEventEmitter = createTestAgentEventEmitter()
+    const runtime = new DefaultAgentRuntime({
+      requestSpecSource,
+      runDescriptorSource,
+      loopInputBootstrapper: new DefaultLoopInputBootstrapper(),
+      runtimeInfrastructure: createDefaultRuntimeInfrastructure(),
+      agentLoop: new DefaultAgentLoop(),
+      agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
+        modelStreamExecutor,
+        agentEventEmitter
+      })
+    })
+
+    const result = await runtime.run({
+      execution: { maxSteps: 1 },
+      hostRequest: {
+        hostType: 'test',
+        hostRequestId: 'req-incomplete',
+        submittedAt: Date.now(),
+        userContent: [{ type: 'input_text', text: 'answer me' }]
+      }
+    })
+
+    expect(result.usage).toEqual({ promptTokens: 10, completionTokens: 5, totalTokens: 15 })
+    expect(agentEventEmitter.emitStepFailed).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(agentEventEmitter.emitStepStarted).mock.calls.map(([event]) => event.stepIndex)).toEqual([0])
+    expect(result.status).toBe('failed')
+    if (result.status !== 'failed') {
+      throw new Error('Expected failed result')
+    }
+    expect(result.failure).toEqual(
+      expect.objectContaining({
+        name: 'IncompleteModelResponseError',
+        code: 'INCOMPLETE_MODEL_RESPONSE',
+        message:
+          'Model stream ended without user-visible content (finishReason=missing, reasoningCharacters=22) after 0 recovery attempt(s).'
+      })
+    )
+    expect(result.transcript.records.map((record) => record.kind)).toEqual(['user'])
+    expect(modelStreamExecutor.execute).toHaveBeenCalledTimes(1)
     expect(agentEventEmitter.emitStepCompleted).not.toHaveBeenCalled()
     expect(agentEventEmitter.emitLoopCompleted).not.toHaveBeenCalled()
     expect(agentEventEmitter.emitLoopFailed).toHaveBeenCalledTimes(1)
