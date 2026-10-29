@@ -5,6 +5,10 @@
 **Related guide:** [CLI Host implementation](../guides/development/cli-host-implementation.md)<br>
 **Related architecture:** [Main process architecture](../architecture/main-process-architecture.md#cli-host)
 
+The runtime composition described here is superseded by
+[ADR-0053](0053-unified-cli-run-orchestration.md). The dedicated Electron entry,
+profile selection, JSONL/artifact contract and exit codes remain in effect.
+
 ## Context
 
 Terminal and evaluator tasks need one deterministic AgentRuntime run with

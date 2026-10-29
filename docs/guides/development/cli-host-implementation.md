@@ -2,7 +2,7 @@
 
 Status: Active
 Owner: Main runtime
-Last updated: 2026-09-03
+Last updated: 2026-10-29
 
 ## 目标与交付边界
 
@@ -26,14 +26,15 @@ Last updated: 2026-09-03
 ```text
 terminal / evaluator
   -> launch script + Electron CLI app entry
-  -> CLI input adapter + run orchestration
-  -> AgentRuntime -> provider adapter / ToolExecutor -> task workspace
+  -> CLI input adapter + artifact orchestration
+  -> RunService.submit -> RunManager / AgentRun -> Chat preparation
+  -> shared Main runtime runner -> AgentRuntime -> provider adapter / ToolExecutor -> task workspace
   -> CLI event sink -> stdout JSONL + output artifacts
 ```
 
-`app/` 负责初始化和进程退出；`hosts/cli/` 负责宿主输入输出；`orchestration/cli/` 负责 runtime 组装和单次运行生命周期。agent core 继续只持有 runtime 语义。沿用标准库参数解析与既有构建工具。
+`app/` 负责初始化和进程退出；`hosts/cli/` 负责宿主输入输出；`orchestration/cli/` 负责提交适配、JSONL 和终态产物。`RunService`、`RunManager`、`AgentRun` 统一负责运行生命周期，CLI 不再独立组装 runtime。agent core 继续只持有 runtime 语义。沿用标准库参数解析与既有构建工具。
 
-`runCliTask` 在初始化完成后调用 `runCliRuntime` 函数组装共享 runtime，将详细结果写入产物并向应用层返回退出码。CLI 的有效请求配置来自 `CliChatProfile.requestSpec`。
+`runCliTask` 在初始化完成后调用 `runCliRuntime`，由后者提交到 `RunService`。`CliChatProfile` 只解析显式模型和 MCP 工具；共用 Chat preparation 负责请求构造、用户消息和上下文快照持久化。`onPrepared` 记录实际生效的 prompt、tools、thinking 与配置指纹，再开始输出 `run.started`。最终结果来自 Main-only `outcome`，包含宿主终态与完整 AgentLoopResult，`completion` 保持原有失败/取消拒绝契约。
 
 ## 公共命令与配置
 
@@ -88,7 +89,7 @@ pnpm cli run --instruction-file ./task.md --workspace ./workspace \
 
 CLI 默认使用桌面应用的 userData，读取同一份 provider、视觉/辅助模型、用户偏好、skills 和 MCP 配置。`--profile-dir <dir>` 可指定独立应用配置目录，验收与容器必须显式选择测试 profile。sessionData、JSONL 与终态产物保持在 output-dir；数据库和应用日志归属于选定 profile。CLI 会话保留在该 profile，供工具创建的关联数据继续使用。
 
-工具通过 Chat 的 ToolListBuilder 从中央注册表及配置的 MCP 服务生成，CLI 不再维护独立名单，ToolExecutor 沿用 Chat 的工具执行策略。包括 image_analyze、plan、ask_user_question 等已注册能力。MCP 连接失败会明确终止初始化；模型所见名单和结果审计来自同一份有效请求。
+工具通过 Chat 的 ToolListBuilder 从中央注册表及配置的 MCP 服务生成，CLI 不再维护独立名单，ToolExecutor 沿用 Chat 的工具执行策略。image_analyze 等能力遵循配置条件；批处理 CLI 的 source 为 `cli`，不声明需要交互界面的 ask_user_question。CLI 只连接 `enabled: true` 的 MCP；启用偏好与桌面和 TUI 共用，旧配置无此字段时视为关闭。显式启用的 MCP 连接失败仍会明确终止批处理初始化；模型所见名单和结果审计来自同一份有效请求。CLI 审计 profile 版本为 `cli-chat-profile-v3`。
 
 `deny` 对需要确认的操作返回明确拒绝；`auto` 使用现有 permissionApprovalMode，审批决策可审计。缺少交互能力的工具调用立即返回确定结果。工具、模型请求都共享 AbortSignal。CLI 路径本身不构成操作系统 sandbox；自动审批应由外部容器/VM 提供隔离。环境内的跨目录操作沿用现有审批契约。
 
@@ -96,9 +97,11 @@ CLI 默认使用桌面应用的 userData，读取同一份 provider、视觉/辅
 
 ## 事件、产物、退出
 
-JSONL envelope 固定带 `schemaVersion: 1`、`runId`、`type`、时间戳与 payload。至少有 `run.started`、runtime 事件与 `run.finished`；合法启动后的每条终态路径只输出一次 finished。允许 help 为普通文本。输入校验失败输出结构化错误并返回参数错误码。
+JSONL envelope 固定带 `schemaVersion: 1`、`runId`、`type`、时间戳与 payload。完成 preparation 后输出 `run.started`，随后输出 runtime 事件与唯一的 `run.finished`；preparation 失败或提前取消时允许缺少 started 和 runtime 轨迹。并发的 runtime 与子 Agent JSONL 输出串行写入，finished 之后不再追加事件。允许 help 为普通文本。输入校验失败输出结构化错误并返回参数错误码。
 
 output-dir 至少有 `events.jsonl`、`result.json`、`transcript.json`。轨迹使用 runtime 已有结构；result 包含 runId、status、开始/结束时间、耗时、模型/adapter、工具集、预算、审批模式、最终文本、usage、failure 或 abortReason。明确 `completed` 只表示 agent 运行完成，pass/fail 由外部 verifier 提供。使用临时文件加 rename 或等价原子落盘保护结果。保留已完成步骤的用量与超时前轨迹。
+
+CLI 用户、助手及工具消息通过共用 Chat 链路持久化，工具关联数据仍可使用会话 ID。宿主最终持久化失败时，保留已取得的完整 runtime 轨迹和 usage，并以失败状态退出。CLI 显式禁用标题生成和后台对话压缩，避免终态后追加模型调用；每次请求的 ContextManager 预算与压缩仍共用。父子运行的审批、取消和资源释放通过共用 RunManager 处理，应用退出仍等待子 Agent 和命令进程清理。
 
 退出码：0 completed；1 runtime/provider/tool orchestration 或输出失败；2 参数/配置错误；124 总超时；130 SIGINT；143 SIGTERM。步骤耗尽须能与正常完成区分并返回失败码，避免把硬预算中断当成成功。遵循当前 core 的终态行为，必要时在 CLI 输出层映射。
 

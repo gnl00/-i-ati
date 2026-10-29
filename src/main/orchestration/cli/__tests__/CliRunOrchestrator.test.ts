@@ -47,17 +47,29 @@ beforeEach(async () => {
     },
     profile: {
       secrets: [secret],
-      requestSpec: { ...modelConfig, tools: [], systemPrompt: 'test' },
-      emotionEnabled: true,
-      contextMessages: [],
+      modelContext: {
+        model: { id: 'test', label: 'test', type: 'llm' },
+        account: { id: 'test', providerId: 'test', label: 'Test', apiUrl: modelConfig.baseUrl, apiKey: secret, models: [] },
+        providerDefinition: { id: 'test', displayName: 'Test', adapterPluginId: 'test' }
+      }, tools: [],
       modelRef: { accountId: 'test', modelId: 'test' }
     }
   }
-  runRuntime.mockReset().mockResolvedValue({
+  runRuntime.mockReset().mockImplementation(async ({ onPrepared }) => {
+    await onPrepared({
+      runSpec: {
+        requestSpec: { ...modelConfig, tools: [], systemPrompt: 'test' }
+      }
+    })
+    return {
+      result: { state: 'failed' },
+      agentResult: {
     status: 'failed',
     failure: { message: `provider failed: ${secret}` },
     transcript: { records: [] },
     usage: { totalTokens: 12 }
+      }
+    }
   })
   vi.spyOn(CliEventSink.prototype, 'emit').mockResolvedValue()
 })
@@ -69,25 +81,23 @@ afterEach(async () => {
 
 it.each([new Error('runtime failed'), undefined])(
   'persists a failed result when runtime throws %s',
-  async (error) => {
+  async error => {
     runRuntime.mockRejectedValue(error)
 
     expect(await runCliTask(input)).toBe(1)
     const result = JSON.parse(await readFile(input.prepared.paths.result, 'utf8'))
     expect(result.status).toBe('failed')
     expect(result.failure.message).toBe(error?.message ?? 'undefined')
-    expect(vi.mocked(CliEventSink.prototype.emit).mock.calls.map(([type]) => type)).toEqual([
-      'run.started',
-      'run.finished'
+    expect(vi.mocked(CliEventSink.prototype.emit).mock.calls.map(([type]) => type)).toEqual(['run.finished'
     ])
   }
 )
 
-it('skips runtime after a start-event failure and persists the failure', async () => {
+it('persists start-event output failure from shared preparation', async () => {
   vi.mocked(CliEventSink.prototype.emit).mockRejectedValue(new Error('output unavailable'))
 
   expect(await runCliTask(input)).toBe(1)
-  expect(runRuntime).not.toHaveBeenCalled()
+  expect(runRuntime).toHaveBeenCalledTimes(1)
   const result = JSON.parse(await readFile(input.prepared.paths.result, 'utf8'))
   expect(result).toMatchObject({
     status: 'failed',
@@ -97,11 +107,11 @@ it('skips runtime after a start-event failure and persists the failure', async (
 
 it.each(['transcript', 'terminal event'])(
   'preserves runtime facts after a %s write failure',
-  async (stage) => {
+  async stage => {
     if (stage === 'transcript') {
       input.prepared.paths.transcript = directory
     } else {
-      vi.mocked(CliEventSink.prototype.emit).mockImplementation(async (type) => {
+      vi.mocked(CliEventSink.prototype.emit).mockImplementation(async type => {
         if (type === 'run.finished') throw new Error(`stdout failed: ${secret}`)
       })
     }
@@ -120,3 +130,45 @@ it.each(['transcript', 'terminal event'])(
     ).toHaveLength(1)
   }
 )
+
+it.each([
+  ['timeout', 124],
+  ['SIGINT', 130],
+  ['SIGTERM', 143]
+] as const)('preserves abort exit code for %s', async (kind, code) => {
+  input.getAbortKind = (): typeof kind => kind
+  expect(await runCliTask(input)).toBe(code)
+  expect(
+    JSON.parse(await readFile(input.prepared.paths.result, 'utf8')).status
+  ).toBe('aborted')
+})
+
+it('reports host persistence failure while retaining completed agent evidence', async () => {
+  runRuntime.mockImplementation(async ({ onPrepared }): Promise<unknown> => {
+    await onPrepared({ runSpec: { requestSpec: { tools: [] } } })
+    return {
+      result: {
+        state: 'failed',
+        error: { name: 'Error', message: 'database failed' }
+      },
+      agentResult: {
+        status: 'completed',
+        finalStep: { content: 'done' },
+        usage: { totalTokens: 15 },
+        transcript: { records: [{ kind: 'user', content: 'original' }] }
+      }
+    }
+  })
+  expect(await runCliTask(input)).toBe(1)
+  expect(
+    JSON.parse(await readFile(input.prepared.paths.result, 'utf8'))
+  ).toMatchObject({
+    status: 'failed',
+    finalText: 'done',
+    usage: { totalTokens: 15 },
+    failure: { message: 'database failed' }
+  })
+  expect(await readFile(input.prepared.paths.transcript, 'utf8')).toContain(
+    'original'
+  )
+})

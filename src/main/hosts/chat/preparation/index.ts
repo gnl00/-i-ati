@@ -3,7 +3,7 @@ import { RunRequestFactory } from './RunRequestFactory'
 import { StepBootstrapService } from './StepBootstrapService'
 import { ChatEventMapper } from '../mapping'
 import type { RunEventEmitter } from '@main/agent/contracts'
-import type { MainAgentRunInput, RunPreparationResult } from './types'
+import type { MainAgentRunInput, RunPreparationOptions, RunPreparationResult } from './types'
 
 export class ChatPreparationPipeline {
   constructor(
@@ -12,8 +12,12 @@ export class ChatPreparationPipeline {
     private readonly runRequestFactory = new RunRequestFactory()
   ) {}
 
-  async prepare(input: MainAgentRunInput, emitter: RunEventEmitter): Promise<RunPreparationResult> {
-    const environment = await this.runEnvironmentService.prepare(input, emitter)
+  async prepare(
+    input: MainAgentRunInput,
+    emitter: RunEventEmitter,
+    options?: RunPreparationOptions
+  ): Promise<RunPreparationResult> {
+    const environment = await this.runEnvironmentService.prepare(input, emitter, options)
     const chatEventMapper = new ChatEventMapper(emitter)
     chatEventMapper.emitChatReady(environment.chat, environment.workspacePath)
     if (environment.historyMessages.length > 0) {
@@ -21,6 +25,14 @@ export class ChatPreparationPipeline {
     }
     const step = await this.stepBootstrapService.bootstrap(environment, input, emitter)
     const requestBuild = await this.runRequestFactory.build(environment, step, input.input)
+    if (options?.systemPrompt)
+      requestBuild.requestSpec.systemPrompt = options.systemPrompt
+    if (options?.options?.thinking) {
+      requestBuild.requestSpec.options = {
+        ...requestBuild.requestSpec.options,
+        ...options.options
+      }
+    }
     const createdMessages = step.messageBuffer.slice(environment.historyMessages.length)
 
     return {
@@ -57,6 +69,7 @@ export type {
   HostRunInputState,
   MainAgentRunInput,
   RunEnvironment,
+  RunPreparationOptions,
   RunPreparationResult,
   StepBootstrap
 } from './types'

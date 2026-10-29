@@ -10,6 +10,25 @@ share one runtime. Connections pin MCP revision `2026-07-28`; servers must
 advertise that revision through `server/discover`. Older protocol revisions
 are rejected, with no `initialize` fallback.
 
+Server configuration has an optional `enabled` flag. Only explicit `true` opts
+into startup connections; legacy entries without a flag remain disabled. The
+desktop switch persists this preference immediately while connection status stays
+a separate runtime fact. Desktop, TUI and CLI read the same profile setting.
+Connection instances remain process-local; an already-running terminal loads its
+startup preferences when it launches. Unsaved transport edits in Settings are
+preserved when the enablement flag is saved.
+
+Desktop configuration hydration connects enabled servers in the background.
+TUI paints its interface first and connects enabled servers concurrently. A failed
+TUI server is logged and shown as unavailable; successful services remain usable.
+Newly available tools enter the next submission, without changing active-run tool
+snapshots. TUI exit aborts pending discovery and waits for cleanup. Its stdio
+stderr is captured in logs. SDK 2.2 discovery precedes request signal handling;
+the host closes the transport on abort to cancel the SDK's disposable probe child.
+Batch CLI connects only enabled servers and keeps its existing fail-fast policy
+for failures of explicitly enabled tools, preserving deterministic task setup.
+See [ADR-0054](../decisions/0054-mcp-enablement-and-tui-startup.md).
+
 Supported configurations are local stdio (`command`, `args`) and remote
 Streamable HTTP (`type: "streamableHttp"`, `url`). HTTP+SSE is unsupported.
 Existing configurations are not rewritten or deleted. Update the server itself

@@ -2,7 +2,8 @@ import { expandTextAttachments } from '@shared/chat/textAttachments'
 import type { RunResult, StepResult } from '@main/agent/contracts'
 import { ChatFinalizeService } from './finalize/ChatFinalizeService'
 import { ChatEventMapper, ChatStepRuntimeContextMapper, type ChatStepRuntimeContext } from './mapping'
-import type { MainAgentRunInput, RunPreparationResult } from './preparation'
+import type { MainAgentRunInput,
+  RunPreparationOptions, RunPreparationResult } from './preparation'
 import { ChatPreparationPipeline } from './preparation'
 import type { RunEventEmitter } from '@main/agent/contracts'
 
@@ -44,9 +45,10 @@ export class ChatAgentAdapter {
 
   prepareRun(
     input: MainAgentRunInput,
-    emitter: RunEventEmitter
+    emitter: RunEventEmitter,
+    options?: RunPreparationOptions
   ): Promise<RunPreparationResult> {
-    return this.preparationPipeline.prepare(input, emitter).then((prepared) => {
+    return this.preparationPipeline.prepare(input, emitter, options).then(prepared => {
       const chatEventMapper = new ChatEventMapper(emitter)
       const earlyEmittedMessageIds = new Set(prepared.chatContext.earlyEmittedMessageIds ?? [])
       for (const message of prepared.chatContext.createdMessages) {

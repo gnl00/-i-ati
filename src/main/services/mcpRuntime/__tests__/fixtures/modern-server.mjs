@@ -1,6 +1,9 @@
 import { createInterface } from 'node:readline'
 
+if (process.argv.includes('--diagnostic')) process.stderr.write('MCP_FIXTURE_STDERR\n')
+
 createInterface({ input: process.stdin }).on('line', line => {
+  if (process.argv.includes('--hang')) return
   const request = JSON.parse(line)
   if (request.id === undefined) return
   const result = request.method === 'server/discover'

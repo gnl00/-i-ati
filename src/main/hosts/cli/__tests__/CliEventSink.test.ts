@@ -49,6 +49,29 @@ describe('CliEventSink', () => {
     await expect(sink.emit('run.finished', { status: 'completed' })).rejects.toThrow(/more than once/)
   })
 
+  it('serializes concurrent runtime/child output and closes the stream at run.finished', async () => {
+    const stdout: string[] = []
+    const events: string[] = []
+    let release!: () => void
+    const gate = new Promise<void>(resolve => { release = resolve })
+    const sink = new CliEventSink({
+      runId: 'ordered', eventsPath: '/tmp/events.jsonl',
+      appendEvent: async (_path, line): Promise<void> => {
+        if (events.length === 0) await gate
+        events.push(JSON.parse(line).type)
+      },
+      writeStdout: async (line): Promise<void> => { stdout.push(JSON.parse(line).type) }
+    })
+    const step = sink.emit('step.delta', {})
+    const child = sink.emit('subagent.updated', {})
+    const finished = sink.emit('run.finished', {})
+    release()
+    await Promise.all([step, child, finished])
+    await sink.emit('subagent.updated', {})
+    expect(events).toEqual(['step.delta', 'subagent.updated', 'run.finished'])
+    expect(stdout).toEqual(events)
+  })
+
   it('makes append failures terminal and avoids stdout after the failed append', async () => {
     const stdout: string[] = []
     const sink = new CliEventSink({

@@ -4,6 +4,8 @@ import type { HostRenderEventSink } from '@main/hosts/shared/render'
 import type { PermissionApprovalMode } from '@tools/approval'
 import type { RunEventEmitter } from '../infrastructure'
 import type { MainAgentRuntimeTerminalResult } from './MainAgentRuntimeResult'
+import type { RunSubmissionOptions } from '../RunSubmissionOptions'
+import type { AgentLoopResult } from '@main/agent/runtime/loop/AgentLoopResult'
 import type { RunSteerRequest } from '@shared/run/steering-events'
 
 export interface MainAgentRuntimeContext {
@@ -14,6 +16,7 @@ export interface MainAgentRuntimeContext {
 }
 
 export interface MainAgentRuntimeRunnerInput {
+  options?: RunSubmissionOptions
   runInput: MainAgentRunInput
   prepared: RunPreparationResult
   runtimeContext?: MainAgentRuntimeContext
@@ -25,6 +28,7 @@ export interface MainAgentRuntimeRunnerInput {
 }
 
 export interface MainAgentRuntimeRunResult {
+  agentResult?: AgentLoopResult
   runtimeResult: MainAgentRuntimeTerminalResult
   stepCommitter: {
     getFinalAssistantMessage(): MessageEntity

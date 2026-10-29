@@ -27,6 +27,12 @@ export type MainAgentRunInput = {
   chatUuid?: string
 }
 
+export type RunPreparationOptions = {
+  modelContext?: RunModelContext
+  systemPrompt?: string
+  options?: IUnifiedRequest['options']
+}
+
 export type RunEnvironment = {
   chat: ChatEntity
   modelContext: RunModelContext

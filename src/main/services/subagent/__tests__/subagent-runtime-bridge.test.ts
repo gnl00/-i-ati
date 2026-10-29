@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { ToolConfirmationManager } from '@main/orchestration/chat/run/infrastructure/tool-confirmation'
 import type { SubagentRecord } from '@tools/subagent/index.d'
 import type { ToolConfirmationRequest } from '@shared/tools/confirmation'
+import type { AgentRequestSpec } from '@main/agent/contracts/HostRuntimeContracts'
 import type { RunEventEmitter } from '@main/agent/contracts'
 import { subagentRuntimeBridge } from '../subagent-runtime-bridge'
 
@@ -36,4 +37,23 @@ describe('subagent runtime bridge', () => {
     releaseB()
     await expect(subagentRuntimeBridge.request(emitter.submissionId, request('c'))).resolves.toMatchObject({ approved: false, reason: 'parent confirmation channel unavailable' })
   })
+})
+
+it('binds the prepared CLI-only model to the existing supervised parent channel', () => {
+  const id = 'cli-prepared-model'
+  const modelRef = { accountId: 'cli', modelId: 'external' }
+  const requestSpec: AgentRequestSpec = {
+    adapterPluginId: 'openai-chat-compatible-adapter', baseUrl: 'http://localhost',
+    apiKey: 'test', model: 'external'
+  }
+  subagentRuntimeBridge.register(id, {
+    emitter: { submissionId: id, setChatMeta: vi.fn(), emit: vi.fn() },
+    requester: { request: async (): Promise<{ approved: boolean }> => ({ approved: false }) },
+    cancelConfirmation: vi.fn()
+  })
+  subagentRuntimeBridge.setRequestSpec(id, modelRef, requestSpec)
+  expect(subagentRuntimeBridge.getRequestSpec(id, modelRef)).toBe(requestSpec)
+  expect(subagentRuntimeBridge.getRequestSpec(id, { ...modelRef, modelId: 'other' })).toBeUndefined()
+  subagentRuntimeBridge.releaseParent(id)
+  expect(subagentRuntimeBridge.getRequestSpec(id, modelRef)).toBeUndefined()
 })

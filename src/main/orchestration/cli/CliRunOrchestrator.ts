@@ -1,3 +1,5 @@
+import type { RunPreparationResult } from '@main/hosts/chat/preparation/types'
+import type { RunOutcome } from '@main/orchestration/chat/run'
 import type { CliChatProfile } from './CliChatProfile'
 import { createHash, randomUUID } from 'node:crypto'
 import {
@@ -316,7 +318,6 @@ export const runCliTask = async (input: CliRunTaskInput): Promise<number> => {
   const startedAt = input.startedAt ?? Date.now()
   const { prepared } = input
   const secrets = input.profile.secrets
-  const toolNames = (input.profile.requestSpec.tools as { name: string }[]).map((tool) => tool.name)
   const eventSink = new CliEventSink({
     runId: input.runId,
     eventsPath: prepared.paths.events,
@@ -324,39 +325,37 @@ export const runCliTask = async (input: CliRunTaskInput): Promise<number> => {
   })
   await writeFile(prepared.paths.events, '', 'utf8')
 
-  const systemPrompt = input.profile.requestSpec.systemPrompt ?? ''
-  const thinking = input.profile.requestSpec.options?.thinking
-  const profile = {
-    id: 'cli-chat-profile-v2',
-    systemPrompt: redactCliValue(systemPrompt, secrets),
-    systemPromptSha256: fingerprint(systemPrompt),
-    toolNames,
-    toolsetSha256: fingerprint(input.profile.requestSpec.tools),
-    modelConfigSha256: fingerprint({
-      adapterPluginId: prepared.modelConfig.adapterPluginId,
-      baseUrl: prepared.modelConfig.baseUrl,
-      model: prepared.modelConfig.model,
-      systemPrompt,
-      options: input.profile.requestSpec.options ?? {},
-      requestOverrides: input.profile.requestSpec.requestOverrides ?? {},
-      payloadExtensions: input.profile.requestSpec.payloadExtensions ?? {}
-    }),
-    toolsetFingerprintScope: 'tool definitions including schemas and sources',
-    desktopProfileDifferences: [
-      'single task input from an instruction file',
-      'CLI JSONL output with file artifacts',
-      'fresh task history; shared app configuration and Chat request preparation',
-      'terminal output; desktop interaction requires a host UI'
-    ]
-  }
-  const budget = {
-    maxSteps: prepared.options.maxSteps
-  }
-  const artifacts = { ...ARTIFACT_NAMES }
-
-  let runtimeResult: AgentLoopResult | undefined
-  let thrownError: unknown
-  try {
+  let toolNames: string[] = []
+  let thinking: NonNullable<IUnifiedRequest['options']>['thinking'] | undefined
+  let profile: Record<string, unknown> | undefined
+  const onPrepared = async ({ runSpec }: RunPreparationResult): Promise<void> => {
+    toolNames = (runSpec.requestSpec.tools as { name: string }[]).map(tool => tool.name)
+    const systemPrompt = runSpec.requestSpec.systemPrompt ?? ''
+    thinking = runSpec.requestSpec.options?.thinking
+    profile = {
+      id: 'cli-chat-profile-v3',
+      systemPrompt: redactCliValue(systemPrompt, secrets),
+      systemPromptSha256: fingerprint(systemPrompt),
+      toolNames,
+      toolsetSha256: fingerprint(runSpec.requestSpec.tools),
+      modelConfigSha256: fingerprint({
+        adapterPluginId: prepared.modelConfig.adapterPluginId,
+        baseUrl: prepared.modelConfig.baseUrl,
+        model: prepared.modelConfig.model,
+        systemPrompt,
+        options: runSpec.requestSpec.options ?? {},
+        requestOverrides: runSpec.requestSpec.requestOverrides ?? {},
+        payloadExtensions: runSpec.requestSpec.payloadExtensions ?? {}
+      }),
+      toolsetFingerprintScope: 'tool definitions including schemas and sources',
+      desktopProfileDifferences: [
+        'single task input from an instruction file',
+        'CLI JSONL output with file artifacts',
+        'fresh task history; shared app configuration and Chat request preparation',
+        'batch approval resolves immediately; interactive questions are unavailable',
+        'post-run title and background compression jobs disabled'
+      ]
+    }
     await eventSink.emit(
       'run.started',
       {
@@ -381,8 +380,15 @@ export const runCliTask = async (input: CliRunTaskInput): Promise<number> => {
       },
       startedAt
     )
+  }
+  const budget = { maxSteps: prepared.options.maxSteps }
+  const artifacts = { ...ARTIFACT_NAMES }
+  let runtimeResult: AgentLoopResult | undefined
+  let runOutcome: RunOutcome | undefined
+  let thrownError: unknown
+  try {
     const { runCliRuntime } = await import('./CliRuntimeRunner')
-    runtimeResult = await runCliRuntime({
+    runOutcome = await runCliRuntime({
       runId: input.runId,
       instruction: prepared.instruction,
       workspace: prepared.workspace,
@@ -390,9 +396,13 @@ export const runCliTask = async (input: CliRunTaskInput): Promise<number> => {
       approval: prepared.options.approval,
       maxSteps: prepared.options.maxSteps,
       profile: input.profile,
+      onPrepared,
       eventSink,
       signal: input.signal
     })
+    runtimeResult = runOutcome.agentResult
+    if (runOutcome.result.state === 'failed')
+      thrownError = runOutcome.result.error
   } catch (error) {
     thrownError = error
   }
@@ -400,12 +410,12 @@ export const runCliTask = async (input: CliRunTaskInput): Promise<number> => {
   const abortKind = input.getAbortKind?.()
   const finishedAt = Date.now()
   const transcript = runtimeResult?.transcript ?? EMPTY_TRANSCRIPT(input.runId, startedAt)
-  const status = abortKind ? 'aborted' : (runtimeResult?.status ?? 'failed')
+  const status = abortKind ? 'aborted' : (runOutcome?.result.state ?? 'failed')
   const failure =
     status === 'failed'
       ? runtimeResult?.status === 'failed'
         ? runtimeResult.failure
-        : toErrorInfo(thrownError)
+        : (runOutcome?.result.error ?? toErrorInfo(thrownError))
       : undefined
   const abortReason =
     status === 'aborted'

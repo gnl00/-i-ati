@@ -59,6 +59,7 @@ export class CliEventSink implements AgentEventSink {
   private readonly secrets: readonly string[]
   private readonly writeStdout: (line: string) => Promise<void>
   private readonly appendEvent: (path: string, line: string) => Promise<void>
+  private pending = Promise.resolve()
   private finished = false
   private failed?: Error
 
@@ -80,6 +81,7 @@ export class CliEventSink implements AgentEventSink {
     if (this.failed) {
       throw this.failed
     }
+    if (this.finished && type !== 'run.finished') return
     if (type === 'run.finished') {
       if (this.finished) {
         throw new Error('CLI run.finished was emitted more than once')
@@ -96,14 +98,17 @@ export class CliEventSink implements AgentEventSink {
     }
     const line = `${JSON.stringify(envelope)}\n`
 
-    try {
-      await this.appendEvent(this.options.eventsPath, line)
-      await this.writeStdout(line)
-    } catch (error) {
-      this.failed = error instanceof Error
-        ? error
-        : new Error(String(error))
-      throw this.failed
-    }
+    const delivery = this.pending.then(async (): Promise<void> => {
+      if (this.failed) throw this.failed
+      try {
+        await this.appendEvent(this.options.eventsPath, line)
+        await this.writeStdout(line)
+      } catch (error) {
+        this.failed = error instanceof Error ? error : new Error(String(error))
+        throw this.failed
+      }
+    })
+    this.pending = delivery.catch(() => undefined)
+    return delivery
   }
 }

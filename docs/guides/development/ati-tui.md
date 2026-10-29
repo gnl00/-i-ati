@@ -14,7 +14,7 @@ pnpm build
 pnpm tui --workspace /path/to/project
 ```
 
-默认使用桌面 ati 的 profile 和已配置的模型。stdin、stdout 都必须是 TTY。`--help` 不要求 TTY。
+默认使用桌面 ati 的 profile 和已配置的模型。MCP 启用偏好也来自该 profile，桌面设置开关即时保存 `enabled`；旧配置没有此字段时视为关闭。连接本身属于各进程，TUI 在启动时读取偏好。stdin、stdout 都必须是 TTY。`--help` 不要求 TTY。
 
 ```bash
 pnpm tui --help
@@ -92,7 +92,7 @@ TUI 使用 Electron 的主进程和原生 SQLite，不创建桌面窗口。批�
 
 退出先取消当前执行，等待运行、post-run 工作、命令进程清理及工具结果压缩，再断开 MCP、关闭数据库与日志。终端清理放在 `finally` 中，恢复光标、输入模式和配色通知。正常退出打印会话 UUID，便于 `--resume`。
 
-console 日志进入 profile 的日志服务，避免破坏终端画面，并沿用敏感值脱敏。配置的 MCP 连接失败会明确终止启动。记忆与知识库初始化失败写入日志，其他终端功能仍可使用。
+console 日志进入 profile 的日志服务，避免破坏终端画面，并沿用敏感值脱敏。TUI 先启动界面，再并行连接 `enabled: true` 的 MCP；已配置但未明确启用的服务不启动。单个 MCP 失败只显示英文提示并记录具体原因，不阻断聊天或其他服务器。成功连接的工具用于之后的新提交；进行中的运行保留原工具快照。退出取消并等待未完成的连接，防止后台子进程残留。stdio 子进程 stderr 进入日志，不直接写入终端。记忆与知识库初始化失败写入日志，其他终端功能仍可使用。
 
 ## 验证与验收边界
 

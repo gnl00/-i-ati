@@ -323,9 +323,21 @@ try {
   }
   config.compression = { ...config.compression, enabled: false }
   db.prepare("UPDATE configs SET value=? WHERE key='appConfig'").run(JSON.stringify(config))
+  const fixture = resolve('src/main/services/mcpRuntime/__tests__/fixtures/modern-server.mjs')
+  for (const [name, server] of Object.entries({
+    pending: { command: process.execPath, args: [fixture, '--hang'], enabled: true },
+    healthy: { command: process.execPath, args: [fixture, '--diagnostic'], enabled: true },
+    broken: { command: 'ati-mcp-no-such-executable', enabled: true }
+  })) {
+    db.prepare('INSERT INTO mcp_servers (name,config_json,created_at,updated_at) VALUES (?,?,?,?)')
+      .run(name, JSON.stringify(server), now, now)
+  }
   db.close()
+  const startupStartedAt = performance.now()
   tui = launch()
-  await waitFor(() => tui.screen().includes('local-model'), 'configured model')
+  await waitFor(() => tui.screen().includes('local-model'), 'configured model with pending MCP', 5000)
+  const startupMs = Math.round(performance.now() - startupStartedAt)
+  await waitFor(() => tui.screen().includes('MCP unavailable: broken'), 'nonfatal MCP failure')
   await snapshot(tui, 'welcome-dark')
   tui.send('/model\r')
   await waitFor(() => tui.screen().includes('Type to filter'), 'searchable model picker')
@@ -345,7 +357,11 @@ try {
   )
   tui.send('代号是什么？\r')
   await waitFor(() => tui.screen().includes('TUI_DONE_2'), 'second turn')
-  assert.ok(requests[1].messages.some((m) => m.role === 'user' && m.content === '记住代号青松'))
+  // Persisted request snapshots accompany the authored user text in model history.
+  assert.ok(requests[1].messages.some((m) =>
+    m.role === 'user' && typeof m.content === 'string'
+    && m.content.split('<request_context>')[0] === '记住代号青松'
+  ))
   assert.ok(
     requests[1].messages.some((m) => m.role === 'assistant' && m.content.includes('TUI_DONE_1'))
   )
@@ -427,15 +443,22 @@ try {
   await waitFor(() => tui.screen().includes('不要丢失这条指令'), 'resume pending input')
   assert.ok(tui.screen().includes('TUI_DONE_1'), 'persisted transcript missing')
   await quit(tui)
+  assert.ok(requests.some(request => request.tools?.some(tool => tool.function.name === 'healthy__echo')),
+    'healthy MCP tools never became available')
+  assert.ok(!tui.raw.includes('MCP_FIXTURE_STDERR'), 'MCP stderr corrupted the terminal')
   await writeFile(
     join(root, 'summary.json'),
     JSON.stringify(
       {
         passed: true,
+        startupMs,
         requests: requests.length,
         auxiliaryRequests: auxiliaryRequests.length,
         checks: [
           'real Electron PTY',
+          'startup before MCP discovery completes',
+          'failed MCP is nonfatal; healthy MCP tools become available',
+          'pending MCP cancellation at exit; stderr captured in logs',
           'multi-turn payload',
           'manual approval',
           'single/multi/text question',

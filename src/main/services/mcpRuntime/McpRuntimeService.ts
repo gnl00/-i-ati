@@ -152,7 +152,10 @@ class McpRuntimeService {
   private readonly lastErrorByServer = new Map<string, string>()
   private readonly logger = createLogger('McpRuntimeService')
 
-  async connectServer(props: McpClientProps): Promise<{ result: true; tools: MCPTool[]; msg: string } | { result: false; tools?: MCPTool[]; msg: string }> {
+  async connectServer(
+    props: McpClientProps,
+    options: { signal?: AbortSignal; stderr?: 'pipe' } = {}
+  ): Promise<{ result: true; tools: MCPTool[]; msg: string } | { result: false; tools?: MCPTool[]; msg: string }> {
     this.logger.info('connect.start', {
       serverName: props.name,
       type: props.type,
@@ -180,8 +183,17 @@ class McpRuntimeService {
         this.logger.debug('connect.create_stdio_transport', { serverName: props.name })
         transport = new StdioClientTransport({
           command: props.command,
-          args: props.args
+          args: props.args,
+          ...(options.stderr ? { stderr: options.stderr } : {})
         })
+        if (options.stderr === 'pipe') {
+          transport.stderr?.on('data', (chunk: Buffer) => {
+            this.logger.debug('server.stderr', {
+              serverName: props.name,
+              message: chunk.toString('utf8').slice(0, 4096)
+            })
+          })
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         this.logger.error('connect.command_validation_failed', {
@@ -202,10 +214,16 @@ class McpRuntimeService {
       return { result: false, tools: [], msg: `Unsupported MCP transport for '${props.name}'. Use stdio or Streamable HTTP.` }
     }
 
+    // SDK 2.2 discovery probes precede the request machinery and ignore its
+    // AbortSignal. Closing the transport also cancels the SDK's stdio probe child.
+    const cancelConnect = (): void => { void transport.close().catch(() => undefined) }
     try {
       this.logger.info('connect.client_connecting', { serverName: props.name })
-      await client.connect(transport)
-      const tools = await client.listTools()
+      options.signal?.throwIfAborted()
+      options.signal?.addEventListener('abort', cancelConnect, { once: true })
+      await client.connect(transport, { signal: options.signal })
+      const tools = await client.listTools(undefined, { signal: options.signal })
+      options.signal?.throwIfAborted()
       const normalizedTools: McpToolProps[] = tools.tools.map(tool => ({
         ...tool,
         name: toNamespacedToolName(props.name, tool.name),
@@ -227,12 +245,18 @@ class McpRuntimeService {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       await client.close().catch(() => undefined)
+      if (options.signal?.aborted) {
+        this.logger.info('connect.cancelled', { serverName: props.name })
+        return { result: false, msg: `MCP connection cancelled: ${props.name}` }
+      }
       this.logger.error('connect.failed', {
         serverName: props.name,
         error: message
       })
       this.lastErrorByServer.set(props.name, message)
       return { result: false, msg: `Failed to connect to '${props.name}': ${message}` }
+    } finally {
+      options.signal?.removeEventListener('abort', cancelConnect)
     }
   }
 

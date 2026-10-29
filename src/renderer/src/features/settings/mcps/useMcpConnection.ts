@@ -1,5 +1,7 @@
 import { invokeMcpConnect, invokeMcpDisconnect, invokeMcpStatus } from '@renderer/infrastructure/ipc'
 import { useMcpRuntimeStore } from '@renderer/features/settings/mcps/mcpRuntimeStore'
+import { setMcpServerEnabled } from './mcpEnablement'
+import { useAppConfigStore } from '@renderer/infrastructure/config/appConfig'
 import { useCallback } from 'react'
 import { toast } from 'sonner'
 
@@ -30,6 +32,7 @@ export const useMcpConnection = () => {
     startConnecting(serverName)
 
     try {
+      await setMcpServerEnabled(serverName, true, serverConfig)
       const { result, tools, msg } = await invokeMcpConnect({
         name: serverName,
         ...serverConfig
@@ -58,6 +61,7 @@ export const useMcpConnection = () => {
 
   const disconnect = useCallback(async (serverName: string) => {
     try {
+      await setMcpServerEnabled(serverName, false)
       removeSelectedMcpServer(serverName)
       removeMcpTools(serverName)
       setServerError(serverName, undefined)
@@ -73,30 +77,37 @@ export const useMcpConnection = () => {
   }, [removeMcpTools, removeSelectedMcpServer, setServerError])
 
   const toggle = useCallback(async (serverName: string, serverConfig: LocalMcpServerConfig) => {
-    if (isConnected(serverName)) {
+    if (serverConfig.enabled === true || isConnected(serverName)) {
       return await disconnect(serverName)
     }
     return await connect(serverName, serverConfig)
   }, [connect, disconnect, isConnected])
 
   const syncWithConfig = useCallback(async (config: McpServerConfig) => {
-    const validNames = Object.keys(config?.mcpServers || {})
+    if (!useAppConfigStore.getState().mcpConfigLoaded) return
+    const validNames = Object.entries(config?.mcpServers || {})
+      .filter(([, server]) => server.enabled === true)
+      .map(([name]) => name)
     const validSet = new Set(validNames)
     const { pruneServers, selectedServerNames } = useMcpRuntimeStore.getState()
     const staleNames = selectedServerNames.filter(name => !validSet.has(name))
 
     pruneServers(validNames)
 
-    await Promise.all(
-      staleNames.map(async (serverName) => {
+    const runtime = useMcpRuntimeStore.getState()
+    const pending = validNames.filter(name => !runtime.selectedServerNames.includes(name)
+      && !runtime.connectingServerNames.includes(name))
+    await Promise.all([
+      ...pending.map(name => connect(name, config.mcpServers![name])),
+      ...staleNames.map(async (serverName) => {
         try {
           await invokeMcpDisconnect({ name: serverName })
         } catch {
           // best effort cleanup
         }
       })
-    )
-  }, [])
+    ])
+  }, [connect])
 
   const hydrateFromRuntime = useCallback(async () => {
     const snapshot = await invokeMcpStatus()

@@ -327,16 +327,27 @@ and termination signals, and returns the CLI exit code. It does not construct
 `MainApplication` or create a renderer window.
 
 The CLI defaults to the desktop application profile and accepts `--profile-dir`
-for an explicitly isolated profile. `CliChatProfile` reuses Chat's
-`RunRequestFactory` for configured tools, prompts, auxiliary models and request
-context. CLI has no separate tool allowlist. Session storage and run artifacts
-remain under the requested output directory.
+for an explicitly isolated profile. `CliChatProfile` resolves its explicit model
+and configured MCP tools. `CliRuntimeRunner` adapts them to `RunService.submit()`;
+it no longer assembles AgentRuntime. Shared Chat preparation and rendering persist
+user, assistant and tool messages in the selected profile, including request
+context snapshots. Session data and JSONL/result/transcript artifacts remain under
+the requested output directory.
 
-The CLI shares the strict `ToolExecutor` approval policy with Chat. Its
-toolset fingerprint covers effective names, schemas and sources from the
-central registry and MCP connections. The profile records the final system prompt, prompt/config
-fingerprints, timeout, budget, approval mode, and its differences from the
-desktop profile in `result.json`.
+Main-local submission options preserve the CLI budget, AbortSignal, explicit model
+and prompt, immediate `deny`/`auto` confirmation policy, and raw event sink. Parent
+and child approvals use the same requester through RunManager's subagent bridge.
+CLI-only model request specifications are attached after shared preparation.
+Interactive questions follow the noninteractive source's tool availability rules.
+The handle's Main-only `outcome` retains host terminal status and complete runtime
+evidence; the existing `completion` rejection contract remains unchanged.
+
+Batch CLI disables post-run title/background compression jobs. Runtime context
+budgeting remains shared. The CLI output adapter owns redacted JSONL, atomic
+artifacts, and exit codes: 0 completed, 1 run/output failure, 2 invalid input,
+124 timeout, 130 SIGINT, 143 SIGTERM. A host persistence failure retains available
+runtime evidence and exits unsuccessfully. See
+[ADR-0053](../decisions/0053-unified-cli-run-orchestration.md).
 
 ## Interactive terminal host
 
@@ -345,6 +356,12 @@ selects this entry for `pnpm tui`; services run in Electron without a renderer.
 `src/main/orchestration/tui/TuiSession.ts` reuses Chat RunService, persisted chat
 messages, model configuration, cancellation and human tool interactions.
 `src/main/hosts/tui/` owns terminal event projection and Pi-based rendering.
+
+TUI presents the terminal before optional MCP connections. It connects only
+explicitly enabled servers in parallel, isolates failures, and aborts pending
+discovery on shutdown. Desktop, TUI and CLI share the persisted `enabled` flag;
+legacy missing flags default to disabled. See
+[ADR-0054](../decisions/0054-mcp-enablement-and-tui-startup.md).
 
 The shared `isInteractiveMessageSource()` predicate treats desktop and `tui` as
 interactive when preparing question tools and registering the question handler.

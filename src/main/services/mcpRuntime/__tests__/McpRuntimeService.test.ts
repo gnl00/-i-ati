@@ -195,6 +195,23 @@ describe('McpRuntimeService modern protocol', () => {
     }
   })
 
+  it('cancels pending discovery without registering a late connection', async () => {
+    const service = new McpRuntimeService()
+    const controller = new AbortController()
+    const pending = service.connectServer({
+      name: 'pending', command: process.execPath,
+      args: [fileURLToPath(new URL('./fixtures/modern-server.mjs', import.meta.url)), '--hang']
+    }, { signal: controller.signal, stderr: 'pipe' })
+    const timer = setTimeout(() => controller.abort(), 50)
+    try {
+      expect(await pending).toMatchObject({ result: false, msg: 'MCP connection cancelled: pending' })
+      expect(service.getRuntimeSnapshot().servers).toEqual([])
+    } finally {
+      clearTimeout(timer)
+      service.disconnectAll()
+    }
+  })
+
   it('rejects removed SSE configurations', async () => {
     const service = new McpRuntimeService()
     const connected = await service.connectServer({ name: 'sse', type: 'sse' as 'streamableHttp', url: 'https://mcp.test/sse' })

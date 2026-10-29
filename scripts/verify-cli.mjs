@@ -288,7 +288,7 @@ const listFiles = async directory => {
   const files = []
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name)
-    if (entry.isDirectory()) files.push(...await listFiles(path))
+    if (entry.isDirectory()) files.push(...(await listFiles(path)))
     else files.push(path)
   }
   return files
@@ -317,10 +317,38 @@ try {
   assertJsonlRun(completed.stdout)
   const completedResult = await readJson(join(completed.output, 'result.json'))
   assert.equal(completedResult.status, 'completed')
-  for (const name of ['image_analyze', 'plan', 'ask_user_question']) {
+  for (const name of ['plan']) {
     assert.ok(receivedToolNames.includes(name), `Chat tool missing from CLI request: ${name}`)
     assert.ok(completedResult.tools.includes(name), `Tool missing from CLI audit: ${name}`)
   }
+  assert.ok(
+    !receivedToolNames.includes('ask_user_question'),
+    'batch CLI advertised interactive questions'
+  )
+  assert.equal(completedResult.profile.id, 'cli-chat-profile-v3')
+  const persisted = new DatabaseSync(join(root, 'profile', 'chat.db'))
+  const chat = persisted
+    .prepare('SELECT id, uuid FROM chats WHERE uuid = ?')
+    .get(`cli:${completedResult.runId}`)
+  assert.ok(chat, 'CLI chat was not persisted')
+  const messages = persisted
+    .prepare('SELECT body FROM messages WHERE chat_id = ? ORDER BY id')
+    .all(chat.id)
+    .map(row => JSON.parse(row.body))
+  assert.ok(
+    messages.some(
+      message => message.role === 'user' && message.requestContextSnapshot
+    ),
+    'CLI user/context snapshot missing'
+  )
+  assert.ok(
+    messages.some(
+      message =>
+        message.role === 'assistant' && message.content.includes(largeText)
+    ),
+    'CLI assistant missing'
+  )
+  persisted.close()
   assert.equal(completedResult.usage.totalTokens, 150)
   assert.equal(completedResult.usage.promptCacheHitTokens, 70)
   assert.ok(JSON.stringify(completedResult).includes(largeText), 'result text was truncated')
@@ -344,6 +372,10 @@ try {
   mode = 'vision'
   const vision = await run('vision', ['--approval', 'auto'])
   assert.equal(vision.code, 0, vision.stderr)
+  assert.ok(
+    receivedToolNames.includes('image_analyze'),
+    'configured vision tool missing'
+  )
   assert.equal(visionRequestCount, 1, 'vision tool did not use the app profile model')
   const visionTranscript = await readFile(join(vision.output, 'transcript.json'), 'utf8')
   assert.ok(visionTranscript.includes('PROFILE_VISION_OK'))
@@ -433,6 +465,13 @@ try {
   assert.equal(interrupted.code, 130, interrupted.stdout + interrupted.stderr)
   assert.equal((await readJson(join(interrupted.output, 'result.json'))).status, 'aborted')
 
+  const terminated = await run('sigterm', [], { signal: 'SIGTERM' })
+  assert.equal(terminated.code, 143, terminated.stdout + terminated.stderr)
+  assert.equal(
+    (await readJson(join(terminated.output, 'result.json'))).status,
+    'aborted'
+  )
+
   mode = 'provider-error'
   const failed = await run('provider-error')
   assert.equal(failed.code, 1, failed.stderr)
@@ -454,7 +493,7 @@ try {
       'file tool auto and deny approval',
       'two-round reasoning replay for enabled, disabled, and omitted thinking',
       'step exhaustion',
-      'timeout and SIGINT',
+      'timeout, SIGINT and SIGTERM',
       'provider error redaction'
     ]
   }))

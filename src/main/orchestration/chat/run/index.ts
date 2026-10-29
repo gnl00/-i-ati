@@ -25,8 +25,9 @@ import type {
 } from '@shared/run/cancellation'
 import { RunRuntimeFactory, type RunRuntimeDeps } from './runtime/RunRuntimeFactory'
 import type { RunSubmissionHandle } from './runtime/RunManager'
+import type { RunSubmissionOptions } from './RunSubmissionOptions'
 
-type RunExecutionOptions = {
+type RunExecutionOptions = RunSubmissionOptions & {
   eventSinks?: RunEventSink[]
   hostRenderSinks?: HostRenderEventSink[]
 }
@@ -45,7 +46,9 @@ export class RunService {
     input: MainAgentRunInput,
     options: RunExecutionOptions = {}
   ): RunSubmissionHandle {
-    return this.runtime.runManager.submit(input, options.eventSinks, options.hostRenderSinks)
+    return this.runtime.runManager.submit(
+      input, options.eventSinks, options.hostRenderSinks, options
+    )
   }
 
   async executeCompression(data: CompressionExecutionInput): Promise<CompressionResult> {
@@ -123,3 +126,5 @@ export type {
   RunCancelRequest,
   RunCancelResult
 } from '@shared/run/cancellation'
+
+export type { RunSubmissionOptions, RunOutcome } from './RunSubmissionOptions'

@@ -19,6 +19,7 @@ import { Switch } from '@renderer/shared/components/ui/switch'
 type RuntimeStatus = 'connected' | 'connecting' | 'error' | 'idle'
 
 interface MCPServerCardBaseProps {
+  enabled?: boolean
   animationDelay?: number
   runtimeStatus?: RuntimeStatus
   runtimeError?: string
@@ -166,6 +167,7 @@ const MCPServerCard: React.FC<MCPServerCardProps> = (props) => {
           ? repository.source || 'Repository'
           : 'Available in official registry')
   const isConnected = runtimeStatus === 'connected'
+  const isEnabled = mode === 'installed' ? props.config.enabled === true : props.enabled === true
   const isConnecting = runtimeStatus === 'connecting'
   const canToggleConnection = isInstalled && Boolean(props.onConnectionToggle)
   const connectionSwitchDisabled = isConnecting
@@ -344,9 +346,9 @@ const MCPServerCard: React.FC<MCPServerCardProps> = (props) => {
                 />
               )}
               <Switch
-                checked={isConnected}
+                checked={isEnabled}
                 title={runtimeMeta.label}
-                aria-label={`${displayName}: ${isConnected ? 'Disconnect' : 'Connect'}`}
+                aria-label={`${displayName}: ${isEnabled ? 'Disable' : 'Enable'}`}
                 disabled={connectionSwitchDisabled}
                 onClick={(event) => event.stopPropagation()}
                 onCheckedChange={() => {
@@ -388,8 +390,8 @@ const MCPServerCard: React.FC<MCPServerCardProps> = (props) => {
                     : 'Idle'}
               </span>
               <Switch
-                checked={isConnected}
-                aria-label={`${displayName} Connected`}
+                checked={isEnabled}
+                aria-label={`${displayName} Enabled`}
                 disabled={connectionSwitchDisabled}
                 onClick={(event) => event.stopPropagation()}
                 onCheckedChange={() => {

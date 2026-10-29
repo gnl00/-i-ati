@@ -39,6 +39,18 @@ class SubagentRuntimeBridge {
     if (channel.children === 0) this.channels.delete(parentSubmissionId)
   }
 
+  setRequestSpec(
+    parentSubmissionId: string,
+    modelRef: ModelRef,
+    requestSpec: AgentRequestSpec
+  ): void {
+    const channel = this.channels.get(parentSubmissionId)
+    if (channel) {
+      channel.modelRef = modelRef
+      channel.requestSpec = requestSpec
+    }
+  }
+
   getRequestSpec(parentSubmissionId: string | undefined, modelRef: ModelRef): AgentRequestSpec | undefined {
     const channel = parentSubmissionId ? this.channels.get(parentSubmissionId) : undefined
     return channel?.modelRef?.accountId === modelRef.accountId && channel.modelRef.modelId === modelRef.modelId

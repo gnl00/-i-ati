@@ -60,6 +60,8 @@ declare interface ModelRef {
 }
 
 declare interface LocalMcpServerConfig {
+  /** Explicit opt-in shared by desktop, TUI and CLI; absent means disabled. */
+  enabled?: boolean
   type?: 'streamableHttp'
   url?: string
   description?: string

@@ -559,6 +559,7 @@ export const MCPServersManagerContent: React.FC<
                   mode="registry"
                   item={item}
                   installed={installed}
+                  enabled={installedConfig?.enabled === true}
                   runtimeStatus={
                     installed ? getRuntimeStatus(item.server.name) : 'idle'
                   }

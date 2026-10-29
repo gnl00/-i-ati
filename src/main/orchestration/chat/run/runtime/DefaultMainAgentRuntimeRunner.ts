@@ -97,6 +97,10 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
       )
     )
 
+    for (const sink of input.options?.agentEventSinks ?? []) {
+      eventBus.register(sink)
+    }
+
     // Register notification sink last so render pipeline completes even if notifications fail.
     // Desktop interactive and scheduler runs share native terminal notifications.
     const source = input.runInput.input.source
@@ -176,11 +180,12 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
 
     const result = await runtime.run({
       hostRequest,
-      execution: DEFAULT_MAIN_AGENT_EXECUTION,
+      execution: input.options?.execution ?? DEFAULT_MAIN_AGENT_EXECUTION,
       signal: input.signal
     })
 
     return {
+      agentResult: result,
       runtimeResult: this.completionAdapter.adapt({
         result
       }),

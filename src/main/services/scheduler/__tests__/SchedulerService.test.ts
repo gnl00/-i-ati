@@ -31,6 +31,7 @@ vi.mock('@main/notifications/AgentNotificationSink', () => ({
 vi.mock('@main/orchestration/chat/run', () => ({ RunService: class {
   submit = (input: { submissionId: string }): RunSubmissionHandle => ({
     submissionId: input.submissionId,
+    outcome: Promise.resolve({ result: { state: 'completed' } }),
     completion: mocks.execute(input)
   })
   hasActiveRunForChat = mocks.busy

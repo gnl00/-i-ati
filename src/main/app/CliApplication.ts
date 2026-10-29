@@ -124,7 +124,6 @@ export const runCliApplication = async (): Promise<number> => {
   }, prepared.options.timeoutSeconds * 1_000)
 
   const startedAt = Date.now()
-  let chatId: number | undefined
   let databaseReady = false
   let logServiceReady = false
   let disconnectMcp: (() => void) | undefined
@@ -186,7 +185,7 @@ export const runCliApplication = async (): Promise<number> => {
 
     const now = Date.now()
     const chatUuid = `cli:${runId}`
-    chatId = chatDb.saveChat({
+    chatDb.saveChat({
       uuid: chatUuid,
       title: 'CLI run',
       messages: [],
@@ -210,8 +209,7 @@ export const runCliApplication = async (): Promise<number> => {
         writeStderr(`${redactCliText(`CLI optional service initialization failed: ${error instanceof Error ? error.message : String(error)}`, cliSecrets)}\n`)
       }
     }
-    const chat = chatDb.getChatById(chatId)!
-    const profile = await prepareCliChatProfile(chat, prepared.instruction, prepared.modelConfig)
+    const profile = await prepareCliChatProfile(prepared.modelConfig)
     exitCode = await runCliTask({
       prepared,
       runId,

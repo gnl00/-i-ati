@@ -1,4 +1,5 @@
 import { resolveTelegramApprovalTargets } from '@main/services/telegram/TelegramApprovalTargets'
+import type { RunOutcome, RunSubmissionOptions } from '../RunSubmissionOptions'
 import { AbortError } from './errors'
 import subagentRunService from '@main/services/subagent/subagent-run-service'
 import { subagentRuntimeBridge } from '@main/services/subagent/subagent-runtime-bridge'
@@ -27,6 +28,7 @@ import type {
 
 export type RunSubmissionHandle = {
   submissionId: string
+  outcome: Promise<RunOutcome>
   completion: Promise<RunResult>
 }
 
@@ -47,7 +49,8 @@ export class RunManager {
   submit(
     input: MainAgentRunInput,
     eventSinks: RunEventSink[] = [],
-    hostRenderSinks: HostRenderEventSink[] = []
+    hostRenderSinks: HostRenderEventSink[] = [],
+    options: RunSubmissionOptions = {}
   ): RunSubmissionHandle {
     if (!input.submissionId?.trim()
       || !input.modelRef?.accountId?.trim()
@@ -56,7 +59,14 @@ export class RunManager {
       || !Array.isArray(input.input.mediaCtx)) {
       throw new Error('Invalid run submission')
     }
-    const run = this.createRun(input, eventSinks, hostRenderSinks)
+    if (
+      options.execution &&
+      (!Number.isSafeInteger(options.execution.maxSteps) ||
+        options.execution.maxSteps < 1)
+    ) {
+      throw new Error('Invalid run execution budget')
+    }
+    const run = this.createRun(input, eventSinks, hostRenderSinks, options)
     try {
       run.emitAccepted()
     } catch (error) {
@@ -65,34 +75,45 @@ export class RunManager {
       this.registry.delete(input.submissionId)
       throw error
     }
-    const completion = (async (): Promise<RunResult> => {
+    const onAbort = (): void => {
+      this.cancel(input.submissionId)
+    }
+    options.signal?.addEventListener('abort', onAbort, { once: true })
+    if (options.signal?.aborted) onAbort()
+    const outcome = (async (): Promise<RunOutcome> => {
       try {
         const result = await run.run()
-        if (result.state === 'aborted') {
-          throw new AbortError()
-        }
-        if (result.state === 'failed') {
-          const error = new Error(result.error?.message || 'Run failed')
-          error.name = result.error?.name || 'Error'
-          if (result.error?.stack) {
-            error.stack = result.error.stack
-          }
-          throw error
-        }
-        return result
+        if (result.state !== 'completed')
+          subagentRunService.cancelForParent(input.submissionId)
+        return { result, agentResult: run.agentResult }
       } catch (error) {
         subagentRunService.cancelForParent(input.submissionId)
         throw error
       } finally {
-        this.deps.toolConfirmationManager.cancelForSubmission(input.submissionId, 'parent_finished', false)
+        options.signal?.removeEventListener('abort', onAbort)
+        this.deps.toolConfirmationManager.cancelForSubmission(
+          input.submissionId,
+          'parent_finished',
+          false
+        )
         this.deps.toolQuestionManager?.cancelForSubmission(input.submissionId)
         subagentRuntimeBridge.releaseParent(input.submissionId)
         this.registry.delete(input.submissionId)
       }
     })()
+    const completion = outcome.then(({ result }) => {
+      if (result.state === 'aborted') throw new AbortError()
+      if (result.state === 'failed') {
+        const error = new Error(result.error?.message || 'Run failed')
+        error.name = result.error?.name || 'Error'
+        if (result.error?.stack) error.stack = result.error.stack
+        throw error
+      }
+      return result
+    })
     // The IPC caller only needs admission; observing rejection keeps its completion safe.
     void completion.catch(() => undefined)
-    return { submissionId: input.submissionId, completion }
+    return { submissionId: input.submissionId, completion, outcome }
   }
 
   cancel(submissionId: string): RunCancelResult
@@ -179,22 +200,24 @@ export class RunManager {
   private createRun(
     input: MainAgentRunInput,
     eventSinks: RunEventSink[] = [],
-    hostRenderSinks: HostRenderEventSink[] = []
+    hostRenderSinks: HostRenderEventSink[] = [],
+    options: RunSubmissionOptions = {}
   ): AgentRun {
     const emitter = this.deps.eventEmitterFactory.create({
       submissionId: input.submissionId,
       chatId: input.chatId,
       chatUuid: input.chatUuid
     }, eventSinks)
-    const toolConfirmationRequester: ToolConfirmationRequester = {
-      request: (request) => this.deps.toolConfirmationManager.request(
-        emitter,
-        request,
-        resolveTelegramApprovalTargets(emitter.chatUuid, input.input.host)
-      )
-    }
+    const toolConfirmationRequester: ToolConfirmationRequester =
+      options.toolConfirmationRequester ?? {
+        request: (request) => this.deps.toolConfirmationManager.request(
+          emitter,
+          request,
+          resolveTelegramApprovalTargets(emitter.chatUuid, input.input.host)
+        )
+      }
     const toolQuestionRequester: ToolQuestionRequester = {
-      request: (request) => this.deps.toolQuestionManager
+      request: request => this.deps.toolQuestionManager
         ? this.deps.toolQuestionManager.request(emitter, request)
         : Promise.resolve({ status: 'unavailable', reason: 'User question manager unavailable' })
     }
@@ -203,7 +226,8 @@ export class RunManager {
       chatAgentAdapter: this.deps.chatAgentAdapter,
       postRunJobService: this.deps.postRunJobService
     }, {
-      emitter,
+        options,
+        emitter,
       toolConfirmationRequester,
       toolQuestionRequester,
       hostRenderSinks
@@ -213,7 +237,7 @@ export class RunManager {
       subagentRuntimeBridge.register(input.submissionId, {
         requester: toolConfirmationRequester,
         emitter,
-        cancelConfirmation: (subagentId) => this.deps.toolConfirmationManager.cancelForSubagent(input.submissionId, subagentId)
+        cancelConfirmation: subagentId => this.deps.toolConfirmationManager.cancelForSubagent(input.submissionId, subagentId)
       })
     } catch (error) {
       this.registry.delete(input.submissionId)

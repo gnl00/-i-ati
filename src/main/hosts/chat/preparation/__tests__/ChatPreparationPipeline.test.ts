@@ -260,6 +260,33 @@ describe('ChatPreparationPipeline', () => {
     ])
   })
 
+  it('prepares and persists CLI messages with explicit model and request overrides', async () => {
+    const modelContext = {
+      model: { id: 'external', label: 'external', type: 'llm' as const, contextWindowTokens: 200000 },
+      account: { ...config.accounts[0], id: 'cli' },
+      providerDefinition: config.providerDefinitions[0]
+    }
+    const prepared = await new ChatPreparationPipeline().prepare({
+      ...input, modelRef: { accountId: 'cli', modelId: 'external' },
+      input: { ...input.input, source: 'cli' }
+    }, { emit: vi.fn(), setChatMeta: vi.fn() } as unknown as RunEventEmitter, {
+      modelContext,
+      systemPrompt: 'explicit CLI prompt',
+      options: { thinking: { enabled: true } }
+    })
+    expect(prepared.runSpec.modelContext).toBe(modelContext)
+    expect(prepared.runSpec.requestSpec).toMatchObject({
+      model: 'external', contextWindowTokens: 200000, systemPrompt: 'explicit CLI prompt',
+      options: { thinking: { enabled: true } }
+    })
+    expect(DatabaseService.saveMessage).toHaveBeenCalledWith(expect.objectContaining({
+      body: expect.objectContaining({ role: 'user', source: 'cli' })
+    }))
+    expect(DatabaseService.updateMessage).toHaveBeenCalledWith(expect.objectContaining({
+      body: expect.objectContaining({ requestContextSnapshot: expect.any(String) })
+    }))
+  })
+
   it('prepares environment without emitting chat-facing events directly', async () => {
     const service = new RunEnvironmentService()
     const emitter = {
@@ -355,7 +382,8 @@ describe('ChatPreparationPipeline', () => {
     [undefined, true],
     [MESSAGE_SOURCE.TUI, true],
     [MESSAGE_SOURCE.TELEGRAM, false],
-    [MESSAGE_SOURCE.SCHEDULE, false]
+    [MESSAGE_SOURCE.SCHEDULE, false],
+    ['cli', false]
   ])('applies interactive input availability for source=%s', async (source, available) => {
     const prepared = await new ChatPreparationPipeline().prepare({
       ...input,

@@ -1,4 +1,7 @@
 import type { ToolConfirmationRequester, ToolQuestionRequester } from '@main/agent/contracts'
+import { subagentRuntimeBridge } from '@main/services/subagent/subagent-runtime-bridge'
+import type { AgentLoopResult } from '@main/agent/runtime/loop/AgentLoopResult'
+import type { RunSubmissionOptions } from '../RunSubmissionOptions'
 import { AbortError } from './errors'
 import { ChatAgentAdapter } from '@main/hosts/chat/ChatAgentAdapter'
 import type { MainAgentRunInput } from '@main/hosts/chat/preparation/types'
@@ -25,6 +28,7 @@ export type AgentRunServices = {
 }
 
 export type AgentRunRuntime = {
+  options?: RunSubmissionOptions
   emitter: RunEventEmitter
   toolConfirmationRequester: ToolConfirmationRequester
   toolQuestionRequester?: ToolQuestionRequester
@@ -32,6 +36,7 @@ export type AgentRunRuntime = {
 }
 
 export class AgentRun {
+  agentResult?: AgentLoopResult
   readonly submissionId: string
   chatUuid?: string
   readonly controller = new AbortController()
@@ -128,14 +133,24 @@ export class AgentRun {
 
   async run(): Promise<RunResult> {
     try {
+      this.controller.signal.throwIfAborted()
       this.lifecycle.emitPreparing()
       const { runSpec, chatContext } = await this.services.chatAgentAdapter.prepareRun(
         this.input,
-        this.emitter
+        this.emitter,
+        this.runtime.options?.preparation
       )
       this.chatUuid = runSpec.runtimeContext.chatUuid
+      subagentRuntimeBridge.setRequestSpec(
+        this.submissionId,
+        this.input.modelRef,
+        runSpec.requestSpec
+      )
+      await this.runtime.options?.onPrepared?.({ runSpec, chatContext })
+      this.controller.signal.throwIfAborted()
 
       const runResult = await this.services.mainAgentRuntimeRunner.run({
+        options: this.runtime.options,
         runInput: this.input,
         prepared: { runSpec, chatContext },
         runtimeContext: this.runtimeContext,
@@ -146,6 +161,7 @@ export class AgentRun {
         toolQuestionRequester: this.runtime.toolQuestionRequester
       })
 
+      this.agentResult = runResult.agentResult
       this.returnPendingSteering()
       return await this.outcomeHandler.handleRuntimeResult({
         input: this.input,
@@ -155,7 +171,8 @@ export class AgentRun {
         emitter: this.emitter,
         chatAgentAdapter: this.services.chatAgentAdapter,
         postRunJobService: this.services.postRunJobService,
-        stepCommitter: runResult.stepCommitter
+        stepCommitter: runResult.stepCommitter,
+        postRunJobs: this.runtime.options?.postRunJobs
       })
     } catch (error: any) {
       this.returnPendingSteering()

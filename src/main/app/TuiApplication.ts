@@ -116,8 +116,12 @@ export async function runTuiApplication(argv = process.argv.slice(2)): Promise<n
     preserveCallerShellPathForCommands()
     setCommandWorkspaceBasePath(workspace)
     const session = new TuiSession(workspace)
+    const mcpController = new AbortController()
+    let mcpConnections: Promise<void>[] = []
     stop = async (): Promise<void> => {
+      mcpController.abort()
       await session.close()
+      await Promise.allSettled(mcpConnections)
       await subagents.shutdown()
       await waitForCommandProcessCleanup()
       mcpRuntimeService.disconnectAll()
@@ -134,16 +138,6 @@ export async function runTuiApplication(argv = process.argv.slice(2)): Promise<n
           error: String(error)
         })
       }
-    }
-    for (const [name, server] of Object.entries(configDb.getMcpServerConfig().mcpServers ?? {})) {
-      const connected = await mcpRuntimeService.connectServer({
-        name,
-        ...server
-      })
-      if (!connected.result) throw new Error(`MCP connection failed: ${name}`)
-      session.mcpTools.push(...connected.tools.map(tool => ({
-        ...tool.function, source: tool.source, serverName: tool.serverName, originalName: tool.originalName
-      })))
     }
     session.initialize(options.resume, options.model, options.account)
     const view = new TuiView(
@@ -173,7 +167,37 @@ export async function runTuiApplication(argv = process.argv.slice(2)): Promise<n
     process.on('unhandledRejection', onFatal)
     process.on('SIGINT', onSignal)
     process.on('SIGTERM', onSignal)
-    await view.start()
+    const viewClosed = view.start()
+    const reportMcpFailure = (name: string, reason: string): void => {
+      logger.warn('MCP connection failed', { serverName: name, error: reason })
+      session.state.notice = `MCP unavailable: ${name}. Other tools are ready.`
+      session.state.onChange(true)
+    }
+    mcpConnections = Object.entries(configDb.getMcpServerConfig().mcpServers ?? {}).map(
+      async ([name, server]): Promise<void> => {
+        if (server.enabled !== true) return
+        try {
+          const connected = await mcpRuntimeService.connectServer({ name, ...server }, {
+            signal: mcpController.signal,
+            stderr: 'pipe'
+          })
+          if (mcpController.signal.aborted) return
+          if (!connected.result) {
+            reportMcpFailure(name, connected.msg)
+            return
+          }
+          // Replace the array so an already-submitted run keeps its tool snapshot.
+          session.mcpTools = [...session.mcpTools, ...connected.tools.map(tool => ({
+            ...tool.function, source: tool.source, serverName: tool.serverName, originalName: tool.originalName
+          }))]
+        } catch (error) {
+          if (!mcpController.signal.aborted) {
+            reportMcpFailure(name, redactCliText(String(error), secrets))
+          }
+        }
+      }
+    )
+    await viewClosed
     if (fatalError) throw fatalError
     process.stdout.write(`\nChat saved: ${session.state.chat?.uuid}\n`)
     return 0

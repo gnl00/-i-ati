@@ -1,28 +1,29 @@
 import { configDb } from '@main/db/config'
-import { RunRequestFactory } from '@main/hosts/chat/preparation/RunRequestFactory'
-import type { RunRequestBuildResult } from '@main/hosts/chat/preparation/RunRequestFactory'
+import type { HostRunInputState } from '@main/hosts/chat/preparation/types'
+import type { RunModelContext } from '@main/agent/contracts'
 import type { CliModelConfig } from '@main/hosts/cli/CliInputAdapter'
 import { mcpRuntimeService } from '@main/services/mcpRuntime'
 
-export interface CliChatProfile extends RunRequestBuildResult {
+export interface CliChatProfile {
+  modelContext: RunModelContext
+  tools: NonNullable<HostRunInputState['tools']>
+  systemPrompt?: string
+  options?: IUnifiedRequest['options']
   modelRef: ModelRef
   secrets: string[]
 }
 
-/** Use the same request preparation and configured auxiliary models as Chat. */
+/** Resolve explicit CLI model and MCP inputs; RunService owns request preparation. */
 export const prepareCliChatProfile = async (
-  chat: ChatEntity,
-  instruction: string,
   modelConfig: CliModelConfig
 ): Promise<CliChatProfile> => {
   const config = configDb.getConfig()!
-  const configuredAccount = config.accounts?.find(account => (
-    account.apiUrl.replace(/\/+$/, '') === modelConfig.baseUrl
+  const configuredAccount = config.accounts?.find(account =>
+      account.apiUrl.replace(/\/+$/, '') === modelConfig.baseUrl
     && account.apiKey === modelConfig.apiKey
-    && config.providerDefinitions?.some(provider => (
-      provider.id === account.providerId && provider.adapterPluginId === modelConfig.adapterPluginId
-    ))
-  ))
+    && config.providerDefinitions?.some(provider =>
+          provider.id === account.providerId && provider.adapterPluginId === modelConfig.adapterPluginId
+      ))
   const provider = config.providerDefinitions?.find(item => item.id === configuredAccount?.providerId)
   const model: AccountModel = configuredAccount?.models.find(item => item.id === modelConfig.model)
     ?? { id: modelConfig.model, label: modelConfig.model, type: 'llm' }
@@ -32,20 +33,14 @@ export const prepareCliChatProfile = async (
   }
   const extraTools: { name: string }[] = []
   for (const [name, server] of Object.entries(configDb.getMcpServerConfig().mcpServers ?? {})) {
+    if (server.enabled !== true) continue
     const connected = await mcpRuntimeService.connectServer({ name, ...server })
     if (!connected.result) throw new Error(`CLI MCP connection failed: ${name}`)
     extraTools.push(...connected.tools.map(tool => ({
       ...tool.function, source: tool.source, serverName: tool.serverName, originalName: tool.originalName
     })))
   }
-  const userMessage: MessageEntity = {
-    chatId: chat.id, chatUuid: chat.uuid,
-    body: { role: 'user', content: instruction, segments: [], createdAt: Date.now() }
-  }
-  const built = await new RunRequestFactory().build({
-    chat,
-    workspacePath: chat.workspacePath!,
-    historyMessages: [],
+  return {
     modelContext: {
       account,
       model,
@@ -56,24 +51,10 @@ export const prepareCliChatProfile = async (
         adapterPluginId: modelConfig.adapterPluginId,
         requestOverrides: modelConfig.requestOverrides ?? provider?.requestOverrides
       }
-    }
-  }, {
-    messageBuffer: [userMessage],
-    assistantDraft: { body: { role: 'assistant', content: '', segments: [] } },
-    earlyEmittedMessageIds: []
-  }, {
-    textCtx: instruction,
-    mediaCtx: [],
+    },
     tools: extraTools,
-    stream: true,
-    options: modelConfig.options
-  })
-  if (modelConfig.systemPrompt) built.requestSpec.systemPrompt = modelConfig.systemPrompt
-  if (modelConfig.options?.thinking) {
-    built.requestSpec.options = { ...built.requestSpec.options, ...modelConfig.options }
-  }
-  return {
-    ...built,
+    systemPrompt: modelConfig.systemPrompt,
+    options: modelConfig.options,
     modelRef: { accountId: account.id, modelId: model.id },
     secrets: [modelConfig.apiKey, ...(config.accounts ?? []).map(item => item.apiKey)]
   }

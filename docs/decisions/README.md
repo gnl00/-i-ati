@@ -84,3 +84,7 @@ Use sequential names such as `0001-chat-runtime-host-boundary.md`.
 - [0051: Persistent subagent sessions, runs and messages](0051-persistent-subagent-sessions.md) - Accepted
 
 - [0052: Streamed command output artifacts](0052-streamed-command-output-artifacts.md) - Accepted
+
+- [0053: Unified CLI run orchestration](0053-unified-cli-run-orchestration.md) - Accepted
+
+- [0054: MCP enablement and nonblocking TUI startup](0054-mcp-enablement-and-tui-startup.md) - Accepted

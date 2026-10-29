@@ -29,6 +29,7 @@ function setup(): TuiSession {
       waitForPostRunJobs: async (): Promise<void> => {},
       submit: (input, options): RunSubmissionHandle => ({
         submissionId: input.submissionId,
+        outcome: Promise.resolve({ result: { state: 'completed' } }),
         completion: execute(input, { eventSinks: options?.eventSinks ?? [] })
       }),
       cancel,

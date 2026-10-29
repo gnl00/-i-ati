@@ -31,6 +31,7 @@ ordinary run path.
 flowchart LR
   UI[ChatUI] -->|run:start IPC| S[RunService.submit]
   TG[Telegram gateway] -->|MainAgentRunInput| S
+  CLI[Batch CLI] -->|MainAgentRunInput + Main-local host policy| S
   OTHER[Scheduler / TUI] -->|MainAgentRunInput| S
   S --> RM[RunManager / AgentRun]
   RM --> PREP[Resolve Chat and bind identity]
@@ -50,6 +51,26 @@ terminal path clears pending interactions and removes the active run.
 | --- | --- |
 | ChatUI | IPC returns only `{ accepted: true, submissionId }`; later updates arrive through `run:event`. The Promise stays in Main. |
 | Telegram, Scheduler, TUI | Main callers receive the handle and await `completion` where their host flow needs the terminal result. |
+
+Batch CLI also submits through `RunService`. Main-local submission options carry
+its explicit model context, execution budget, AbortSignal, raw agent event sinks,
+and immediate `deny`/`auto` confirmation requester. The common preparation pipeline
+persists the user message and request-context snapshot, and the shared responder
+persists assistant/tool messages. CLI does not assemble another AgentRuntime.
+
+The handle additionally exposes `outcome: Promise<RunOutcome>`. Ordinary failed or
+aborted runs resolve this outcome with the host `RunResult` and, when execution
+reached a runtime terminal state, the complete `AgentLoopResult`. The existing
+`completion` Promise still rejects failures and cancellation. The raw result stays
+in Main and preserves transcript, usage, failure codes and timing even when Chat
+finalization fails. Exceptional orchestration failures may still reject outcome.
+
+Batch CLI explicitly disables post-run title/background compression jobs, keeping
+its provider calls and exit bounded to the task. Per-send ContextManager budgeting
+and compression remain shared. Interactive hosts retain asynchronous post-run jobs.
+CLI writes `run.started` after shared preparation and writes `run.finished` once
+after artifact publication. Initialization/preparation failures can have no agent
+snapshot; artifacts then contain an empty transcript and the host failure.
 
 The second diagram shows **output delivery**. The dispatcher routes each
 output to the adapters selected for its type and run; it does not broadcast

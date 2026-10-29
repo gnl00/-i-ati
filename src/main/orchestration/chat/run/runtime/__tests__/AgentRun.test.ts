@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { RUN_EVENTS } from '@shared/run/events'
 import { RUN_STATES } from '@shared/run/lifecycle-events'
 import { AbortError } from '@main/agent/contracts'
-import { AgentRun } from '../AgentRun'
+import { AgentRun, type AgentRunServices, type AgentRunRuntime } from '../AgentRun'
 
 const input = {
   submissionId: 'submission-1',
@@ -93,7 +93,7 @@ const stepCommitter = {
 
 const createDeferred = <T>() => {
   let resolve!: (value: T) => void
-  const promise = new Promise<T>((res) => {
+  const promise = new Promise<T>(res => {
     resolve = res
   })
   return { promise, resolve }
@@ -254,6 +254,55 @@ describe('AgentRun', () => {
     postRunDeferred.resolve()
     await postRunDeferred.promise
   })
+
+  it.each([false, true])(
+    'preserves raw runtime evidence with disabled background jobs (finalization fails=%s)',
+    async fails => {
+      const agentResult = {
+        status: 'completed',
+        transcript: { records: [{ kind: 'user' }] }
+      }
+      const services = {
+        mainAgentRuntimeRunner: {
+          run: vi.fn(async () => ({
+            runtimeResult: { state: 'completed', stepResult: {} },
+            agentResult,
+            stepCommitter
+          }))
+        },
+        chatAgentAdapter: {
+          prepareRun: vi.fn(async () => prepared),
+          finalizeRun: vi.fn(async () => {
+            if (fails) throw new Error('database unavailable')
+            return {
+              runResult: { state: 'completed', assistantMessageId: 102 }
+            }
+          })
+        },
+        postRunJobService: {
+          getPlan: vi.fn(),
+          emitPlan: vi.fn(),
+          run: vi.fn()
+        }
+      }
+      const onPrepared = vi.fn()
+      const run = new AgentRun(
+        { ...input, input: { ...input.input, mediaCtx: [] } },
+        services as unknown as AgentRunServices,
+        {
+          emitter: { emit: vi.fn(), setChatMeta: vi.fn() },
+          options: { postRunJobs: false, onPrepared },
+          toolConfirmationRequester: { request: vi.fn() }
+        } as unknown as AgentRunRuntime
+      )
+      const result = await run.run()
+      expect(result.state).toBe(fails ? 'failed' : 'completed')
+      expect(run.agentResult).toBe(agentResult)
+      expect(onPrepared).toHaveBeenCalledWith(prepared)
+      expect(services.chatAgentAdapter.finalizeRun).toHaveBeenCalledOnce()
+      expect(services.postRunJobService.getPlan).not.toHaveBeenCalled()
+      expect(services.postRunJobService.run).not.toHaveBeenCalled()
+    })
 
   it('runs through the injected main agent runtime runner', async () => {
     const postRunDeferred = createDeferred<void>()

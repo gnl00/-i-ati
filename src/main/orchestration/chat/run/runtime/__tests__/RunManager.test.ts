@@ -101,9 +101,9 @@ const createManagerWithDeps = () => {
 
 const createManager = () => createManagerWithDeps().manager
 
-const createDeferred = <T,>() => {
+const createDeferred = <T>() => {
   let resolve!: (value: T) => void
-  const promise = new Promise<T>((res) => {
+  const promise = new Promise<T>(res => {
     resolve = res
   })
   return { promise, resolve }
@@ -393,6 +393,63 @@ describe('RunManager', () => {
     runMock.mockResolvedValueOnce({ assistantMessageId: 0, state: 'aborted' })
     await expect(manager.submit(input).completion).rejects.toBeInstanceOf(Error)
     expect(toolQuestionManager.cancelForSubmission).toHaveBeenCalledTimes(3)
+  })
+
+  it('resolves terminal facts while completion retains its rejection contract', async () => {
+    runMock.mockResolvedValueOnce({
+      state: 'failed',
+      error: { name: 'Error', message: 'failed' }
+    } as unknown as Awaited<ReturnType<typeof runMock>>)
+    const handle = createManager().submit(input)
+    await expect(handle.outcome).resolves.toMatchObject({
+      result: { state: 'failed' }
+    })
+    await expect(handle.completion).rejects.toThrow('failed')
+  })
+
+  it.each([false, true])(
+    'routes external cancellation through registry cleanup (already aborted=%s)',
+    async alreadyAborted => {
+      const controller = new AbortController()
+      if (alreadyAborted) controller.abort()
+      const deferred = createDeferred<Awaited<ReturnType<typeof runMock>>>()
+      runMock.mockReturnValueOnce(deferred.promise)
+      const { manager, toolConfirmationManager } = createManagerWithDeps()
+      const handle = manager.submit(input, [], [], {
+        signal: controller.signal
+      })
+      if (!alreadyAborted) controller.abort()
+      expect(cancelMock).toHaveBeenCalledTimes(1)
+      expect(toolConfirmationManager.cancelForSubmission).toHaveBeenCalledWith(
+        input.submissionId
+      )
+      deferred.resolve({ state: 'completed', assistantMessageId: 1 })
+      await handle.outcome
+      expect(manager.hasActiveRunForChat('chat')).toBe(false)
+    }
+  )
+
+  it('shares the host confirmation requester with children and validates execution budget before admission', async () => {
+    const manager = createManager()
+    expect(() =>
+      manager.submit(input, [], [], { execution: { maxSteps: 0 } })
+    ).toThrow('Invalid run execution budget')
+    const requester = {
+      request: vi.fn(async () => ({ approved: false, reason: 'batch denied' }))
+    }
+    const deferred = createDeferred<Awaited<ReturnType<typeof runMock>>>()
+    runMock.mockReturnValueOnce(deferred.promise)
+    const handle = manager.submit(input, [], [], {
+      toolConfirmationRequester: requester
+    })
+    await expect(
+      subagentRuntimeBridge.request(input.submissionId, {
+        toolCallId: 'child',
+        name: 'exec'
+      })
+    ).resolves.toMatchObject({ approved: false, reason: 'batch denied' })
+    deferred.resolve({ state: 'completed', assistantMessageId: 1 })
+    await handle.completion
   })
 
   it('rejects invalid admission before accepting a run', () => {

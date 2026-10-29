@@ -7,6 +7,7 @@ import type { MainAgentRuntimeTerminalResult } from './MainAgentRuntimeResult'
 import { RunLifecycleEventMapper } from './RunLifecycleEventMapper'
 
 type HandleRuntimeResultArgs = {
+  postRunJobs?: boolean
   input: MainAgentRunInput
   runtimeResult: MainAgentRuntimeTerminalResult
   runSpec: any
@@ -63,6 +64,13 @@ export class RunFinalizer {
       emitter,
       stepCommitter
     })
+    if (args.postRunJobs === false) {
+      lifecycle.emitCompleted(
+        finalizeResult.runResult.assistantMessageId ?? -1,
+        finalizeResult.runResult.usage
+      )
+      return finalizeResult.runResult
+    }
     const postRunPlan = postRunJobService.getPlan(finalizeResult.postRunInput)
     const assistantMessageId = finalizeResult.runResult.assistantMessageId ?? -1
     if (postRunPlan) {
