@@ -137,3 +137,11 @@ applyDeltaToDraft 每个 delta 都克隆整个 toolCalls 数组及调用对象�
 - 使用当前 assistant record 引用，同时移除单独的 currentAssistantStepId 状态；不再对每条工具结果复制、反转完整历史。
 - 保留当前批次内 find 的首匹配语义，不引入新索引或重复 ID 行为改变。
 - ChatContextMapper 测试 7 项通过（含孤立工具、多批次重复 ID、结果乱序）；改动文件 ESLint --quiet 和 Node 类型检查通过。
+
+### 阶段 5：请求计量复用
+
+- 先检查完整候选请求；预算内只调用一次 provider measurement，超窗才构建和检查必需内容。
+- 复用最终候选或必需请求的 measurement，删除终态日志前重复构建与计数。
+- 新增预算内请求单次计量且保留完整历史的回归；context 目录 6 个测试文件 41 项通过。
+- 改动文件 ESLint --quiet 和 Node 类型检查通过。
+- 本阶段量化的是操作次数（正常 prepare 从 2 次 measurement 降为 1 次），不是实际端到端时延。provider body 发送复用仍需独立处理 adapter/重试边界。

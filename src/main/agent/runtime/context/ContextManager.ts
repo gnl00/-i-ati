@@ -129,23 +129,9 @@ export class ContextManager {
         )
       }
     }
-    const mandatory = this.records.filter((_record, i) => required.has(i))
-    const minimalRequest = makeRequest(mandatory)
-    const minimal = await measure(minimalRequest)
-    if (minimal.tokens > minimal.budget.input) {
-      throw new Error(
-        `Required context exceeds the model token budget: input=${minimal.tokens}, budget=${minimal.budget.input}, outputReserve=${minimal.budget.output}, window=${minimal.budget.window}, encoding=${this.tokenizer.encoding}, estimated=${this.tokenizer.estimated}, windowUnknown=${minimal.budget.windowUnknown}`
-      )
-    }
     let retained = this.records.filter((_record, i) => i >= this.covered || required.has(i))
     let request = makeRequest(retained, this.summary, this.omitted || (this.covered > 0 && !this.summary))
     let measured = await measure(request)
-    // Large request counting can switch to the conservative chunked estimate.
-    // Recheck mandatory content against that same final margin before any fallback.
-    if (minimal.tokens > measured.budget.input)
-      throw new Error(
-        `Required context exceeds the model token budget: input=${minimal.tokens}, budget=${measured.budget.input}`
-      )
     if (measured.tokens <= measured.budget.input) {
       logger.info('context.prepared', {
         runId: this.identity.id, inputTokens: measured.tokens, inputBudget: measured.budget.input,
@@ -155,6 +141,15 @@ export class ContextManager {
         omittedRecords: this.records.length - retained.length, summarized: Boolean(this.summary)
       })
       return request
+    }
+
+    const mandatory = this.records.filter((_record, i) => required.has(i))
+    const minimalRequest = makeRequest(mandatory)
+    const minimal = await measure(minimalRequest)
+    if (minimal.tokens > minimal.budget.input) {
+      throw new Error(
+        `Required context exceeds the model token budget: input=${minimal.tokens}, budget=${minimal.budget.input}, outputReserve=${minimal.budget.output}, window=${minimal.budget.window}, encoding=${this.tokenizer.encoding}, estimated=${this.tokenizer.estimated}, windowUnknown=${minimal.budget.windowUnknown}`
+      )
     }
 
     // Old user turns and complete assistant/result batches are the only removable units.
@@ -250,11 +245,14 @@ export class ContextManager {
       measured = await measure(request)
     }
     // The notice is optional too; it must never block an otherwise valid current request.
-    if (measured.tokens > measured.budget.input) request = minimalRequest
+    if (measured.tokens > measured.budget.input) {
+      request = minimalRequest
+      measured = minimal
+    }
     this.covered = removed.size ? Math.max(this.covered, ...removed) + 1 : this.covered
     this.omitted = omitted || !summary
     this.summary = summary
-    const finalMeasurement = await measure(request)
+    const finalMeasurement = measured
     logger.info('context.prepared', {
       runId: this.identity.id,
       bodyBytes: finalMeasurement.bodyBytes,

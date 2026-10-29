@@ -72,6 +72,16 @@ const manager = (records: ContextRecord[], request = spec, options = {}): Contex
   new ContextManager(records, request, { id: 'run', timestamp: 1 }, options)
 
 describe('ContextManager', () => {
+  it('measures an in-budget request once and preserves its full history', async () => {
+    const records = [user('old'), assistant('reply', [], 'answer'), user('current')]
+    const measureRequest = vi.fn(async (request: IUnifiedRequest) => ({ messages: request.messages }))
+    const context = manager(records, spec, { measureRequest })
+    const request = await context.prepare()
+    expect(measureRequest).toHaveBeenCalledTimes(1)
+    expect(request.messages).toHaveLength(3)
+    expect(context.snapshot().records).toEqual(records)
+  })
+
   it('bounds provider measurements while trimming many complete historical groups', async () => {
     const records = Array.from({ length: 128 }, (_, i) => [
       user(`old goal ${i}`), assistant(`old-${i}`, [], 'evidence line\n'.repeat(20))

@@ -58,6 +58,7 @@ flowchart TD
 运行摘要留在 manager。跨 run 摘要由 Host 保存，manager 不依赖数据库。
 CLI 产物中的 `transcript` 字段保留为终态证据文件名称，不代表仍有 transcript 容器链路。
 
+先计量完整候选请求，预算内只需一次计量；超窗才检查必需内容。最终日志复用已得到的计量结果。
 计量每个 provider body 时只序列化一次。tokenizer 缓存最多 128 个、每个不超过
 8,192 字符的输入，避免保留多个完整大请求。超窗时以完整历史组的前缀做二分探测，
 减少 provider body 构建和计量次数。BPE 边界不保证严格单调，因此不承诺保留数学上
