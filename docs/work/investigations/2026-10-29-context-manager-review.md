@@ -124,3 +124,10 @@ applyDeltaToDraft 每个 delta 都克隆整个 toolCalls 数组及调用对象�
 - 新增先压缩、再收紧有效输出预算触发合并的测试，保留比新增历史大但比总输入小的有效摘要。
 - `pnpm exec vitest run src/main/agent/runtime/context/__tests__/ContextManager.test.ts`：12 项通过。
 - 两个改动文件 `pnpm exec eslint ... --quiet` 通过；`pnpm run typecheck:node` 通过（此前无关类型错误已由工作区其他修改消除）。
+
+### 阶段 3：旧摘要退化
+
+- 新压缩失败、空内容或摘要被拒绝时，尝试保留旧摘要，并添加历史缺口提示；旧摘要仍超预算时舍弃。
+- 历史缺口标记在 run 内保留，避免下一次请求有旧摘要却失去缺口提示。
+- 新增三种失败后的旧摘要保留及后续 prepare 复用测试，以及旧摘要无法容纳的退化测试。
+- ContextManager 测试 16 项通过；改动文件 ESLint --quiet 和 Node 类型检查通过。

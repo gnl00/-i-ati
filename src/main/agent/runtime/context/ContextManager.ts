@@ -27,6 +27,7 @@ export class ContextManager {
   private pendingTools?: number
   private covered = 0
   private summary?: string
+  private omitted = false
   private updatedAt: number
 
   constructor(
@@ -137,7 +138,7 @@ export class ContextManager {
       )
     }
     let retained = this.records.filter((_record, i) => i >= this.covered || required.has(i))
-    let request = makeRequest(retained, this.summary, this.covered > 0 && !this.summary)
+    let request = makeRequest(retained, this.summary, this.omitted || (this.covered > 0 && !this.summary))
     let measured = await measure(request)
     // Large request counting can switch to the conservative chunked estimate.
     // Recheck mandatory content against that same final margin before any fallback.
@@ -232,8 +233,17 @@ export class ContextManager {
         })
       }
     }
-    request = makeRequest(retained, summary, !summary)
+    let omitted = this.omitted || !summary
+    // A failed merge need not erase an earlier useful summary. The notice records the gap.
+    summary ??= this.summary
+    request = makeRequest(retained, summary, omitted)
     measured = await measure(request)
+    if (measured.tokens > measured.budget.input && summary !== this.summary && this.summary) {
+      summary = this.summary
+      omitted = true
+      request = makeRequest(retained, summary, true)
+      measured = await measure(request)
+    }
     if (measured.tokens > measured.budget.input) {
       summary = undefined
       request = makeRequest(retained, undefined, true)
@@ -242,6 +252,7 @@ export class ContextManager {
     // The notice is optional too; it must never block an otherwise valid current request.
     if (measured.tokens > measured.budget.input) request = minimalRequest
     this.covered = removed.size ? Math.max(this.covered, ...removed) + 1 : this.covered
+    this.omitted = omitted || !summary
     this.summary = summary
     const finalMeasurement = await measure(request)
     logger.info('context.prepared', {

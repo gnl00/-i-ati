@@ -177,6 +177,41 @@ describe('ContextManager', () => {
     expect(JSON.stringify(request.messages)).toContain('merged fact')
   })
 
+  it('drops an earlier summary when the remaining budget cannot hold it', async () => {
+    const compress = vi.fn().mockResolvedValueOnce('earlier reliable facts\n'.repeat(60))
+      .mockRejectedValueOnce(new Error('offline'))
+    let output = 400
+    const context = manager(history(), { ...spec, contextCompression: true }, {
+      compress,
+      measureRequest: async (request: IUnifiedRequest) => ({ messages: request.messages, max_output_tokens: output })
+    })
+    await context.prepare()
+    context.append([assistant('recent', [], 'new evidence\n'.repeat(3_000))], 4)
+    output = 1_600
+    const request = await context.prepare()
+    expect(JSON.stringify(request.messages)).not.toContain('earlier reliable facts')
+    expect(JSON.stringify(request.messages)).toContain('current goal')
+    expect(context.snapshot().records).toHaveLength(4)
+  })
+
+  it.each(['failure', 'empty', 'oversized'])('preserves an earlier summary after a %s merge', async (mode) => {
+    const compress = vi.fn().mockResolvedValueOnce('earlier reliable facts')
+    if (mode === 'failure') compress.mockRejectedValueOnce(new Error('offline'))
+    else compress.mockResolvedValueOnce(mode === 'empty' ? '' : 'too large\n'.repeat(3_000))
+    const context = manager(history(), { ...spec, contextCompression: true }, { compress })
+    await context.prepare()
+    context.append([assistant('recent', [], 'new evidence\n'.repeat(3_000))], 4)
+    const request = await context.prepare()
+    expect(compress).toHaveBeenCalledTimes(2)
+    expect(JSON.stringify(request.messages)).toContain('earlier reliable facts')
+    expect(JSON.stringify(request.messages)).toContain('Earlier context was omitted')
+    const next = await context.prepare()
+    expect(JSON.stringify(next.messages)).toContain('earlier reliable facts')
+    expect(JSON.stringify(next.messages)).toContain('Earlier context was omitted')
+    expect(compress).toHaveBeenCalledTimes(2)
+    expect(context.snapshot().records).toHaveLength(4)
+  })
+
   it.each(['failure', 'empty', 'oversized'])(
     'sends required input when compression returns %s',
     async (mode) => {
