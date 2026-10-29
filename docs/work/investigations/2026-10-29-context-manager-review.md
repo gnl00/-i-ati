@@ -117,3 +117,10 @@ applyDeltaToDraft 每个 delta 都克隆整个 toolCalls 数组及调用对象�
 - `pnpm exec vitest run src/main/agent/runtime/context/__tests__/ContextCompactor.test.ts`：4 项通过。
 - 对上述实现和测试运行 ESLint：0 errors，104 条格式 warnings（默认 Prettier 双引号/分号与周边风格冲突）。
 - `pnpm run typecheck:node`：被已有工作区 `src/main/services/retrieval/__tests__/optionalRetrieval.test.ts:17` 的 Promise<unknown> / Promise<unknown[]> 错误阻塞。该文件不属于本任务。
+
+### 阶段 2：合并摘要比较
+
+- 新摘要与旧摘要加本次移除历史的 token 总量比较，最终发送仍校验整个请求预算。
+- 新增先压缩、再收紧有效输出预算触发合并的测试，保留比新增历史大但比总输入小的有效摘要。
+- `pnpm exec vitest run src/main/agent/runtime/context/__tests__/ContextManager.test.ts`：12 项通过。
+- 两个改动文件 `pnpm exec eslint ... --quiet` 通过；`pnpm run typecheck:node` 通过（此前无关类型错误已由工作区其他修改消除）。

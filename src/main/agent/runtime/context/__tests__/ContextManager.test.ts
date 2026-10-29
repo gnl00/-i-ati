@@ -157,6 +157,26 @@ describe('ContextManager', () => {
     expect(compress).toHaveBeenCalledTimes(1)
   })
 
+  it('accepts a merged summary smaller than previous summary plus newly removed history', async () => {
+    const previous = 'prior fact\n'.repeat(100)
+    const merged = 'merged fact\n'.repeat(60)
+    const compress = vi.fn().mockResolvedValueOnce(previous).mockResolvedValueOnce(merged)
+    let output = 400
+    const context = manager(history(), { ...spec, contextCompression: true }, {
+      compress,
+      measureRequest: async (request: IUnifiedRequest) => ({
+        messages: request.messages, max_output_tokens: output
+      })
+    })
+    await context.prepare()
+    context.append([assistant('recent', [], 'recent fact\n'.repeat(30))], 4)
+    output = 1_350
+    const request = await context.prepare()
+    expect(compress).toHaveBeenCalledTimes(2)
+    expect(compress.mock.calls[1][0].previousSummary).toBe(previous.trim())
+    expect(JSON.stringify(request.messages)).toContain('merged fact')
+  })
+
   it.each(['failure', 'empty', 'oversized'])(
     'sends required input when compression returns %s',
     async (mode) => {

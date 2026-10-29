@@ -221,7 +221,8 @@ export class ContextManager {
           })
         ).trim()
         signal?.throwIfAborted()
-        if (!summary || this.tokenizer.count(summary) >= this.tokenizer.count(text))
+        if (!summary || this.tokenizer.count(summary) >=
+          this.tokenizer.count(text) + this.tokenizer.count(this.summary ?? ''))
           summary = undefined
       } catch (error) {
         signal?.throwIfAborted()
