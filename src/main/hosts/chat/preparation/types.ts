@@ -30,6 +30,7 @@ export type MainAgentRunInput = {
 }
 
 export type RunPreparationOptions = {
+  onChatResolved?: (chat: ChatEntity) => void
   signal?: AbortSignal
   modelContext?: RunModelContext
   systemPrompt?: string

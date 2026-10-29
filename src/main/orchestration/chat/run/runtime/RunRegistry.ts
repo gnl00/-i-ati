@@ -1,14 +1,18 @@
-import { DuplicateSubmissionIdError } from './errors'
+import { ChatRunBusyError, DuplicateSubmissionIdError } from './errors'
 import { AgentRun } from './AgentRun'
 
 export class RunRegistry {
   private readonly active = new Map<string, AgentRun>()
 
   add(submissionId: string, run: AgentRun): void {
-    if (this.active.has(submissionId)) {
-      throw new DuplicateSubmissionIdError(submissionId)
-    }
+    this.assertAvailable(submissionId, run.chatUuid)
     this.active.set(submissionId, run)
+  }
+
+  assertAvailable(submissionId: string, chatUuid?: string): void {
+    if (this.active.has(submissionId)) throw new DuplicateSubmissionIdError(submissionId)
+    const owner = chatUuid ? this.getActiveRunForChat(chatUuid) : undefined
+    if (owner) throw new ChatRunBusyError(chatUuid!, owner.submissionId)
   }
 
   get(submissionId: string): AgentRun | undefined {

@@ -23,6 +23,9 @@ export class ChatSessionStore {
       return existing
     }
 
+    if (input.chatId !== undefined || input.chatUuid !== undefined) {
+      throw new Error('The selected conversation no longer exists.')
+    }
     const chatUuid = uuidv4()
     const workspacePath = `./${DEFAULT_WORKSPACE_DIR}/${chatUuid}`
     const chatModelRef = input.chatModelRef ?? input.modelRef

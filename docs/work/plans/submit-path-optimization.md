@@ -91,3 +91,20 @@ src/main/services/subagent/runtime/__tests__` — 12 files, 177 tests passed.
 `pnpm run test:main-architecture` and `git diff --check` passed. Scoped ESLint retains
 baseline errors only; new abort-wait utility has zero errors. Final Electron/coverage
 verification remains pending.
+
+### Stage 3 — conversation admission
+
+Main now resolves existing chat aliases and rejects a concurrent primary run before
+acceptance. The registry retains ownership through cancellation cleanup and releases
+it on normal/failure paths. Newly created identity is bound before CHAT_READY, closing
+the preparation window. Missing or inconsistent existing identity fails explicitly.
+
+Verification: `pnpm exec vitest run
+src/main/orchestration/chat/run/runtime/__tests__/AgentRun.test.ts
+src/main/orchestration/chat/run/runtime/__tests__/RunManager.test.ts
+src/main/orchestration/chat/run/runtime/__tests__/RunRegistry.test.ts
+src/main/hosts/chat/__tests__/ChatSessionStore.test.ts
+src/main/hosts/chat/preparation/__tests__/ChatPreparationPipeline.test.ts` — 86 tests
+passed. Node typecheck, Main boundary/architecture checks and diff check passed.
+Scoped ESLint compared with baseline retains existing errors only. Independent chat,
+alias collision, Stop cleanup, acceptance failure and subsequent admission covered.

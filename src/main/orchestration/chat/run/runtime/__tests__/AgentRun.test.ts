@@ -472,7 +472,9 @@ describe('AgentRun', () => {
       mainAgentRuntimeRunner: { run: vi.fn() },
       chatAgentAdapter: {
         prepareRun: vi.fn(async (...args: unknown[]) => {
-          preparationSignal = (args[2] as { signal: AbortSignal }).signal
+          const preparation = args[2] as { signal: AbortSignal; onChatResolved: (chat: ChatEntity) => void }
+          preparationSignal = preparation.signal
+          preparation.onChatResolved({ uuid: 'new-chat' } as ChatEntity)
           await new Promise((_, reject) => {
             preparationSignal!.addEventListener('abort', () => reject(preparationSignal!.reason), { once: true })
           })
@@ -486,6 +488,7 @@ describe('AgentRun', () => {
       toolConfirmationRequester: { request: vi.fn() }
     } as unknown as ConstructorParameters<typeof AgentRun>[2])
     const pending = run.run()
+    expect(run.chatUuid).toBe('new-chat')
     run.cancel()
     await expect(pending).resolves.toEqual({ state: 'aborted' })
     expect(preparationSignal?.aborted).toBe(true)

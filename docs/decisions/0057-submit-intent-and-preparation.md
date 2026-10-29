@@ -25,3 +25,13 @@ schedule execution policy without discarding the saved instruction.
 The internal desktop IPC schema changes with the application build. Renderer-supplied
 tool schema overrides are rejected. Model calls outside the resolved set produce a
 failure before approval or side effects. No database migration is required.
+
+## Conversation admission
+
+Main resolves existing chat ID/UUID to a canonical identity synchronously before
+acceptance. An active primary run owns that conversation until its outcome and
+cleanup settle, including cancellation. A second submit receives CHAT_RUN_BUSY;
+steering remains the explicit way to add input to an active run. Independent chats
+and new chats without an existing identity remain concurrent. Missing/mismatched
+identities fail before admission; a deleted conversation is not silently recreated.
+Reservation is stored in the existing run registry and released on all failure paths.

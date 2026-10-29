@@ -1,3 +1,4 @@
+import { chatDb } from '@main/db/chat'
 import { resolveTelegramApprovalTargets } from '@main/services/telegram/TelegramApprovalTargets'
 import type { RunOutcome, RunSubmissionOptions } from '../RunSubmissionOptions'
 import { AbortError } from './errors'
@@ -66,6 +67,18 @@ export class RunManager {
     ) {
       throw new Error('Invalid run execution budget')
     }
+    this.registry.assertAvailable(input.submissionId)
+    if (input.chatId !== undefined || input.chatUuid !== undefined) {
+      const chat = input.chatId !== undefined
+        ? chatDb.getChatById(input.chatId)
+        : chatDb.getChatByUuid(input.chatUuid!)
+      if (!chat) throw new Error('The selected conversation no longer exists.')
+      if (input.chatUuid !== undefined && input.chatUuid !== chat.uuid) {
+        throw new Error('Conversation ID and UUID do not match.')
+      }
+      input = { ...input, chatId: chat.id, chatUuid: chat.uuid }
+    }
+    this.registry.assertAvailable(input.submissionId, input.chatUuid)
     const run = this.createRun(input, eventSinks, hostRenderSinks, options)
     try {
       run.emitAccepted()

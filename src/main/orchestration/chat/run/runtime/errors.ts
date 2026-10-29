@@ -8,3 +8,12 @@ export class DuplicateSubmissionIdError extends Error {
     this.name = 'DuplicateSubmissionIdError'
   }
 }
+
+export class ChatRunBusyError extends Error {
+  readonly code = 'CHAT_RUN_BUSY'
+
+  constructor(readonly chatUuid: string, readonly activeSubmissionId: string) {
+    super('This conversation already has an active run. Stop it or send a steering message.')
+    this.name = 'ChatRunBusyError'
+  }
+}

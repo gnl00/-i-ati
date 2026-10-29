@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { subagentRuntimeBridge } from '@main/services/subagent/subagent-runtime-bridge'
 import subagentRunService from '@main/services/subagent/subagent-run-service'
-import { DuplicateSubmissionIdError } from '../errors'
+import { ChatRunBusyError, DuplicateSubmissionIdError } from '../errors'
 
 const {
   emitAcceptedMock,
@@ -20,6 +20,11 @@ const {
   eventEmitterMetaMock: vi.fn(),
   constructorArgsMock: vi.fn()
 }))
+
+vi.mock('@main/db/chat', () => ({ chatDb: {
+  getChatById: (id: number): object | undefined => id > 0 && id < 3 ? { id, uuid: `chat-${id}` } : undefined,
+  getChatByUuid: (uuid: string): object | undefined => ['chat-1', 'chat-2'].includes(uuid) ? { id: Number(uuid.slice(-1)), uuid } : undefined
+} }))
 
 vi.mock('@main/services/telegram/TelegramApprovalTargets', () => ({ resolveTelegramApprovalTargets: vi.fn(() => []) }))
 
@@ -125,7 +130,7 @@ describe('RunManager', () => {
     const deferred = createDeferred<{ assistantMessageId: number; state: 'completed' }>()
     runMock.mockReturnValueOnce(deferred.promise)
     const { manager, toolConfirmationManager } = createManagerWithDeps()
-    const handle = manager.submit({ ...input, chatUuid: 'chat' })
+    const handle = manager.submit({ ...input, chatUuid: 'chat-1' })
     const release = subagentRuntimeBridge.retain(input.submissionId)
     deferred.resolve({ assistantMessageId: 1, state: 'completed' })
     await handle.completion
@@ -141,10 +146,10 @@ describe('RunManager', () => {
     runMock.mockReturnValueOnce(deferred.promise)
     const cancel = vi.spyOn(subagentRunService, 'cancelForParent')
     const manager = createManager()
-    const handle = manager.submit({ ...input, chatUuid: 'chat' })
+    const handle = manager.submit({ ...input, chatUuid: 'chat-1' })
     expect(manager.cancel({ submissionId: input.submissionId, chatUuid: 'wrong' })).toMatchObject({ cancelled: false })
     expect(cancel).not.toHaveBeenCalled()
-    manager.cancel({ chatUuid: 'chat' })
+    manager.cancel({ chatUuid: 'chat-1' })
     expect(cancel).toHaveBeenCalledExactlyOnceWith(input.submissionId)
     deferred.resolve({ assistantMessageId: 1, state: 'completed' })
     await handle.completion
@@ -163,6 +168,30 @@ describe('RunManager', () => {
     eventEmitterMetaMock.mockReset()
   })
 
+  it('excludes a concurrent run across ID/UUID aliases and releases ownership', async () => {
+    const deferred = createDeferred<{ state: 'completed' }>()
+    runMock.mockReturnValueOnce(deferred.promise as never)
+    const manager = createManager()
+    const first = manager.submit(input)
+    expect(() => manager.submit({ ...input, submissionId: 'second', chatId: undefined, chatUuid: 'chat-1' }))
+      .toThrow(ChatRunBusyError)
+    expect(emitAcceptedMock).toHaveBeenCalledTimes(1)
+    await manager.submit({ ...input, submissionId: 'other-chat', chatId: 2 }).completion
+    manager.cancel(input.submissionId)
+    expect(() => manager.submit({ ...input, submissionId: 'still-stopping' })).toThrow(ChatRunBusyError)
+    deferred.resolve({ state: 'completed' })
+    await first.completion
+    await expect(manager.submit({ ...input, submissionId: 'next' }).completion)
+      .resolves.toMatchObject({ state: 'completed' })
+  })
+
+  it('rejects stale or inconsistent identities before admission', () => {
+    const manager = createManager()
+    expect(() => manager.submit({ ...input, chatId: 999 })).toThrow('no longer exists')
+    expect(() => manager.submit({ ...input, chatUuid: 'chat-2' })).toThrow('do not match')
+    expect(emitAcceptedMock).not.toHaveBeenCalled()
+  })
+
   it('returns a handle immediately and blocks duplicate submission ids while active', async () => {
     const deferred = createDeferred<{ assistantMessageId?: number; state: 'completed' }>()
     runMock.mockReturnValueOnce(deferred.promise as any)
@@ -173,7 +202,7 @@ describe('RunManager', () => {
     expect(result.submissionId).toBe('submission-1')
     expect(emitAcceptedMock).toHaveBeenCalledTimes(1)
     expect(eventEmitterMetaMock).toHaveBeenCalledWith({
-      submissionId: 'submission-1', chatId: 1, chatUuid: undefined
+      submissionId: 'submission-1', chatId: 1, chatUuid: 'chat-1'
     })
     expect(() => manager.submit(input)).toThrow(DuplicateSubmissionIdError)
 
@@ -505,16 +534,16 @@ describe('RunManager', () => {
   })
   it('rejects an ID retained by an older child without leaving a new active run', async () => {
     subagentRuntimeBridge.register('retained-id', {
-      emitter: { submissionId: 'retained-id', chatUuid: 'chat', setChatMeta: vi.fn(), emit: vi.fn() },
+      emitter: { submissionId: 'retained-id', chatUuid: 'chat-1', setChatMeta: vi.fn(), emit: vi.fn() },
       requester: { request: vi.fn(async () => ({ approved: false })) }, cancelConfirmation: vi.fn()
     })
     const release = subagentRuntimeBridge.retain('retained-id')
     subagentRuntimeBridge.releaseParent('retained-id')
     const manager = createManager()
-    expect(() => manager.submit({ ...input, submissionId: 'retained-id', chatUuid: 'chat' })).toThrow('already registered')
+    expect(() => manager.submit({ ...input, submissionId: 'retained-id', chatUuid: 'chat-1' })).toThrow('already registered')
     expect(manager.hasActiveRunForChat('chat')).toBe(false)
     release()
-    await expect(manager.submit({ ...input, submissionId: 'retained-id', chatUuid: 'chat' }).completion).resolves.toMatchObject({ state: 'completed' })
+    await expect(manager.submit({ ...input, submissionId: 'retained-id', chatUuid: 'chat-1' }).completion).resolves.toMatchObject({ state: 'completed' })
   })
 
 })

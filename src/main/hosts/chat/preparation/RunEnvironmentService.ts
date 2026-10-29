@@ -22,6 +22,7 @@ export class RunEnvironmentService {
       this.chatModelContextResolver.resolveOrThrow(config, input.modelRef)
     const chat = await this.chatSessionStore.resolveOrCreateChat(input, options?.signal)
     options?.signal?.throwIfAborted()
+    options?.onChatResolved?.(chat)
     emitter.setChatMeta({ chatId: chat.id, chatUuid: chat.uuid })
     const workspacePath = this.chatSessionStore.resolveWorkspacePath(chat)
     const historyMessages = this.chatSessionStore.loadHistoryMessages(chat)

@@ -34,3 +34,8 @@ context providers and prevents subsequent snapshots, observation messages and mo
 dispatch. The already-persisted user input remains available. Local operations that
 cannot cancel may finish in the background; they cannot commit a late request snapshot.
 Vision timeout remains a failed observation; user cancellation is an aborted run.
+
+Main admission resolves an existing conversation before preparation and rejects a
+second primary run with `CHAT_RUN_BUSY`. The registry retains ownership through Stop
+cleanup, then permits the next submit. ID-only and UUID-only submissions share the
+same ownership. New conversations omit both fields; stale identities fail explicitly.

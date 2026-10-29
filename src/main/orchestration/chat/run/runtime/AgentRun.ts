@@ -138,7 +138,14 @@ export class AgentRun {
       const { runSpec, chatContext } = await this.services.chatAgentAdapter.prepareRun(
         this.input,
         this.emitter,
-        { ...this.runtime.options?.preparation, signal: this.controller.signal }
+        {
+          ...this.runtime.options?.preparation,
+          signal: this.controller.signal,
+          onChatResolved: chat => {
+            this.chatUuid = chat.uuid
+            this.runtime.options?.preparation?.onChatResolved?.(chat)
+          }
+        }
       )
       this.controller.signal.throwIfAborted()
       this.chatUuid = runSpec.runtimeContext.chatUuid
