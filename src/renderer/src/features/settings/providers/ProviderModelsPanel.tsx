@@ -59,6 +59,14 @@ const CONTEXT_CAPACITY_FORMAT = new Intl.NumberFormat('en', {
   notation: 'compact',
   maximumFractionDigits: 1
 })
+const EDIT_MODEL_CONTENT_PADDING_CLASSNAME =
+  'px-[max(1.25rem,calc((100%_-_960px)/2))]'
+const CONTEXT_WINDOW_PRESETS = [
+  { label: '128K', tokens: 128_000 },
+  { label: '256K', tokens: 256_000 },
+  { label: '1M', tokens: 1_000_000 },
+  { label: '2M', tokens: 2_000_000 }
+] as const
 const MODEL_TOOLTIP_CLASS_NAME =
   'bg-gray-900/95 dark:bg-(--app-surface-raised) backdrop-blur-xl dark:backdrop-blur-none border border-gray-700/50 dark:border-(--app-border-standard) text-gray-100 dark:text-(--app-text-primary) text-xs px-3 py-1.5 rounded-lg shadow-xl shadow-black/20'
 const MODEL_ADD_FIELD_CLASSNAME =
@@ -405,12 +413,17 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
                 </button>
               ) : undefined
             }
-            className="shrink-0"
+            className={cn('shrink-0', EDIT_MODEL_CONTENT_PADDING_CLASSNAME)}
           />
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          <div
+            className={cn(
+              'min-h-0 flex-1 overflow-y-auto py-4',
+              EDIT_MODEL_CONTENT_PADDING_CLASSNAME
+            )}
+          >
             <div className="w-full space-y-4">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(180px,0.72fr)_minmax(260px,1.28fr)]">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(180px,1fr)_minmax(260px,2fr)]">
                 <div className="space-y-1.5">
                   <Label className="text-[12px] font-medium text-gray-700 dark:text-(--app-text-body)">
                     Model type
@@ -493,6 +506,39 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
                     <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[10.5px] font-medium text-gray-400 dark:text-(--app-text-muted)">
                       tokens
                     </span>
+                  </div>
+                  <div
+                    role="group"
+                    aria-label="Context window presets"
+                    className="flex flex-wrap gap-1.5"
+                  >
+                    {CONTEXT_WINDOW_PRESETS.map(({ label, tokens }) => {
+                      const selected =
+                        editingContextWindowTokens ===
+                        formatContextWindowTokens(tokens)
+                      return (
+                        <button
+                          key={tokens}
+                          type="button"
+                          aria-label={`Set context window to ${tokens.toLocaleString('en-US')} tokens`}
+                          aria-pressed={selected}
+                          title={`${tokens.toLocaleString('en-US')} tokens`}
+                          onClick={() =>
+                            setEditingContextWindowTokens(
+                              formatContextWindowTokens(tokens)
+                            )
+                          }
+                          className={cn(
+                            settingsOutlineButtonClassName,
+                            'h-7 min-w-12 justify-center px-2.5 text-[11px] tabular-nums',
+                            selected &&
+                              'border-gray-400 bg-gray-100 text-gray-900 dark:border-(--app-accent) dark:bg-(--app-surface-hover) dark:text-(--app-text-primary)'
+                          )}
+                        >
+                          {label}
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
               </div>
@@ -610,7 +656,12 @@ export const ProviderModelsPanel: React.FC<ProviderModelsPanelProps> = ({
             </div>
           </div>
 
-          <DrawerFooter className="sticky bottom-0 shrink-0 border-t border-gray-200/80 bg-gray-50/80 px-5 py-3 dark:border-(--app-border-subtle) dark:bg-(--app-surface-inset)">
+          <DrawerFooter
+            className={cn(
+              'sticky bottom-0 shrink-0 border-t border-gray-200/80 bg-gray-50/80 py-3 dark:border-(--app-border-subtle) dark:bg-(--app-surface-inset)',
+              EDIT_MODEL_CONTENT_PADDING_CLASSNAME
+            )}
+          >
             <div className="flex w-full flex-wrap items-center justify-end gap-2">
               {currentAccount ? (
                 <p className="mr-auto min-w-0 truncate text-[10.5px] text-gray-400 dark:text-(--app-text-muted)">
