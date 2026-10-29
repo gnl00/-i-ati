@@ -1,19 +1,24 @@
 # ContextManager 预算、性能与中间表示审阅
 
+Archived: 2026-10-30<br>
+Reason: 已完成六阶段实施和自动化验证；保留探索结论与未测边界<br>
+Original path: `docs/work/investigations/2026-10-29-context-manager-review.md`<br>
+Replaced by: [当前 Context 架构](../../../architecture/agent-runtime/context/README.md)
+
 Owner: Repository maintainers<br>
-Status: Active<br>
+Status: Done<br>
 Started: 2026-10-29<br>
 Target: 记录当前上下文链路的问题、必要边界和可收敛表示，供后续实施决策<br>
 Exit criteria: 核实候选问题，完成获授权的修正和对应验证；性能收益以基准或运行观测确认<br>
-Related specs: [工具结果归一化](../../specs/tools/tool-result-normalization.md)<br>
-Related implementation: [ContextManager](../../../src/main/agent/runtime/context/ContextManager.ts)、[AgentLoop](../../../src/main/agent/runtime/loop/AgentLoop.ts)
+Related specs: [工具结果归一化](../../../specs/tools/tool-result-normalization.md)<br>
+Related implementation: [ContextManager](../../../../src/main/agent/runtime/context/ContextManager.ts)、[AgentLoop](../../../../src/main/agent/runtime/loop/AgentLoop.ts)
 
 ## 范围与证据等级
 
 用户已授权按阶段实施并逐阶段提交。本文件同时记录审阅证据和实施进度。依据 2026-10-29 当前工作区源码，包含工作区已有变更；不是发布版本结论。
-代码路径可确认重复操作和分支结果；未执行性能基准，不量化提速。此前运行 ContextManager、ChatContextMapper 两个测试文件共 17 项通过，不代表本文新发现的边界已有回归覆盖。
+代码路径可确认重复操作和分支结果；阶段 6 补充了本机合成基准，不能外推为模型请求或 Electron 的端到端提速。此前运行 ContextManager、ChatContextMapper 两个测试文件共 17 项通过，不代表本文新发现的边界已有回归覆盖。
 
-相关契约：[ADR-0036](../../decisions/0036-runtime-context-manager.md)、[Context 架构](../../architecture/agent-runtime/context/README.md)。ADR 记录的未知窗口默认值仍为 32,768，而当前代码为 262,144；后续需同步文档，不能用旧 ADR 数字判断运行行为。
+相关契约：[ADR-0036](../../../decisions/0036-runtime-context-manager.md)、[Context 架构](../../../architecture/agent-runtime/context/README.md)。ADR 记录的未知窗口默认值仍为 32,768，而当前代码为 262,144；后续需同步文档，不能用旧 ADR 数字判断运行行为。
 
 ## 当前链路
 
@@ -27,8 +32,8 @@ Related implementation: [ContextManager](../../../src/main/agent/runtime/context
 
 ### 1. 请求准备和计量重复（高置信度；优化需保持 provider 语义）
 
-[ContextManager.prepare](../../../src/main/agent/runtime/context/ContextManager.ts) 正常路径先计量必需内容，再计量完整请求；每次包含投影、适配、provider body 构建、序列化和 token 计数。发送阶段的 [unifiedChatRequest](../../../src/main/request/index.ts) 再次准备和序列化 body。准备还读取插件配置、解析 adapter、执行扩展和 overrides。
-超窗路径在最终候选已计量后再次 measure；[RequestCompositionMetrics](../../../src/main/agent/runtime/context/RequestCompositionMetrics.ts) 为日志额外序列化消息分块。
+[ContextManager.prepare](../../../../src/main/agent/runtime/context/ContextManager.ts) 正常路径先计量必需内容，再计量完整请求；每次包含投影、适配、provider body 构建、序列化和 token 计数。发送阶段的 [unifiedChatRequest](../../../../src/main/request/index.ts) 再次准备和序列化 body。准备还读取插件配置、解析 adapter、执行扩展和 overrides。
+超窗路径在最终候选已计量后再次 measure；[RequestCompositionMetrics](../../../../src/main/agent/runtime/context/RequestCompositionMetrics.ts) 为日志额外序列化消息分块。
 
 建议先计量完整请求，超窗后才测必需内容；复用最终 measurement。进一步评估将已准备 body 交给发送阶段，明确插件配置、取消、重试和扩展的生命周期，避免引入另一套可变缓存。保留真实 provider body 校验，不能简单把消息 token 相加替代。
 
@@ -36,7 +41,7 @@ Related implementation: [ContextManager](../../../src/main/agent/runtime/context
 
 ### 2. 历史工具映射重复复制（高置信度；低风险）
 
-[ChatContextMapper](../../../src/main/hosts/chat/runtime/ChatContextMapper.ts) 对每条工具结果执行 records.slice().reverse().find，寻找刚处理过的 assistant。工具密集历史下累计数组复制最坏接近平方级。
+[ChatContextMapper](../../../../src/main/hosts/chat/runtime/ChatContextMapper.ts) 对每条工具结果执行 records.slice().reverse().find，寻找刚处理过的 assistant。工具密集历史下累计数组复制最坏接近平方级。
 
 建议保存当前 assistant 引用，按需索引其 toolCall ID。删除复制、反转和历史搜索，保留工具名、索引及孤立工具回退语义。验证多步多工具、缺失关联和空历史；无需新增通用索引管理器。
 
@@ -56,7 +61,7 @@ ContextManager 超窗分支把局部 summary 初始化为 undefined。压缩失�
 
 ### 5. 压缩预算余量计算过早（高置信度；逻辑问题）
 
-[ContextCompactor](../../../src/main/agent/runtime/context/ContextCompactor.ts) 在 countValue 前根据 tokenizer.estimated 计算预算；[RequestTokenizer](../../../src/main/agent/runtime/context/RequestTokenizer.ts) 对长文本分段时才切换 estimated。已知编码长输入可能仍按 5% 而非 15% 余量检查。Manager 主路径先计数后算预算。
+[ContextCompactor](../../../../src/main/agent/runtime/context/ContextCompactor.ts) 在 countValue 前根据 tokenizer.estimated 计算预算；[RequestTokenizer](../../../../src/main/agent/runtime/context/RequestTokenizer.ts) 对长文本分段时才切换 estimated。已知编码长输入可能仍按 5% 而非 15% 余量检查。Manager 主路径先计数后算预算。
 
 建议统一为先计数后计算预算。验证已知模型、超过分段阈值、token 数落在两种预算之间的边界，以及短输入行为。
 
@@ -76,7 +81,7 @@ ContextManager 超窗分支把局部 summary 初始化为 undefined。压缩失�
 | requestContextSnapshot | 用户消息携带的历史运行环境快照 | 与 draft.snapshot、ContextSnapshot 含义不同；用于解释当时环境，可能增加历史 token，需按来源评估精简 |
 | MaterializedProtocolRequest / IUnifiedRequest / provider body | 协议投影、既有请求设施、provider adapter | 存在边界转换用途；优先减少同一请求的重复转换，而非把所有表示合成可变对象 |
 
-证据：[AgentStepDraft](../../../src/main/agent/runtime/step/AgentStepDraft.ts)、[AgentStepMaterializer](../../../src/main/agent/runtime/step/AgentStepMaterializer.ts)、[ContextSnapshot](../../../src/main/agent/runtime/context/ContextSnapshot.ts)、[AgentRenderStateReducer](../../../src/main/hosts/shared/render/AgentRenderStateReducer.ts)、[子 Agent 持久化与续跑](../../../src/main/services/subagent/subagent-run-service.ts)。
+证据：[AgentStepDraft](../../../../src/main/agent/runtime/step/AgentStepDraft.ts)、[AgentStepMaterializer](../../../../src/main/agent/runtime/step/AgentStepMaterializer.ts)、[ContextSnapshot](../../../../src/main/agent/runtime/context/ContextSnapshot.ts)、[AgentRenderStateReducer](../../../../src/main/hosts/shared/render/AgentRenderStateReducer.ts)、[子 Agent 持久化与续跑](../../../../src/main/services/subagent/subagent-run-service.ts)。
 
 ### 流式阶段可进一步收敛的位置
 
@@ -86,7 +91,7 @@ applyDeltaToDraft 每个 delta 都克隆整个 toolCalls 数组及调用对象�
 
 事件同时带 delta 和 snapshot 使渲染消费者既处理增量又遍历累计工具。可评估让渲染端只累计 delta，或仅在特定边界提供完整快照；需要覆盖预览、reasoning 顺序、工具参数、终态提交与失败丢弃。当前源码仅证明字段并存和重复处理，尚未证明每个 chunk 都跨 IPC 传输整份 snapshot，不能据此宣称 IPC 平方级开销。
 
-[AgentEventBus](../../../src/main/agent/runtime/events/AgentEventBus.ts) 顺序 await 各 sink，Loop await emitStepDelta。消费者耗时可反压响应消费，但事件顺序和终态交付有意义；先测各 sink 耗时，不能简单改成 fire-and-forget。
+[AgentEventBus](../../../../src/main/agent/runtime/events/AgentEventBus.ts) 顺序 await 各 sink，Loop await emitStepDelta。消费者耗时可反压响应消费，但事件顺序和终态交付有意义；先测各 sink 耗时，不能简单改成 fire-and-forget。
 
 ## 保留与待测设计
 
@@ -145,3 +150,33 @@ applyDeltaToDraft 每个 delta 都克隆整个 toolCalls 数组及调用对象�
 - 新增预算内请求单次计量且保留完整历史的回归；context 目录 6 个测试文件 41 项通过。
 - 改动文件 ESLint --quiet 和 Node 类型检查通过。
 - 本阶段量化的是操作次数（正常 prepare 从 2 次 measurement 降为 1 次），不是实际端到端时延。provider body 发送复用仍需独立处理 adapter/重试边界。
+
+### 阶段 6：流式工具快照共享与探索收口
+
+- parser 在无工具更新的 chunk 上共享输入工具数组和 assembly 状态；有更新时复制容器并替换修改项，旧快照保持稳定。
+- Loop 在工具快照变化时按 chunk 脱离 parser 输出一次，不再为同 chunk 的每个 delta 重复克隆；无工具变化的正文、reasoning、usage 事件共享不可变工具数组。
+- 保留 tool_call_ready 的稳定调用合并、独立 draft 内容快照和现有 delta/snapshot 事件契约。补齐 Loop 两个已有方法的返回类型以满足改动文件 lint。
+- Parser、AgentRuntime、RenderPipelineGolden 定向测试 26 项通过，包含旧工具参数快照不被后续分片修改、长流式正文和渲染事件顺序。
+- 改动文件 ESLint --quiet、Node 类型检查、main boundaries、main architecture（8 项）、main doc paths 均通过。
+
+#### 成本测量（2026-10-30，本机合成输入）
+
+临时 Vitest 基准使用 HEAD 中优化前 parser 与当前 parser，在同一进程预热后交替运行 9 次；每次 10,000 个正文＋reasoning chunk、32 个已有工具调用，取中位数：优化前 7.122 ms，优化后 1.501 ms。工具数组与 assembly 的无效复制被消除；该结果仅代表 parser CPU 合成负载，不代表网络、模型或真实 Electron 体验。基准临时源文件已移除，永久回归保留快照不可变性与共享条件。
+
+对实际 HostRenderEventMapper 输入 4,000 个累计正文事件的单次合成测量为 6.978 ms；没有持久化、IPC 或真实外部 sink，不能据此断言真实 sink 不会变慢。
+
+#### 已评估并保留的边界
+
+1. delta＋snapshot：AgentRenderStateReducer 使用 delta 的块顺序和 snapshot 的累计内容；ChatRenderResponder 已按 previewEffect 发出正文/推理追加 patch。保留当前事件契约，避免制造第二套消费者累计规则。本次先去除其生产端无效复制。
+2. 顺序事件交付：实际 HostRenderEventForwarder 经 HostOutputDispatcher 交付，required adapters 承担 canonical persistence；optional preview 已合并且不阻塞当前 dispatch。保留必要顺序与错误传播，不为合成 mapper 的低成本增加异步队列。真实 sink 分项时延尚未观测，不声称其性能已优化。
+3. provider body 发送复用：prepareUnifiedRequestBody 包含插件启用检查、adapter 解析和可配置扩展/overrides，发送阶段重新准备也在重试路径使用。当前接口只返回模型无关请求；共享可变 body 会引入新的生命周期契约。先完成单次正常计量及结果复用，不引入跨 prepare/execute 缓存；provider adapter 构建的实际耗时尚未量化。
+4. draft、稳定 records、终态 transcript：分别服务在途状态、事实留存和子 Agent 持久化/续跑，保留。未为命名统一迁移持久化字段。
+5. 同步摘要与历史环境快照：保留信息恢复和历史状态解释能力。本轮修正摘要错误退化，不改变模型选择、后台任务或历史快照兼容策略。
+
+### 最终验证
+
+- `pnpm test:coverage`：386 个文件通过、7 个跳过；3,088 项通过、37 项跳过。总体语句 73.06%、分支 65.87%、函数 67.38%、行 74.06%。跳过项仍未被本轮验证。
+- 该 coverage 在阶段 6 行为修改后执行；随后仅添加返回类型和文档，无后续运行逻辑修改。
+- 全局 Node 类型检查、main 架构与文档路径检查通过；先前无关工作区阻塞已消失。
+- 未做真实 provider 请求耗时或 Electron 运行观察；本轮未改变 UI 事件契约和可见交互设计。合成测试不等同于真实用户体验验收。
+- 已实施六项分阶段优化，各自独立提交。尚无测量证据支持的更大架构改动保留上述现有边界；后续若出现实际瓶颈，应另立测量与变更任务。

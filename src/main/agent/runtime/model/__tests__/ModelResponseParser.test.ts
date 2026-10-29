@@ -10,6 +10,31 @@ const runtimeClock: RuntimeClock = {
 }
 
 describe('DefaultModelResponseParser', () => {
+  it('preserves earlier tool snapshots through text chunks and later argument updates', () => {
+    const parser = new DefaultModelResponseParser(runtimeClock)
+    const first = parser.parse({
+      chunk: { kind: 'delta', toolCalls: [{ argumentsMode: 'delta', toolCall: {
+        id: 'call', type: 'function', function: { name: 'read', arguments: '{"x":' }
+      } }] },
+      state: createInitialModelResponseParserState(), toolCalls: []
+    })
+    const text = parser.parse({
+      chunk: { kind: 'delta', content: 'working', reasoning: 'thinking' },
+      state: first.state, toolCalls: first.toolCallsSnapshot
+    })
+    expect(text.toolCallsSnapshot).toBe(first.toolCallsSnapshot)
+    expect(text.state.toolCallAssemblies).toBe(first.state.toolCallAssemblies)
+    const completed = parser.parse({
+      chunk: { kind: 'delta', toolCalls: [{ argumentsMode: 'delta', toolCall: {
+        id: 'call', type: 'function', function: { name: 'read', arguments: '1}' }
+      } }] },
+      state: text.state, toolCalls: text.toolCallsSnapshot
+    })
+    expect(completed.toolCallsSnapshot[0].function.arguments).toBe('{"x":1}')
+    expect(first.toolCallsSnapshot[0].function.arguments).toBe('{"x":')
+    expect(first.state.toolCallAssemblies[0].argumentsBuffer).toBe('{"x":')
+  })
+
   it('keeps both reasoning and content when a delta chunk carries both', () => {
     const parser = new DefaultModelResponseParser(runtimeClock)
 

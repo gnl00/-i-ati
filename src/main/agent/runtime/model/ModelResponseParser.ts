@@ -130,8 +130,11 @@ export class DefaultModelResponseParser implements ModelResponseParser {
       }
     }
 
-    const nextAssemblies = input.state.toolCallAssemblies.map(assembly => ({ ...assembly }))
-    const toolCallsSnapshot = input.toolCalls.map(toolCall => ({ ...toolCall }))
+    const hasToolUpdates = Boolean(input.chunk.toolCalls?.length)
+    const nextAssemblies = hasToolUpdates
+      ? input.state.toolCallAssemblies.map(assembly => ({ ...assembly }))
+      : input.state.toolCallAssemblies
+    const toolCallsSnapshot = hasToolUpdates ? [...input.toolCalls] : input.toolCalls
 
     for (const toolCallChunk of input.chunk.toolCalls || []) {
       const assembly = this.upsertAssembly(nextAssemblies, toolCallsSnapshot, toolCallChunk.toolCall)

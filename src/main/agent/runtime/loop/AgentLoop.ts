@@ -129,7 +129,7 @@ const applyDeltaToDraft = (
 ): AgentStepDraft => {
   const nextSnapshot = {
     ...draft.snapshot,
-    toolCalls: toolCallsSnapshot.map(cloneToolCall)
+    toolCalls: toolCallsSnapshot
   }
 
   switch (delta.type) {
@@ -307,10 +307,14 @@ export class DefaultAgentLoop implements AgentLoop {
           })
 
           parserState = parsed.state
+          // Detach changed parser output once per chunk; unchanged calls remain immutable.
+          const toolCallsSnapshot = parsed.toolCallsSnapshot === draft.snapshot.toolCalls
+            ? draft.snapshot.toolCalls
+            : parsed.toolCallsSnapshot.map(cloneToolCall)
 
           for (const delta of parsed.deltas) {
             recordToolTiming(toolTiming, delta)
-            draft = applyDeltaToDraft(draft, delta, parsed.toolCallsSnapshot)
+            draft = applyDeltaToDraft(draft, delta, toolCallsSnapshot)
             await dependencies.agentEventEmitter.emitStepDelta({
               stepId: draft.stepId,
               stepIndex: draft.stepIndex,
@@ -549,7 +553,7 @@ export class DefaultAgentLoop implements AgentLoop {
     results: ToolResultFact[],
     dependencies: AgentLoopDependencies,
     timestamp: number
-  ) {
+  ): ReturnType<typeof createToolContextRecord>[] {
     return results.map((result) =>
       createToolContextRecord({
         recordId: dependencies.loopIdentityProvider.nextTranscriptRecordId(),
@@ -606,7 +610,7 @@ export class DefaultAgentLoop implements AgentLoop {
   private async materializeLoadedSkillsContextRecords(
     results: ToolResultFact[],
     dependencies: AgentLoopDependencies
-  ) {
+  ): Promise<ContextUserRecord[]> {
     if (!dependencies.loadedSkillsTranscriptContextProvider) {
       return []
     }

@@ -152,3 +152,6 @@ Documentation: [Agent runtime](../README.md)
 
 Loop 为每次 run 创建一个 ContextManager，追加稳定事实并在每次模型发送前 await prepare(signal)。
 历史选择、token 预算和压缩均在 manager；Loop 不维护独立 live transcript。
+
+流式响应的工具快照在工具内容不变时共享；有变化时 Loop 按 chunk 分离 parser 输出。
+每个事件的正文快照仍独立演进，旧事件的工具参数不得被后续分片改写。

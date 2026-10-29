@@ -26,6 +26,8 @@ phase, not current behavior or fresh acceptance evidence. See
 
 ### Chat
 
+- [ContextManager 优化与中间表示审阅](2026/chat/2026-10-30-context-manager-review.md)
+
 - [Chat scroll bottom button fix](2026/chat/2026-09-29-chat-scroll-bottom-button-fix.md)
 - [Chat Scroll Hook (superseded)](2026/chat/2026-09-29-chat-scroll-hook.md)
 - [Chat Virtual List (TanStack Virtual)](2026/chat/2026-09-29-chat-virtual-list.md)

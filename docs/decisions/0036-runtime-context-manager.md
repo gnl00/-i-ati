@@ -17,14 +17,15 @@ Every initial model call and continuation uses the same gate. No legacy internal
 
 Count the actual adapter/extensions/overrides body, reserve effective output limits, and include system/tools.
 Use a shared tokenizer; unknown models and bounded chunk counts are explicit estimates with larger margin.
-Default unknown window is 32,768. Output default is min(8,192, 20%window); margins are 5%known / 15%estimated.
+Default unknown window is 262,144. Output default is min(8,192, 20%window); margins are 5%known / 15%estimated.
 
 Pin current user goal and steering, explicit user rules, latest effective contexts, and the complete unconsumed
 assistant/tool batch. Validate one result per unique call ID and matching step ID. A successful next step
 consumes the preceding batch; failure/cancellation does not. Completed older groups are optional history.
 
 If optional history overflows, try one compactContext call and recount. Disabled/failed/empty/nonshrinking or
-oversized compaction falls back to omission. Oversized compaction input is rejected without provider dispatch.
+oversized compaction falls back to omission, retaining an earlier summary when it still fits.
+The omission notice remains eligible on later requests even when a previous summary is retained. Oversized compaction input is rejected without provider dispatch.
 Cancellation propagates. Mandatory overflow remains explicit. Never trim individual stable modelContent.
 
 Host keeps database/UI ownership and persistent summaries; manager summaries are run-local. Background
