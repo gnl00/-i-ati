@@ -147,3 +147,11 @@ retry or loop failure. Its known usage contributes to run totals. Chat discards 
 preview without committing reasoning as an answer. Recovery consumes a model step and
 requires remaining `maxSteps` budget; at most one consecutive recovery is allowed.
 Transport setup retries remain separately bounded in ModelStreamExecutor.
+
+## Optional host previews
+
+The raw event bus remains ordered. HostOutputDispatcher coalesces optional render
+previews to one active and one latest snapshot per adapter. Required persistence
+receives every event. Non-preview output waits for prior previews and is never
+dropped; replacement effects preserve content when intermediate frames are skipped.
+See [ADR-0056](../../../decisions/0056-agent-core-attempts-and-state.md).

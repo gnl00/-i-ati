@@ -68,3 +68,15 @@ requires at most 15 provider measurements and preserves required/current context
 Context suites (34 tests), Node typecheck, main boundary/architecture/doc-path checks
 passed; scoped ESLint comparison has no new errors. Updated the stale documented
 unknown-window default to the existing 262144 implementation.
+
+### Stage 4 — complete
+
+Inspection found optional transport errors already isolated, but awaited preview
+delivery still blocked each stream delta. Kept the raw bus and required consumers
+ordered; coalesced optional host previews with stable-output barriers. A controlled
+slow-sink test submits 100 previews without releasing the sink, delivers all 100 to
+the required consumer and only first/latest to the slow transport, then drains
+before terminal output. This measures delivered work, not end-to-end latency.
+Shared output/render and Telegram runtime suites: 77 passed. Node typecheck and
+scoped ESLint error checks passed (format warnings remain). Barrier ordering and
+preview failures are covered. Actual external transport latency is not benchmarked.

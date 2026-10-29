@@ -22,6 +22,10 @@ export type HostOutputAdapter = {
 /** One routing boundary for mapped render facts, run protocols and canonical approvals. */
 export class HostOutputDispatcher {
   private readonly adapters = new Set<HostOutputAdapter>()
+  private readonly previews = new WeakMap<HostOutputAdapter, {
+    latest?: HostOutput
+    delivery?: Promise<void>
+  }>()
   private readonly pending = new WeakMap<HostOutputAdapter, Promise<void>>()
 
   register(adapter: HostOutputAdapter): () => void {
@@ -44,16 +48,20 @@ export class HostOutputDispatcher {
           required.push(Promise.resolve(adapter.deliver(output)))
           continue
         }
+        if (output.kind === 'render' && output.event.type === 'host.preview.updated') {
+          // Optional previews carry a complete snapshot; skipped append effects must become replace.
+          this.enqueuePreview(adapter, {
+            kind: 'render', event: { ...output.event, previewEffect: 'replace' }
+          })
+          continue
+        }
         const deliver = (): void | Promise<void> => adapter.deliver(output)
         const previous = this.pending.get(adapter)
         const result = previous ? previous.then(deliver) : deliver()
         if (result && typeof result.then === 'function') {
           const delivery = result.catch((error) => this.report(adapter, error))
           deliveries.push(delivery)
-          this.pending.set(adapter, delivery)
-          void delivery.then(() => {
-            if (this.pending.get(adapter) === delivery) this.pending.delete(adapter)
-          })
+          this.track(adapter, delivery)
         }
       } catch (error) {
         if (adapter.required) required.push(Promise.reject(error))
@@ -61,6 +69,40 @@ export class HostOutputDispatcher {
       }
     }
     await Promise.all([...required, ...deliveries])
+  }
+
+  private enqueuePreview(adapter: HostOutputAdapter, output: HostOutput): void {
+    const previous = this.pending.get(adapter)
+    const existing = this.previews.get(adapter)
+    if (existing && existing.delivery === previous) {
+      existing.latest = output
+      return
+    }
+    const state: { latest?: HostOutput; delivery?: Promise<void> } = { latest: output }
+    const delivery = (previous ?? Promise.resolve()).then(async () => {
+      while (state.latest) {
+        const latest = state.latest
+        state.latest = undefined
+        try {
+          await adapter.deliver(latest)
+        } catch (error) {
+          this.report(adapter, error)
+        }
+      }
+    })
+    state.delivery = delivery
+    this.previews.set(adapter, state)
+    this.track(adapter, delivery)
+    void delivery.then(() => {
+      if (this.previews.get(adapter) === state) this.previews.delete(adapter)
+    })
+  }
+
+  private track(adapter: HostOutputAdapter, delivery: Promise<void>): void {
+    this.pending.set(adapter, delivery)
+    void delivery.then(() => {
+      if (this.pending.get(adapter) === delivery) this.pending.delete(adapter)
+    })
   }
 
   private report(adapter: HostOutputAdapter, error: unknown): void {
