@@ -94,14 +94,19 @@ export class TuiView {
       render: (width): string[] => {
         const path = displayText(workspace).replace(/\s+/g, ' ')
         const title = displayText(this.state.chat?.title || 'New Chat').replace(/\s+/g, ' ')
-        const lines = [
-          '',
-          this.theme.bold('  ati') +
-            this.theme.muted(truncateToWidth(`  /  ${title}`, Math.max(0, width - 5))),
-          this.theme.muted(truncateToWidth(`  ${path}`, width)),
-          ''
-        ]
-        if (!this.state.messages.length && !this.state.preview) {
+        const welcome = !this.state.messages.length && !this.state.preview
+        const namedTitle = ['New Chat', 'TUI Chat', 'TUI 会话'].includes(title) ? '' : title
+        const heading = this.theme.bold('ati') + (namedTitle ? this.theme.muted(`  ${namedTitle}`) : '')
+        const lines = welcome
+          ? [
+              '',
+              this.theme.accent('  ╭───╮'),
+              this.theme.accent('  │ i ╯') + `   ${heading}`,
+              this.theme.accent('  ╰─── ') + this.theme.muted(`   ${path}`),
+              ''
+            ]
+          : ['', `  ${heading}`, this.theme.muted(`  ${path}`), '']
+        if (welcome) {
           lines.push(
             ...new Text('Describe a task, or type / to choose a command.', 2, 0).render(width),
             this.theme.muted(truncateToWidth('  /model select a model   /sessions resume a chat', width)),
@@ -383,21 +388,34 @@ export class TuiView {
   private renderFooter(width: number): string[] {
     const approval = this.state.chat?.permissionApprovalMode === 'auto' ? 'Auto approval' : 'Manual approval'
     const model = displayText(this.state.model?.modelId ?? 'No model selected').replace(/\s+/g, ' ')
-    const available = Math.max(0, width - visibleWidth(approval) - 5)
-    const context = ` ${approval} · ${truncateToWidth(model, available, '')}`
+    const innerWidth = Math.max(0, width - 2)
+    const joinSides = (left: string, right: string): string =>
+      ` ${left}${' '.repeat(Math.max(3, innerWidth - visibleWidth(left) - visibleWidth(right)))}${right}`
+    const context = innerWidth >= visibleWidth(approval) + 3 + 24
+      ? [joinSides(truncateToWidth(model, innerWidth - visibleWidth(approval) - 3, '…'), this.theme.muted(approval))]
+      : [` ${truncateToWidth(model, innerWidth)}`, ` ${this.theme.muted(truncateToWidth(approval, innerWidth))}`]
     const hints = this.activeInteraction
       ? ['Enter confirm', 'Esc cancel']
       : this.state.queue.some((item) => item.mode === 'returned')
-        ? ['/queue recover input', '/help commands']
+        ? ['/queue recover input']
         : this.state.activeRun
           ? ['Ctrl+C stop', 'Enter steer', 'Alt+Enter queue']
-          : ['Enter send', 'Ctrl+J newline', '/help commands', 'Tab complete']
-    let hint = ''
-    for (const part of hints) {
-      const next = hint ? `${hint} · ${part}` : ` ${part}`
-      if (visibleWidth(next) <= width) hint = next
+          : ['Enter send', 'Ctrl+J newline', 'Tab complete']
+    const styleHint = (hint: string): string => {
+      const space = hint.indexOf(' ')
+      return space < 0 ? hint : hint.slice(0, space) + this.theme.muted(hint.slice(space))
     }
-    return [this.theme.muted(truncateToWidth(context, width, '')), this.theme.muted(hint)]
+    // Reserve help before selecting complete hints, preserving their priority order.
+    const help = innerWidth >= visibleWidth(hints[0]) + 3 + 10 ? '/help more' : '/help'
+    const selected: string[] = []
+    for (const hint of hints) {
+      if (visibleWidth([...selected, hint].join('   ')) + 3 + visibleWidth(help) > innerWidth) break
+      selected.push(hint)
+    }
+    const hintLine = selected.length
+      ? joinSides(selected.map(styleHint).join('   '), styleHint(help))
+      : ` ${styleHint(truncateToWidth(help, innerWidth, ''))}`
+    return [...context, hintLine].map((line) => truncateToWidth(line, width, ''))
   }
 
   private setTheme(mode: TuiThemeMode): void {

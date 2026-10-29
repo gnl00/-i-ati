@@ -107,12 +107,36 @@ describe('TUI presentation and command picker', () => {
       expect(lines.every((line) => visibleWidth(line) <= width)).toBe(true)
       expect(displayText(lines.at(-2))).toContain('Manual approval')
       expect(displayText(lines.at(-1))).toContain('Enter send')
+      expect(displayText(lines.at(-1))).toContain('/help')
+      expect(displayText(lines.at(-1))).not.toContain('·')
     }
     state.activeRun = 'run'
     state.onChange(true)
     expect(displayText(view.ui.render(45).at(-1))).toContain('Ctrl+C stop')
     state.queue = [{ id: 'q', text: '保留输入', mode: 'returned' }]
     expect(displayText(view.ui.render(45).at(-1))).toContain('/queue recover input')
+    await view.exit()
+  })
+
+  it('uses the welcome mark only before the conversation starts and hides default titles', async () => {
+    const { view, state } = setup()
+    const welcome = view.ui.render(80).map(displayText).join('\n')
+    expect(welcome).toContain('╭───╮')
+    expect(welcome).toContain('│ i ╯   ati')
+    expect(welcome).not.toContain('New Chat')
+    state.preview = { id: 1, chatUuid: 'chat', body: { role: 'assistant', content: 'Working', segments: [] } }
+    expect(view.ui.render(80).map(displayText).join('\n')).not.toContain('╭───╮')
+    await view.exit()
+  })
+
+  it('right-aligns approval and help, truncating long models with an ellipsis', async () => {
+    const { view, state } = setup()
+    state.model = { accountId: 'local', modelId: 'long-model-'.repeat(20) }
+    const lines = view.ui.render(80).map(displayText)
+    expect(lines.at(-2)).toMatch(/… +Manual approval$/)
+    expect(visibleWidth(lines.at(-2)!)).toBe(79)
+    expect(lines.at(-1)).toMatch(/Enter send {3}Ctrl\+J newline {3}Tab complete +\/help more$/)
+    expect(visibleWidth(lines.at(-1)!)).toBe(79)
     await view.exit()
   })
 

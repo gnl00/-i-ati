@@ -585,3 +585,7 @@ rgb(100 116 139 / 4%) in Light and rgb(220 228 238 / 3.5%) in Dark. It remains
 lighter than the tool badge, with tabular numerals, no border and no outer margin.
 Work details duration stays plain. Tool badges use `1 Tool` / `N Tools` in both
 modes, preserving their respective active/cumulative count semantics.
+
+## Terminal host
+
+The TUI uses a three-row open-outline `i` character mark in the existing ANSI accent color on its welcome screen. The name and workspace sit beside the mark; default chat titles are omitted. Active conversations use a compact text header. The footer separates model and approval through left/right alignment, falling back to stacked rows on narrow terminals. Shortcut keys use the terminal foreground and descriptions use muted text. Groups use three spaces, without dot separators; complete hints are selected in priority order with space reserved for `/help`. No animation or terminal image protocol is required.
