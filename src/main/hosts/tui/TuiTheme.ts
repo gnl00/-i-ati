@@ -5,6 +5,7 @@ export function createTuiTheme(mode: TuiThemeMode): {
   muted: (text: string) => string
   accent: (text: string) => string
   warning: (text: string) => string
+  hint: (text: string) => string
   error: (text: string) => string
   bold: (text: string) => string
   markdown: MarkdownTheme
@@ -17,12 +18,15 @@ export function createTuiTheme(mode: TuiThemeMode): {
   const muted = color(90)
   const accent = color(mode === 'dark' ? 94 : 34)
   const warning = color(mode === 'dark' ? 93 : 33)
+  const hint = (text: string): string =>
+    `\x1b[38;2;${mode === 'dark' ? '190;166;120' : '138;113;68'}m${text}\x1b[39m`
   const error = color(mode === 'dark' ? 91 : 31)
   const bold = (text: string): string => `\x1b[1m${text}\x1b[22m`
   return {
     muted,
     accent,
     warning,
+    hint,
     error,
     bold,
     markdown: {

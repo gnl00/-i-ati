@@ -3,6 +3,8 @@ import {
   Container,
   Editor,
   Input,
+  isKeyRelease,
+  isKeyRepeat,
   Key,
   matchesKey,
   ProcessTerminal,
@@ -64,6 +66,8 @@ export class TuiView {
   private activeInteraction?: TuiInteraction
   private timer?: ReturnType<typeof setTimeout>
   private spinner?: ReturnType<typeof setInterval>
+  private lastInterruptAt = -Infinity
+  private exitPending = false
   private stopped = false
   private currentChat?: string
   private exitResolve?: () => void
@@ -127,10 +131,30 @@ export class TuiView {
     })
     this.ui.setFocus(this.editor)
     this.ui.addInputListener((data) => {
+      if (isKeyRelease(data)) return undefined
       if (matchesKey(data, Key.ctrl('c'))) {
-        this.actions.cancel()
-        this.refresh(true)
+        const now = performance.now()
+        // Legacy terminals have no release events; use a quiet interval to reject repeats.
+        const repeated =
+          isKeyRepeat(data) ||
+          (!this.ui.terminal.kittyProtocolActive && now - this.lastInterruptAt < 1000)
+        this.lastInterruptAt = now
+        if (repeated) return { consume: true }
+        if (this.exitPending) {
+          void this.exit()
+        } else {
+          this.exitPending = true
+          if (this.state.activeRun) this.actions.cancel()
+          this.dialog?.hide()
+          this.dialog = undefined
+          this.refresh(true)
+        }
         return { consume: true }
+      }
+      if (this.exitPending) {
+        this.exitPending = false
+        this.lastInterruptAt = -Infinity
+        this.refresh(true)
       }
       if (
         matchesKey(data, Key.ctrl('d')) &&
@@ -473,7 +497,13 @@ export class TuiView {
       : this.state.activeRun
         ? this.theme.muted
         : this.theme.accent
-    this.notice.setText(this.state.notice ? this.theme.warning(displayText(this.state.notice)) : '')
+    const notice = this.exitPending
+      ? this.ui.terminal.kittyProtocolActive
+        ? 'Press Ctrl+C again to save and quit. Any other key cancels.'
+        : 'Press Ctrl+C again after a 1-second pause to save and quit. Any other key cancels.'
+      : this.state.notice
+    const noticeColor = this.exitPending ? this.theme.hint : this.theme.warning
+    this.notice.setText(notice ? noticeColor(displayText(notice)) : '')
     this.queue.setText(
       this.state.queue
         .map((item) => {

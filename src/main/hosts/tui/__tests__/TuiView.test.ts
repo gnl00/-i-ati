@@ -51,6 +51,97 @@ function setup(): {
 afterEach(() => vi.useRealTimers())
 
 describe('TUI view lifecycle', () => {
+  it('ignores a held legacy Ctrl+C until input has been quiet for one second', async () => {
+    vi.useFakeTimers()
+    const { view, actions, terminal } = setup()
+    const running = view.start()
+    const input = vi.mocked(terminal.start).mock.calls[0][0]
+    input('\x03')
+    await vi.advanceTimersByTimeAsync(500)
+    for (let i = 0; i < 40; i++) {
+      input('\x03')
+      await vi.advanceTimersByTimeAsync(50)
+    }
+    expect(actions.close).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1000)
+    input('\x03')
+    await running
+    expect(actions.close).toHaveBeenCalledTimes(1)
+  })
+
+  it('ignores Kitty repeats and releases, then accepts a fresh press', async () => {
+    vi.useFakeTimers()
+    const { view, actions, terminal } = setup()
+    Object.defineProperty(terminal, 'kittyProtocolActive', { value: true })
+    const running = view.start()
+    const input = vi.mocked(terminal.start).mock.calls[0][0]
+    input('\x1b[99;5:1u')
+    await vi.advanceTimersByTimeAsync(1500)
+    input('\x1b[99;5:2u')
+    input('\x1b[99;5:3u')
+    expect(actions.close).not.toHaveBeenCalled()
+    expect(view.ui.render(80).map(displayText).join('\n')).toContain('Press Ctrl+C again')
+    input('\x1b[99;5:1u')
+    await running
+    expect(actions.close).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([false, true])('confirms Ctrl+C before exiting (active run: %s)', async (active) => {
+    vi.useFakeTimers()
+    const { view, state, actions, terminal } = setup()
+    state.activeRun = active ? 'run' : undefined
+    const running = view.start()
+    const input = vi.mocked(terminal.start).mock.calls[0][0]
+    input('draft')
+    input('\x03')
+    expect(actions.close).not.toHaveBeenCalled()
+    expect(actions.cancel).toHaveBeenCalledTimes(active ? 1 : 0)
+    expect(view.ui.render(80).map(displayText).join('\n')).toContain('Press Ctrl+C again')
+    expect(view.editor.getText()).toBe('draft')
+    state.onChange(true)
+    await vi.advanceTimersByTimeAsync(1000)
+    input('\x03')
+    await vi.advanceTimersByTimeAsync(1000)
+    input('\x03')
+    await running
+    expect(actions.close).toHaveBeenCalledTimes(1)
+    expect(terminal.stop).toHaveBeenCalled()
+  })
+
+  it('resets exit confirmation on other input and preserves existing notices', async () => {
+    vi.useFakeTimers()
+    const { view, state, actions, terminal } = setup()
+    state.notice = 'Existing notice'
+    const running = view.start()
+    const input = vi.mocked(terminal.start).mock.calls[0][0]
+    input('\x03')
+    input('x')
+    expect(view.editor.getText()).toBe('x')
+    expect(view.ui.render(80).map(displayText).join('\n')).toContain('Existing notice')
+    input('\x03')
+    expect(actions.close).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1000)
+    input('\x03')
+    await running
+  })
+
+  it('shows exit confirmation after dismissing an open command picker', async () => {
+    vi.useFakeTimers()
+    const { view, actions, terminal } = setup()
+    const running = view.start()
+    const input = vi.mocked(terminal.start).mock.calls[0][0]
+    input('/help')
+    input('\r')
+    await vi.advanceTimersByTimeAsync(60)
+    input('\x03')
+    expect(view.ui.hasOverlay()).toBe(false)
+    expect(view.ui.render(80).map(displayText).join('\n')).toContain('Press Ctrl+C again')
+    expect(actions.close).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1000)
+    input('\x03')
+    await running
+  })
+
   it('keeps coalescing deltas after an immediate event interrupts the pending frame', async () => {
     vi.useFakeTimers()
     const { view, state } = setup()
