@@ -264,203 +264,93 @@ describe('TelegramRenderResponder', () => {
     })
   })
 
-  it('waits for execution before announcing start and retains args in the result', async () => {
-    const sendMessage = vi
-      .fn()
-      .mockResolvedValueOnce({ message_id: 120 })
-      .mockResolvedValueOnce({ message_id: 121 })
-    const { responder, editMessageText } = createResponder({ sendMessage })
-
-    await responder.handle(toolDetected({
-      toolCallId: 'tool-1',
-      toolName: 'memory_retrieval',
-      toolArgs: '{"query":"latest api"}'
-    }))
+  it('sends one reason at execution and leaves it unchanged on successful completion', async () => {
+    const { responder, sendMessage, editMessageText } = createResponder()
+    const args = JSON.stringify({ tool_call_reason: 'Check today’s task results.', secret: 'not displayed' })
+    await responder.handle(toolDetected({ toolCallId: 'one', toolName: 'query', toolArgs: args }))
     expect(sendMessage).not.toHaveBeenCalled()
-    await responder.handle(toolExecutionStarted({ toolCallId: 'tool-1', toolName: 'memory_retrieval' }))
-    await responder.handle(toolResult({
-      toolCallId: 'tool-1',
-      toolName: 'memory_retrieval',
-      status: 'success'
-    }))
-
-    expect(sendMessage).toHaveBeenNthCalledWith(1, 123, '<blockquote>tool memory retrieval running</blockquote>\n<blockquote expandable>{&quot;query&quot;:&quot;latest api&quot;}</blockquote>', {
-      reply_parameters: { message_id: 55 },
-      parse_mode: 'HTML',
-      reply_markup: { inline_keyboard: [] }
-    })
+    await responder.handle(toolExecutionStarted({ toolCallId: 'one', toolName: 'query' }))
+    await responder.handle(toolExecutionStarted({ toolCallId: 'one', toolName: 'query' }))
+    await responder.handle(toolResult({ toolCallId: 'one', toolName: 'query', status: 'success' }))
+    await responder.handle(committedUpdated(createState({ toolCalls: [toolCall({
+      toolCallId: 'one', name: 'query', args, status: 'success'
+    })] })))
     expect(sendMessage).toHaveBeenCalledTimes(1)
-    expect(editMessageText).toHaveBeenCalledWith(123, 120, [
-      '<blockquote>tool memory retrieval done</blockquote>',
-      '<blockquote expandable>{&quot;query&quot;:&quot;latest api&quot;}</blockquote>'
-    ].join('\n'), {
-      parse_mode: 'HTML',
-      reply_markup: { inline_keyboard: [] }
-    })
-  })
-
-  it('keeps detected tool args when execution started follows readiness', async () => {
-    const sendMessage = vi.fn(async () => ({ message_id: 122 }))
-    const { responder, editMessageText } = createResponder({ sendMessage })
-
-    await responder.handle(toolDetected({
-      toolCallId: 'tool-1',
-      toolName: 'memory_retrieval',
-      toolArgs: '{"query":"latest api"}'
-    }))
-    await responder.handle(toolExecutionStarted({
-      toolCallId: 'tool-1',
-      toolName: 'memory_retrieval'
-    }))
-
-    expect(sendMessage).toHaveBeenCalledTimes(1)
-    expect(sendMessage).toHaveBeenCalledWith(123, '<blockquote>tool memory retrieval running</blockquote>\n<blockquote expandable>{&quot;query&quot;:&quot;latest api&quot;}</blockquote>', {
-      reply_parameters: { message_id: 55 },
-      parse_mode: 'HTML',
-      reply_markup: { inline_keyboard: [] }
-    })
+    expect(sendMessage.mock.calls[0][1]).toBe('Check today’s task results.')
     expect(editMessageText).not.toHaveBeenCalled()
   })
 
-  it('renders committed text and tool segments as separate telegram messages', async () => {
-    const sendMessage = vi
-      .fn()
-      .mockResolvedValueOnce({ message_id: 130 })
-      .mockResolvedValueOnce({ message_id: 131 })
-    const { responder } = createResponder({ sendMessage })
-
-    await responder.handle(committedUpdated(createState({
-      text: 'Looking it up',
-      toolCalls: [
-        toolCall({
-          toolCallId: 'tool-1',
-          name: 'memory_retrieval',
-          status: 'success',
-          result: { ok: true }
-        })
-      ]
-    })))
-
-    expect(sendMessage).toHaveBeenNthCalledWith(1, 123, 'Looking it up', {
-      reply_parameters: { message_id: 55 }
-    })
-    expect(sendMessage).toHaveBeenNthCalledWith(2, 123, '<blockquote>tool memory retrieval done</blockquote>', {
-      reply_parameters: { message_id: 55 },
-      parse_mode: 'HTML',
-      reply_markup: { inline_keyboard: [] }
-    })
+  it('keeps parallel tool reasons in separate messages and updates only the failed tool', async () => {
+    const sendMessage = vi.fn().mockResolvedValueOnce({ message_id: 101 }).mockResolvedValueOnce({ message_id: 102 }).mockResolvedValueOnce({ message_id: 103 })
+    const { responder, editMessageText } = createResponder({ sendMessage })
+    for (const id of ['1', '2', '3']) {
+      await responder.handle(toolDetected({ toolCallId: id, toolName: 'query', toolArgs: JSON.stringify({ tool_call_reason: `reason${id}` }) }))
+      await responder.handle(toolExecutionStarted({ toolCallId: id, toolName: 'query' }))
+    }
+    await responder.handle({ type: 'host.tool.result.available', timestamp: 1, result: {
+      stepId: 'step-1', toolCallIndex: 1, toolCallId: '2', toolName: 'query', status: 'error', error: { message: 'Connection <failed> & unavailable' }
+    } })
+    await responder.handle(toolResult({ toolCallId: '3', toolName: 'query', status: 'success' }))
+    await responder.handle(toolResult({ toolCallId: '1', toolName: 'query', status: 'success' }))
+    expect(sendMessage.mock.calls.map(([, text]) => text)).toEqual(['reason1', 'reason2', 'reason3'])
+    expect(editMessageText).toHaveBeenCalledExactlyOnceWith(123, 102,
+      'reason2\n<pre><code>Connection &lt;failed&gt; &amp; unavailable</code></pre>',
+      { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } })
   })
 
-  it('edits the running tool message when committed tool status changes', async () => {
-    const sendMessage = vi
-      .fn()
-      .mockResolvedValueOnce({ message_id: 140 })
-      .mockResolvedValueOnce({ message_id: 141 })
-      .mockResolvedValueOnce({ message_id: 142 })
-    const editMessageText = vi.fn(async () => true)
-    const { responder } = createResponder({ sendMessage, editMessageText })
-
-    await responder.handle(committedUpdated(createState({
-      text: 'Looking it up',
-      toolCalls: [
-        toolCall({
-          toolCallId: 'tool-1',
-          name: 'memory_retrieval',
-          status: 'running'
-        })
-      ]
-    })))
-    await responder.handle(committedUpdated(createState({
-      text: 'Looking it up',
-      toolCalls: [
-        toolCall({
-          toolCallId: 'tool-1',
-          name: 'memory_retrieval',
-          status: 'success',
-          result: { ok: true }
-        })
-      ]
-    })))
-
-    expect(sendMessage).toHaveBeenNthCalledWith(1, 123, 'Looking it up', {
-      reply_parameters: { message_id: 55 }
-    })
-    expect(sendMessage).toHaveBeenNthCalledWith(2, 123, '<blockquote>tool memory retrieval running</blockquote>', {
-      reply_parameters: { message_id: 55 },
-      parse_mode: 'HTML',
-      reply_markup: { inline_keyboard: [] }
-    })
-    expect(sendMessage).toHaveBeenCalledTimes(2)
-    expect(editMessageText).toHaveBeenCalledWith(123, 141, '<blockquote>tool memory retrieval done</blockquote>', {
-      parse_mode: 'HTML',
-      reply_markup: { inline_keyboard: [] }
-    })
-  })
-
-  it('reports a result without inventing an execution start', async () => {
-    const sendMessage = vi
-      .fn()
-      .mockResolvedValueOnce({ message_id: 150 })
-      .mockResolvedValueOnce({ message_id: 151 })
-    const { responder } = createResponder({ sendMessage })
-
-    await responder.handle(toolResult({
-      toolCallId: 'tool-1',
-      toolName: 'web_search',
-      status: 'error'
-    }))
-
+  it('deduplicates errors across committed segments, result facts and late execution events', async () => {
+    const { responder, sendMessage, editMessageText } = createResponder()
+    const args = JSON.stringify({ tool_call_reason: 'Read configuration.' })
+    await responder.handle(committedUpdated(createState({ toolCalls: [toolCall({ toolCallId: 'one', name: 'read', args, status: 'running' })] })))
+    await responder.handle(committedUpdated(createState({ toolCalls: [toolCall({ toolCallId: 'one', name: 'read', args, status: 'failed', error: 'File not found' })] })))
+    await responder.handle(toolResult({ toolCallId: 'one', toolName: 'read', status: 'error' }))
+    await responder.handle(toolExecutionStarted({ toolCallId: 'one', toolName: 'read' }))
     expect(sendMessage).toHaveBeenCalledTimes(1)
-    expect(sendMessage).toHaveBeenNthCalledWith(1, 123, '<blockquote>tool web search failed</blockquote>', {
-      reply_parameters: { message_id: 55 },
-      parse_mode: 'HTML',
-      reply_markup: { inline_keyboard: [] }
-    })
+    expect(editMessageText).toHaveBeenCalledTimes(1)
+    expect(editMessageText.mock.calls[0][2]).toBe('Read configuration.\n<pre><code>File not found</code></pre>')
   })
 
-  it('does not duplicate done when committed tool segment follows result event', async () => {
-    const sendMessage = vi
-      .fn()
-      .mockResolvedValueOnce({ message_id: 160 })
-      .mockResolvedValueOnce({ message_id: 161 })
-      .mockResolvedValueOnce({ message_id: 162 })
-    const { responder } = createResponder({ sendMessage })
+  it('uses structured failure details after a committed failure without an error string', async () => {
+    const { responder, sendMessage } = createResponder()
+    await responder.handle(committedUpdated(createState({ toolCalls: [toolCall({ toolCallId: 'one', name: 'read', status: 'failed' })] })))
+    expect(sendMessage).not.toHaveBeenCalled()
+    await responder.handle({ type: 'host.tool.result.available', timestamp: 1, result: {
+      stepId: 'step-1', toolCallIndex: 0, toolCallId: 'one', toolName: 'read', status: 'error',
+      failure: { category: 'environment', code: 'NOT_FOUND', message: 'Missing file', recovery: { action: 'check_environment', message: 'Check path' } }
+    } })
+    expect(sendMessage.mock.calls[0][1]).toBe('read\n<pre><code>Missing file</code></pre>')
+  })
 
-    await responder.handle(toolDetected({
-      toolCallId: 'tool-1',
-      toolName: 'memory_retrieval',
-      toolArgs: '{"query":"latest api"}'
-    }))
-    await responder.handle(toolResult({
-      toolCallId: 'tool-1',
-      toolName: 'memory_retrieval',
-      status: 'success'
-    }))
-    await responder.handle(committedUpdated(createState({
-      text: 'Looking it up',
-      toolCalls: [
-        toolCall({
-          toolCallId: 'tool-1',
-          name: 'memory_retrieval',
-          args: '{"query":"latest api"}',
-          status: 'success',
-          result: { ok: true }
-        })
-      ]
-    })))
+  it('renders successful committed tools and assistant text separately without done labels', async () => {
+    const { responder, sendMessage } = createResponder()
+    await responder.handle(committedUpdated(createState({ text: 'Answer', toolCalls: [toolCall({
+      toolCallId: 'one', name: 'web_search', args: '{"tool_call_reason":"Search documentation."}', status: 'success'
+    })] })))
+    expect(sendMessage.mock.calls.map(([, text]) => text)).toEqual(['Answer', 'Search documentation.'])
+  })
 
-    expect(sendMessage).toHaveBeenCalledTimes(2)
-    expect(sendMessage).toHaveBeenNthCalledWith(1, 123, [
-      '<blockquote>tool memory retrieval done</blockquote>',
-      '<blockquote expandable>{&quot;query&quot;:&quot;latest api&quot;}</blockquote>'
-    ].join('\n'), {
-      reply_parameters: { message_id: 55 },
-      parse_mode: 'HTML',
-      reply_markup: { inline_keyboard: [] }
-    })
-    expect(sendMessage).toHaveBeenNthCalledWith(2, 123, 'Looking it up', {
-      reply_parameters: { message_id: 55 }
-    })
+  it.each(['error', 'timeout'] as const)('reports %s before execution in one message', async status => {
+    const { responder, sendMessage } = createResponder()
+    await responder.handle(toolResult({ toolCallId: 'one', toolName: 'web_search', status }))
+    expect(sendMessage).toHaveBeenCalledTimes(1)
+    expect(sendMessage.mock.calls[0][1]).toBe(`web search\n<pre><code>${status === 'timeout' ? 'Tool execution timed out.' : 'Tool execution failed.'}</code></pre>`)
+  })
+
+  it.each(['aborted', 'denied'] as const)('keeps %s tools quiet without creating or editing notifications', async status => {
+    const { responder, sendMessage, editMessageText } = createResponder()
+    await responder.handle(toolResult({ toolCallId: 'queued', toolName: 'query', status }))
+    expect(sendMessage).not.toHaveBeenCalled()
+    await responder.handle(toolExecutionStarted({ toolCallId: 'started', toolName: 'query' }))
+    await responder.handle(toolResult({ toolCallId: 'started', toolName: 'query', status }))
+    expect(sendMessage).toHaveBeenCalledTimes(1)
+    expect(editMessageText).not.toHaveBeenCalled()
+  })
+
+  it.each([undefined, '{', 'null', '{"tool_call_reason":42}', '{"tool_call_reason":"  "}'])('uses the tool label for invalid reason args %s', async toolArgs => {
+    const { responder, sendMessage } = createResponder()
+    await responder.handle(toolDetected({ toolCallId: 'one', toolName: 'web_search', toolArgs }))
+    await responder.handle(toolExecutionStarted({ toolCallId: 'one', toolName: 'web_search' }))
+    expect(sendMessage.mock.calls[0][1]).toBe('web search')
   })
 
   it('keeps emotion_report hidden in telegram output', async () => {
@@ -492,50 +382,20 @@ describe('TelegramRenderResponder', () => {
     })
   })
 
-  it('trims long tool args in done messages', async () => {
-    const { responder, sendMessage } = createResponder()
-    const longArgs = JSON.stringify({ query: 'x'.repeat(1200) })
-
-    await responder.handle(toolDetected({
-      toolCallId: 'tool-1',
-      toolName: 'web_search',
-      toolArgs: longArgs
-    }))
-    await responder.handle(toolResult({
-      toolCallId: 'tool-1',
-      toolName: 'web_search',
-      status: 'success'
-    }))
-
-    const text = sendMessage.mock.calls[0][1] as string
-    expect(text).toMatch(/^<blockquote>tool web search done<\/blockquote>\n<blockquote expandable>/)
-    expect(text).toContain('...</blockquote>')
-    expect(text.length).toBeLessThan(longArgs.length)
-  })
-
-  it('escapes tool done args for telegram HTML messages', async () => {
-    const { responder, sendMessage } = createResponder()
-    const rawArgs = '{"query":"<tag>&\\"quote\\""}'
-
-    await responder.handle(toolDetected({
-      toolCallId: 'tool-1',
-      toolName: 'web_search',
-      toolArgs: rawArgs
-    }))
-    await responder.handle(toolResult({
-      toolCallId: 'tool-1',
-      toolName: 'web_search',
-      status: 'success'
-    }))
-
-    expect(sendMessage).toHaveBeenNthCalledWith(1, 123, [
-      '<blockquote>tool web search done</blockquote>',
-      '<blockquote expandable>{&quot;query&quot;:&quot;&lt;tag&gt;&amp;\\&quot;quote\\&quot;&quot;}</blockquote>'
-    ].join('\n'), {
-      reply_parameters: { message_id: 55 },
-      parse_mode: 'HTML',
-      reply_markup: { inline_keyboard: [] }
-    })
+  it('bounds and escapes the reason and error without displaying raw arguments', async () => {
+    const { responder, sendMessage, editMessageText } = createResponder()
+    await responder.handle(toolDetected({ toolCallId: 'one', toolName: 'query', toolArgs: JSON.stringify({
+      tool_call_reason: '<tag>&' + 'x'.repeat(1000), secret: 'hidden-value'
+    }) }))
+    await responder.handle(toolExecutionStarted({ toolCallId: 'one', toolName: 'query' }))
+    await responder.handle({ type: 'host.tool.result.available', timestamp: 1, result: {
+      stepId: 'step-1', toolCallIndex: 0, toolCallId: 'one', toolName: 'query', status: 'error', error: { message: 'bad <value> & ' + 'x'.repeat(5000) }
+    } })
+    expect(sendMessage.mock.calls[0][1]).toMatch(/^&lt;tag&gt;&amp;x/)
+    const text = editMessageText.mock.calls[0][2] as string
+    expect(text).toContain('<pre><code>bad &lt;value&gt; &amp; ')
+    expect(text).not.toContain('hidden-value')
+    expect(text.length).toBeLessThan(3500)
   })
 
   it('flushes pending streamed text edits on completion', async () => {

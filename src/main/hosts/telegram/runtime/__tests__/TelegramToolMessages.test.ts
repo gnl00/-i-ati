@@ -38,7 +38,7 @@ describe('TelegramToolMessages', () => {
     await update({ text: 'approved', rank: 2, keyboard: [] })
     await responder.handle({
       type: 'host.tool.detected', timestamp: 1, stepId: 'step-1', toolCallIndex: 0,
-      toolCallId: 'call-1', toolName: 'exec', toolArgs: 'pnpm run typecheck:node'
+      toolCallId: 'call-1', toolName: 'exec', toolArgs: '{"tool_call_reason":"Check types."}'
     })
     await responder.handle({
       type: 'host.tool.execution.started', timestamp: 2, stepId: 'step-1', toolCallIndex: 0,
@@ -49,8 +49,8 @@ describe('TelegramToolMessages', () => {
       result: { status: 'success', stepId: 'step-1', toolCallIndex: 0, toolCallId: 'call-1', toolName: 'exec' }
     })
     expect(sendMessage).toHaveBeenCalledTimes(1)
-    expect(editMessageText.mock.calls.map(([, id]) => id)).toEqual([42, 42, 42])
-    expect(editMessageText.mock.lastCall?.[2]).toBe('<blockquote>tool exec done</blockquote>\n<blockquote expandable>pnpm run typecheck:node</blockquote>')
+    expect(editMessageText.mock.calls.map(([, id]) => id)).toEqual([42, 42])
+    expect(editMessageText.mock.lastCall?.[2]).toBe('Check types.')
   })
 
   it('reuses approval for execution and ignores late approval and running updates', async () => {
@@ -109,6 +109,19 @@ describe('TelegramToolMessages', () => {
     await update({ text: 'done', rank: 4, keyboard: [] })
     expect(sendMessage).toHaveBeenCalledTimes(2)
     expect(editMessageText).toHaveBeenCalledTimes(2)
+  })
+
+  it('settles successful reasons without network edits and bounds terminal history', async () => {
+    const { update, messages, sendMessage, editMessageText } = setup()
+    for (let i = 0; i < 505; i++) {
+      await update({ toolCallId: String(i), rank: 3, text: 'Reason', keyboard: [] })
+      await update({ toolCallId: String(i), rank: 4, text: 'Reason', keyboard: [] })
+    }
+    expect(sendMessage).toHaveBeenCalledTimes(505)
+    expect(editMessageText).not.toHaveBeenCalled()
+    expect((messages as unknown as { messages: Map<string, unknown> }).messages.size).toBe(500)
+    await update({ toolCallId: '504', rank: 2, text: 'approved', keyboard: [] })
+    expect(editMessageText).not.toHaveBeenCalled()
   })
 
   it('accepts Telegram message-not-modified responses', async () => {

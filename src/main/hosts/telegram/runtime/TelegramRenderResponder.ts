@@ -4,7 +4,7 @@ import { randomInt } from 'node:crypto'
 import { AbortController as TelegramAbortController } from 'abort-controller'
 import { imageAssetService } from '@main/services/images/ImageAssetService'
 import { deliverTelegramText, isTelegramFormattingError, withTelegramRetry, type TelegramTextMessage } from '@main/services/telegram/TelegramTextDelivery'
-import { formatTelegramRichText, splitTelegramText } from '@main/services/telegram/telegram-rich-text'
+import { escapeTelegramHtml, formatTelegramRichText, splitTelegramText } from '@main/services/telegram/telegram-rich-text'
 import { TelegramToolMessages } from './TelegramToolMessages'
 import type { TelegramInboundEnvelope } from '@main/hosts/telegram'
 import {
@@ -14,10 +14,12 @@ import {
   type HostRenderEvent,
   type HostRenderEventSink
 } from '@main/hosts/shared/render'
+import { TOOL_CALL_REASON_PARAMETER_NAME } from '@shared/tools/definitions-utils'
 import { RUN_STATES } from '@shared/run/lifecycle-events'
 
 const STREAM_UPDATE_THROTTLE_MS = 400
-const MAX_TOOL_ARGS_DISPLAY_LENGTH = 200
+const MAX_TOOL_REASON_LENGTH = 800
+const MAX_TOOL_ERROR_LENGTH = 2400
 
 type SentTelegramMessage = {
   messages: TelegramTextMessage[]
@@ -30,9 +32,9 @@ type SentTelegramMessage = {
 type TelegramToolState = {
   toolName: string
   args?: string
-  startSent: boolean
-  doneSent: boolean
-  terminalStatus?: AgentRenderToolCallState['status']
+  reasonSent: boolean
+  settled: boolean
+  reason?: string
 }
 
 type TelegramRenderResponderArgs = {
@@ -164,9 +166,10 @@ export class TelegramRenderResponder implements HostRenderEventSink {
           const image = parseImageShowResult(event.result.content)
           if (image) await this.sendImage(event.result.toolCallId, image)
         }
-        await this.sendToolDone({
+        await this.sendToolResult({
           toolCallId: event.result.toolCallId,
           toolName: event.result.toolName,
+          error: event.result.failure?.message || event.result.error?.message || (event.result.status === 'timeout' ? 'Tool execution timed out.' : undefined),
           status: event.result.status === 'success'
             ? 'success'
             : event.result.status === 'aborted' || event.result.status === 'denied'
@@ -470,6 +473,7 @@ export class TelegramRenderResponder implements HostRenderEventSink {
       toolName?: string
       args?: string
       status?: AgentRenderToolCallState['status']
+      error?: string
     }
 
     const status = content.status || 'pending'
@@ -486,10 +490,16 @@ export class TelegramRenderResponder implements HostRenderEventSink {
       return
     }
 
-    await this.sendToolDone({
+    // The following result fact carries structured failure details when the segment has none.
+    if (status === 'failed' && !content.error) {
+      this.updateToolState({ toolCallId: segment.toolCallId, toolName: content.toolName || segment.name, args: content.args })
+      return
+    }
+    await this.sendToolResult({
       toolCallId: segment.toolCallId,
       toolName: content.toolName || segment.name,
       args: content.args,
+      error: content.error,
       status
     })
   }
@@ -499,137 +509,67 @@ export class TelegramRenderResponder implements HostRenderEventSink {
     toolName: string
     args?: string
   }): Promise<void> {
-    if (this.policy.isToolHidden(args.toolName)) {
-      return
-    }
-
+    if (this.policy.isToolHidden(args.toolName)) return
     const state = this.updateToolState(args)
-    if (state.startSent) {
-      return
-    }
-
+    if (state.reasonSent || state.settled) return
+    const reason = state.reason ?? this.toolReason(state)
     await this.toolMessages.update({
       bot: this.bot, envelope: this.envelope, submissionId: this.submissionId,
-      toolCallId: args.toolCallId, rank: 3,
-      text: this.formatToolDoneMessage({ toolName: state.toolName, args: state.args, status: 'running' })
+      toolCallId: args.toolCallId, rank: 3, text: escapeTelegramHtml(reason)
     })
-    this.toolStates.set(args.toolCallId, {
-      ...state,
-      startSent: true
-    })
-    this.logger?.info?.('telegram.render_responder.tool_start_sent', {
-      updateId: this.envelope.updateId,
-      chatId: this.envelope.chatId,
-      toolCallId: args.toolCallId
-    })
+    this.toolStates.set(args.toolCallId, { ...state, reason, reasonSent: true })
   }
 
-  private async sendToolDone(args: {
+  private async sendToolResult(args: {
     toolCallId: string
     toolName: string
     args?: string
+    error?: string
     status: AgentRenderToolCallState['status']
   }): Promise<void> {
-    if (this.policy.isToolHidden(args.toolName)) {
-      return
-    }
-
+    if (this.policy.isToolHidden(args.toolName)) return
     const state = this.updateToolState(args)
-    if (state.doneSent) {
-      return
-    }
-
-    const current = this.toolStates.get(args.toolCallId) || state
-    await this.toolMessages.update({
-      bot: this.bot, envelope: this.envelope, submissionId: this.submissionId,
-      toolCallId: args.toolCallId, rank: 4,
-      text: this.formatToolDoneMessage({
-        toolName: current.toolName, status: args.status, args: current.args
+    if (state.settled) return
+    const reason = state.reason ?? this.toolReason(state)
+    // A cancellation before execution should not create a notification for each queued tool.
+    if (args.status !== 'aborted' || state.reasonSent) {
+      const error = (args.error?.trim() || 'Tool execution failed.').slice(0, MAX_TOOL_ERROR_LENGTH)
+      await this.toolMessages.update({
+        bot: this.bot, envelope: this.envelope, submissionId: this.submissionId,
+        toolCallId: args.toolCallId, rank: 4,
+        text: escapeTelegramHtml(reason) + (args.status === 'failed'
+          ? `\n<pre><code>${escapeTelegramHtml(error)}</code></pre>` : '')
       })
-    })
-    this.toolStates.set(args.toolCallId, {
-      ...current,
-      terminalStatus: args.status,
-      doneSent: true
-    })
-    this.logger?.info?.('telegram.render_responder.tool_done_sent', {
-      updateId: this.envelope.updateId,
-      chatId: this.envelope.chatId,
-      toolCallId: args.toolCallId
-    })
+    }
+    this.toolStates.set(args.toolCallId, { ...state, reason, settled: true })
   }
 
   private updateToolState(args: {
     toolCallId: string
     toolName: string
     args?: string
-    status?: AgentRenderToolCallState['status']
   }): TelegramToolState {
     const existing = this.toolStates.get(args.toolCallId)
     const next: TelegramToolState = {
       toolName: args.toolName || existing?.toolName || 'tool',
-      ...(args.args || existing?.args ? { args: args.args ?? existing?.args } : {}),
-      startSent: existing?.startSent ?? false,
-      doneSent: existing?.doneSent ?? false,
-      ...(args.status && args.status !== 'pending' && args.status !== 'running'
-        ? { terminalStatus: args.status }
-        : existing?.terminalStatus
-          ? { terminalStatus: existing.terminalStatus }
-          : {})
+      args: args.args ?? existing?.args,
+      reason: existing?.reason,
+      reasonSent: existing?.reasonSent ?? false,
+      settled: existing?.settled ?? false
     }
     this.toolStates.set(args.toolCallId, next)
     return next
   }
 
-  private formatToolDoneMessage(args: {
-    toolName: string
-    status: AgentRenderToolCallState['status']
-    args?: string
-  }): string {
-    const label = this.formatToolLabel(args.toolName)
-    const status = this.formatToolStatus(args.status)
-    const title = this.escapeHtml(`tool ${label} ${status}`)
-    const argsValue = this.formatToolArgsValue(args.args)
-    return argsValue
-      ? `<blockquote>${title}</blockquote>\n<blockquote expandable>${this.escapeHtml(argsValue)}</blockquote>`
-      : `<blockquote>${title}</blockquote>`
-  }
-
-  private formatToolLabel(toolName: string): string {
-    return toolName.replace(/_/g, ' ')
-  }
-
-  private formatToolStatus(status: AgentRenderToolCallState['status']): string {
-    if (status === 'success') {
-      return 'done'
-    }
-    if (status === 'failed') {
-      return 'failed'
-    }
-    if (status === 'aborted') {
-      return 'aborted'
-    }
-    return 'running'
-  }
-
-  private formatToolArgsValue(args: string | undefined): string {
-    const normalized = args?.replace(/\s+/g, ' ').trim()
-    if (!normalized) {
-      return ''
-    }
-
-    const value = normalized.length <= MAX_TOOL_ARGS_DISPLAY_LENGTH
-      ? normalized
-      : `${normalized.slice(0, MAX_TOOL_ARGS_DISPLAY_LENGTH - 3)}...`
-    return value
-  }
-
-  private escapeHtml(value: string): string {
-    return value
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
+  private toolReason(state: TelegramToolState): string {
+    try {
+      const args = JSON.parse(state.args ?? '{}')
+      const reason = args?.[TOOL_CALL_REASON_PARAMETER_NAME]
+      if (typeof reason === 'string' && reason.trim()) {
+        return reason.trim().slice(0, MAX_TOOL_REASON_LENGTH)
+      }
+    } catch { /* Missing or malformed arguments use the tool label. */ }
+    return state.toolName.replace(/_/g, ' ').slice(0, MAX_TOOL_REASON_LENGTH)
   }
 
   private toStableSegmentKey(segment: Pick<MessageSegment, 'segmentId'>): string {

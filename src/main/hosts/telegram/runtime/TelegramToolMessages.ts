@@ -30,7 +30,10 @@ export class TelegramToolMessages {
       state.rank = args.rank
       const keyboard = args.keyboard ?? []
       const markup = JSON.stringify(keyboard)
-      if (state.text === args.text && state.markup === markup) return
+      if (state.text === args.text && state.markup === markup) {
+        this.pruneSettled()
+        return
+      }
       const options = { parse_mode: 'HTML' as const, reply_markup: { inline_keyboard: keyboard } }
       if (state.messageId === undefined) {
         const sent = await withTelegramRetry(() => bot.api.sendMessage(Number(envelope.chatId), args.text, {
@@ -48,11 +51,14 @@ export class TelegramToolMessages {
       }
       state.text = args.text
       state.markup = markup
-      // Keep the same bounded terminal history as the approval projection.
-      const settled = [...this.messages.entries()].filter(([, value]) => value.rank >= 4 && value.text !== undefined)
-      for (const [id] of settled.slice(0, Math.max(0, settled.length - 500))) this.messages.delete(id)
+      this.pruneSettled()
     })
     state.queue = task.catch(() => {})
     return task
+  }
+
+  private pruneSettled(): void {
+    const settled = [...this.messages.entries()].filter(([, value]) => value.rank >= 4 && value.text !== undefined)
+    for (const [id] of settled.slice(0, Math.max(0, settled.length - 500))) this.messages.delete(id)
   }
 }

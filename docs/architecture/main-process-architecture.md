@@ -395,20 +395,29 @@ The original exception is rethrown so grammY retains its existing error behavior
 `hosts/telegram/runtime/TelegramToolMessages.ts` owns the Telegram message ID
 shared by approval projection in `TelegramGatewayService` and execution rendering
 in `TelegramRenderResponder`. Each submission/tool call/chat/topic combination
-sends one message; subsequent states edit that message with HTML formatting and
-remove approval buttons once resolved. Assistant text and proactive sends share safe Markdown rendering; private
-streaming uses native drafts, while group replies edit persistent messages.
+sends one message. Execution displays only `tool_call_reason`, with the tool label
+as fallback for missing or malformed reasons. Each tool gets a separate message;
+repeated events retain the same message. Successful completion leaves its content
+unchanged. Failure or timeout edits it to preserve the original reason and append
+an escaped HTML code block containing the short error. Reason text is bounded to
+800 characters and errors to 2400; raw arguments and result payloads are omitted.
 
-Approval remains authoritative in the versioned run interaction stream. The
-transport serializes updates per tool endpoint, suppresses identical updates,
-and prevents late approval or running updates from replacing an execution result.
-Denied, expired and cancelled approvals retain their specific explanation when an
-aborted tool result follows. Tool arguments remain bounded to 200 characters in
-execution notifications. Only successfully delivered content is deduplicated, so
-failed delivery can be retried; the gateway retains its existing approval retry.
-A failed execution edit is reported through the responder's existing error path.
-No duplicate completion message is sent as a fallback. Terminal message records
-retain the latest 500 entries; pending and running entries are kept until settled.
+Approval remains authoritative in the versioned run interaction stream. Approval
+messages and buttons reuse the same endpoint record; resolution removes buttons,
+and execution replaces the approval text with the reason. Denied, expired and
+cancelled approvals keep their explanation when an aborted result follows.
+User cancellation does not create per-tool cancellation messages.
+
+The transport serializes updates per tool endpoint, suppresses identical content,
+and prevents late approval or execution updates from replacing terminal results.
+Success advances the internal terminal state without a network edit, including
+pruning terminal history to the latest 500 records. Pending and running records
+remain until settled. Failed delivery can be retried; failed error edits use the
+responder error logger and never create a second notification as fallback.
+
+Assistant text and proactive sends retain safe Markdown rendering; private
+streaming uses native drafts, while group replies edit persistent messages.
+Tool notifications do not change the current Telegram conversation cursor.
 No database schema or agent event contract changes are involved.
 
 ## Telegram delivery ownership
