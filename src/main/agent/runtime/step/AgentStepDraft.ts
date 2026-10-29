@@ -3,7 +3,7 @@
  *
  * 放置内容：
  * - 单次 step 的流式工作区
- * - 按 append-only 的方式积累 deltas、toolCalls、usage、status
+ * - 将流式 deltas 折叠为 snapshot；不保留完整增量历史
  * - 在 step 结束时 materialize 成 AgentStep
  *
  * 业务逻辑边界：
@@ -11,7 +11,7 @@
  * - 它不是 message，也不是 output result
  *
  * 约束：
- * - source of truth 应是 runtime deltas / facts
+ * - runtime deltas / facts 通过事件交付，当前工作区只保存折叠结果
  * - 允许维护 snapshot cache，但 snapshot 只是派生视图
  * - `streaming` 是唯一在途状态
  * - `completed | failed | aborted` 是稳定终态，可以直接进入 `AgentStepMaterializer`
@@ -101,6 +101,5 @@ export interface AgentStepDraft {
   status: AgentStepDraftStatus
   startedAt: number
   updatedAt: number
-  deltas: AgentStepDraftDelta[]
   snapshot: AgentStepDraftSnapshot
 }

@@ -100,7 +100,6 @@ const createDraft = (stepId: string, stepIndex: number, startedAt: number): Agen
   status: 'streaming',
   startedAt,
   updatedAt: startedAt,
-  deltas: [],
   snapshot: {
     content: '',
     toolCalls: []
@@ -159,67 +158,41 @@ const applyDeltaToDraft = (
   return {
     ...draft,
     updatedAt: delta.timestamp,
-    deltas: [...draft.deltas, delta],
     snapshot: nextSnapshot
   }
 }
 
-const matchesToolCallReference = (
-  toolCall: IToolCall,
-  reference: {
-    toolCallId?: string
-    toolCallIndex?: number
+interface ToolCallTiming {
+  started: Map<string, number>
+  ready: Map<string, number>
+}
+
+const timingKeys = (id: string, index?: number): string[] =>
+  index === undefined ? [`id:${id}`] : [`id:${id}`, `index:${index}`]
+
+const recordToolTiming = (timing: ToolCallTiming, delta: AgentStepDraftDelta): void => {
+  if (delta.type !== 'tool_call_started' && delta.type !== 'tool_call_ready') return
+  const started = delta.type === 'tool_call_started'
+  const times = started ? timing.started : timing.ready
+  const keys = started
+    ? timingKeys(delta.toolCallId, delta.toolCallIndex)
+    : timingKeys(delta.toolCall.id, delta.toolCall.index)
+  for (const key of keys) {
+    times.set(key, Math.min(times.get(key) ?? Infinity, delta.timestamp))
   }
-): boolean =>
-  (reference.toolCallId !== undefined && toolCall.id === reference.toolCallId) ||
-  (reference.toolCallIndex !== undefined &&
-    toolCall.index !== undefined &&
-    toolCall.index === reference.toolCallIndex)
-
-const getEarliestMatchingTimestamp = (timestamps: number[]): number | undefined =>
-  timestamps.length > 0 ? Math.min(...timestamps) : undefined
-
-const getToolCallStartedAt = (
-  toolCall: IToolCall,
-  deltas: AgentStepDraftDelta[],
-  fallbackTimestamp: number
-): number => {
-  const startedTimestamps = deltas
-    .filter((delta) => delta.type === 'tool_call_started')
-    .filter((delta) =>
-      matchesToolCallReference(toolCall, {
-        toolCallId: delta.toolCallId,
-        toolCallIndex: delta.toolCallIndex
-      })
-    )
-    .map((delta) => delta.timestamp)
-
-  const startedAt = getEarliestMatchingTimestamp(startedTimestamps)
-  if (startedAt !== undefined) {
-    return startedAt
-  }
-
-  const readyTimestamps = deltas
-    .filter((delta) => delta.type === 'tool_call_ready')
-    .filter((delta) =>
-      matchesToolCallReference(toolCall, {
-        toolCallId: delta.toolCall.id,
-        toolCallIndex: delta.toolCall.index
-      })
-    )
-    .map((delta) => delta.timestamp)
-
-  return getEarliestMatchingTimestamp(readyTimestamps) ?? fallbackTimestamp
 }
 
 const collectReadyToolCallFacts = (
   step: AgentStep,
-  draftDeltas: AgentStepDraftDelta[]
+  timing: ToolCallTiming
 ): ToolCallReadyFact[] =>
   step.toolCalls.map((toolCall) => {
+    const keys = timingKeys(toolCall.id, toolCall.index)
+    const started = Math.min(...keys.map((key) => timing.started.get(key) ?? Infinity))
+    const ready = Math.min(...keys.map((key) => timing.ready.get(key) ?? Infinity))
     return {
       toolCall: cloneToolCall(toolCall),
-      startedAt: getToolCallStartedAt(toolCall, draftDeltas, step.completedAt)
+      startedAt: Number.isFinite(started) ? started : Number.isFinite(ready) ? ready : step.completedAt
     }
   })
 
@@ -294,6 +267,7 @@ export class DefaultAgentLoop implements AgentLoop {
       const stepId = dependencies.loopIdentityProvider.nextStepId()
       const stepStartedAt = dependencies.runtimeClock.now()
       let draft = createDraft(stepId, stepIndex, stepStartedAt)
+      const toolTiming: ToolCallTiming = { started: new Map(), ready: new Map() }
 
       await dependencies.agentEventEmitter.emitStepStarted({
         stepId,
@@ -334,6 +308,7 @@ export class DefaultAgentLoop implements AgentLoop {
           parserState = parsed.state
 
           for (const delta of parsed.deltas) {
+            recordToolTiming(toolTiming, delta)
             draft = applyDeltaToDraft(draft, delta, parsed.toolCallsSnapshot)
             await dependencies.agentEventEmitter.emitStepDelta({
               stepId: draft.stepId,
@@ -481,7 +456,7 @@ export class DefaultAgentLoop implements AgentLoop {
         })
       }
 
-      const readyToolCalls = collectReadyToolCallFacts(step, completedDraft.deltas).map((fact) =>
+      const readyToolCalls = collectReadyToolCallFacts(step, toolTiming).map((fact) =>
         dependencies.readyToolCallMaterializer.materialize({
           stepId: step.stepId,
           fact

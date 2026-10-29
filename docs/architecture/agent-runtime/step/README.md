@@ -32,8 +32,8 @@ Documentation: [Agent runtime](../README.md)
   - 单次模型请求的 runtime 结果对象
 - [AgentStepDraft.ts](../../../../src/main/agent/runtime/step/AgentStepDraft.ts)
   - 单次模型请求的流式工作区
-  - 以 append-only 的 typed deltas 作为事实真源
-  - snapshot 只是从这些 deltas 派生出来的缓存视图
+  - typed deltas 经事件交付后折叠为 snapshot，不累积完整历史
+  - loop 仅额外保留按工具 ID/index 索引的最早 started/ready 时间
 - [AgentStepMaterializer.ts](../../../../src/main/agent/runtime/step/AgentStepMaterializer.ts)
   - 把 `AgentStepDraft` 物化成稳定的 `AgentStep`
 

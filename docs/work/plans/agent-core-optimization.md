@@ -46,3 +46,13 @@ previews. Checks: `pnpm exec vitest run src/main/agent/runtime/__tests__/AgentRu
 the same rule counts. Existing repository Prettier configuration also reports
 format warnings; no broad formatting rewrite was performed. Electron acceptance
 and full shared-runtime coverage remain scheduled for final verification.
+
+### Stage 2 — complete
+
+Removed draft delta history; two tool timing indexes preserve earliest timestamps
+by ID/index with started-before-ready preference. Stream events keep independent
+snapshots. Checks: runtime/model suites (33 tests, including 4096 streamed content
+and reasoning chunks), Node typecheck, main boundaries, main architecture (8 tests),
+and active doc paths passed. Scoped lint comparison retains baseline errors only.
+The removed growing-array copy had quadratic element-copy work; no wall-clock
+speedup is claimed from the functional tests.

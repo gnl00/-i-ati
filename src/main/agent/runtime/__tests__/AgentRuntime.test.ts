@@ -88,6 +88,33 @@ const createTestAgentEventEmitter = (): AgentEventEmitter => ({
 })
 
 describe('DefaultAgentRuntime', () => {
+  it('preserves long streamed output and earlier event snapshots', async () => {
+    const emitter = createTestAgentEventEmitter()
+    const chunks: ModelResponseChunk[] = Array.from({ length: 4096 }, () => ({
+      kind: 'delta', content: 'x', reasoning: 'y'
+    }))
+    chunks.push({ kind: 'delta', finishReason: 'stop' })
+    const runtime = new DefaultAgentRuntime({
+      requestSpecSource, runDescriptorSource,
+      loopInputBootstrapper: new DefaultLoopInputBootstrapper(),
+      runtimeInfrastructure: createDefaultRuntimeInfrastructure(),
+      agentLoop: new DefaultAgentLoop(),
+      agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
+        modelStreamExecutor: { execute: async (): Promise<ReturnType<typeof createAsyncStream>> => createAsyncStream(chunks) },
+        agentEventEmitter: emitter
+      })
+    })
+    const result = await runtime.run({
+      hostRequest: { hostType: 'test', hostRequestId: 'long', submittedAt: 1,
+        userContent: [{ type: 'input_text', text: 'hello' }] }
+    })
+    expect(result.finalStep?.content).toBe('x'.repeat(4096))
+    expect(result.finalStep?.reasoning).toBe('y'.repeat(4096))
+    const events = vi.mocked(emitter.emitStepDelta).mock.calls.map(([event]) => event)
+    expect(events.find((event) => event.delta.type === 'content_delta')?.snapshot.content).toBe('x')
+    expect(events.filter((event) => event.delta.type === 'content_delta')).toHaveLength(4096)
+  })
+
   it('completes a single-step text response', async () => {
     const modelStreamExecutor: ModelStreamExecutor = {
       execute: vi.fn(async () =>
