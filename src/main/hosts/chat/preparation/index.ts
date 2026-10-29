@@ -36,9 +36,6 @@ export class ChatPreparationPipeline {
       options?.signal?.throwIfAborted()
       const chatEventMapper = new ChatEventMapper(emitter)
       chatEventMapper.emitChatReady(environment.chat, environment.workspacePath)
-      if (environment.historyMessages.length > 0) {
-        chatEventMapper.emitMessagesLoaded(environment.historyMessages)
-      }
       const stepPromise = measure('bootstrap', () => this.stepBootstrapService.bootstrap(environment, input, emitter, signal))
       const contextPromise = measure('context', () => this.runRequestFactory.prepare(environment, input.input, signal))
       let step: Awaited<typeof stepPromise>

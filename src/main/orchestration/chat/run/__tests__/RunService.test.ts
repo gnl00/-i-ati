@@ -163,6 +163,7 @@ vi.mock('@main/db/DatabaseService', () => ({
     getChatByUuid: vi.fn(() => undefined),
     getMessagesByChatId: vi.fn(() => []),
     getMessagesByChatUuid: vi.fn(() => []),
+    getMessagesForModel: vi.fn(() => ({ messages: [], summary: null })),
     getMessageByIds: vi.fn(() => []),
     saveMessage: vi.fn()
       .mockReturnValueOnce(101)

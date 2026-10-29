@@ -78,6 +78,34 @@ class MessageDao {
     return this.stmts.getMessagesByChatUuid.all(chatUuid) as MessageRow[]
   }
 
+  getContextHistory(chatUuid: string, coverage?: {
+    messageIds: number[]; startMessageId: number; endMessageId: number
+  }): { rows: MessageRow[]; summaryApplied: boolean } {
+    if (coverage?.messageIds.length) {
+      const { messageIds, startMessageId, endMessageId } = coverage
+      const ids = new Set(messageIds)
+      const validIds = ids.size === messageIds.length && ids.has(startMessageId) && ids.has(endMessageId)
+        && messageIds.every(id => Number.isSafeInteger(id) && id >= startMessageId && id <= endMessageId)
+      if (validIds) {
+        // Validate coverage using IDs only; covered message bodies stay in SQLite.
+        const prefix = this.db.prepare(`SELECT COUNT(*) AS count, MIN(id) AS firstId, MAX(id) AS lastId
+          FROM messages WHERE chat_uuid = ? AND id <= ?`).get(chatUuid, endMessageId) as {
+            count: number; firstId: number | null; lastId: number | null
+          }
+        const owned = this.db.prepare(`SELECT COUNT(*) AS count FROM messages
+          WHERE chat_uuid = ? AND id IN (SELECT value FROM json_each(?))`)
+          .get(chatUuid, JSON.stringify(messageIds)) as { count: number }
+        if (prefix.count === ids.size && owned.count === ids.size
+          && prefix.firstId === startMessageId && prefix.lastId === endMessageId) {
+          const rows = this.db.prepare(`SELECT * FROM messages WHERE chat_uuid = ? AND id > ? ORDER BY id ASC`)
+            .all(chatUuid, endMessageId) as MessageRow[]
+          return { rows, summaryApplied: true }
+        }
+      }
+    }
+    return { rows: this.getMessagesByChatUuid(chatUuid), summaryApplied: false }
+  }
+
   getMessageByIds(ids: number[]): MessageRow[] {
     if (!ids.length) return []
     const placeholders = ids.map(() => '?').join(',')

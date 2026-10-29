@@ -38,6 +38,7 @@ export type RunPreparationOptions = {
 }
 
 export type RunEnvironment = {
+  compressionSummary: CompressedSummaryEntity | null
   config: IAppConfig
   chat: ChatEntity
   modelContext: RunModelContext

@@ -44,6 +44,7 @@ vi.mock('@main/db/DatabaseService', () => ({
     getChatByUuid: vi.fn(),
     getMessagesByChatId: vi.fn(),
     getMessagesByChatUuid: vi.fn(),
+    getMessagesForModel: vi.fn(),
     getMessageByIds: vi.fn(() => []),
     getReadyToolResultCompactionsByMessageIds: vi.fn(() => []),
     getEmotionState: vi.fn(() => undefined),
@@ -237,6 +238,12 @@ describe('ChatPreparationPipeline', () => {
     ;(DatabaseService.getChatByUuid as any).mockReturnValue(undefined)
     ;(DatabaseService.getMessagesByChatId as any).mockReturnValue([])
     ;(DatabaseService.getMessagesByChatUuid as any).mockReturnValue(historyMessages)
+    vi.mocked(DatabaseService.getMessagesForModel).mockImplementation((uuid, summary) => {
+      const messages = DatabaseService.getMessagesByChatUuid(uuid)
+      const compatible = summary && messages.some(message => message.id === summary.startMessageId)
+      return { messages: compatible ? messages.filter(message => !summary.messageIds.includes(message.id!)) : messages,
+        summary: compatible ? summary : null }
+    })
     ;(DatabaseService.getMessageByIds as any).mockReturnValue([])
     ;(DatabaseService.getReadyToolResultCompactionsByMessageIds as any).mockReturnValue([])
     ;(DatabaseService.saveMessage as any).mockReturnValueOnce(101)
@@ -396,6 +403,7 @@ describe('ChatPreparationPipeline', () => {
 
     expect(environment).toEqual<RunEnvironment>({
       config,
+      compressionSummary: null,
       chat: chatEntity,
       modelContext: {
         model: config.accounts[0].models[0],
@@ -556,10 +564,8 @@ describe('ChatPreparationPipeline', () => {
       chatEntity,
       workspacePath: './workspaces/chat-1'
     })
-    expect(emitter.emit).toHaveBeenNthCalledWith(2, CHAT_HOST_EVENTS.MESSAGES_LOADED, {
-      messages: historyMessages
-    })
-    expect(emitter.emit).toHaveBeenNthCalledWith(3, CHAT_RENDER_EVENTS.MESSAGE_CREATED, {
+    expect(emitter.emit).not.toHaveBeenCalledWith(CHAT_HOST_EVENTS.MESSAGES_LOADED, expect.anything())
+    expect(emitter.emit).toHaveBeenNthCalledWith(2, CHAT_RENDER_EVENTS.MESSAGE_CREATED, {
       message: expect.objectContaining({
         id: 101,
         body: expect.objectContaining({
@@ -981,10 +987,8 @@ describe('ChatPreparationPipeline', () => {
       chatEntity,
       workspacePath: './workspaces/chat-1'
     })
-    expect(emitter.emit).toHaveBeenNthCalledWith(2, CHAT_HOST_EVENTS.MESSAGES_LOADED, {
-      messages: historyMessages
-    })
-    expect(emitter.emit).toHaveBeenNthCalledWith(3, CHAT_RENDER_EVENTS.MESSAGE_CREATED, {
+    expect(emitter.emit).not.toHaveBeenCalledWith(CHAT_HOST_EVENTS.MESSAGES_LOADED, expect.anything())
+    expect(emitter.emit).toHaveBeenNthCalledWith(2, CHAT_RENDER_EVENTS.MESSAGE_CREATED, {
       message: expect.objectContaining({
         id: 101,
         body: expect.objectContaining({

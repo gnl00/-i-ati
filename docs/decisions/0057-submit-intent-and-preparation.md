@@ -35,3 +35,13 @@ steering remains the explicit way to add input to an active run. Independent cha
 and new chats without an existing identity remain concurrent. Missing/mismatched
 identities fail before admission; a deleted conversation is not silently recreated.
 Reservation is stored in the existing run registry and released on all failure paths.
+
+## Model history ownership
+
+Model reads use validated compression coverage plus the uncovered tail. Coverage must
+match the complete existing chat prefix, verified using IDs without loading covered
+bodies. A tail beginning with a tool result invalidates the summary boundary. Invalid
+coverage falls back to complete raw history; no fixed message-count truncation applies.
+UI hydration remains a separate complete-history operation. Submit no longer broadcasts
+that history. This reduces body mapping and IPC work while retaining recoverability.
+Coverage validation still scans IDs and non-prefix summaries take the full-history path.

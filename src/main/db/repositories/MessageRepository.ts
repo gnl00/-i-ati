@@ -1,3 +1,4 @@
+import { isTransportDeliveryMessage } from '@shared/messages/messageSources'
 import type { ChatDao } from '@main/db/dao/ChatDao'
 import type { MessageDao } from '@main/db/dao/MessageDao'
 import type {
@@ -344,6 +345,19 @@ export class MessageRepository {
     const messageRepo = this.requireMessageRepo()
     const rows = messageRepo.getMessagesByChatUuid(chatUuid)
     return rows.map(toMessageEntity)
+  }
+
+  getMessagesForModel(chatUuid: string, summary: CompressedSummaryEntity | null): {
+    messages: MessageEntity[]; summary: CompressedSummaryEntity | null
+  } {
+    const compatible = summary && (!summary.chatUuid || summary.chatUuid === chatUuid) ? summary : undefined
+    const selected = this.requireMessageRepo().getContextHistory(chatUuid, compatible)
+    const messages = selected.rows.map(toMessageEntity)
+    // A compressed prefix cannot stop between a call and its tool results.
+    if (selected.summaryApplied && messages.find(message => !isTransportDeliveryMessage(message.body))?.body.role === 'tool') {
+      return { messages: this.getMessagesByChatUuid(chatUuid), summary: null }
+    }
+    return { messages, summary: selected.summaryApplied ? summary : null }
   }
 
   getMessageByIds(ids: number[]): MessageEntity[] {

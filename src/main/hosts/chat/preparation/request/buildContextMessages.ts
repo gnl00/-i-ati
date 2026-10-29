@@ -11,10 +11,11 @@ export const buildContextMessages = (input: {
   contexts: ChatMessage[]
   userInstruction?: string | null
   summary?: CompressedSummaryEntity | null
+  summaryValidated?: boolean
 }): ChatMessage[] => {
   const covered = new Set(input.summary?.messageIds ?? [])
   const compatibleSummary =
-    input.summary && input.messages.some((message) => message.id === input.summary!.startMessageId)
+    input.summary && (input.summaryValidated || input.messages.some((message) => message.id === input.summary!.startMessageId))
   const currentUserId = input.messages.findLast(
     (message) =>
       message.body.role === 'user' &&

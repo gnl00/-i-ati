@@ -51,6 +51,9 @@ export const chatDb = {
   getMessageById: (id: number): MessageEntity | undefined => DatabaseService.getMessageById(id),
   getMessageByIds: (ids: number[]): MessageEntity[] => DatabaseService.getMessageByIds(ids),
   getMessagesByChatId: (chatId: number): MessageEntity[] => DatabaseService.getMessagesByChatId(chatId),
+  getMessagesForModel: (chatUuid: string, summary: CompressedSummaryEntity | null): {
+    messages: MessageEntity[]; summary: CompressedSummaryEntity | null
+  } => DatabaseService.getMessagesForModel(chatUuid, summary),
   getMessagesByChatUuid: (chatUuid: string): MessageEntity[] => DatabaseService.getMessagesByChatUuid(chatUuid),
   updateMessage: (data: MessageEntity): void => DatabaseService.updateMessage(data),
   patchMessageUiState: (id: number, uiState: MessageUiStatePatch): void => DatabaseService.patchMessageUiState(id, uiState),

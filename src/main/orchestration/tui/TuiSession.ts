@@ -166,6 +166,8 @@ export class TuiSession {
 
   private start(text: string): void {
     const chat = this.state.chat!
+    // Terminal history hydration belongs to the host, independently of model history selection.
+    this.state.load(chat, this.chats.getMessagesByChatUuid(chat.uuid))
     const id = randomUUID()
     this.cancelRequested = false
     this.state.tools.clear()

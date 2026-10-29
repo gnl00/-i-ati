@@ -14,7 +14,7 @@ vi.mock('@main/db/DatabaseService', () => ({
   default: {
     updateChat: updateChatMock,
     getChatById: getChatByIdMock,
-    getMessagesByChatUuid: getMessagesByChatUuidMock,
+    getMessagesForModel: (uuid: string): object => ({ messages: getMessagesByChatUuidMock(uuid), summary: null }),
     saveChat: saveChatMock
   }
 }))
@@ -64,11 +64,11 @@ describe('ChatSessionStore', () => {
     }]
     getMessagesByChatUuidMock.mockReturnValue(messages)
 
-    const result = new ChatSessionStore().loadHistoryMessages({
+    const result = new ChatSessionStore().loadModelHistory({
       uuid: 'chat-1'
-    } as ChatEntity)
+    } as ChatEntity, null)
 
-    expect(result).toBe(messages)
+    expect(result.messages).toBe(messages)
     expect(getMessagesByChatUuidMock).toHaveBeenCalledWith('chat-1')
   })
 

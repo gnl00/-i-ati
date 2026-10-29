@@ -219,6 +219,12 @@ class DatabaseService {
     return this.requireChatService().getMessagesByChatId(chatId)
   }
 
+  public getMessagesForModel(chatUuid: string, summary: CompressedSummaryEntity | null): {
+    messages: MessageEntity[]; summary: CompressedSummaryEntity | null
+  } {
+    return this.requireChatService().getMessagesForModel(chatUuid, summary)
+  }
+
   public getMessagesByChatUuid(chatUuid: string): MessageEntity[] {
     return this.requireChatService().getMessagesByChatUuid(chatUuid)
   }

@@ -49,11 +49,10 @@ export class ChatSessionStore {
     return chatEntity
   }
 
-  loadHistoryMessages(chat: ChatEntity): MessageEntity[] {
-    if (chat.uuid) {
-      return chatDb.getMessagesByChatUuid(chat.uuid)
-    }
-    return []
+  loadModelHistory(chat: ChatEntity, summary: CompressedSummaryEntity | null): {
+    messages: MessageEntity[]; summary: CompressedSummaryEntity | null
+  } {
+    return chatDb.getMessagesForModel(chat.uuid, summary)
   }
 
   resolveWorkspacePath(chat: ChatEntity): string {

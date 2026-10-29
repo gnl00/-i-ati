@@ -20,10 +20,6 @@ export class ChatEventMapper implements AgentMessageEventSink {
     })
   }
 
-  emitMessagesLoaded(messages: MessageEntity[]): void {
-    this.emitter.emit(CHAT_HOST_EVENTS.MESSAGES_LOADED, { messages })
-  }
-
   emitChatUpdated(chatEntity: ChatEntity): void {
     this.emitter.emit(CHAT_HOST_EVENTS.CHAT_UPDATED, { chatEntity })
   }

@@ -1,6 +1,6 @@
 # Submit-path optimization
 
-Status: In progress
+Status: Complete
 Owner: Agent runtime maintainers
 
 ## Scope and evidence
@@ -53,7 +53,7 @@ local deterministic providers. No push, release or packaging is included in this
 
 ## Progress
 
-Plan recorded; implementation pending.
+All six stages implemented and verified.
 
 ### Stage 1 — submission intent
 
@@ -143,3 +143,44 @@ vision, Chat and actual subagent suites cover 140 cases. Main boundary/architect
 checks pass. Node typecheck initially encountered unrelated temporary benchmark source;
 that source was removed by its owning task and the normal check was rerun. Scoped lint
 comparison retains baseline errors only. Full coverage/build/Electron remain final gates.
+
+### Stage 6 — model history and host hydration
+
+SQLite validates summary coverage using IDs and returns only the uncovered tail.
+Invalid/deleted/foreign/gapped coverage and split tool-result groups fall back to full
+raw history. Renderer hydration and complete-history recovery remain available; submit
+no longer emits a full messages.loaded payload. TUI refreshes display history separately.
+A real SQLite fixture with 1,200 covered messages returns three tail messages to model
+preparation while complete-history reads still return 1,203. This measures returned
+body rows, not constant-time SQL validation or external-provider latency.
+
+Verification: real SQLite history suite passes six cases; preparation, request, post-run,
+TUI and renderer runtime suites passed except an obsolete RunService database mock found
+by full coverage. That mock now supplies the new model-history facade. Final gates below.
+
+## Final verification and checkpoints
+
+- Plan: `117ce6e7`.
+- Stage 1: `36c409be`; stage 2: `a3f36074`; stage 3: `231b40d8`.
+- Stage 4: `12183ed0`; stage 5: `238a563a`.
+- Stage 6: the commit containing this final record.
+- `pnpm test:coverage`: 387 files passed, 7 skipped; 3,096 tests passed,
+  37 skipped. V8 statement coverage 73.10%, branches 65.93%, functions 67.42%,
+  lines 74.10%. Includes concurrent independently committed runtime changes.
+- `pnpm build`: passed both TypeScript checks and production bundles.
+- `node scripts/verify-cli.mjs`: passed isolated Electron/local-provider cases for
+  transcript/usage, tool declarations and vision requests, invalid arguments/output
+  collisions, file approval allow/deny, reasoning replay, step exhaustion, empty
+  response recovery, timeout/SIGINT/SIGTERM and provider-error redaction.
+- `pnpm run check:main-boundaries`, `pnpm run test:main-architecture`,
+  `pnpm run check:main-doc-paths`, `git diff --check`: passed.
+- Changed-file ESLint compared against HEAD: existing legacy errors retained;
+  new history test has zero lint errors. Final Node typecheck rerun after test-mock
+  and return-type corrections. Earlier stages record their affected renderer gates.
+
+Limitations: Electron acceptance uses the CLI host and deterministic local providers.
+Desktop GUI submit interaction, Windows/Linux and external-provider speed have not
+been accepted. SQL coverage validation still scans covered IDs; missing/incompatible
+summaries use complete history. Embedding cancellation bounds waiting and downstream
+work but cannot interrupt inference already executing in the native backend.
+Unrelated CLI guide edits and `.seecode/` remain excluded. No push or packaging performed.

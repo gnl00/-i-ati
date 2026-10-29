@@ -27,7 +27,6 @@ Make main process the only runtime truth for chat execution. Renderer only submi
 run.accepted
   -> run.state.changed(preparing)
   -> chat.ready
-  -> messages.loaded
   -> message.created (user)
   -> message.created (assistant placeholder)
   -> run.state.changed(streaming / executing_tools / finalizing)
@@ -41,6 +40,19 @@ run.accepted
   -> run.completed | run.failed | run.aborted
   -> title.generation.* / compression.*
 ```
+
+## History ownership
+
+Renderer hydrates complete history through the database-backed Chat loading flow.
+Submit emits canonical message changes without broadcasting a full history copy.
+TUI refreshes its own display history before submission. The legacy messages.loaded
+transport contract remains readable for compatibility.
+
+Model preparation validates compression coverage against message IDs in SQLite and
+loads only the uncovered tail when the summary covers the complete existing prefix.
+Invalid, deleted, foreign, gapped coverage or a split tool-result boundary falls back
+to complete raw history without applying the summary. Full history remains available
+for UI hydration, branching, recovery and explicit history tools.
 
 ## Design Rules
 - Main owns lifecycle, persistence, tool execution and post-run jobs.

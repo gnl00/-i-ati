@@ -13,7 +13,6 @@ import { MESSAGE_SOURCE, isInteractiveMessageSource } from '@shared/messages/mes
 import {
   AwakeContextProvider,
   AvailableImagesContextProvider,
-  CompressionSummaryResolver,
   KnowledgebaseContextProvider,
   SystemEnvironmentContextProvider,
   SystemPromptComposer,
@@ -48,7 +47,6 @@ type PreparedRequestContext = {
 
 export class RunRequestFactory {
   constructor(
-    private readonly compressionSummaryResolver = new CompressionSummaryResolver(),
     private readonly systemPromptComposer = new SystemPromptComposer(),
     private readonly toolListBuilder = new ToolListBuilder(),
     private readonly loadedSkillsContextProvider = new LoadedSkillsContextProvider(),
@@ -73,7 +71,7 @@ export class RunRequestFactory {
       visionAnalysisAvailable: Boolean(config.tools?.visionModel),
       interactiveInputAvailable: isInteractiveMessageSource(input.source)
     }
-    const compressionSummary = this.compressionSummaryResolver.resolve(config, environment.chat.id)
+    const compressionSummary = environment.compressionSummary
     const tools = this.toolListBuilder.build(input.tools, { conditions: toolConditions, selection: input.toolSelection })
     const requestOptions = this.resolveRequestOptions(environment, input.options)
     const currentQuery = expandTextAttachments(input.textCtx, input.textAttachments)
@@ -159,7 +157,8 @@ export class RunRequestFactory {
       messages: step.messageBuffer,
       contexts,
       userInstruction,
-      summary: compressionSummary
+      summary: compressionSummary,
+      summaryValidated: true
     })
 
     return { emotionEnabled: prepared.emotionEnabled, requestSpec: prepared.requestSpec, contextMessages }

@@ -138,6 +138,12 @@ export class ChatService {
     return this.requireMessageRepository().getMessagesByChatId(chatId)
   }
 
+  getMessagesForModel(chatUuid: string, summary: CompressedSummaryEntity | null): {
+    messages: MessageEntity[]; summary: CompressedSummaryEntity | null
+  } {
+    return this.requireMessageRepository().getMessagesForModel(chatUuid, summary)
+  }
+
   getMessagesByChatUuid(chatUuid: string): MessageEntity[] {
     return this.requireMessageRepository().getMessagesByChatUuid(chatUuid)
   }

@@ -1,3 +1,4 @@
+import { CompressionSummaryResolver } from './request/CompressionSummaryResolver'
 import { AppConfigStore, ChatModelContextResolver } from '../config'
 import { ChatSessionStore } from '../persistence'
 import type { RunEventEmitter } from '@main/agent/contracts'
@@ -7,7 +8,8 @@ export class RunEnvironmentService {
   constructor(
     private readonly appConfigStore = new AppConfigStore(),
     private readonly chatModelContextResolver = new ChatModelContextResolver(),
-    private readonly chatSessionStore = new ChatSessionStore()
+    private readonly chatSessionStore = new ChatSessionStore(),
+    private readonly compressionSummaryResolver = new CompressionSummaryResolver()
   ) {}
 
   async prepare(
@@ -25,14 +27,17 @@ export class RunEnvironmentService {
     options?.onChatResolved?.(chat)
     emitter.setChatMeta({ chatId: chat.id, chatUuid: chat.uuid })
     const workspacePath = this.chatSessionStore.resolveWorkspacePath(chat)
-    const historyMessages = this.chatSessionStore.loadHistoryMessages(chat)
+    const { messages: historyMessages, summary: compressionSummary } = this.chatSessionStore.loadModelHistory(
+      chat, this.compressionSummaryResolver.resolve(config, chat.id)
+    )
 
     return {
       config,
       chat,
       modelContext,
       workspacePath,
-      historyMessages
+      historyMessages,
+      compressionSummary
     }
   }
 }
