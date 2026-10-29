@@ -60,7 +60,7 @@ describe('McpRuntimeService tool namespace routing', () => {
     expect(alphaClient.callTool).toHaveBeenCalledWith({
       name: 'search',
       arguments: { query: 'hello' }
-    })
+    }, { signal: undefined })
     expect(betaClient.callTool).not.toHaveBeenCalled()
   })
 
@@ -219,3 +219,31 @@ describe('McpRuntimeService modern protocol', () => {
     expect(connected.msg).toContain('Unsupported MCP transport')
   })
 })
+
+  it('rejects unavailable routes and transport failures', async () => {
+    const service = new McpRuntimeService()
+    await expect(service.callTool('missing', 'missing__tool', {})).rejects.toThrow('unavailable')
+    const client = createClient()
+    addServer(service, 'alpha', client, 'search')
+    client.callTool.mockRejectedValue(new Error('connection lost'))
+    await expect(service.callTool('failed', 'alpha__search', {})).rejects.toThrow('connection lost')
+  })
+
+  it('cancels waiting MCP calls, forwards the signal, and ignores late results', async () => {
+    const service = new McpRuntimeService()
+    const client = createClient()
+    const controller = new AbortController()
+    let finish!: (value: { content: never[] }) => void
+    client.callTool.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    addServer(service, 'alpha', client, 'search')
+    const pending = service.callTool('cancelled', 'alpha__search', {}, controller.signal)
+    await Promise.resolve()
+    controller.abort()
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' })
+    expect(client.callTool).toHaveBeenCalledWith({ name: 'search', arguments: {} }, { signal: controller.signal })
+    finish({ content: [] })
+    client.callTool.mockClear()
+    await expect(service.callTool('already-cancelled', 'alpha__search', {}, controller.signal))
+      .rejects.toMatchObject({ name: 'AbortError' })
+    expect(client.callTool).not.toHaveBeenCalled()
+  })

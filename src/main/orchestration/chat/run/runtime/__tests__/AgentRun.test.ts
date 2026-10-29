@@ -466,6 +466,33 @@ describe('AgentRun', () => {
     await postRunDeferred.promise
   })
 
+  it('forwards cancellation into active preparation and never starts the model', async () => {
+    let preparationSignal: AbortSignal | undefined
+    const services = {
+      mainAgentRuntimeRunner: { run: vi.fn() },
+      chatAgentAdapter: {
+        prepareRun: vi.fn(async (...args: unknown[]) => {
+          preparationSignal = (args[2] as { signal: AbortSignal }).signal
+          await new Promise((_, reject) => {
+            preparationSignal!.addEventListener('abort', () => reject(preparationSignal!.reason), { once: true })
+          })
+        }),
+        finalizeRun: vi.fn()
+      },
+      postRunJobService: { run: vi.fn() }
+    }
+    const run = new AgentRun({ ...input, input: { ...input.input, mediaCtx: [] } }, services as unknown as ConstructorParameters<typeof AgentRun>[1], {
+      emitter: { emit: vi.fn(), setChatMeta: vi.fn() },
+      toolConfirmationRequester: { request: vi.fn() }
+    } as unknown as ConstructorParameters<typeof AgentRun>[2])
+    const pending = run.run()
+    run.cancel()
+    await expect(pending).resolves.toEqual({ state: 'aborted' })
+    expect(preparationSignal?.aborted).toBe(true)
+    expect(services.mainAgentRuntimeRunner.run).not.toHaveBeenCalled()
+    expect(services.chatAgentAdapter.finalizeRun).not.toHaveBeenCalled()
+  })
+
   it('emits aborted events when preparation aborts', async () => {
     const emitter = {
       emit: vi.fn(),

@@ -14,8 +14,10 @@ function isDefaultChatTitle(title?: string): boolean {
 
 export class ChatSessionStore {
   async resolveOrCreateChat(
-    input: MainAgentRunInput
+    input: MainAgentRunInput,
+    signal?: AbortSignal
   ): Promise<ChatEntity> {
+    signal?.throwIfAborted()
     const existing = this.resolveExistingChat(input.chatId, input.chatUuid)
     if (existing) {
       return existing
@@ -28,6 +30,7 @@ export class ChatSessionStore {
       recursive: true
     })
 
+    signal?.throwIfAborted()
     const chatEntity: ChatEntity = {
       uuid: chatUuid,
       title: 'NewChat',

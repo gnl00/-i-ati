@@ -15,11 +15,13 @@ export class RunEnvironmentService {
     emitter: RunEventEmitter,
     options?: RunPreparationOptions
   ): Promise<RunEnvironment> {
+    options?.signal?.throwIfAborted()
     const config = this.appConfigStore.requireConfig()
     const modelContext =
       options?.modelContext ??
       this.chatModelContextResolver.resolveOrThrow(config, input.modelRef)
-    const chat = await this.chatSessionStore.resolveOrCreateChat(input)
+    const chat = await this.chatSessionStore.resolveOrCreateChat(input, options?.signal)
+    options?.signal?.throwIfAborted()
     emitter.setChatMeta({ chatId: chat.id, chatUuid: chat.uuid })
     const workspacePath = this.chatSessionStore.resolveWorkspacePath(chat)
     const historyMessages = this.chatSessionStore.loadHistoryMessages(chat)

@@ -163,6 +163,7 @@ export class DefaultSubagentRuntimeRunner implements SubagentRuntimeRunner {
         runtimeInfrastructure,
         agentLoop: new DefaultAgentLoop(),
         agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
+          signal: input.signal,
           agentEventBus: eventBus,
           steeringMessageSource: input.steeringMessageSource,
           modelStreamExecutor: this.options.modelStreamExecutor,

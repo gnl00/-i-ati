@@ -1216,4 +1216,27 @@ describe('ToolExecutor runtime context', () => {
     }))
     expect(result.status).toBe('success')
   })
+  it('preserves MCP error content while reporting a failed tool result', async () => {
+    const content = [{ isError: true, content: [{ type: 'text', text: 'Invalid repository' }] }]
+    mcpCallToolMock.mockResolvedValueOnce(content as never)
+    const [result] = await new ToolExecutor().execute([{
+      id: 'mcp-error', function: 'mcp_echo', args: '{}'
+    }])
+    expect(result).toMatchObject({ status: 'error', content, failure: { code: 'MCP_TOOL_ERROR' } })
+  })
+
+  it('does not dispatch a tool if cancellation wins during approval', async () => {
+    handlerMock.mockClear()
+    const controller = new AbortController()
+    const [result] = await new ToolExecutor({
+      signal: controller.signal,
+      requestConfirmation: async () => {
+        controller.abort()
+        return { approved: true }
+      }
+    }).execute([{ id: 'cancel-approval', function: 'plan', args: '{"action":"create","steps":[]}' }])
+    expect(result.status).toBe('aborted')
+    expect(handlerMock).not.toHaveBeenCalled()
+  })
+
 })

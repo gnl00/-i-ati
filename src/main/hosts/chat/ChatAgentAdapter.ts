@@ -49,6 +49,7 @@ export class ChatAgentAdapter {
     options?: RunPreparationOptions
   ): Promise<RunPreparationResult> {
     return this.preparationPipeline.prepare(input, emitter, options).then(prepared => {
+      options?.signal?.throwIfAborted()
       const chatEventMapper = new ChatEventMapper(emitter)
       const earlyEmittedMessageIds = new Set(prepared.chatContext.earlyEmittedMessageIds ?? [])
       for (const message of prepared.chatContext.createdMessages) {

@@ -41,6 +41,7 @@ export interface AgentLoopDependenciesFactory {
 }
 
 export interface DefaultAgentLoopDependenciesFactoryOptions {
+  signal?: AbortSignal
   agentEventBus?: AgentEventBus
   agentEventEmitter?: AgentEventEmitter
   agentStepMaterializer?: AgentStepMaterializer
@@ -91,6 +92,7 @@ export class DefaultAgentLoopDependenciesFactory implements AgentLoopDependencie
       toolExecutorDispatcher:
         this.options.toolExecutorDispatcher ??
         new DefaultToolExecutorDispatcher({
+          signal: this.options.signal,
           agentEventEmitter,
           runtimeClock: runtimeInfrastructure.runtimeClock,
           toolResultNormalizer,

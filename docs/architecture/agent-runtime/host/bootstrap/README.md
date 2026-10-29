@@ -25,3 +25,12 @@ Chat instruction precedence is explicit `chatUserInstruction` (including empty),
 then persisted Chat instruction. Per-run `userInstruction` is appended, with exact
 duplicates removed; scheduled runs add the schedule execution policy. These are
 request context and do not rewrite historical messages or user preferences.
+
+## Preparation cancellation
+
+RunPreparationOptions carries the same run AbortSignal through environment setup,
+vision observation and request assembly. Cancellation stops waiting for asynchronous
+context providers and prevents subsequent snapshots, observation messages and model
+dispatch. The already-persisted user input remains available. Local operations that
+cannot cancel may finish in the background; they cannot commit a late request snapshot.
+Vision timeout remains a failed observation; user cancellation is an aborted run.

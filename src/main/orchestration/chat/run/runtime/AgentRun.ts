@@ -138,8 +138,9 @@ export class AgentRun {
       const { runSpec, chatContext } = await this.services.chatAgentAdapter.prepareRun(
         this.input,
         this.emitter,
-        this.runtime.options?.preparation
+        { ...this.runtime.options?.preparation, signal: this.controller.signal }
       )
+      this.controller.signal.throwIfAborted()
       this.chatUuid = runSpec.runtimeContext.chatUuid
       subagentRuntimeBridge.setRequestSpec(
         this.submissionId,

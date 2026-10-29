@@ -285,12 +285,9 @@ describe('VisionObservationService', () => {
       signal: controller.signal
     })
     controller.abort()
-    const result = await resultPromise
-
+    await expect(resultPromise).rejects.toMatchObject({ name: 'AbortError' })
     expect(requestSignals[0]?.aborted).toBe(true)
-    expect(result.body.source).toBe(MESSAGE_SOURCE.VISION_OBSERVATION)
-    expect(result.body.content).toContain('status="failed"')
-    expect(result.body.content).toContain('vision observation aborted')
+    expect(chatStepStore.persistVisionObservationMessage).not.toHaveBeenCalled()
   })
 
   it.each([undefined, {}])('reports an unconfigured vision model without cross-account fallback', async (tools) => {

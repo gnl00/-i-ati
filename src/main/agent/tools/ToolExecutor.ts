@@ -372,6 +372,7 @@ export class ToolExecutor implements IToolExecutor {
         })
       }
 
+      this.signal?.throwIfAborted()
       executionStartTime ??= Date.now()
       let modelContent: string | undefined
       let modelContentKind: 'text' | undefined
@@ -386,6 +387,8 @@ export class ToolExecutor implements IToolExecutor {
         }
       )
 
+      const mcpFailed = !embeddedToolsRegistry.isRegistered(toolName)
+        && Array.isArray(content) && content.some(item => item?.isError === true)
       const result: ToolExecutionResult = {
         id: toolId,
         index: toolIndex,
@@ -394,7 +397,15 @@ export class ToolExecutor implements IToolExecutor {
         ...(modelContent !== undefined ? { modelContent } : {}),
         ...(modelContentKind !== undefined ? { modelContentKind } : {}),
         cost: Date.now() - executionStartTime,
-        status: 'success',
+        status: mcpFailed ? 'error' : 'success',
+        ...(mcpFailed ? {
+          error: new Error('MCP tool returned an error'),
+          failure: createToolFailure({
+            category: 'operation', code: 'MCP_TOOL_ERROR',
+            message: 'MCP tool returned an error.',
+            recovery: { action: 'check_state', message: 'Inspect the tool result before retrying.' }
+          })
+        } : {}),
         ...(
           embeddedToolsRegistry.isRegistered(toolName) && isToolFailure(content?.failure)
             ? { failure: content.failure }
@@ -528,7 +539,7 @@ export class ToolExecutor implements IToolExecutor {
 
     const callId = call.id || `call_${uuidv4()}`
     const safeArgs = this.stripToolCallReason(runtimeArgs ?? this.normalizeArgs(call))
-    return await mcpRuntimeService.callTool(callId, toolName, safeArgs as { [x: string]: unknown })
+    return await mcpRuntimeService.callTool(callId, toolName, safeArgs as { [x: string]: unknown }, this.signal)
   }
 
   private normalizeArgs(call: ToolCallProps): any {

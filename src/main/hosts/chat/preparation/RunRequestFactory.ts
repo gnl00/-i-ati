@@ -1,3 +1,4 @@
+import { abortableWait } from '@shared/utils/abortableWait'
 import { expandTextAttachments } from '@shared/chat/textAttachments'
 import { buildContextMessages } from './request/buildContextMessages'
 import {
@@ -54,8 +55,10 @@ export class RunRequestFactory {
   async build(
     environment: RunEnvironment,
     step: StepBootstrap,
-    input: HostRunInputState
+    input: HostRunInputState,
+    signal?: AbortSignal
   ): Promise<RunRequestBuildResult> {
+    signal?.throwIfAborted()
     const mergedUserInstruction = this.mergeRequestUserInstruction(input, environment.chat)
     const config = this.appConfigStore.requireConfig()
     const emotionEnabled = config.emotion?.enabled ?? true
@@ -66,12 +69,12 @@ export class RunRequestFactory {
     }
     const compressionSummary = this.compressionSummaryResolver.resolve(config, environment.chat.id)
     let systemPromptParts: AgentRequestSpec['systemPromptParts']
-    const systemPrompts = await this.systemPromptComposer.compose(emotionEnabled, parts => { systemPromptParts = parts })
+    const systemPrompts = await abortableWait(() => this.systemPromptComposer.compose(emotionEnabled, parts => { systemPromptParts = parts }), signal)
     const systemEnvironmentContext = this.systemEnvironmentContextProvider.build({
       workspacePath: environment.workspacePath
     })
     const [loadedSkillsContext, userInfoContext, knowledgebaseContext, awakeContext] =
-      await Promise.all([
+      await abortableWait(() => Promise.all([
         this.loadedSkillsContextProvider.build(environment.chat.id),
         this.userInfoPromptProvider.buildContext(),
         this.knowledgebaseContextProvider.build(expandTextAttachments(input.textCtx, input.textAttachments)),
@@ -82,7 +85,8 @@ export class RunRequestFactory {
           currentQuery: expandTextAttachments(input.textCtx, input.textAttachments),
           compressionSummary
         })
-      ])
+      ]), signal)
+    signal?.throwIfAborted()
     const availableImagesContext = this.availableImagesContextProvider.build(
       step.messageBuffer,
       compressionSummary,

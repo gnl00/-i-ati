@@ -130,6 +130,7 @@ export class DefaultMainAgentRuntimeRunner implements MainAgentRuntimeRunner {
       runtimeInfrastructure,
       agentLoop: new DefaultAgentLoop(),
       agentLoopDependenciesFactory: new DefaultAgentLoopDependenciesFactory({
+        signal: input.signal,
         agentEventBus: eventBus,
         modelStreamExecutor: this.options.modelStreamExecutor,
         toolBatchAssembler: new DefaultToolBatchAssembler(

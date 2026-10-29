@@ -15,8 +15,10 @@ export class StepBootstrapService {
   async bootstrap(
     environment: RunEnvironment,
     input: MainAgentRunInput,
-    emitter: RunEventEmitter
+    emitter: RunEventEmitter,
+    signal?: AbortSignal
   ): Promise<StepBootstrap> {
+    signal?.throwIfAborted()
     const userMessageEntity = this.chatStepStore.createUserMessage(
       environment.chat,
       environment.modelContext.model,
@@ -34,10 +36,12 @@ export class StepBootstrapService {
         textCtx: expandTextAttachments(input.input.textCtx, input.input.textAttachments),
         mediaCtx: input.input.mediaCtx,
         source: input.input.source,
-        host: input.input.host
+        host: input.input.host,
+        signal
       })
       : undefined
 
+    signal?.throwIfAborted()
     const assistantDraft = this.chatStepStore.buildAssistantDraft(
       environment.chat,
       environment.modelContext.model,

@@ -30,6 +30,7 @@ export type MainAgentRunInput = {
 }
 
 export type RunPreparationOptions = {
+  signal?: AbortSignal
   modelContext?: RunModelContext
   systemPrompt?: string
   options?: IUnifiedRequest['options']

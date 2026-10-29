@@ -260,6 +260,34 @@ describe('ChatPreparationPipeline', () => {
     ])
   })
 
+  it('stops preparation without late context persistence after cancellation', async () => {
+    const { LoadedSkillsContextProvider } = await import('../request/LoadedSkillsContextProvider')
+    let finish!: (value: null) => void
+    let started!: () => void
+    const entered = new Promise<void>(resolve => { started = resolve })
+    const spy = vi.spyOn(LoadedSkillsContextProvider.prototype, 'build').mockImplementationOnce(() => {
+      started()
+      return new Promise(resolve => { finish = resolve })
+    })
+    const controller = new AbortController()
+    try {
+      const pending = new ChatPreparationPipeline().prepare(input, {
+        emit: vi.fn(), setChatMeta: vi.fn()
+      } as unknown as RunEventEmitter, { signal: controller.signal })
+      await entered
+      controller.abort()
+      await expect(pending).rejects.toMatchObject({ name: 'AbortError' })
+      expect(DatabaseService.saveMessage).toHaveBeenCalledWith(expect.objectContaining({
+        body: expect.objectContaining({ role: 'user' })
+      }))
+      vi.mocked(DatabaseService.updateMessage).mockClear()
+      finish(null)
+      await Promise.resolve()
+      await Promise.resolve()
+      expect(DatabaseService.updateMessage).not.toHaveBeenCalled()
+    } finally { spy.mockRestore() }
+  })
+
   it('prepares and persists CLI messages with explicit model and request overrides', async () => {
     const modelContext = {
       model: { id: 'external', label: 'external', type: 'llm' as const, contextWindowTokens: 200000 },

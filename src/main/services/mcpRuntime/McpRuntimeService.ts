@@ -1,3 +1,4 @@
+import { abortableWait } from '@shared/utils/abortableWait'
 import { Client, StreamableHTTPClientTransport, type CallToolResult, type Tool } from '@modelcontextprotocol/client'
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio'
 import { spawn } from 'child_process'
@@ -260,7 +261,8 @@ class McpRuntimeService {
     }
   }
 
-  async callTool(tcId: string, toolName: string, args: { [x: string]: unknown } | undefined): Promise<(CallToolResult | { error: string; serverName: string })[]> {
+  async callTool(tcId: string, toolName: string, args: { [x: string]: unknown } | undefined, signal?: AbortSignal): Promise<CallToolResult[]> {
+    signal?.throwIfAborted()
     const route = this.registry.getToolRoute(toolName)
     this.logger.info('tool_call.start', {
       toolName,
@@ -268,16 +270,13 @@ class McpRuntimeService {
       clientCount: this.registry.getAllClients().length,
       route
     })
-    if (this.registry.isEmpty()) {
-      return []
-    }
 
     if (!route) {
       this.logger.warn('tool_call.route_missing', {
         toolName,
         toolCallId: tcId
       })
-      return []
+      throw new Error(`MCP tool "${toolName}" is unavailable`)
     }
 
     const client = this.registry.getClient(route.serverName)
@@ -287,7 +286,7 @@ class McpRuntimeService {
         toolName,
         toolCallId: tcId
       })
-      return []
+      throw new Error(`MCP tool "${toolName}" is unavailable`)
     }
 
     this.logger.info('tool_call.dispatch', {
@@ -298,14 +297,17 @@ class McpRuntimeService {
       args
     })
 
-    let results: (CallToolResult | { error: string; serverName: string })[]
+    let results: CallToolResult[]
     try {
       const currentCount = this.toolCallCountMap.get(tcId) ?? 0
       if (currentCount >= 3) {
         throw new Error('tool call reached max count=3')
       }
       this.toolCallCountMap.set(tcId, currentCount + 1)
-      const result = await client.callTool({ name: route.originalName, arguments: args })
+      const result = await abortableWait(() => client.callTool(
+        { name: route.originalName, arguments: args }, { signal }
+      ), signal)
+      signal?.throwIfAborted()
       this.logger.info('tool_call.completed', {
         serverName: route.serverName,
         toolName: route.exposedName,
@@ -322,7 +324,8 @@ class McpRuntimeService {
         toolCallId: tcId,
         error: message
       })
-      results = [{ error: message, serverName: route.serverName }]
+      signal?.throwIfAborted()
+      throw error
     }
 
     this.logger.info('tool_call.end', {

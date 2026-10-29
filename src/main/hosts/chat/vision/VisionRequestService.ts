@@ -99,6 +99,7 @@ export class VisionRequestService {
   }
 
   async analyze(input: VisionRequestInput): Promise<VisionRequestResult> {
+    input.signal?.throwIfAborted()
     const redactionSecrets: string[] = []
 
     try {
@@ -177,6 +178,7 @@ export class VisionRequestService {
         imageCount: imageUrls.length
       }
     } catch (error) {
+      input.signal?.throwIfAborted()
       throw new Error(sanitizeVisionErrorReason(getErrorReason(error), redactionSecrets))
     }
   }

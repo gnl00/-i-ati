@@ -87,6 +87,7 @@ export class VisionObservationService {
   }
 
   async observe(input: VisionObservationInput): Promise<MessageEntity> {
+    input.signal?.throwIfAborted()
     const imageRef = buildImageRef(input.userMessage)
 
     try {
@@ -103,6 +104,7 @@ export class VisionObservationService {
         timeoutLabel: 'vision observation'
       })
 
+      input.signal?.throwIfAborted()
       return this.chatStepStore.persistVisionObservationMessage(
         input.chat,
         buildOkObservation({
@@ -113,6 +115,7 @@ export class VisionObservationService {
         input.host
       )
     } catch (error) {
+      input.signal?.throwIfAborted()
       return this.persistFailed(input, imageRef, error instanceof Error ? error.message : String(error))
     }
   }

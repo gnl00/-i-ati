@@ -70,3 +70,24 @@ active documentation path checks and `git diff --check` passed. Changed-file ESL
 was run and compared to HEAD: existing lint errors remain in legacy files; newly
 added files/tests have zero errors. Formatting warnings follow the existing style.
 Electron acceptance and full coverage are scheduled after all stages.
+
+### Stage 2 — cancellation and MCP outcomes
+
+One signal now reaches preparation, vision, dispatcher and MCP SDK calls. Aborted
+preparation preserves submitted user messages and suppresses late observation/context
+writes and model dispatch. Transport/unavailable-route failures reject; MCP isError
+retains content with an error status. Cancellation after approval prevents dispatch.
+Non-cancellable local reads can finish after the wait exits; remote cancellation does
+not establish rollback. Vision timeout remains distinct from user cancellation.
+
+Verification: `pnpm exec vitest run src/main/hosts/chat/__tests__
+src/main/hosts/chat/preparation/__tests__/ChatPreparationPipeline.test.ts
+src/main/hosts/chat/vision/__tests__ src/main/services/mcpRuntime/__tests__
+src/main/agent/tools/__tests__/ToolExecutor.test.ts
+src/main/orchestration/chat/run/runtime/__tests__/AgentRun.test.ts
+src/main/agent/runtime/tools/__tests__ src/main/agent/runtime/__tests__/AgentRuntime.test.ts
+src/main/services/subagent/runtime/__tests__` — 12 files, 177 tests passed.
+`pnpm run typecheck:node`, `pnpm run check:main-boundaries`,
+`pnpm run test:main-architecture` and `git diff --check` passed. Scoped ESLint retains
+baseline errors only; new abort-wait utility has zero errors. Final Electron/coverage
+verification remains pending.

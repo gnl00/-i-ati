@@ -135,3 +135,12 @@ Completion prepares bounded `modelContent` while retaining the raw `content` val
 Large results use readable workspace artifacts; storage failures are represented
 in the preview. The dispatcher prepares before emitting completion; the record
 factory covers denied/deferred results. See [ADR-0033](../../../decisions/0033-stable-tool-result-model-content.md).
+
+## MCP outcomes and cancellation
+
+The run signal reaches both the dispatcher and MCP SDK call options. Missing routes
+and transport failures reject; MCP `isError` preserves the server result content and
+produces an error result with `MCP_TOOL_ERROR`. Cancellation stops waiting promptly,
+removes the wait listener, and prevents dispatch after a pending approval resolves.
+SDK cancellation is best effort: it does not establish rollback of remote side effects.
+Direct MCP IPC callers receive rejection for unavailable routes/transport failures.
