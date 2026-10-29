@@ -43,8 +43,9 @@ export const compactContext = async (input: ContextCompressionInput): Promise<st
   }
   const body = (await prepareUnifiedRequestBody(request)).body
   input.signal?.throwIfAborted()
+  const tokens = tokenizer.countValue(body)
   const budget = resolveContextBudget(spec.contextWindowTokens, body, tokenizer.estimated)
-  if (tokenizer.countValue(body) > budget.input) {
+  if (tokens > budget.input) {
     throw new Error('Compression input exceeds the compaction model token budget')
   }
   const response: IUnifiedResponse = await unifiedChatRequest(

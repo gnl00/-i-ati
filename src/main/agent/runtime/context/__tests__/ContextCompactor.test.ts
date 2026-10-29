@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { compactContext } from '../ContextCompactor'
+import { RequestTokenizer } from '../RequestTokenizer'
 const { send, prepare } = vi.hoisted(() => ({
   send: vi.fn(),
   prepare: vi.fn()
@@ -58,6 +59,20 @@ describe('compactContext', () => {
     await expect(compactContext({ text: 'small source', requestSpec })).rejects.toThrow(
       'Compression input exceeds'
     )
+    expect(send).not.toHaveBeenCalled()
+  })
+  it('applies the estimated margin when counting switches to chunked encoding', async () => {
+    const body = { messages: 'evidence line\n'.repeat(2_000), max_tokens: 1 }
+    const tokenizer = new RequestTokenizer('gpt-4o')
+    const tokens = tokenizer.countValue(body)
+    expect(tokenizer.estimated).toBe(true)
+    // Input falls between the 5% and 15% margin budgets.
+    const window = Math.ceil((tokens + 1) / 0.9)
+    prepare.mockResolvedValue({ body })
+    await expect(compactContext({
+      text: 'source',
+      requestSpec: { ...requestSpec, contextWindowTokens: window }
+    })).rejects.toThrow('Compression input exceeds')
     expect(send).not.toHaveBeenCalled()
   })
   it('rejects empty summaries and checks cancellation after a slow provider', async () => {
