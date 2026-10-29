@@ -58,3 +58,11 @@ describe('telegram-command-parser', () => {
     })
   })
 })
+
+it('parses chat auto approval and rejects malformed callbacks', () => {
+  expect(parseTelegramCommandCallback('tgcmd:tool_confirm:auto:call-1')).toEqual({
+    type: 'tool_confirmation_auto', confirmationId: 'call-1'
+  })
+  expect(parseTelegramCommandCallback('tgcmd:tool_confirm:auto:')).toBeNull()
+  expect(parseTelegramCommandCallback('tgcmd:tool_confirm:auto:call-1:extra')).toBeNull()
+})

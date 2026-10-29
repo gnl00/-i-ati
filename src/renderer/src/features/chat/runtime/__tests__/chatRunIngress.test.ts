@@ -46,6 +46,19 @@ beforeEach(() => {
 afterEach(() => { release?.(); release = undefined })
 
 describe('app run ingress', () => {
+  it('reflects remote chat approval mode without changing the selected background chat', async () => {
+    store.setState({ permissionApprovalMode: 'manual', chatList: [
+      { id: 1, uuid: 'tg-chat', title: 'TG', messages: [], createTime: 1, updateTime: 1, permissionApprovalMode: 'manual' },
+      { id: 2, uuid: 'other-chat', title: 'Other', messages: [], createTime: 1, updateTime: 1, permissionApprovalMode: 'manual' }
+    ] })
+    await emit(event(CHAT_HOST_EVENTS.CHAT_UPDATED, { chatEntity: { id: 1, uuid: 'tg-chat', permissionApprovalMode: 'auto' } }))
+    expect(store.getState().permissionApprovalMode).toBe('auto')
+    store.setState({ currentChatUuid: 'other-chat', currentChatId: 2, permissionApprovalMode: 'manual' })
+    await emit(event(CHAT_HOST_EVENTS.CHAT_UPDATED, { chatEntity: { id: 1, uuid: 'tg-chat', permissionApprovalMode: 'auto' } }))
+    expect(store.getState().permissionApprovalMode).toBe('manual')
+    expect(store.getState().chatList.find(chat => chat.uuid === 'tg-chat')?.permissionApprovalMode).toBe('auto')
+  })
+
   it('consumes a Telegram run without a desktop submit and rejects an older message revision', async () => {
     await emit(event(RUN_LIFECYCLE_EVENTS.RUN_STATE_CHANGED, { state: 'preparing' }))
     expect(store.getState().getRunStatusForChat('tg-chat').runPhase).toBe('submitting')

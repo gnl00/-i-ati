@@ -408,6 +408,16 @@ and execution replaces the approval text with the reason. Denied, expired and
 cancelled approvals keep their explanation when an aborted result follows.
 User cancellation does not create per-tool cancellation messages.
 
+Pending Telegram approvals offer `Approve`, `Deny`, and `Auto for this chat`.
+The Auto action validates the original approval target, expiry and exact active
+submission before saving that chat's `permissionApprovalMode`. It preserves the
+global default and all other chats. A successful save enables Auto for the live
+run, resolves its valid pending approvals and publishes `chat.updated` for desktop
+state. Later requests inherit the saved mode until the user selects Manual.
+Duplicate, resolved, expired and old-run callbacks cannot change the mode; a save
+failure leaves the approval pending for retry.
+
+
 The transport serializes updates per tool endpoint, suppresses identical content,
 and prevents late approval or execution updates from replacing terminal results.
 Success advances the internal terminal state without a network edit, including

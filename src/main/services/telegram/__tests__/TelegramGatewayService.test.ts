@@ -477,7 +477,7 @@ describe('TelegramGatewayService', () => {
           inline_keyboard: [[
             { text: 'Approve', callback_data: 'tgcmd:tool_confirm:approve:approval-1' },
             { text: 'Deny', callback_data: 'tgcmd:tool_confirm:deny:approval-1' }
-          ]]
+          ], [{ text: 'Auto for this chat', callback_data: 'tgcmd:tool_confirm:auto:approval-1' }]]
         }
       })
     )
@@ -570,6 +570,29 @@ describe('Telegram authoritative approval projection', () => {
     ;(service as unknown as GatewayProbe).bot = bot
     await (service as unknown as GatewayProbe).queueConfirmationSync()
     expect(bot.api.editMessageText).toHaveBeenLastCalledWith(123, 77, '<blockquote>tool exec approval expired</blockquote>', expect.objectContaining({ reply_markup: { inline_keyboard: [] } }))
+  })
+
+  it('routes chat auto approval and preserves buttons when saving fails', async () => {
+    const service = createService()
+    const enable = vi.fn().mockReturnValue({ ok: true, confirmation: approval({ status: 'approved' }) })
+    Object.assign((service as unknown as GatewayProbe).runService, { enableTelegramChatAutoApproval: enable })
+    const on = vi.fn()
+    ;(service as unknown as GatewayProbe).registerHandlers({ on }, modelRef)
+    const callback = on.mock.calls.find(([name]) => name === 'callback_query:data')![1]
+    const ctx = {
+      update: { update_id: 1 }, from: { id: 456 },
+      callbackQuery: { data: 'tgcmd:tool_confirm:auto:approval', message: { message_id: 77, chat: { id: 123, type: 'supergroup' }, message_thread_id: 9 } },
+      answerCallbackQuery: vi.fn().mockResolvedValue(true), editMessageReplyMarkup: vi.fn().mockResolvedValue(true)
+    }
+    await callback(ctx)
+    expect(enable).toHaveBeenCalledWith('approval', { host: 'telegram', peerId: '123', threadId: '9', userId: '456' })
+    expect(ctx.answerCallbackQuery).toHaveBeenLastCalledWith({ text: 'Auto approval enabled for this chat.' })
+    expect(ctx.editMessageReplyMarkup).toHaveBeenCalledOnce()
+    ctx.editMessageReplyMarkup.mockClear()
+    enable.mockImplementationOnce(() => { throw new Error('save failed') })
+    await callback(ctx)
+    expect(ctx.answerCallbackQuery).toHaveBeenLastCalledWith({ text: 'Failed to update approval. Please try again.' })
+    expect(ctx.editMessageReplyMarkup).not.toHaveBeenCalled()
   })
 
   it('reports the Main winner for a competing callback and invalidates stale buttons after restart', async () => {

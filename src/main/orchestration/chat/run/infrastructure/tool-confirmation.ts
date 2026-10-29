@@ -87,7 +87,11 @@ export class ToolConfirmationManager {
     return promise
   }
 
-  submit(raw: unknown, actor: ToolConfirmationActor): ToolConfirmationSubmitResult {
+  submit(
+    raw: unknown,
+    actor: ToolConfirmationActor,
+    beforeDecision?: (confirmation: ToolConfirmation) => boolean
+  ): ToolConfirmationSubmitResult {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ok: false, reason: 'invalid_request' }
     const request = raw as Record<string, unknown>
     if (
@@ -115,6 +119,7 @@ export class ToolConfirmationManager {
       const expired = this.finish(id, { approved: false, reason: 'timeout' }, 'expired', { host: 'system', cause: 'timeout' })
       return { ok: false, reason: 'already_resolved', confirmation: expired }
     }
+    if (beforeDecision && !beforeDecision(descriptor)) return { ok: false, reason: 'not_found' }
     const decision: ToolConfirmationDecision = {
       approved: request.approved,
       ...(typeof request.reason === 'string' ? { reason: request.reason } : {}),
@@ -129,12 +134,13 @@ export class ToolConfirmationManager {
   submitTelegram(
     confirmationId: string,
     decision: ToolConfirmationDecision,
-    actor: Extract<ToolConfirmationActor, { host: 'telegram' }>
+    actor: Extract<ToolConfirmationActor, { host: 'telegram' }>,
+    beforeDecision?: (confirmation: ToolConfirmation) => boolean
   ): ToolConfirmationSubmitResult {
     const item = this.pending.get(confirmationId) ?? this.resolved.get(confirmationId)
     if (!item) return { ok: false, reason: 'not_found' }
     const { submissionId, chatUuid, toolCallId } = item.descriptor
-    return this.submit({ confirmationId, submissionId, chatUuid, toolCallId, ...decision }, actor)
+    return this.submit({ confirmationId, submissionId, chatUuid, toolCallId, ...decision }, actor, beforeDecision)
   }
 
   snapshot(chatUuid: string): ToolConfirmationSnapshot {

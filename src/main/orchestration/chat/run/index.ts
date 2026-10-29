@@ -75,6 +75,13 @@ export class RunService {
     return this.runtime.toolConfirmationManager.submitTelegram(confirmationId, decision, actor)
   }
 
+  enableTelegramChatAutoApproval(
+    confirmationId: string,
+    actor: Extract<ToolConfirmationActor, { host: 'telegram' }>
+  ): ToolConfirmationSubmitResult {
+    return this.runtime.runManager.enableTelegramChatAutoApproval(confirmationId, actor)
+  }
+
   subscribeToolConfirmations(listener: ToolConfirmationListener): () => void {
     return this.runtime.toolConfirmationManager.subscribe(listener)
   }

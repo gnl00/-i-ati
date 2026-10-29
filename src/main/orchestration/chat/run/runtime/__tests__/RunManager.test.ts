@@ -1,3 +1,5 @@
+import { chatDb } from '@main/db/chat'
+import { ToolConfirmationManager } from '../../infrastructure/tool-confirmation'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { subagentRuntimeBridge } from '@main/services/subagent/subagent-runtime-bridge'
 import subagentRunService from '@main/services/subagent/subagent-run-service'
@@ -22,6 +24,7 @@ const {
 }))
 
 vi.mock('@main/db/chat', () => ({ chatDb: {
+  updateChat: vi.fn(),
   getChatById: (id: number): object | undefined => id > 0 && id < 3 ? { id, uuid: `chat-${id}` } : undefined,
   getChatByUuid: (uuid: string): object | undefined => ['chat-1', 'chat-2'].includes(uuid) ? { id: Number(uuid.slice(-1)), uuid } : undefined
 } }))
@@ -30,9 +33,11 @@ vi.mock('@main/services/telegram/TelegramApprovalTargets', () => ({ resolveTeleg
 
 vi.mock('../AgentRun', () => ({
   AgentRun: class {
+    emitter: { emit: ReturnType<typeof vi.fn> }
     submissionId: string
     chatUuid?: string
     constructor(input: { submissionId: string; chatUuid?: string }, services: unknown, runtime: unknown) {
+      this.emitter = (runtime as { emitter: { emit: ReturnType<typeof vi.fn> } }).emitter
       this.submissionId = input.submissionId
       this.chatUuid = input.chatUuid
       constructorArgsMock({ input, services, runtime })
@@ -71,7 +76,7 @@ vi.mock('@main/orchestration/chat/postRun', () => ({
 
 import { RunManager } from '../RunManager'
 
-const createManagerWithDeps = () => {
+const createManagerWithDeps = (confirmations?: ToolConfirmationManager) => {
   const toolConfirmationManager = new (class {
     request = vi.fn(async () => ({ approved: true }))
     resolve = vi.fn()
@@ -83,7 +88,7 @@ const createManagerWithDeps = () => {
     cancelForSubmission = vi.fn()
   })()
   const manager = new RunManager({
-    toolConfirmationManager: toolConfirmationManager as any,
+    toolConfirmationManager: (confirmations ?? toolConfirmationManager) as any,
     toolQuestionManager: toolQuestionManager as any,
     eventEmitterFactory: new (class {
       create(meta: unknown): object {
@@ -126,6 +131,67 @@ const input = {
 } as any
 
 describe('RunManager', () => {
+  it('persists only the originating chat, approves its pending tools, and publishes desktop state', async () => {
+    const confirmations = new ToolConfirmationManager()
+    const { manager } = createManagerWithDeps(confirmations)
+    const deferred = createDeferred<{ assistantMessageId: number; state: 'completed' }>()
+    runMock.mockReturnValueOnce(deferred.promise)
+    const handle = manager.submit(input)
+    const emitter = { submissionId: input.submissionId, chatUuid: 'chat-1', emit: vi.fn(), setChatMeta: vi.fn() }
+    const first = confirmations.request(emitter, { toolCallId: 'first', name: 'exec' }, { peerId: '123', threadId: '9' })
+    const second = confirmations.request(emitter, { toolCallId: 'second', name: 'exec' })
+    const other = confirmations.request({ ...emitter, submissionId: 'other', chatUuid: 'chat-2' }, { toolCallId: 'third', name: 'exec' })
+    const id = confirmations.snapshot('chat-1').confirmations[0].confirmationId
+    const actor = { host: 'telegram' as const, peerId: '123', threadId: '9', userId: '456' }
+    expect(manager.enableTelegramChatAutoApproval(id, { ...actor, threadId: 'wrong' }).ok).toBe(false)
+    expect(chatDb.updateChat).not.toHaveBeenCalled()
+    vi.mocked(chatDb.updateChat).mockImplementationOnce(() => { throw new Error('disk full') })
+    expect(() => manager.enableTelegramChatAutoApproval(id, actor)).toThrow('disk full')
+    expect(confirmations.snapshot('chat-1').confirmations.every(item => item.status === 'pending')).toBe(true)
+    expect(setPermissionApprovalModeMock).not.toHaveBeenCalled()
+    vi.mocked(chatDb.updateChat).mockClear()
+    expect(manager.enableTelegramChatAutoApproval(id, actor)).toMatchObject({ ok: true, confirmation: { resolvedBy: actor } })
+    expect(chatDb.updateChat).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ id: 1, uuid: 'chat-1', permissionApprovalMode: 'auto' }))
+    expect(setPermissionApprovalModeMock).toHaveBeenCalledExactlyOnceWith('auto')
+    expect(constructorArgsMock.mock.lastCall![0].runtime.emitter.emit).toHaveBeenCalledWith('chat.updated', {
+      chatEntity: expect.objectContaining({ uuid: 'chat-1', permissionApprovalMode: 'auto' })
+    })
+    await expect(first).resolves.toEqual({ approved: true })
+    await expect(second).resolves.toMatchObject({ approved: true })
+    expect(confirmations.snapshot('chat-2').confirmations[0].status).toBe('pending')
+    expect(manager.enableTelegramChatAutoApproval(id, actor)).toMatchObject({ ok: false, reason: 'already_resolved' })
+    expect(chatDb.updateChat).toHaveBeenCalledOnce()
+    confirmations.cancelForSubmission('other')
+    await other
+    deferred.resolve({ assistantMessageId: 1, state: 'completed' })
+    await handle.completion
+  })
+
+  it('rejects expired, missing and old-run auto buttons without changing chat settings', async () => {
+    const confirmations = new ToolConfirmationManager()
+    const { manager } = createManagerWithDeps(confirmations)
+    const deferred = createDeferred<{ assistantMessageId: number; state: 'completed' }>()
+    runMock.mockReturnValueOnce(deferred.promise)
+    const handle = manager.submit(input)
+    const emitter = { submissionId: 'old-run', chatUuid: 'chat-1', emit: vi.fn(), setChatMeta: vi.fn() }
+    const old = confirmations.request(emitter, { toolCallId: 'old', name: 'exec' }, { peerId: '123' })
+    const actor = { host: 'telegram' as const, peerId: '123' }
+    const oldId = confirmations.snapshot('chat-1').confirmations[0].confirmationId
+    expect(manager.enableTelegramChatAutoApproval(oldId, actor)).toMatchObject({ ok: false, reason: 'not_found' })
+    expect(manager.enableTelegramChatAutoApproval('unknown', actor)).toMatchObject({ ok: false, reason: 'not_found' })
+    const expired = confirmations.request({ ...emitter, submissionId: input.submissionId }, { toolCallId: 'expired', name: 'exec' }, { peerId: '123' })
+    const descriptor = confirmations.snapshot('chat-1').confirmations.at(-1)!
+    const now = vi.spyOn(Date, 'now').mockReturnValue(descriptor.expiresAt)
+    expect(manager.enableTelegramChatAutoApproval(descriptor.confirmationId, actor)).toMatchObject({ ok: false, confirmation: { status: 'expired' } })
+    now.mockRestore()
+    expect(chatDb.updateChat).not.toHaveBeenCalled()
+    expect(setPermissionApprovalModeMock).not.toHaveBeenCalled()
+    confirmations.cancelForSubmission('old-run')
+    await Promise.all([old, expired])
+    deferred.resolve({ assistantMessageId: 1, state: 'completed' })
+    await handle.completion
+  })
+
   it('registers real child approval and status wiring and retains it after normal parent completion', async () => {
     const deferred = createDeferred<{ assistantMessageId: number; state: 'completed' }>()
     runMock.mockReturnValueOnce(deferred.promise)
@@ -157,6 +223,7 @@ describe('RunManager', () => {
   })
 
   beforeEach(() => {
+    vi.mocked(chatDb.updateChat).mockReset()
     emitAcceptedMock.mockReset()
     runMock.mockReset()
     runMock.mockResolvedValue({ assistantMessageId: 1, state: 'completed' })

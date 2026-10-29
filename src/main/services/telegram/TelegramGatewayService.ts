@@ -136,6 +136,8 @@ export class TelegramGatewayService {
     return descriptor.status === 'pending' ? [[
       { text: 'Approve', callback_data: `tgcmd:tool_confirm:approve:${descriptor.confirmationId}` },
       { text: 'Deny', callback_data: `tgcmd:tool_confirm:deny:${descriptor.confirmationId}` }
+    ], [
+      { text: 'Auto for this chat', callback_data: `tgcmd:tool_confirm:auto:${descriptor.confirmationId}` }
     ]] : []
   }
 
@@ -828,15 +830,29 @@ export class TelegramGatewayService {
         return
       }
 
-      if (callback.type === 'tool_confirmation') {
-        const result = this.runService.submitTelegramToolConfirmation(callback.confirmationId, {
-          approved: callback.approved,
-          reason: callback.approved ? undefined : 'denied from telegram'
-        }, {
-          host: 'telegram', peerId: envelope.chatId, threadId: envelope.threadId, userId: envelope.fromUserId
-        })
+      if (callback.type === 'tool_confirmation' || callback.type === 'tool_confirmation_auto') {
+        const actor = {
+          host: 'telegram' as const, peerId: envelope.chatId, threadId: envelope.threadId, userId: envelope.fromUserId
+        }
+        let result: ReturnType<RunService['submitTelegramToolConfirmation']>
+        try {
+          result = callback.type === 'tool_confirmation_auto'
+            ? this.runService.enableTelegramChatAutoApproval(callback.confirmationId, actor)
+            : this.runService.submitTelegramToolConfirmation(callback.confirmationId, {
+              approved: callback.approved,
+              reason: callback.approved ? undefined : 'denied from telegram'
+            }, actor)
+        } catch (error) {
+          this.logger.warn('tool_confirmation.submit_failed', {
+            confirmationId: callback.confirmationId, error: error instanceof Error ? error.message : String(error)
+          })
+          await ctx.answerCallbackQuery({ text: 'Failed to update approval. Please try again.' }).catch(() => undefined)
+          return
+        }
         const descriptor = result.confirmation
-        const text = descriptor
+        const text = result.ok && callback.type === 'tool_confirmation_auto'
+          ? 'Auto approval enabled for this chat.'
+          : descriptor
           ? { pending: 'Pending.', approved: 'Approved.', denied: 'Denied.', expired: 'Approval expired.', cancelled: 'Approval cancelled.' }[descriptor.status]
           : result.ok ? 'Approved.' : result.reason === 'identity_mismatch'
             ? 'This approval belongs to another chat or topic.'

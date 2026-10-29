@@ -18,6 +18,7 @@ export type TelegramCommandCallback =
   | { type: 'models'; page: number }
   | { type: 'tools'; page: number }
   | { type: 'tool_confirmation'; confirmationId: string; approved: boolean }
+  | { type: 'tool_confirmation_auto'; confirmationId: string }
 
 const KNOWN_COMMANDS = new Set<TelegramCommandName>([
   'newchat',
@@ -72,6 +73,9 @@ export const parseTelegramCommandCallback = (value: string): TelegramCommandCall
   if (parts[1] === 'tool_confirm') {
     if (parts.length !== 4 || !parts[3]) {
       return null
+    }
+    if (parts[2] === 'auto') {
+      return { type: 'tool_confirmation_auto', confirmationId: parts[3] }
     }
     if (parts[2] === 'approve') {
       return { type: 'tool_confirmation', confirmationId: parts[3], approved: true }

@@ -1,3 +1,5 @@
+import { CHAT_HOST_EVENTS } from '@shared/chat/host-events'
+import type { ToolConfirmationActor, ToolConfirmationSubmitResult } from '@shared/tools/confirmation'
 import { chatDb } from '@main/db/chat'
 import { resolveTelegramApprovalTargets } from '@main/services/telegram/TelegramApprovalTargets'
 import type { RunOutcome, RunSubmissionOptions } from '../RunSubmissionOptions'
@@ -191,6 +193,29 @@ export class RunManager {
 
   hasActiveRunForChat(chatUuid: string): boolean {
     return this.registry.hasActiveRunForChat(chatUuid)
+  }
+
+  enableTelegramChatAutoApproval(
+    confirmationId: string,
+    actor: Extract<ToolConfirmationActor, { host: 'telegram' }>
+  ): ToolConfirmationSubmitResult {
+    const confirmations = this.deps.toolConfirmationManager
+    const result = confirmations.submitTelegram(confirmationId, { approved: true }, actor, descriptor => {
+      const { submissionId, chatUuid } = descriptor
+      const run = this.registry.get(submissionId)
+      if (!run || run.chatUuid !== chatUuid) return false
+      const chat = chatDb.getChatByUuid(chatUuid)
+      if (!chat?.id) return false
+
+      // Persist before releasing tools; a failed save leaves approval available for retry.
+      const updatedChat = { ...chat, permissionApprovalMode: 'auto' as const, updateTime: Date.now() }
+      chatDb.updateChat(updatedChat)
+      run.setPermissionApprovalMode('auto')
+      run.emitter.emit(CHAT_HOST_EVENTS.CHAT_UPDATED, { chatEntity: updatedChat })
+      return true
+    })
+    if (result.ok) confirmations.approvePendingForSubmission(result.confirmation.submissionId)
+    return result
   }
 
   updateActiveRunPermissionApprovalMode(
