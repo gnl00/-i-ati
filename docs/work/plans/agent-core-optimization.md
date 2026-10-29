@@ -1,6 +1,6 @@
 # Agent core optimization
 
-Status: In progress
+Status: Complete
 
 Scope: optimize the shared runtime without changing provider protocols, persisted formats,
 approval behavior, or host ownership. Existing unrelated working-tree changes are excluded.
@@ -34,7 +34,7 @@ gap explicitly. Performance claims require measurements; algorithmic bounds alon
 
 ## Progress
 
-- Plan recorded; implementation pending.
+- Plan and all six implementation stages are committed; final verification is recorded below.
 
 ### Stage 1 — complete
 
@@ -100,3 +100,40 @@ fallback remains unchanged. Runtime, provider and main-run integration suites:
 35 passed. Node typecheck, main boundary/architecture/doc paths passed. Scoped lint
 has no new errors, including the new provider tests. Full coverage/build and
 isolated Electron acceptance are running as final cross-stage verification.
+
+
+## Final verification
+
+- `pnpm test:coverage`: 384 files passed, 7 skipped; 3058 tests passed, 37 skipped.
+  Overall statements 72.83%, branches 65.62%, functions 67.19%, lines 73.83%.
+- `pnpm build`: both Node/web TypeScript checks and production bundles passed.
+- `pnpm run check:main-boundaries`, `pnpm run test:main-architecture` (8 tests),
+  `pnpm run check:main-doc-paths`: passed during the contract/import stages.
+- `node scripts/verify-cli.mjs`: passed using isolated temporary profile/workspace
+  and a deterministic local provider, in real Electron processes. Covers long
+  streaming output, tools, approval auto/deny, reasoning replay, configured vision,
+  step exhaustion, timeout/SIGINT/SIGTERM, and redaction. Added empty-response recovery:
+  two attempts total 45 tokens; maxSteps=1 makes one request totaling 15 tokens;
+  discarded reasoning is absent from both transcript and persisted messages.
+- `node --check scripts/verify-cli.mjs`, scoped ESLint on the acceptance script,
+  and `git diff --check`: passed. Source lint retains verified pre-existing
+  return-type/any errors and repository-wide Prettier-style warnings; no new lint
+  errors were introduced. Full-repository lint cleanup was outside this task.
+
+The initial sandboxed CLI acceptance could not bind 127.0.0.1 (EPERM); the approved
+local execution completed successfully. Desktop GUI Light/Dark/screenshots, Windows,
+Linux, signed packages and real external-provider/Telegram latency were not tested.
+No provider-speedup percentage is claimed. All commits are local and unpushed.
+The two pre-existing CLI guide edits remain outside the commits.
+
+## Stage commits
+
+| Stage | Commit |
+| --- | --- |
+| Plan | d6eed1b5 |
+| Attempt lifecycle and usage | 58bf2bb4 |
+| Streaming timing indexes | b5b73aa3 |
+| Context cache and trimming | f21e510f |
+| Optional preview delivery | aa5b644a |
+| Tool mapping | 79ffccf0 |
+| Skill refresh ownership | 2fe2a736 |

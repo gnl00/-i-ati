@@ -47,6 +47,7 @@ let requestCount = 0
 let reasoningRequests = []
 let receivedToolNames = []
 let visionRequestCount = 0
+let recoveryRequestCount = 0
 
 /** @type {(response: import('node:http').ServerResponse, payload: object) => void} */
 const writeChunk = (response, payload) => {
@@ -152,6 +153,25 @@ const server = createServer(async (request, response) => {
   }
 
   response.writeHead(200, { 'content-type': 'text/event-stream' })
+
+  if (mode === 'empty-recovery') {
+    recoveryRequestCount += 1
+    if (recoveryRequestCount === 1) {
+      writeChunk(response, {
+        id: 'empty-attempt', object: 'chat.completion.chunk', model: 'local-test',
+        choices: [{ index: 0, delta: { reasoning_content: 'discarded recovery reasoning' }, finish_reason: null }]
+      })
+      writeChunk(response, {
+        id: 'empty-attempt', object: 'chat.completion.chunk', model: 'local-test',
+        choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 }
+      })
+      response.end('data: [DONE]\n\n')
+    } else {
+      sendCompletion(response, 'Recovered answer', { prompt_tokens: 20, completion_tokens: 10, total_tokens: 30 })
+    }
+    return
+  }
 
   if (mode === 'hang') return
 
@@ -456,6 +476,32 @@ try {
   assert.equal(exhaustedResult.status, 'failed')
   assert.match(exhaustedResult.failure.message, /exceeded maxSteps/)
 
+  mode = 'empty-recovery'
+  recoveryRequestCount = 0
+  const recovered = await run('empty-recovery', ['--max-steps', '2'])
+  assert.equal(recovered.code, 0, recovered.stderr)
+  const recoveredResult = await readJson(join(recovered.output, 'result.json'))
+  assert.equal(recoveryRequestCount, 2)
+  assert.equal(recoveredResult.usage.totalTokens, 45)
+  const recoveredTranscript = await readFile(join(recovered.output, 'transcript.json'), 'utf8')
+  assert.ok(recoveredTranscript.includes('Recovered answer'))
+  assert.ok(!recoveredTranscript.includes('discarded recovery reasoning'))
+  const recoveryDb = new DatabaseSync(join(root, 'profile', 'chat.db'))
+  const recoveryMessages = recoveryDb.prepare(
+    'SELECT m.body FROM messages m JOIN chats c ON c.id=m.chat_id WHERE c.uuid=?'
+  ).all(`cli:${recoveredResult.runId}`)
+  assert.ok(recoveryMessages.some(row => row.body.includes('Recovered answer')))
+  assert.ok(recoveryMessages.every(row => !row.body.includes('discarded recovery reasoning')))
+  recoveryDb.close()
+
+  recoveryRequestCount = 0
+  const emptyBudget = await run('empty-budget', ['--max-steps', '1'])
+  assert.equal(emptyBudget.code, 1, emptyBudget.stderr)
+  assert.equal(recoveryRequestCount, 1)
+  const emptyBudgetResult = await readJson(join(emptyBudget.output, 'result.json'))
+  assert.equal(emptyBudgetResult.usage.totalTokens, 15)
+  assert.equal(emptyBudgetResult.failure.code, 'INCOMPLETE_MODEL_RESPONSE')
+
   mode = 'hang'
   const timedOut = await run('timeout', ['--timeout-seconds', '1'])
   assert.equal(timedOut.code, 124, timedOut.stderr)
@@ -493,6 +539,7 @@ try {
       'file tool auto and deny approval',
       'two-round reasoning replay for enabled, disabled, and omitted thinking',
       'step exhaustion',
+      'empty-response recovery usage, persisted draft discard and hard budget',
       'timeout, SIGINT and SIGTERM',
       'provider error redaction'
     ]
