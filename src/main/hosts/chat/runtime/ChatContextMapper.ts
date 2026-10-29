@@ -57,7 +57,7 @@ const stringifyAssistantContent = (content: string | VLMContent[]): string => {
 export const mapChatContext = (input: ChatContextMapperInput): ContextRecord[] => {
   const records: ContextRecord[] = []
   let assistantStepIndex = 0
-  let currentAssistantStepId: string | undefined
+  let currentAssistant: ContextAssistantRecord | undefined
 
   for (const seed of input.messages) {
     const timestamp = seed.createdAt ?? input.now
@@ -77,7 +77,6 @@ export const mapChatContext = (input: ChatContextMapperInput): ContextRecord[] =
 
     if (seed.role === 'assistant') {
       const stepId = input.loopIdentityProvider.nextStepId()
-      currentAssistantStepId = stepId
       const record: ContextAssistantRecord = {
         recordId: input.loopIdentityProvider.nextTranscriptRecordId(),
         kind: 'assistant_step',
@@ -101,26 +100,20 @@ export const mapChatContext = (input: ChatContextMapperInput): ContextRecord[] =
         }
       }
       records.push(record)
+      currentAssistant = record
       assistantStepIndex += 1
       continue
     }
 
-    const matchedToolCall = currentAssistantStepId
-      ? records
-          .slice()
-          .reverse()
-          .find(
-            (record): record is ContextAssistantRecord =>
-              record.kind === 'assistant_step' && record.step.stepId === currentAssistantStepId
-          )
-          ?.step.toolCalls.find((toolCall) => toolCall.id === seed.toolCallId)
-      : undefined
+    const matchedToolCall = currentAssistant?.step.toolCalls.find(
+      (toolCall) => toolCall.id === seed.toolCallId
+    )
 
     const toolRecord: ContextToolResultRecord = {
       recordId: input.loopIdentityProvider.nextTranscriptRecordId(),
       kind: 'tool_result',
       timestamp,
-      stepId: currentAssistantStepId || input.loopIdentityProvider.nextStepId(),
+      stepId: currentAssistant?.step.stepId || input.loopIdentityProvider.nextStepId(),
       toolCallId: seed.toolCallId || input.loopIdentityProvider.nextTranscriptRecordId(),
       toolCallIndex: matchedToolCall?.index ?? 0,
       toolName: seed.name || matchedToolCall?.function.name || 'tool',

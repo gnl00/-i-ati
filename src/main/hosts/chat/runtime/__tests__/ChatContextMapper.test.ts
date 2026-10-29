@@ -315,6 +315,26 @@ describe('mapChatContext', () => {
     })
   })
 
+  it('matches tools to the current assistant and preserves orphan fallback', () => {
+    const tool = (id: string, name: string, index: number): IToolCall => ({
+      id, index, type: 'function', function: { name, arguments: '{}' }
+    })
+    const records = mapChatContext({
+      messages: [
+        { role: 'tool', content: 'orphan', segments: [] },
+        { role: 'assistant', content: '', segments: [], toolCalls: [tool('same', 'read', 2), tool('other', 'exec', 4)] },
+        { role: 'tool', content: 'second', segments: [], toolCallId: 'other' },
+        { role: 'tool', content: 'first', segments: [], toolCallId: 'same' },
+        { role: 'assistant', content: '', segments: [], toolCalls: [tool('same', 'write', 8)] },
+        { role: 'tool', content: 'new batch', segments: [], toolCallId: 'same' }
+      ], now: 20, loopIdentityProvider: createLoopIdentityProvider()
+    })
+    expect(records[0]).toMatchObject({ kind: 'tool_result', toolName: 'tool', toolCallIndex: 0 })
+    expect(records[2]).toMatchObject({ stepId: 'step-2', toolName: 'exec', toolCallIndex: 4 })
+    expect(records[3]).toMatchObject({ stepId: 'step-2', toolName: 'read', toolCallIndex: 2 })
+    expect(records[5]).toMatchObject({ stepId: 'step-3', toolName: 'write', toolCallIndex: 8 })
+  })
+
   it('returns empty records for empty transcript seed', () => {
     const records = mapChatContext({
       messages: [],

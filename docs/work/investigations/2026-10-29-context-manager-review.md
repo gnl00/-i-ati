@@ -131,3 +131,9 @@ applyDeltaToDraft 每个 delta 都克隆整个 toolCalls 数组及调用对象�
 - 历史缺口标记在 run 内保留，避免下一次请求有旧摘要却失去缺口提示。
 - 新增三种失败后的旧摘要保留及后续 prepare 复用测试，以及旧摘要无法容纳的退化测试。
 - ContextManager 测试 16 项通过；改动文件 ESLint --quiet 和 Node 类型检查通过。
+
+### 阶段 4：历史映射
+
+- 使用当前 assistant record 引用，同时移除单独的 currentAssistantStepId 状态；不再对每条工具结果复制、反转完整历史。
+- 保留当前批次内 find 的首匹配语义，不引入新索引或重复 ID 行为改变。
+- ChatContextMapper 测试 7 项通过（含孤立工具、多批次重复 ID、结果乱序）；改动文件 ESLint --quiet 和 Node 类型检查通过。
