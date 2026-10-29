@@ -62,9 +62,6 @@ importers:
       '@radix-ui/react-select':
         specifier: ^2.1.1
         version: 2.2.5(@types/react-dom@19.2.3(@types/react@19.2.9))(@types/react@19.2.9)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@radix-ui/react-separator':
-        specifier: ^1.1.0
-        version: 1.1.7(@types/react-dom@19.2.3(@types/react@19.2.9))(@types/react@19.2.9)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@radix-ui/react-slot':
         specifier: ^1.2.3
         version: 1.2.3(@types/react@19.2.9)(react@19.2.3)
@@ -80,9 +77,6 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: ^1.2.7
         version: 1.2.7(@types/react-dom@19.2.3(@types/react@19.2.9))(@types/react@19.2.9)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@react-spring/web':
-        specifier: ^10.0.3
-        version: 10.0.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@shadcn/react':
         specifier: 0.3.0
         version: 0.3.0(patch_hash=44ae6ce71a6dc2f3ed61dbf07290c04e4289a6badc8158854696cef12ac02d80)(@types/react@19.2.9)(react@19.2.3)
@@ -152,27 +146,12 @@ importers:
       radix-ui:
         specifier: ^1.4.3
         version: 1.4.3(@types/react-dom@19.2.3(@types/react@19.2.9))(@types/react@19.2.9)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      react-animate-height:
-        specifier: ^3.2.3
-        version: 3.2.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       react-markdown:
         specifier: ^9.0.1
         version: 9.1.0(@types/react@19.2.9)(react@19.2.3)
-      react-resizable-layout:
-        specifier: ^0.7.2
-        version: 0.7.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      react-resizable-panels:
-        specifier: ^2.1.7
-        version: 2.1.9(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      react-scroll:
-        specifier: ^1.9.0
-        version: 1.9.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       react-syntax-highlighter:
         specifier: ^15.6.1
         version: 15.6.1(react@19.2.3)
-      react-transition-group:
-        specifier: ^4.4.5
-        version: 4.4.5(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       rehype-katex:
         specifier: ^7.0.1
         version: 7.0.1
@@ -2134,33 +2113,6 @@ packages:
   '@radix-ui/rect@1.1.1':
     resolution: {integrity: sha512-HPwpGIzkl28mWyZqG52jiqDJ12waP11Pa1lGoiyUkIEuMLBP0oeK/C89esbXrxsky5we7dfd8U58nm0SgAWpVw==}
 
-  '@react-spring/animated@10.0.3':
-    resolution: {integrity: sha512-7MrxADV3vaUADn2V9iYhaIL6iOWRx9nCJjYrsk2AHD2kwPr6fg7Pt0v+deX5RnCDmCKNnD6W5fasiyM8D+wzJQ==}
-    peerDependencies:
-      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
-
-  '@react-spring/core@10.0.3':
-    resolution: {integrity: sha512-D4DwNO68oohDf/0HG2G0Uragzb9IA1oXblxrd6MZAcBcUQG2EHUWXewjdECMPLNmQvlYVyyBRH6gPxXM5DX7DQ==}
-    peerDependencies:
-      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
-
-  '@react-spring/rafz@10.0.3':
-    resolution: {integrity: sha512-Ri2/xqt8OnQ2iFKkxKMSF4Nqv0LSWnxXT4jXFzBDsHgeeH/cHxTLupAWUwmV9hAGgmEhBmh5aONtj3J6R/18wg==}
-
-  '@react-spring/shared@10.0.3':
-    resolution: {integrity: sha512-geCal66nrkaQzUVhPkGomylo+Jpd5VPK8tPMEDevQEfNSWAQP15swHm+MCRG4wVQrQlTi9lOzKzpRoTL3CA84Q==}
-    peerDependencies:
-      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
-
-  '@react-spring/types@10.0.3':
-    resolution: {integrity: sha512-H5Ixkd2OuSIgHtxuHLTt7aJYfhMXKXT/rK32HPD/kSrOB6q6ooeiWAXkBy7L8F3ZxdkBb9ini9zP9UwnEFzWgQ==}
-
-  '@react-spring/web@10.0.3':
-    resolution: {integrity: sha512-ndU+kWY81rHsT7gTFtCJ6mrVhaJ6grFmgTnENipzmKqot4HGf5smPNK+cZZJqoGeDsj9ZsiWPW4geT/NyD484A==}
-    peerDependencies:
-      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
-      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
-
   '@rolldown/pluginutils@1.0.0-beta.53':
     resolution: {integrity: sha512-vENRlFU4YbrwVqNDZ7fLvy+JR1CRkyr01jhSiDpE1u6py3OMzQfztQU2jxykW3ALNxO4kSlqIDeYyD0Y9RcQeQ==}
 
@@ -3128,9 +3080,6 @@ packages:
     resolution: {integrity: sha512-AZL67abkUzIuvcHqk7c09cezpGNcxUxU4Ioi/05xHk4DQeTkWmGYftIE6ctU6AEt+Gn4n1lDStOtj7FKycP71A==}
     engines: {node: '>=8'}
 
-  csstype@3.1.3:
-    resolution: {integrity: sha512-M1uQkMl8rQK/szD0LNhtqxIPLpimGm8sOBwU7lLnCpSbTyY3yeU1Vc7l4KT5zT4s/yOxHH5O7tIuuLOCnLADRw==}
-
   csstype@3.2.3:
     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
 
@@ -3248,9 +3197,6 @@ packages:
   doctrine@3.0.0:
     resolution: {integrity: sha512-yS+Q5i3hBf7GBkd4KG8a7eBNNWNGLTaEwwYWUijIYM7zrlYDM0BFXHjjPWlWZ1Rg7UaddZeIDmi9jF3HmqiQ2w==}
     engines: {node: '>=6.0.0'}
-
-  dom-helpers@5.2.1:
-    resolution: {integrity: sha512-nRCa7CK3VTrM2NmGkIy4cbK7IZlgBE/PYMn55rrXefr5xXDP0LdtfPnblFDoVdcAfslJ7or6iqAUnx0CCGIWQA==}
 
   dom-serializer@2.0.0:
     resolution: {integrity: sha512-wIkAryiqt/nV5EQKqQpo3SToSOV9J0DnbJqwK7Wv/Trc92zIAYZ4FlMu+JPFW1DfGFt81ZTCGgDEabffXeLyJg==}
@@ -4321,9 +4267,6 @@ packages:
   lodash.merge@4.6.2:
     resolution: {integrity: sha512-0KpjqXRVvrYyCsX1swR/XTK0va6VQkQM6MNo7PqW77ByjAhoARA8EfrP1N4+KlKj8YS0ZUCtRT/YUuhyYDujIQ==}
 
-  lodash.throttle@4.1.1:
-    resolution: {integrity: sha512-wIkUCfVKpVsWo3JSZlc+8MB5it+2AN5W8J7YVMST30UrvcQNZ1Okbj+rbVniijTWE6FGYy4XJq/rHkas8qJMLQ==}
-
   lodash@4.17.21:
     resolution: {integrity: sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==}
 
@@ -5015,13 +4958,6 @@ packages:
     resolution: {integrity: sha512-y3bGgqKj3QBdxLbLkomlohkvsA8gdAiUQlSBJnBhfn+BPxg4bc62d8TcBW15wavDfgexCgccckhcZvywyQYPOw==}
     hasBin: true
 
-  react-animate-height@3.2.3:
-    resolution: {integrity: sha512-R6DSvr7ud07oeCixScyvXWEMJY/Mt2+GyOWC1KMaRc69gOBw+SsCg4TJmrp4rKUM1hyd6p+YKw90brjPH93Y2A==}
-    engines: {node: '>= 12.0.0'}
-    peerDependencies:
-      react: '>=16.8.0'
-      react-dom: '>=16.8.0'
-
   react-dom@19.2.3:
     resolution: {integrity: sha512-yELu4WmLPw5Mr/lmeEpox5rw3RETacE++JgHqQzd2dg+YbJuat3jH4ingc+WPZhxaoFzdv9y33G+F7Nl5O0GBg==}
     peerDependencies:
@@ -5070,24 +5006,6 @@ packages:
       '@types/react':
         optional: true
 
-  react-resizable-layout@0.7.2:
-    resolution: {integrity: sha512-GrVzAecB6+osdAx5PPP3G8R9n7A2uDd3NL+PyrHWNRaVBivZmW/o0+yFjQdS5Bo016A2fIP11fAhefsknWN4aw==}
-    peerDependencies:
-      react: '>=17.0.0'
-      react-dom: '>=17.0.0'
-
-  react-resizable-panels@2.1.9:
-    resolution: {integrity: sha512-z77+X08YDIrgAes4jl8xhnUu1LNIRp4+E7cv4xHmLOxxUPO/ML7PSrE813b90vj7xvQ1lcf7g2uA9GeMZonjhQ==}
-    peerDependencies:
-      react: ^16.14.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
-      react-dom: ^16.14.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc
-
-  react-scroll@1.9.3:
-    resolution: {integrity: sha512-xv7FXqF3k63aSLNu4/NjFvRNI0ge7DmmmsbeGarP7LZVAlJMSjUuW3dTtLxp1Afijyv0lS2qwC0GiFHvx1KBHQ==}
-    peerDependencies:
-      react: ^15.5.4 || ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
-      react-dom: ^15.5.4 || ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
-
   react-style-singleton@2.2.3:
     resolution: {integrity: sha512-b6jSvxvVnyptAiLjbkWLE/lOnR4lfTtDAl+eUC7RZy+QQWc6wRzIV2CE6xBuMmDxc2qIihtDCZD5NPOFl7fRBQ==}
     engines: {node: '>=10'}
@@ -5102,12 +5020,6 @@ packages:
     resolution: {integrity: sha512-OqJ2/vL7lEeV5zTJyG7kmARppUjiB9h9udl4qHQjjgEos66z00Ia0OckwYfRxCSFrW8RJIBnsBwQsHZbVPspqg==}
     peerDependencies:
       react: '>= 0.14.0'
-
-  react-transition-group@4.4.5:
-    resolution: {integrity: sha512-pZcd1MCJoiKiBR2NRxeCRg13uCXbydPnmB4EOeRrY7480qNWO8IIgQG6zlDkm6uRMsURXPuKq0GWtiM59a5Q6g==}
-    peerDependencies:
-      react: '>=16.6.0'
-      react-dom: '>=16.6.0'
 
   react@19.2.3:
     resolution: {integrity: sha512-Ku/hhYbVjOQnXDZFv2+RibmLFGwFdeeKHFcOTlrt7xplBnya5OGn/hIRDsqDiSUcfORsDC7MPxwork8jBwsIWA==}
@@ -7987,38 +7899,6 @@ snapshots:
 
   '@radix-ui/rect@1.1.1': {}
 
-  '@react-spring/animated@10.0.3(react@19.2.3)':
-    dependencies:
-      '@react-spring/shared': 10.0.3(react@19.2.3)
-      '@react-spring/types': 10.0.3
-      react: 19.2.3
-
-  '@react-spring/core@10.0.3(react@19.2.3)':
-    dependencies:
-      '@react-spring/animated': 10.0.3(react@19.2.3)
-      '@react-spring/shared': 10.0.3(react@19.2.3)
-      '@react-spring/types': 10.0.3
-      react: 19.2.3
-
-  '@react-spring/rafz@10.0.3': {}
-
-  '@react-spring/shared@10.0.3(react@19.2.3)':
-    dependencies:
-      '@react-spring/rafz': 10.0.3
-      '@react-spring/types': 10.0.3
-      react: 19.2.3
-
-  '@react-spring/types@10.0.3': {}
-
-  '@react-spring/web@10.0.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
-    dependencies:
-      '@react-spring/animated': 10.0.3(react@19.2.3)
-      '@react-spring/core': 10.0.3(react@19.2.3)
-      '@react-spring/shared': 10.0.3(react@19.2.3)
-      '@react-spring/types': 10.0.3
-      react: 19.2.3
-      react-dom: 19.2.3(react@19.2.3)
-
   '@rolldown/pluginutils@1.0.0-beta.53': {}
 
   '@rollup/rollup-android-arm-eabi@4.46.2':
@@ -9060,8 +8940,6 @@ snapshots:
       cssom: 0.3.8
     optional: true
 
-  csstype@3.1.3: {}
-
   csstype@3.2.3: {}
 
   data-urls@2.0.0:
@@ -9187,11 +9065,6 @@ snapshots:
   doctrine@3.0.0:
     dependencies:
       esutils: 2.0.3
-
-  dom-helpers@5.2.1:
-    dependencies:
-      '@babel/runtime': 7.27.6
-      csstype: 3.1.3
 
   dom-serializer@2.0.0:
     dependencies:
@@ -10549,8 +10422,6 @@ snapshots:
 
   lodash.merge@4.6.2: {}
 
-  lodash.throttle@4.1.1: {}
-
   lodash@4.17.21: {}
 
   lodash@4.17.23: {}
@@ -11562,11 +11433,6 @@ snapshots:
       minimist: 1.2.8
       strip-json-comments: 2.0.1
 
-  react-animate-height@3.2.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
-    dependencies:
-      react: 19.2.3
-      react-dom: 19.2.3(react@19.2.3)
-
   react-dom@19.2.3(react@19.2.3):
     dependencies:
       react: 19.2.3
@@ -11624,23 +11490,6 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.2.9
 
-  react-resizable-layout@0.7.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
-    dependencies:
-      react: 19.2.3
-      react-dom: 19.2.3(react@19.2.3)
-
-  react-resizable-panels@2.1.9(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
-    dependencies:
-      react: 19.2.3
-      react-dom: 19.2.3(react@19.2.3)
-
-  react-scroll@1.9.3(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
-    dependencies:
-      lodash.throttle: 4.1.1
-      prop-types: 15.8.1
-      react: 19.2.3
-      react-dom: 19.2.3(react@19.2.3)
-
   react-style-singleton@2.2.3(@types/react@19.2.9)(react@19.2.3):
     dependencies:
       get-nonce: 1.0.1
@@ -11658,15 +11507,6 @@ snapshots:
       prismjs: 1.30.0
       react: 19.2.3
       refractor: 3.6.0
-
-  react-transition-group@4.4.5(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
-    dependencies:
-      '@babel/runtime': 7.27.6
-      dom-helpers: 5.2.1
-      loose-envify: 1.4.0
-      prop-types: 15.8.1
-      react: 19.2.3
-      react-dom: 19.2.3(react@19.2.3)
 
   react@19.2.3: {}
 

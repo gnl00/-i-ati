@@ -14,6 +14,5 @@ An upstream benchmark or feature claim is separate from local acceptance evidenc
 - [MCP Hub](mcp-hub.md): external server-management research
 - [Kimi、Pi TUI 源码研究与 ati CLI 演进参考](terminal/kimi-pi-tui-study.md): project-specific terminal research
 
-- [Resizable panels](react-resizable-panels.md): installed v2 layout integration
 - [Speed Highlight](speed-highlight.md): Chat code highlighting
 - [Anthropic tool search](anthropic-tool-search.md): external discovery research

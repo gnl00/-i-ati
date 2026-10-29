@@ -119,12 +119,6 @@ vi.mock('@renderer/shared/lib/utils', () => ({
   cn: (...values: unknown[]) => values.filter(Boolean).join(' ')
 }))
 
-vi.mock('@renderer/shared/components/ui/resizable', () => ({
-  ResizableHandle: () => null,
-  ResizablePanel: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  ResizablePanelGroup: ({ children }: { children: ReactNode }) => <div>{children}</div>
-}))
-
 vi.mock('framer-motion', () => ({
   AnimatePresence: ({ children }: { children: ReactNode }) => <>{children}</>,
   motion: {

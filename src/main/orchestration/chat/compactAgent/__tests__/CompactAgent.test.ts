@@ -20,13 +20,13 @@ vi.mock('@main/logging/LogService', () => ({
   }))
 }))
 
+import { CompactAgent } from '../CompactAgent'
 import {
-  CompactAgent,
   CompactAgentError,
-  redactSensitiveText,
   type CompactAgentConfigStore,
   type CompactAgentModelContextResolver
-} from '..'
+} from '../contracts'
+import { redactSensitiveText } from '@shared/security/SensitiveTextRedactor'
 
 type AgentRunner = (
   name: string,

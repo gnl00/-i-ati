@@ -22,7 +22,7 @@ function childrenToText(children: any) {
 export const markdownCodeComponents = {
   pre(props: any) {
     const { children } = props
-    // Remove pre styling - let CodeWrapper handle all styling
+    // Remove pre styling - let the code renderer handle all styling
     return <div className="not-prose">{children}</div>
   },
 

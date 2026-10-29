@@ -20,7 +20,6 @@ const mocks = vi.hoisted(() => ({
   select: vi.fn(),
   config: vi.fn()
 }))
-vi.mock('../skills/SkillService', () => ({ listAvailableSkills: mocks.list }))
 vi.mock('@renderer/infrastructure/persistence/ChatSkillRepository', () => ({
   getChatSkills: mocks.active
 }))

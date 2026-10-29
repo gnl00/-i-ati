@@ -1,16 +1,20 @@
 # 代码高亮库迁移技术决策文档
 
-**Status:** Proposed<br>
+**Status:** Historical<br>
 **Date:** 2025-12-26<br>
 **Related specs:** [Documentation governance](../specs/documentation-governance.md)<br>
 **Related architecture:** [Speed Highlight](../reference/speed-highlight.md)
 
 **相关文件**:
-- `src/renderer/src/shared/components/markdown/SyntaxHighlighterWrapper.tsx`
+- `src/renderer/src/features/chat/message/markdown/markdown-components.tsx`
 - `src/renderer/src/features/chat/common/SpeedCodeHighlight.tsx`
 - `src/renderer/src/features/chat/message/assistant-message/toolcall/ToolCallResult.tsx`
 
 ---
+
+> 2026-10-29：旧 `SyntaxHighlighterWrapper` 已无生产消费者并被删除。Chat 使用
+> `SpeedCodeHighlight`；Artifacts 仍使用 `react-syntax-highlighter`。下文保留历史评估，
+> 不代表当前组件调用关系。
 
 ## 1. 背景
 

@@ -13,5 +13,4 @@ Current component and interaction documentation. Shared visual rules live in
 - [Smart Welcome Message Stack](smart-welcome-message-stack.md)
 - [Workspace Routing V2 (Per-Request Resolution)](workspace-routing-v2.md)
 
-Library source cards: [Resizable panels](../reference/react-resizable-panels.md),
-[Speed Highlight](../reference/speed-highlight.md).
+Library source card: [Speed Highlight](../reference/speed-highlight.md).
