@@ -12,6 +12,14 @@ type ChatHostBindingRepositoryDeps = {
 export class ChatHostBindingRepository {
   constructor(private readonly deps: ChatHostBindingRepositoryDeps) {}
 
+  getTelegramConversation(botId: string, hostChatId: string, hostThreadId?: string, hostMessageId?: string): string | undefined {
+    return this.requireRepo().getTelegramConversation(botId, hostChatId, hostThreadId, hostMessageId)
+  }
+
+  setTelegramConversation(target: ChatTelegramTargetEntity, hostMessageId?: string): void {
+    this.requireRepo().setTelegramConversation(target, hostMessageId)
+  }
+
   getTelegramTarget(chatUuid: string, botId: string): ChatTelegramTargetEntity | undefined {
     return this.requireRepo().getTelegramTarget(chatUuid, botId)
   }

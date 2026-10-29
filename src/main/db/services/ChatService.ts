@@ -70,6 +70,14 @@ export class ChatService {
     this.requireChatRepository().removeSkill(chatId, skillName)
   }
 
+  getTelegramConversation(botId: string, hostChatId: string, hostThreadId?: string, hostMessageId?: string): string | undefined {
+    return this.requireChatHostBindingRepository().getTelegramConversation(botId, hostChatId, hostThreadId, hostMessageId)
+  }
+
+  setTelegramConversation(target: ChatTelegramTargetEntity, hostMessageId?: string): void {
+    this.requireChatHostBindingRepository().setTelegramConversation(target, hostMessageId)
+  }
+
   getTelegramTarget(chatUuid: string, botId: string): ChatTelegramTargetEntity | undefined {
     return this.requireChatHostBindingRepository().getTelegramTarget(chatUuid, botId)
   }

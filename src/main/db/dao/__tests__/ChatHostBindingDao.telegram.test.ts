@@ -46,6 +46,26 @@ describe('Telegram delivery persistence', () => {
     } finally { db.close() }
   })
 
+  it('persists current and historical conversation routes independently by bot, peer and topic', () => {
+    const db = createDatabase()
+    try {
+      db.exec("INSERT INTO chats (id, uuid, title, create_time, update_time) VALUES (1, 'gold', 'Gold', 1, 1), (2, 'medicine', 'Medicine', 1, 1)")
+      const dao = new ChatHostBindingDao(db as unknown as Database.Database)
+      dao.setTelegramConversation(target(1, 'gold'))
+      dao.setTelegramConversation(target(1, 'gold'), '100')
+      dao.setTelegramConversation(target(2, 'medicine'))
+      const reloaded = new ChatHostBindingDao(db as unknown as Database.Database)
+      expect(reloaded.getTelegramConversation('bot', 'peer', 'topic')).toBe('medicine')
+      expect(reloaded.getTelegramConversation('bot', 'peer', 'topic', '100')).toBe('gold')
+      expect(reloaded.getTelegramConversation('other-bot', 'peer', 'topic')).toBeUndefined()
+      expect(reloaded.getTelegramConversation('bot', 'other-peer', 'topic')).toBeUndefined()
+      expect(reloaded.getTelegramConversation('bot', 'peer')).toBeUndefined()
+      db.exec('DELETE FROM chats WHERE id = 2')
+      expect(reloaded.getTelegramConversation('bot', 'peer', 'topic')).toBeUndefined()
+      expect(reloaded.getTelegramConversation('bot', 'peer', 'topic', '100')).toBe('gold')
+    } finally { db.close() }
+  })
+
   it('scopes reply receipts by bot, peer, topic and message, and cascades source deletion', () => {
     const db = createDatabase()
     try {

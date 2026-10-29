@@ -147,6 +147,14 @@ class DatabaseService {
     this.requireChatService().addSkill(chatId, skillName)
   }
 
+  getTelegramConversation(botId: string, hostChatId: string, hostThreadId?: string, hostMessageId?: string): string | undefined {
+    return this.requireChatService().getTelegramConversation(botId, hostChatId, hostThreadId, hostMessageId)
+  }
+
+  setTelegramConversation(target: ChatTelegramTargetEntity, hostMessageId?: string): void {
+    this.requireChatService().setTelegramConversation(target, hostMessageId)
+  }
+
   getTelegramTarget(chatUuid: string, botId: string): ChatTelegramTargetEntity | undefined {
     return this.requireChatService().getTelegramTarget(chatUuid, botId)
   }

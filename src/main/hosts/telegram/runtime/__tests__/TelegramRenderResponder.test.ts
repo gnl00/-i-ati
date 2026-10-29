@@ -146,6 +146,7 @@ const toolExecutionStarted = (args: {
 })
 
 const createResponder = (args: {
+  onTextDelivered?: (ids: number[]) => void
   sendMessage?: ReturnType<typeof vi.fn>
   editMessageText?: ReturnType<typeof vi.fn>
   messageId?: string
@@ -162,6 +163,7 @@ const createResponder = (args: {
     sendMessage,
     editMessageText,
     responder: new TelegramRenderResponder({
+      onTextDelivered: args.onTextDelivered,
       bot: {
         api: {
           sendMessage,
@@ -203,6 +205,27 @@ describe('TelegramRenderResponder', () => {
 
     await vi.advanceTimersByTimeAsync(400)
     expect(editMessageText).toHaveBeenCalledWith(123, 77, 'Hello', {})
+  })
+
+  it('records new text deliveries once and leaves the current conversation unchanged on edits', async () => {
+    const onTextDelivered = vi.fn()
+    const { responder } = createResponder({ onTextDelivered })
+    await responder.handle(previewUpdated(createState({ text: 'Hello' })))
+    expect(onTextDelivered).toHaveBeenCalledWith([77])
+    await responder.handle(committedUpdated(createState({ text: 'Hello again' })))
+    expect(onTextDelivered).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not record failed sends or resend when route persistence fails', async () => {
+    const onTextDelivered = vi.fn(() => { throw new Error('disk full') })
+    const failed = createResponder({ onTextDelivered, sendMessage: vi.fn().mockRejectedValue(new Error('network')) })
+    await failed.responder.handle(committedUpdated(createState({ text: 'Hello' })))
+    expect(onTextDelivered).not.toHaveBeenCalled()
+    const sent = createResponder({ onTextDelivered })
+    await sent.responder.handle(committedUpdated(createState({ text: 'Hello' })))
+    await sent.responder.handle(committedUpdated(createState({ text: 'Hello' })))
+    expect(sent.sendMessage).toHaveBeenCalledTimes(1)
+    expect(onTextDelivered).toHaveBeenCalledTimes(1)
   })
 
   it('final committed text reuses the preview message by stable segment id', async () => {

@@ -35,7 +35,8 @@ const {
   updateChatHostBindingLastMessageMock,
   getTelegramTargetMock,
   saveTelegramTargetMock,
-  saveTelegramReceiptMock
+  saveTelegramReceiptMock,
+  setTelegramConversationMock
 } = vi.hoisted(() => ({
   getAllChatsMock: vi.fn(),
   getChatHostBindingsByChatUuidMock: vi.fn(),
@@ -45,6 +46,7 @@ const {
   getTelegramTargetMock: vi.fn(),
   saveTelegramTargetMock: vi.fn(),
   saveTelegramReceiptMock: vi.fn(),
+  setTelegramConversationMock: vi.fn(),
   updateChatHostBindingLastMessageMock: vi.fn()
 }))
 
@@ -71,6 +73,7 @@ vi.mock('@main/db/DatabaseService', () => ({
     getTelegramTarget: getTelegramTargetMock,
     saveTelegramTarget: saveTelegramTargetMock,
     saveTelegramReceipt: saveTelegramReceiptMock,
+    setTelegramConversation: setTelegramConversationMock,
     getAllChats: getAllChatsMock,
     getChatHostBindingsByChatUuid: getChatHostBindingsByChatUuidMock,
     saveMessage: saveMessageMock,
@@ -373,14 +376,28 @@ describe('TelegramToolsProcessor', () => {
     getChatHostBindingsByChatUuidMock.mockImplementation((uuid: string) => uuid === 'gold' ? [binding] : [])
   }
 
-  it('records a cross-chat send in its source and associates the recipient without rebinding inbound', async () => {
+  it('records a cross-chat send in its source and advances the default conversation after delivery', async () => {
     setupCrossChat()
     const result = await processTelegramSendMessage({ text: 'reminder', chat_uuid: 'medicine', target_chat_uuid: 'gold' })
     expect(saveMessageMock).toHaveBeenCalledWith(expect.objectContaining({ chatId: 2, chatUuid: 'medicine', body: expect.objectContaining({ content: 'reminder', source: 'telegram_delivery' }) }))
     expect(result).toMatchObject({ success: true, sourceChatUuid: 'medicine', deliveryRecorded: true })
     expect(saveTelegramTargetMock).toHaveBeenCalledWith(expect.objectContaining({ chatId: 2, chatUuid: 'medicine', hostChatId: '1001', botId: '123' }))
     expect(updateChatMock).toHaveBeenCalledWith(expect.objectContaining({ uuid: 'medicine', messages: [10, 77] }))
+    expect(setTelegramConversationMock).toHaveBeenCalledWith(expect.objectContaining({ botId: '123', hostChatId: '1001', chatUuid: 'medicine' }), undefined)
+    expect(setTelegramConversationMock).toHaveBeenCalledWith(expect.objectContaining({ chatUuid: 'medicine' }), '9001')
+    expect(setTelegramConversationMock.mock.invocationCallOrder[0]).toBeGreaterThan(sendTextMock.mock.invocationCallOrder[0])
     expect(updateChatHostBindingLastMessageMock).not.toHaveBeenCalled()
+  })
+
+  it('does not advance the conversation while delivery is pending', async () => {
+    setupCrossChat()
+    let finish!: (result: unknown) => void
+    sendTextMock.mockReturnValue(new Promise(resolve => { finish = resolve }))
+    const sending = processTelegramSendMessage({ text: 'reminder', chat_uuid: 'medicine' })
+    expect(setTelegramConversationMock).not.toHaveBeenCalled()
+    finish({ ok: true, messageId: '9001' })
+    await sending
+    expect(setTelegramConversationMock).toHaveBeenCalled()
   })
 
   it('reuses the saved delivery target for a chat without an inbound binding', async () => {
@@ -439,6 +456,7 @@ describe('TelegramToolsProcessor', () => {
     expect((await processTelegramSendMessage({ text: 'failed', chat_uuid: 'medicine' })).success).toBe(false)
     expect(saveMessageMock).not.toHaveBeenCalled()
     expect(saveTelegramReceiptMock).not.toHaveBeenCalled()
+    expect(setTelegramConversationMock).not.toHaveBeenCalled()
   })
 
   it('reports sent success separately when local receipt persistence fails', async () => {

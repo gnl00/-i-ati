@@ -40,6 +40,7 @@ type TelegramRenderResponderArgs = {
   toolMessages?: TelegramToolMessages
   submissionId?: string
   envelope: TelegramInboundEnvelope
+  onTextDelivered?: (messageIds: number[]) => void
   logger?: {
     info?: (event: string, payload?: Record<string, unknown>) => void
     warn?: (event: string, payload?: Record<string, unknown>) => void
@@ -52,6 +53,7 @@ export class TelegramRenderResponder implements HostRenderEventSink {
   private readonly submissionId: string
   private readonly bot: Bot
   private readonly envelope: TelegramInboundEnvelope
+  private readonly onTextDelivered?: TelegramRenderResponderArgs['onTextDelivered']
   private readonly logger?: TelegramRenderResponderArgs['logger']
   private readonly policy = new HostStepOutputPolicy()
   private readonly segments = new AgentRenderSegmentMapper({ policy: this.policy })
@@ -75,6 +77,7 @@ export class TelegramRenderResponder implements HostRenderEventSink {
     this.bot = args.bot
     this.envelope = args.envelope
     this.logger = args.logger
+    this.onTextDelivered = args.onTextDelivered
     this.draftAbort.signal.addEventListener('abort', (): void => this.draftApiAbort.abort(), { once: true })
   }
 
@@ -329,6 +332,7 @@ export class TelegramRenderResponder implements HostRenderEventSink {
 
   private async deliverText(entry: SentTelegramMessage, text: string): Promise<void> {
     if (entry.deliveryFailed) return
+    const previousCount = entry.messages.length
     try {
       await deliverTelegramText(this.bot, {
         chatId: this.envelope.chatId, threadId: this.envelope.threadId, replyToMessageId: this.envelope.messageId
@@ -340,6 +344,9 @@ export class TelegramRenderResponder implements HostRenderEventSink {
       entry.deliveryFailed = true
       entry.draftText = undefined
       throw error
+    } finally {
+      const delivered = entry.messages.slice(previousCount)
+      if (delivered.length) this.onTextDelivered?.(delivered.map(message => message.messageId))
     }
   }
 

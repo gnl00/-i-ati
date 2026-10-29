@@ -6,7 +6,8 @@ import type { TelegramCommand } from '../telegram-command-parser'
 
 vi.mock('@main/db/DatabaseService', () => ({
   default: {
-    updateChat: vi.fn()
+    updateChat: vi.fn(),
+    setTelegramConversation: vi.fn()
   }
 }))
 
@@ -138,7 +139,8 @@ const createService = (
     new ChatModelContextResolver(),
     adapter as any,
     hostChatBindingService as any,
-    runService as any
+    runService as any,
+    () => 'bot'
   )
 }
 
@@ -177,6 +179,7 @@ describe('TelegramCommandService', () => {
       raw: '/newchat'
     })
 
+    expect(DatabaseService.setTelegramConversation).toHaveBeenCalledWith(expect.objectContaining({ botId: 'bot', hostChatId: '100', chatUuid: 'chat-uuid' }), undefined)
     expect(hostChatBindingService.createAndBind).toHaveBeenCalledWith(expect.objectContaining({
       hostType: 'telegram',
       hostChatId: envelope.chatId,

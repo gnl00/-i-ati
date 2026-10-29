@@ -21,6 +21,10 @@ export const chatDb = {
   getSkills: (chatId: number): string[] => DatabaseService.getSkills(chatId),
   addSkill: (chatId: number, skillName: string): void => DatabaseService.addSkill(chatId, skillName),
   removeSkill: (chatId: number, skillName: string): void => DatabaseService.removeSkill(chatId, skillName),
+  getTelegramConversation: (botId: string, hostChatId: string, hostThreadId?: string, hostMessageId?: string): string | undefined =>
+    DatabaseService.getTelegramConversation(botId, hostChatId, hostThreadId, hostMessageId),
+  setTelegramConversation: (target: ChatTelegramTargetEntity, hostMessageId?: string): void =>
+    DatabaseService.setTelegramConversation(target, hostMessageId),
   getTelegramTarget: (chatUuid: string, botId: string): ChatTelegramTargetEntity | undefined =>
     DatabaseService.getTelegramTarget(chatUuid, botId),
   saveTelegramTarget: (target: ChatTelegramTargetEntity): void =>

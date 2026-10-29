@@ -417,11 +417,15 @@ Proactive Telegram delivery keeps its receipt and transcript copy in the source
 chat. `chat_telegram_targets` stores each chat's outbound recipient separately
 from `chat_host_bindings`, which continues to route ordinary inbound messages.
 `telegram_delivery_receipts` maps a bot/peer/topic/message tuple back to the
-source message, allowing replies to a proactive push to select its source chat
-without rebinding the ordinary inbound session. Persistence remains behind
+source message. `telegram_conversation_routes` stores the current conversation and
+new text-message origins by bot/peer/topic; delivery and explicit replies advance
+the current conversation. Commands resolve that same cursor; `/newchat` replaces it.
+Existing host bindings remain the fallback and recipient discovery source. Persistence remains behind
 `db/chat.ts`; transport handling remains in the Telegram tool and host adapter.
 See [ADR 0032](../decisions/0032-telegram-delivery-source-routing.md) for resolution
 order, ambiguity handling, failure semantics, and compatibility.
+[ADR 0055](../decisions/0055-telegram-current-conversation.md) supersedes its
+one-run reply routing rule.
 
 
 ### Telegram rich output and generation cancellation

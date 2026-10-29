@@ -46,7 +46,8 @@ export class TelegramCommandService {
     private readonly modelResolver = new ChatModelContextResolver(),
     private readonly adapter = new TelegramAgentAdapter(),
     private readonly hostChatBindingService = new HostChatBindingService(),
-    private readonly runService = new RunService()
+    private readonly runService = new RunService(),
+    private readonly getBotId: () => string | undefined = () => undefined
   ) {}
 
   registerActiveSubmission(chatKey: string, submissionId: string): void {
@@ -116,6 +117,8 @@ export class TelegramCommandService {
       }
     })
 
+    const botId = this.getBotId()
+    if (botId) chatDb.setTelegramConversation({ botId, hostChatId: envelope.chatId, hostThreadId: envelope.threadId, chatId: created.chat.id!, chatUuid: created.chat.uuid })
     const modelLabel = this.resolveModelLabel(mainModelRef) ?? mainModelRef.modelId
 
     return { text: [
@@ -130,7 +133,7 @@ export class TelegramCommandService {
     mainModelRef: ModelRef,
     page: number
   ): Promise<TelegramCommandResponse> {
-    const { chat } = await this.adapter.resolveOrCreateSession(envelope, mainModelRef)
+    const { chat } = await this.adapter.resolveOrCreateSession({ ...envelope, replyToBot: false }, mainModelRef, this.getBotId())
     const models = this.getAvailableModels()
 
     if (models.length === 0) {
@@ -176,7 +179,7 @@ export class TelegramCommandService {
     envelope: TelegramInboundEnvelope,
     mainModelRef: ModelRef
   ): Promise<TelegramCommandResponse> {
-    const { chat } = await this.adapter.resolveOrCreateSession(envelope, mainModelRef)
+    const { chat } = await this.adapter.resolveOrCreateSession({ ...envelope, replyToBot: false }, mainModelRef, this.getBotId())
 
     if (!args.trim()) {
       const currentLabel = chat.modelRef
@@ -284,7 +287,7 @@ export class TelegramCommandService {
     envelope: TelegramInboundEnvelope,
     mainModelRef: ModelRef
   ): Promise<TelegramCommandResponse> {
-    const { chat } = await this.adapter.resolveOrCreateSession(envelope, mainModelRef)
+    const { chat } = await this.adapter.resolveOrCreateSession({ ...envelope, replyToBot: false }, mainModelRef, this.getBotId())
     const workspacePath = chat.workspacePath ?? getDefaultWorkspacePath(chat.uuid)
     return { text: `Current workspace: ${workspacePath}` }
   }
@@ -311,7 +314,7 @@ export class TelegramCommandService {
       return { text: `Path does not exist: ${inputPath}` }
     }
 
-    const { chat } = await this.adapter.resolveOrCreateSession(envelope, mainModelRef)
+    const { chat } = await this.adapter.resolveOrCreateSession({ ...envelope, replyToBot: false }, mainModelRef, this.getBotId())
     chatDb.updateChat({ ...chat, workspacePath: inputPath, updateTime: Date.now() })
 
     return { text: `Workspace updated.\nPath: ${inputPath}` }
@@ -321,14 +324,14 @@ export class TelegramCommandService {
     envelope: TelegramInboundEnvelope,
     mainModelRef: ModelRef
   ): Promise<TelegramCommandResponse> {
-    const { chat } = await this.adapter.resolveOrCreateSession(envelope, mainModelRef)
+    const { chat } = await this.adapter.resolveOrCreateSession({ ...envelope, replyToBot: false }, mainModelRef, this.getBotId())
     const defaultPath = getDefaultWorkspacePath(chat.uuid)
     chatDb.updateChat({ ...chat, workspacePath: defaultPath, updateTime: Date.now() })
     return { text: `Workspace reset to default.\nPath: ${defaultPath}` }
   }
 
   private async handleStatus(envelope: TelegramInboundEnvelope, mainModelRef: ModelRef): Promise<TelegramCommandResponse> {
-    const { chat, binding } = await this.adapter.resolveOrCreateSession(envelope, mainModelRef)
+    const { chat } = await this.adapter.resolveOrCreateSession({ ...envelope, replyToBot: false }, mainModelRef, this.getBotId())
     const currentModel = chat.modelRef ? this.findModelByRef(chat.modelRef, this.getAvailableModels()) : undefined
     const modelLabel = chat.modelRef
       ? (this.resolveModelLabel(chat.modelRef) ?? chat.modelRef.modelId)
@@ -344,7 +347,7 @@ export class TelegramCommandService {
         `Account: ${currentModel.account.label}`,
         `Command: ${this.buildModelSwitchCommand(currentModel)}`
       ] : []),
-      `Binding: ${binding.hostType}:${binding.hostChatId}${binding.hostThreadId ? `:${binding.hostThreadId}` : ''}`
+      `Binding: telegram:${envelope.chatId}${envelope.threadId ? `:${envelope.threadId}` : ''}`
     ].join('\n') }
   }
 

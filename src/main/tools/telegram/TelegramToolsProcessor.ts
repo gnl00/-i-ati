@@ -542,7 +542,7 @@ export async function processTelegramSendMessage(
   let sentMessageIds: string[] | undefined
   let partial = false
   try {
-    // Associate before sending, without changing the inbound binding.
+    // Save the recipient before sending; advance the conversation only after delivery.
     chatDb.saveTelegramTarget(association)
     const result = await telegramGatewayService.sendText({
       chatId: target.telegramChatId,
@@ -569,6 +569,8 @@ export async function processTelegramSendMessage(
   let deliveryMessageId: number | undefined
   let deliveryRecorded = true
   try {
+    chatDb.setTelegramConversation(association)
+    for (const id of sentMessageIds ?? (sentMessageId ? [sentMessageId] : [])) chatDb.setTelegramConversation(association, id)
     deliveryMessageId = persistTelegramOutboundMessage({ target, source, association, text, sentMessageId, sentMessageIds, partial, replyToMessageId })
   } catch {
     deliveryRecorded = false

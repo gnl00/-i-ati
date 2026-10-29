@@ -288,6 +288,16 @@ class AppDatabase {
         target_json TEXT NOT NULL,
         FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
       );
+      CREATE TABLE IF NOT EXISTS telegram_conversation_routes (
+        bot_id TEXT NOT NULL,
+        host_chat_id TEXT NOT NULL,
+        host_thread_id TEXT NOT NULL DEFAULT '',
+        host_message_id TEXT NOT NULL DEFAULT '',
+        chat_id INTEGER NOT NULL,
+        chat_uuid TEXT NOT NULL,
+        PRIMARY KEY (bot_id, host_chat_id, host_thread_id, host_message_id),
+        FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
+      );
       CREATE TABLE IF NOT EXISTS telegram_delivery_receipts (
         bot_id TEXT NOT NULL,
         host_chat_id TEXT NOT NULL,

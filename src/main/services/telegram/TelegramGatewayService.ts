@@ -30,7 +30,7 @@ export class TelegramGatewayService {
   private readonly runService = new RunService()
   private readonly fileService = new TelegramFileService()
   private readonly commandService = new TelegramCommandService(
-    undefined, undefined, undefined, undefined, this.runService
+    undefined, undefined, undefined, undefined, this.runService, (): string | undefined => this.botId
   )
   private bot: Bot | null = null
   private running = false
@@ -462,7 +462,8 @@ export class TelegramGatewayService {
       return
     }
 
-    const { chat, binding, created } = await this.adapter.resolveOrCreateSession(envelope, mainModelRef, this.botId)
+    const runBotId = this.botId
+    const { chat, binding, created } = await this.adapter.resolveOrCreateSession(envelope, mainModelRef, runBotId)
     const chatModelRef = this.resolveModelRefForChat(chat, mainModelRef)
     const attachmentContext = this.bot
       ? await this.fileService.buildAttachmentContext(this.bot, envelope)
@@ -498,7 +499,13 @@ export class TelegramGatewayService {
         toolMessages: this.toolMessages,
         submissionId: input.submissionId,
         envelope,
-        logger: this.logger
+        logger: this.logger,
+        onTextDelivered: (messageIds): void => {
+          if (!runBotId) return
+          const target = { botId: runBotId, hostChatId: envelope.chatId, hostThreadId: envelope.threadId, chatId: chat.id!, chatUuid: chat.uuid }
+          for (const id of messageIds) chatDb.setTelegramConversation(target, String(id))
+          chatDb.setTelegramConversation(target)
+        }
       })
       : null
 

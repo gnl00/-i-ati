@@ -23,14 +23,19 @@ export class TelegramAgentAdapter {
     botId?: string
   ): Promise<{ chat: ChatEntity; binding?: ChatHostBindingEntity; created: boolean }> {
     if (botId && envelope.replyToBot && envelope.replyToMessageId) {
-      const chatUuid = chatDb.getTelegramReplyChat(
+      const chatUuid = chatDb.getTelegramConversation(botId, envelope.chatId, envelope.threadId, envelope.replyToMessageId) ?? chatDb.getTelegramReplyChat(
         botId, envelope.chatId, envelope.replyToMessageId, envelope.threadId
       )
       const chat = chatUuid ? chatDb.getChatByUuid(chatUuid) : undefined
       if (chat) {
-        // A reply selects its source chat for this run only; ordinary inbound routing stays unchanged.
+        chatDb.setTelegramConversation({ botId, hostChatId: envelope.chatId, hostThreadId: envelope.threadId, chatId: chat.id!, chatUuid: chat.uuid })
         return { chat, created: false }
       }
+    }
+    if (botId) {
+      const chatUuid = chatDb.getTelegramConversation(botId, envelope.chatId, envelope.threadId)
+      const chat = chatUuid ? chatDb.getChatByUuid(chatUuid) : undefined
+      if (chat) return { chat, created: false }
     }
     const result = await this.hostChatBindingService.resolveOrCreate({
       hostType: 'telegram',
@@ -46,6 +51,9 @@ export class TelegramAgentAdapter {
       }
     })
 
+    if (botId) {
+      chatDb.setTelegramConversation({ botId, hostChatId: envelope.chatId, hostThreadId: envelope.threadId, chatId: result.chat.id!, chatUuid: result.chat.uuid })
+    }
     return {
       chat: result.chat,
       binding: result.binding,

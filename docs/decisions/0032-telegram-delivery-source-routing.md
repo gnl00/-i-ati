@@ -1,6 +1,6 @@
 # ADR 0032: Telegram 推送归属与入站绑定分离
 
-状态：已采纳
+状态：已采纳；入站上下文规则由 [ADR 0055](0055-telegram-current-conversation.md) 更新
 
 ## 背景
 

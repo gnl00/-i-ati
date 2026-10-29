@@ -23,6 +23,8 @@ class ChatHostBindingDao {
     updateBindingById: Database.Statement
     updateLastHostMessageId: Database.Statement
     updateStatus: Database.Statement
+    getTelegramConversation: Database.Statement
+    setTelegramConversation: Database.Statement
     getTelegramTarget: Database.Statement
     saveTelegramTarget: Database.Statement
     saveTelegramReceipt: Database.Statement
@@ -31,6 +33,17 @@ class ChatHostBindingDao {
 
   constructor(db: Database.Database) {
     this.stmts = {
+      getTelegramConversation: db.prepare(`
+        SELECT chat_uuid FROM telegram_conversation_routes
+        WHERE bot_id = ? AND host_chat_id = ? AND host_thread_id = ? AND host_message_id = ?
+      `),
+      setTelegramConversation: db.prepare(`
+        INSERT INTO telegram_conversation_routes
+          (bot_id, host_chat_id, host_thread_id, host_message_id, chat_id, chat_uuid)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(bot_id, host_chat_id, host_thread_id, host_message_id)
+        DO UPDATE SET chat_id = excluded.chat_id, chat_uuid = excluded.chat_uuid
+      `),
       getTelegramTarget: db.prepare(`
         SELECT target_json FROM chat_telegram_targets WHERE chat_uuid = ? AND bot_id = ?
       `),
@@ -93,6 +106,15 @@ class ChatHostBindingDao {
         WHERE id = ?
       `)
     }
+  }
+
+  getTelegramConversation(botId: string, hostChatId: string, hostThreadId?: string, hostMessageId = ''): string | undefined {
+    const row = this.stmts.getTelegramConversation.get(botId, hostChatId, hostThreadId ?? '', hostMessageId) as { chat_uuid: string } | undefined
+    return row?.chat_uuid
+  }
+
+  setTelegramConversation(target: ChatTelegramTargetEntity, hostMessageId = ''): void {
+    this.stmts.setTelegramConversation.run(target.botId, target.hostChatId, target.hostThreadId ?? '', hostMessageId, target.chatId, target.chatUuid)
   }
 
   getTelegramTarget(chatUuid: string, botId: string): ChatTelegramTargetEntity | undefined {

@@ -88,3 +88,5 @@ Use sequential names such as `0001-chat-runtime-host-boundary.md`.
 - [0053: Unified CLI run orchestration](0053-unified-cli-run-orchestration.md) - Accepted
 
 - [0054: MCP enablement and nonblocking TUI startup](0054-mcp-enablement-and-tui-startup.md) - Accepted
+
+- [0055: Telegram current conversation](0055-telegram-current-conversation.md) - Accepted
