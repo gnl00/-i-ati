@@ -15,7 +15,6 @@ import type { RuntimeInfrastructure } from './RuntimeInfrastructure'
 import type { AgentEventBus } from './events/AgentEventBus'
 import type { AgentEventEmitter } from './events/AgentEventEmitter'
 import type { AgentStepMaterializer } from './step/AgentStepMaterializer'
-import type { ReadyToolCallMaterializer } from './tools/ReadyToolCallMaterializer'
 import type { ToolBatchAssembler } from './tools/ToolBatchAssembler'
 import type { ToolExecutorDispatcher } from './tools/ToolExecutorDispatcher'
 import type { DefaultToolExecutorDispatcherOptions } from './tools/ToolExecutorDispatcher'
@@ -27,7 +26,6 @@ import type { SteeringMessageSource } from './steering/SteeringMessageSource'
 import { DefaultAgentEventBus } from './events/AgentEventBus'
 import { DefaultAgentEventEmitter } from './events/AgentEventEmitter'
 import { DefaultAgentStepMaterializer } from './step/AgentStepMaterializer'
-import { DefaultReadyToolCallMaterializer } from './tools/ReadyToolCallMaterializer'
 import { DefaultToolBatchAssembler } from './tools/ToolBatchAssembler'
 import { DefaultToolExecutorDispatcher } from './tools/ToolExecutorDispatcher'
 import { DefaultExecutableRequestAdapter } from './model/ExecutableRequestAdapter'
@@ -49,7 +47,6 @@ export interface DefaultAgentLoopDependenciesFactoryOptions {
   executableRequestAdapter?: ExecutableRequestAdapter
   modelStreamExecutor?: ModelStreamExecutor
   modelResponseParser?: ModelResponseParser
-  readyToolCallMaterializer?: ReadyToolCallMaterializer
   toolBatchAssembler?: ToolBatchAssembler
   toolExecutorDispatcher?: ToolExecutorDispatcher
   toolResultNormalizer?: ToolResultNormalizer
@@ -88,8 +85,6 @@ export class DefaultAgentLoopDependenciesFactory implements AgentLoopDependencie
       modelResponseParser:
         this.options.modelResponseParser ??
         new DefaultModelResponseParser(runtimeInfrastructure.runtimeClock),
-      readyToolCallMaterializer:
-        this.options.readyToolCallMaterializer ?? new DefaultReadyToolCallMaterializer(),
       toolBatchAssembler:
         this.options.toolBatchAssembler ??
         new DefaultToolBatchAssembler(runtimeInfrastructure.loopIdentityProvider),

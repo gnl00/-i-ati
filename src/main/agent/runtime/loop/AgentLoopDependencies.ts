@@ -13,7 +13,6 @@ import type { ContextCompressionInput } from '../context/ContextCompactor'
 import type { ToolResultNormalizer } from '../tools/result-normalization'
 import type { AgentEventEmitter } from '../events/AgentEventEmitter'
 import type { AgentStepMaterializer } from '../step/AgentStepMaterializer'
-import type { ReadyToolCallMaterializer } from '../tools/ReadyToolCallMaterializer'
 import type { ToolBatchAssembler } from '../tools/ToolBatchAssembler'
 import type { ToolExecutorDispatcher } from '../tools/ToolExecutorDispatcher'
 import type { ExecutableRequestAdapter } from '../model/ExecutableRequestAdapter'
@@ -33,7 +32,6 @@ export interface AgentLoopDependencies {
   executableRequestAdapter: ExecutableRequestAdapter
   modelStreamExecutor: ModelStreamExecutor
   modelResponseParser: ModelResponseParser
-  readyToolCallMaterializer: ReadyToolCallMaterializer
   toolBatchAssembler: ToolBatchAssembler
   toolExecutorDispatcher: ToolExecutorDispatcher
   loadedSkillsTranscriptContextProvider?: LoadedSkillsTranscriptContextProvider

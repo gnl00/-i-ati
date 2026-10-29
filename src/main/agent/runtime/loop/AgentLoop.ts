@@ -1,3 +1,4 @@
+import { toReadyToolCall } from '../tools/ReadyToolCall'
 import { createAssistantContextRecord, createToolContextRecord } from '../context/ContextRecords'
 /**
  * AgentLoop
@@ -456,12 +457,7 @@ export class DefaultAgentLoop implements AgentLoop {
         })
       }
 
-      const readyToolCalls = collectReadyToolCallFacts(step, toolTiming).map((fact) =>
-        dependencies.readyToolCallMaterializer.materialize({
-          stepId: step.stepId,
-          fact
-        })
-      )
+      const readyToolCalls = collectReadyToolCallFacts(step, toolTiming).map(toReadyToolCall)
       const batchCreatedAt = dependencies.runtimeClock.now()
       const batch = dependencies.toolBatchAssembler.assemble({
         stepId: step.stepId,

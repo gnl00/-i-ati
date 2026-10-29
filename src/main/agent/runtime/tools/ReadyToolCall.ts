@@ -1,3 +1,5 @@
+import type { ToolCallReadyFact } from './ToolCallReadyFact'
+
 /**
  * ReadyToolCall
  *
@@ -16,3 +18,11 @@ export interface ReadyToolCall {
   arguments: string
   startedAt?: number
 }
+
+export const toReadyToolCall = (fact: ToolCallReadyFact): ReadyToolCall => ({
+  toolCallId: fact.toolCall.id,
+  index: fact.toolCall.index ?? 0,
+  name: fact.toolCall.function.name,
+  arguments: fact.toolCall.function.arguments,
+  ...(fact.startedAt !== undefined ? { startedAt: fact.startedAt } : {})
+})

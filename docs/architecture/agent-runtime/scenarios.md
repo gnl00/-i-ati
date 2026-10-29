@@ -8,7 +8,7 @@ Loop 创建 ContextManager，调用 prepare，再经 ExecutableRequestAdapter、
 
 ## 工具续接
 
-Loop 解析完整调用，ReadyToolCallMaterializer / ToolBatchAssembler 构成 batch。
+Loop 解析完整调用，toReadyToolCall() / ToolBatchAssembler 构成 batch。
 结果经过统一 normalizer，追加完整 modelContent；技能变化与 steering 追加为显式 context records。
 下一次 prepare 检查同 step、同 ID 的一对一配对，保护整个未消费 batch。
 成功返回下一 AgentStep 才消费旧 batch。先前已消费的步骤进入可压缩历史。

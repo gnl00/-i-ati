@@ -62,11 +62,9 @@ Documentation: [Agent runtime](../README.md)
 - [ToolBatch.ts](../../../../src/main/agent/runtime/tools/ToolBatch.ts)
   - 同一 step 内待执行的 tool 集合
 - [ReadyToolCall.ts](../../../../src/main/agent/runtime/tools/ReadyToolCall.ts)
-  - 已经完整可执行、可以进入 batch 组装的 tool call contract
+  - 已经完整可执行、可以进入 batch 组装的 tool call contract；`toReadyToolCall()` 做字段转换
 - [ToolCallReadyFact.ts](../../../../src/main/agent/runtime/tools/ToolCallReadyFact.ts)
   - 从 step facts 中提炼出来、供 tools 层消费的 ready tool call 事实
-- [ReadyToolCallMaterializer.ts](../../../../src/main/agent/runtime/tools/ReadyToolCallMaterializer.ts)
-  - 把 `ToolCallReadyFact` 物化成 `ReadyToolCall`
 - [ToolBatchAssembler.ts](../../../../src/main/agent/runtime/tools/ToolBatchAssembler.ts)
   - 把 step 中已经 ready 的 tool calls 组装成 `ToolBatch`
 - [ToolDispatchOutcome.ts](../../../../src/main/agent/runtime/tools/ToolDispatchOutcome.ts)
@@ -105,7 +103,7 @@ Documentation: [Agent runtime](../README.md)
 - `tool_call_started` 不能触发 batch 组装或工具执行
 - tools 层不应直接依赖 `step/` 下的 delta 命名
   - `tool_call_ready` 进入 tools 边界后，应先被提炼成 `ToolCallReadyFact`
-- `ReadyToolCallMaterializer`
+- `toReadyToolCall()`
   - 负责把 `ToolCallReadyFact` 转成 `ReadyToolCall`
   - loop 不应在多个位置重复手写这段转换
 - `ToolBatchAssembler` 不直接接 `IToolCall[]`

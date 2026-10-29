@@ -80,3 +80,12 @@ before terminal output. This measures delivered work, not end-to-end latency.
 Shared output/render and Telegram runtime suites: 77 passed. Node typecheck and
 scoped ESLint error checks passed (format warnings remain). Barrier ordering and
 preview failures are covered. Actual external transport latency is not benchmarked.
+
+### Stage 5 — complete
+
+Replaced ReadyToolCallMaterializer's class/interface/input contract and factory
+injection with `toReadyToolCall()` beside its output type. Removed unused stepId
+input and obsolete documentation paths. ToolBatchAssembler and approval policies
+remain intact. Runtime/tool suites, Node typecheck, main boundaries, main architecture
+and active doc paths passed; scoped lint retains only pre-existing return-type
+errors in AgentLoop. This is a maintenance reduction, not a latency claim.
