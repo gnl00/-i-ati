@@ -86,7 +86,8 @@ src/main/hosts/chat/vision/__tests__ src/main/services/mcpRuntime/__tests__
 src/main/agent/tools/__tests__/ToolExecutor.test.ts
 src/main/orchestration/chat/run/runtime/__tests__/AgentRun.test.ts
 src/main/agent/runtime/tools/__tests__ src/main/agent/runtime/__tests__/AgentRuntime.test.ts
-src/main/services/subagent/runtime/__tests__` — 12 files, 177 tests passed.
+` — 12 files, 177 tests passed. The original command also included a non-existent
+subagent runtime test-directory filter; it selected no tests and was removed here.
 `pnpm run typecheck:node`, `pnpm run check:main-boundaries`,
 `pnpm run test:main-architecture` and `git diff --check` passed. Scoped ESLint retains
 baseline errors only; new abort-wait utility has zero errors. Final Electron/coverage
@@ -108,3 +109,22 @@ src/main/hosts/chat/preparation/__tests__/ChatPreparationPipeline.test.ts` — 8
 passed. Node typecheck, Main boundary/architecture checks and diff check passed.
 Scoped ESLint compared with baseline retains existing errors only. Independent chat,
 alias collision, Stop cleanup, acceptance failure and subsequent admission covered.
+
+### Stage 4 — bounded retrieval
+
+Memory search now honors similarity thresholds, including an explicit zero at the
+tool boundary. Pinned preferences use an additive partial index and LIMIT 3; initial
+index creation scans existing metadata once. Empty/weak queries without task context
+skip semantic search. Independent retrieval failures preserve successful sources.
+Automatic retrieval has a 2-second wait budget and observes run cancellation; native
+embedding work already started can finish but cannot launch a cancelled downstream
+query. Embedding promises use a 32-entry LRU, exclude texts over 4096 characters,
+clone returned vectors, evict failures and clear on disposal.
+
+Verification: targeted Vitest suites cover Awake, embedding, real SQLite memory SQL,
+retrieval deadlines, activity journal, knowledgebase, preparation providers and memory
+tools (142 cases). Node/web typechecks, Main boundaries/architecture tests and active
+doc-path checks passed. Scoped ESLint matches existing baseline errors; new retrieval
+and SQL tests have zero errors. SQL fixtures verify the pinned index and threshold
+boundary; cache tests verify concurrent reuse, eviction, option keys and mutation
+isolation. Full coverage and Electron remain final integration gates.

@@ -77,8 +77,9 @@ export class RunRequestFactory {
       await abortableWait(() => Promise.all([
         this.loadedSkillsContextProvider.build(environment.chat.id),
         this.userInfoPromptProvider.buildContext(),
-        this.knowledgebaseContextProvider.build(expandTextAttachments(input.textCtx, input.textAttachments)),
+        this.knowledgebaseContextProvider.build(expandTextAttachments(input.textCtx, input.textAttachments), signal),
         this.awakeContextProvider.build({
+          signal,
           emotionEnabled,
           chat: environment.chat,
           workspacePath: environment.workspacePath,

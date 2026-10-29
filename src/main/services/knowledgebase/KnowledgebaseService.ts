@@ -167,7 +167,7 @@ export class KnowledgebaseService {
 
   async search(
     query: string,
-    options: KnowledgebaseSearchOptions
+    options: KnowledgebaseSearchOptions & { signal?: AbortSignal }
   ): Promise<Array<{
     chunkId: string
     documentId: string
@@ -183,7 +183,9 @@ export class KnowledgebaseService {
     charEnd: number
     tokenEstimate: number
   }>> {
+    options.signal?.throwIfAborted()
     await this.initialize()
+    options.signal?.throwIfAborted()
     const trimmedQuery = query.trim()
     if (!trimmedQuery) {
       return []
@@ -194,6 +196,7 @@ export class KnowledgebaseService {
     const topK = Math.min(Math.max(options.topK, 1), 20)
     const oversampledTopK = Math.min(topK * 8, 120)
     const { embedding } = await this.embeddingService.generateEmbedding(trimmedQuery)
+    options.signal?.throwIfAborted()
     const queryVector = new Float32Array(embedding)
     const queryBuffer = Buffer.from(queryVector.buffer, queryVector.byteOffset, queryVector.byteLength)
     const rows = this.requireRepo().search(queryBuffer, {

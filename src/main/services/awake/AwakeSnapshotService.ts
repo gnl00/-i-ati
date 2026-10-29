@@ -1,3 +1,5 @@
+import { AWAKE_PINNED_MEMORY_CATEGORIES } from '@shared/awake'
+import { optionalRetrieval } from '@main/services/retrieval/optionalRetrieval'
 import { chatDb } from '@main/db/chat'
 import { smartMessageDb } from '@main/db/smart-messages'
 import activityJournalService from '@main/services/activityJournal/ActivityJournalService'
@@ -19,12 +21,13 @@ import type {
 type MemoryMetadata = Record<string, any> | undefined
 
 type MemorySearchResult = Awaited<ReturnType<typeof MemoryService.searchMemories>>[number]
-type MemoryListEntry = Awaited<ReturnType<typeof MemoryService.getAllMemories>>[number]
+type MemoryListEntry = Awaited<ReturnType<typeof MemoryService.getPinnedMemories>>[number]
 type ActivityJournalEntry = Awaited<ReturnType<typeof activityJournalService.listEntries>>[number]
 type ActivityJournalSearchItem = Awaited<ReturnType<typeof activityJournalService.searchEntries>>[number]
 type SmartMessageCandidateSummary = ReturnType<typeof smartMessageDb.listRecentSmartMessageCandidateSummaries>[number]
 
 export type BuildAwakeSnapshotInput = {
+  signal?: AbortSignal
   emotionEnabled?: boolean
   chat: ChatEntity
   workspacePath?: string
@@ -47,13 +50,9 @@ const RECENT_SUMMARY_WINDOW_DAYS = 30
 
 const EMPTY_WORK_CONTEXT = '# Work Context'
 
-const PINNED_CATEGORIES = new Set([
-  'preference',
-  'workflow',
-  'style',
-  'constraint',
-  'project'
-])
+const PINNED_CATEGORIES = new Set<string>(AWAKE_PINNED_MEMORY_CATEGORIES)
+
+
 
 const getMetadataString = (metadata: MemoryMetadata, key: string): string | undefined => {
   const value = metadata?.[key]
@@ -106,13 +105,6 @@ const toRelevantMemoryItem = (result: MemorySearchResult): AwakeMemoryCandidate 
     ...(metadata.importance ? { importance: metadata.importance } : {}),
     chat_id: result.entry.chatId
   }
-}
-
-const isPinnedMemory = (entry: MemoryListEntry): boolean => {
-  const category = getMetadataString(entry.metadata, 'category')
-  const importance = getMetadataString(entry.metadata, 'importance')
-
-  return importance === 'high' && Boolean(category && PINNED_CATEGORIES.has(category))
 }
 
 const scoreImportance = (importance: string | undefined): number => {
@@ -410,12 +402,15 @@ const buildRetrievalPlan = (input: {
   workContextSummary?: string
   compressionSummary?: string
 }): AwakeRetrievalPlan => {
-  const rawQuery = input.currentQuery?.trim() || ''
-  const signals = extractSignals(input)
-  const contextualQuery = buildContextualQuery({
-    ...input,
+  const rawQuery = buildActivityQuery({ currentQuery: input.currentQuery })
+  const title = buildActivityQuery({ chatTitle: input.chatTitle })
+  const normalized = { ...input, currentQuery: rawQuery, chatTitle: title }
+  const hasContext = Boolean(title || input.workContextSummary || input.compressionSummary)
+  const signals = extractSignals(normalized)
+  const contextualQuery = hasContext ? buildContextualQuery({
+    ...normalized,
     signals
-  }) || rawQuery
+  }) : rawQuery
   const confidence = contextualQuery.length > rawQuery.length || signals.length >= 3
     ? 'medium'
     : rawQuery ? 'low' : 'low'
@@ -484,6 +479,7 @@ const buildEmotionSnapshot = (state: EmotionStateSnapshot | undefined): NonNulla
 
 export class AwakeSnapshotService {
   async build(input: BuildAwakeSnapshotInput): Promise<AwakeSnapshot> {
+    input.signal?.throwIfAborted()
     let workContextContent: string | undefined
     let workContextExists = false
 
@@ -507,14 +503,15 @@ export class AwakeSnapshotService {
     })
 
     const [memorySnapshot, recentActivities] = await Promise.all([
-      this.buildMemorySnapshot(input.chat.id, retrievalPlan),
+      this.buildMemorySnapshot(input.chat.id, retrievalPlan, input.signal),
       this.buildRecentActivities(input.chat.uuid, buildActivityQuery({
         currentQuery: input.currentQuery,
         chatTitle: input.chat.title,
         workContextSummary,
         compressionSummary: input.compressionSummary?.summary
-      }))
+      }), input.signal)
     ])
+    input.signal?.throwIfAborted()
     const chatMeta = {
       chat_id: input.chat.id,
       chat_uuid: input.chat.uuid,
@@ -540,32 +537,31 @@ export class AwakeSnapshotService {
 
   private async buildMemorySnapshot(
     chatId: number | undefined,
-    retrievalPlan: AwakeRetrievalPlan
+    retrievalPlan: AwakeRetrievalPlan,
+    signal?: AbortSignal
   ): Promise<AwakeMemorySnapshot> {
     try {
-      const [allMemories, rawResults, contextualResults] = await Promise.all([
-        MemoryService.getAllMemories(),
+      const [pinnedMemories, rawResults, contextualResults] = await Promise.all([
+        optionalRetrieval(retrievalSignal => MemoryService.getPinnedMemories(PINNED_MEMORY_LIMIT, retrievalSignal), signal),
         retrievalPlan.raw_query
-          ? MemoryService.searchMemories(retrievalPlan.raw_query, {
+          ? optionalRetrieval(retrievalSignal => MemoryService.searchMemories(retrievalPlan.raw_query, {
+            signal: retrievalSignal,
             chatId,
             topK: retrievalPlan.top_k,
             threshold: retrievalPlan.threshold
-          })
+          }), signal)
           : Promise.resolve([]),
         retrievalPlan.contextual_query && retrievalPlan.contextual_query !== retrievalPlan.raw_query
-          ? MemoryService.searchMemories(retrievalPlan.contextual_query, {
+          ? optionalRetrieval(retrievalSignal => MemoryService.searchMemories(retrievalPlan.contextual_query, {
+            signal: retrievalSignal,
             chatId,
             topK: retrievalPlan.top_k,
             threshold: retrievalPlan.threshold
-          })
+          }), signal)
           : Promise.resolve([])
       ])
 
-      const pinnedPreferences = allMemories
-        .filter(isPinnedMemory)
-        .sort((a, b) => b.timestamp - a.timestamp)
-        .slice(0, PINNED_MEMORY_LIMIT)
-        .map(toPinnedMemoryItem)
+      const pinnedPreferences = pinnedMemories.map(toPinnedMemoryItem)
 
       return {
         pinned_preferences: pinnedPreferences,
@@ -576,6 +572,7 @@ export class AwakeSnapshotService {
         retrieval_plan: retrievalPlan
       }
     } catch {
+      signal?.throwIfAborted()
       return {
         pinned_preferences: [],
         relevant_memories: [],
@@ -586,14 +583,18 @@ export class AwakeSnapshotService {
 
   private async buildRecentActivities(
     chatUuid: string,
-    query: string
+    query: string,
+    signal?: AbortSignal
   ): Promise<AwakeRecentActivity[]> {
     const items: RecentActivityCandidate[] = []
 
-    const recentJournal = await this.safeListRecentJournal()
+    const [recentJournal, searchedJournal] = await Promise.all([
+      optionalRetrieval(() => this.safeListRecentJournal(), signal),
+      optionalRetrieval(retrievalSignal => this.safeSearchJournal(query, retrievalSignal), signal)
+    ])
+    signal?.throwIfAborted()
     items.push(...recentJournal.map(toActivityItem))
 
-    const searchedJournal = await this.safeSearchJournal(query)
     items.push(...searchedJournal.filter(item => item.similarity >= DEFAULT_THRESHOLD).map(toActivityItem))
 
     const summaries = this.safeListRecentSummaries()
@@ -629,7 +630,7 @@ export class AwakeSnapshotService {
     }
   }
 
-  private async safeSearchJournal(query: string): Promise<ActivityJournalSearchItem[]> {
+  private async safeSearchJournal(query: string, signal?: AbortSignal): Promise<ActivityJournalSearchItem[]> {
     if (!query.trim()) {
       return []
     }
@@ -637,7 +638,8 @@ export class AwakeSnapshotService {
     try {
       return await activityJournalService.searchEntries(query, {
         limit: RECENT_ACTIVITY_LIMIT,
-        withinDays: 14
+        withinDays: 14,
+        signal
       })
     } catch {
       return []

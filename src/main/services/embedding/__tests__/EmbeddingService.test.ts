@@ -77,6 +77,34 @@ describe('EmbeddingService', () => {
     await service.dispose()
   })
 
+  it('reuses concurrent embeddings and isolates caller mutations and options', async () => {
+    const [first, second] = await Promise.all([
+      service.generateEmbedding('same query'), service.generateEmbedding('same query')
+    ])
+    expect(mockPipelineInstance).toHaveBeenCalledTimes(1)
+    first.embedding[0] = 99
+    expect(second.embedding[0]).not.toBe(99)
+    expect((await service.generateEmbedding('same query')).embedding[0]).not.toBe(99)
+    await service.generateEmbedding('same query', { normalize: false })
+    expect(mockPipelineInstance).toHaveBeenCalledTimes(2)
+    await service.dispose()
+    await service.generateEmbedding('same query')
+    expect(mockPipelineInstance).toHaveBeenCalledTimes(3)
+  })
+
+  it('bounds cache entries, excludes large texts and permits retry after failure', async () => {
+    await service.generateEmbedding('oldest')
+    for (let i = 0; i < 32; i++) await service.generateEmbedding(`query-${i}`)
+    await service.generateEmbedding('oldest')
+    expect(mockPipelineInstance).toHaveBeenCalledTimes(34)
+    await service.generateEmbedding('x'.repeat(4097))
+    await service.generateEmbedding('x'.repeat(4097))
+    expect(mockPipelineInstance).toHaveBeenCalledTimes(36)
+    mockPipelineInstance.mockRejectedValueOnce(new Error('transient failure'))
+    await expect(service.generateEmbedding('retry')).rejects.toThrow('transient failure')
+    await expect(service.generateEmbedding('retry')).resolves.toHaveProperty('dimensions', 384)
+  })
+
   describe('单例模式', () => {
     it('应该返回同一个实例', () => {
       const instance1 = EmbeddingService.getInstance()

@@ -8,7 +8,7 @@ const {
   getWorkContextByChatUuidMock,
   getEmotionStateMock,
   listRecentSmartMessageCandidateSummariesMock,
-  getAllMemoriesMock,
+  getPinnedMemoriesMock,
   searchMemoriesMock,
   listActivityEntriesMock,
   searchActivityEntriesMock,
@@ -17,7 +17,7 @@ const {
   getWorkContextByChatUuidMock: vi.fn(),
   getEmotionStateMock: vi.fn(),
   listRecentSmartMessageCandidateSummariesMock: vi.fn(),
-  getAllMemoriesMock: vi.fn(),
+  getPinnedMemoriesMock: vi.fn(),
   searchMemoriesMock: vi.fn(),
   listActivityEntriesMock: vi.fn(),
   searchActivityEntriesMock: vi.fn(),
@@ -34,7 +34,7 @@ vi.mock('@main/db/DatabaseService', () => ({
 
 vi.mock('@main/services/memory/MemoryService', () => ({
   default: {
-    getAllMemories: getAllMemoriesMock,
+    getPinnedMemories: getPinnedMemoriesMock,
     searchMemories: searchMemoriesMock
   }
 }))
@@ -101,7 +101,7 @@ describe('AwakeSnapshotService', () => {
         source: 'tool'
       }]
     } satisfies EmotionStateSnapshot)
-    getAllMemoriesMock.mockResolvedValue([
+    getPinnedMemoriesMock.mockResolvedValue([
       {
         id: 'mem-pref',
         chatId: 7,
@@ -113,19 +113,6 @@ describe('AwakeSnapshotService', () => {
         metadata: {
           category: 'preference',
           importance: 'high'
-        }
-      },
-      {
-        id: 'mem-low',
-        chatId: 7,
-        messageId: 2,
-        role: 'system',
-        context_origin: 'Low priority memory',
-        context_en: 'Low priority memory',
-        timestamp: 80,
-        metadata: {
-          category: 'context',
-          importance: 'low'
         }
       }
     ])
@@ -254,15 +241,23 @@ describe('AwakeSnapshotService', () => {
     expect(compressedActivity?.summary).not.toContain('<summary>')
   })
 
-  it('returns safe defaults when memory fails', async () => {
-    getAllMemoriesMock.mockRejectedValue(new Error('memory unavailable'))
+  it('skips semantic retrieval for a greeting without task context', async () => {
+    getWorkContextByChatUuidMock.mockReturnValue(undefined)
+    await new AwakeSnapshotService().build({ chat: { ...chat, title: 'NewChat' }, currentQuery: 'hello', workspacePath: './workspaces/chat' })
+    expect(searchMemoriesMock).not.toHaveBeenCalled()
+    expect(searchActivityEntriesMock).not.toHaveBeenCalled()
+    expect(getPinnedMemoriesMock).toHaveBeenCalledWith(3, expect.any(AbortSignal))
+  })
+
+  it('retains successful retrieval when pinned memories fail', async () => {
+    getPinnedMemoriesMock.mockRejectedValue(new Error('memory unavailable'))
 
     const snapshot = await new AwakeSnapshotService().build({
       chat,
       currentQuery: 'hello'
     })
 
-    expect(snapshot.memories).toEqual([])
+    expect(snapshot.memories).toEqual([expect.objectContaining({ source: 'relevant_memories' })])
     expect('diagnostics' in snapshot).toBe(false)
     expect(snapshot.emotion!.current.label).toBe(currentProjection.label)
     expect(snapshot.emotion!.summary).toContain(`Current emotion: ${currentProjection.label}`)
@@ -303,7 +298,7 @@ describe('AwakeSnapshotService', () => {
       { id: 'weak', title: 'Weak hit', details: 'Weak evidence.', createdAt: 1000, similarity: 0.59 }
     ])
     const snapshot = await new AwakeSnapshotService().build({ chat: { ...chat, title: 'NewChat' }, currentQuery: '继续' })
-    expect(searchActivityEntriesMock).toHaveBeenCalledWith(expect.stringContaining('Implement awake state.'), { limit: 3, withinDays: 14 })
+    expect(searchActivityEntriesMock).toHaveBeenCalledWith(expect.stringContaining('Implement awake state.'), expect.objectContaining({ limit: 3, withinDays: 14 }))
     expect(snapshot.work_context?.content).toContain('Implement awake state.')
     expect(snapshot.recent_activities.map(item => item.id)).toEqual(['current', 'related', 'unrelated'])
     expect(snapshot.recent_activities[0].summary).toBe('Ready to implement.')

@@ -1,3 +1,5 @@
+export const AWAKE_PINNED_MEMORY_CATEGORIES = ['preference', 'workflow', 'style', 'constraint', 'project'] as const
+
 import type { EmotionStimulus, EmotionVector } from '@shared/emotion/emotionVector'
 
 export type AwakeMemorySource = 'pinned_preferences' | 'relevant_memories'

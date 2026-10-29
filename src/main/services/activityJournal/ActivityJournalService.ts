@@ -205,10 +205,13 @@ export class ActivityJournalService {
     options: {
       limit: number
       withinDays: number
+      signal?: AbortSignal
       chatUuid?: string
     }
   ): Promise<ActivityJournalSearchItem[]> {
+    options.signal?.throwIfAborted()
     await this.initialize()
+    options.signal?.throwIfAborted()
     if (!this.repo) {
       throw new Error('Activity journal repository not initialized')
     }
@@ -223,6 +226,7 @@ export class ActivityJournalService {
     const startAt = Date.now() - (withinDays * 86400000)
 
     const { embedding } = await this.getEmbeddingService().generateEmbedding(trimmedQuery)
+    options.signal?.throwIfAborted()
     const queryVector = new Float32Array(embedding)
     const queryBuffer = Buffer.from(queryVector.buffer, queryVector.byteOffset, queryVector.byteLength)
 

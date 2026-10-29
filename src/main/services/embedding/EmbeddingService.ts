@@ -29,6 +29,7 @@ interface BatchEmbeddingResult {
 class EmbeddingService {
   private static instance: EmbeddingService
   private pipeline: any = null
+  private readonly embeddingCache = new Map<string, Promise<EmbeddingResult>>()
   private modelPath: string
   private isInitialized: boolean = false
   private initializationPromise: Promise<void> | null = null
@@ -199,6 +200,31 @@ class EmbeddingService {
    */
   public async generateEmbedding(
     text: string,
+    options?: { pooling?: 'mean' | 'cls'; normalize?: boolean }
+  ): Promise<EmbeddingResult> {
+    const cacheable = text.length <= 4096
+    const key = JSON.stringify([text, options?.pooling ?? 'mean', options?.normalize !== false])
+    let pending = cacheable ? this.embeddingCache.get(key) : undefined
+    if (!pending) {
+      pending = this.computeEmbedding(text, options)
+      if (cacheable) {
+        this.embeddingCache.set(key, pending)
+        if (this.embeddingCache.size > 32) this.embeddingCache.delete(this.embeddingCache.keys().next().value!)
+        const current = pending
+        void pending.catch(() => {
+          if (this.embeddingCache.get(key) === current) this.embeddingCache.delete(key)
+        })
+      }
+    } else {
+      this.embeddingCache.delete(key)
+      this.embeddingCache.set(key, pending)
+    }
+    const result = await pending
+    return { ...result, embedding: [...result.embedding] }
+  }
+
+  private async computeEmbedding(
+    text: string,
     options?: {
       pooling?: 'mean' | 'cls' // 池化策略
       normalize?: boolean // 是否归一化
@@ -355,6 +381,7 @@ class EmbeddingService {
    * 清理资源
    */
   public async dispose(): Promise<void> {
+    this.embeddingCache.clear()
     if (this.pipeline) {
       // transformers.js 的 pipeline 会自动清理
       this.pipeline = null

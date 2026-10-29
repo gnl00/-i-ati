@@ -1,3 +1,4 @@
+import { optionalRetrieval } from '@main/services/retrieval/optionalRetrieval'
 import { AppConfigStore } from '@main/hosts/chat/config/AppConfigStore'
 import { knowledgebaseService } from '@main/services/knowledgebase/KnowledgebaseService'
 import { MESSAGE_SOURCE } from '@shared/messages/messageSources'
@@ -19,8 +20,8 @@ export class KnowledgebaseContextProvider {
     private readonly appConfigStore = new AppConfigStore()
   ) {}
 
-  async build(query?: string): Promise<ChatMessage | null> {
-    const content = await this.buildContent(query)
+  async build(query?: string, signal?: AbortSignal): Promise<ChatMessage | null> {
+    const content = await this.buildContent(query, signal)
     if (!content.trim()) {
       return null
     }
@@ -33,7 +34,8 @@ export class KnowledgebaseContextProvider {
     }
   }
 
-  private async buildContent(query?: string): Promise<string> {
+  private async buildContent(query?: string, signal?: AbortSignal): Promise<string> {
+    signal?.throwIfAborted()
     const config = this.appConfigStore.getConfig()?.knowledgebase
     if (!(config?.enabled ?? false) || (config?.folders?.length ?? 0) === 0) {
       return ''
@@ -64,11 +66,12 @@ export class KnowledgebaseContextProvider {
     }
 
     const topK = Math.min(Math.max(config?.maxResults ?? AUTO_RAG_TOP_K, 1), AUTO_RAG_TOP_K)
-    const results = await knowledgebaseService.search(trimmedQuery, {
+    const results = await optionalRetrieval(retrievalSignal => knowledgebaseService.search(trimmedQuery, {
+      signal: retrievalSignal,
       topK,
       threshold: AUTO_RAG_THRESHOLD,
       folders: config?.folders
-    })
+    }), signal)
 
     if (results.length === 0) {
       return ''

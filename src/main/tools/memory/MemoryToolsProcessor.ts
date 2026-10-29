@@ -45,7 +45,7 @@ export async function processMemoryRetrieval(
     const results = await MemoryService.searchMemories(args.query, {
       chatId: args.chatId,
       topK: args.topK || 5,
-      threshold: args.threshold || 0.6
+      threshold: args.threshold ?? 0.6
     })
 
     if (results.length === 0) {

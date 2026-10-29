@@ -1,6 +1,6 @@
 # Memory 与 Embedding 当前实现
 
-Last verified against source: 2026-09-29.
+Last verified against source: 2026-10-30.
 
 ## 所有权与存储
 
@@ -13,7 +13,9 @@ Renderer 通过 preload 的通用 IPC bridge 访问已注册 handler。
 使用 `all-MiniLM-L6-v2`、384 维向量和 feature-extraction pipeline。
 开发模型目录为 `resources/models`，打包目录为 `process.resourcesPath/models`。
 初始化前检查模型目录；首次使用时加载模型，并共享进行中的初始化 promise。
-当前批量上限为 24 条及 12,000 字符。
+当前批量上限为 24 条及 12,000 字符。单文本 embedding 使用 32 项 LRU promise 缓存，
+只缓存不超过 4,096 字符的文本；key 包含文本、pooling、normalize。并发同 key 共用计算，
+返回向量为独立副本，失败移除缓存，dispose 清空缓存。
 
 服务使用本地模型文件。模型资源、依赖和打包可用性仍需分别验证；本地向量处理
 也不意味着整个聊天流程离线，聊天模型仍按 provider 配置运行。
@@ -34,10 +36,11 @@ Renderer 通过 preload 的通用 IPC bridge 访问已注册 handler。
 | `memory_update` | 按 id 更新字段，未找到或执行失败返回结构化失败 |
 
 记忆写入由保存或更新入口触发。每条聊天消息都自动保存为记忆的描述已被移除。
+服务检索在映射结果前执行 similarity >= threshold（默认 0.6），显式 0 被保留。
 服务检索支持 chat、排除 id 和时间范围等选项；模型工具暴露的参数以共享定义为准。
 
 [AwakeSnapshotService](../../src/main/services/awake/AwakeSnapshotService.ts)
-读取记忆列表，筛选 pinned preferences，并根据 retrieval plan 的 raw/contextual
+通过 metadata 条件的部分索引读取最新 3 条 pinned preferences，并根据 retrieval plan 的有效 raw/contextual
 query 检索候选，投影到 awake memory snapshot。具体请求注入边界见
 [Awake state design](../architecture/awake/awake-state-design.md)。
 

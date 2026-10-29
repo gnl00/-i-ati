@@ -96,13 +96,13 @@ const { knowledgebaseSearchMock } = vi.hoisted(() => ({
 }))
 
 const {
-  getAllMemoriesMock,
+  getPinnedMemoriesMock,
   searchMemoriesMock,
   listActivityEntriesMock,
   searchActivityEntriesMock,
   getActivityDateKeyMock
 } = vi.hoisted(() => ({
-  getAllMemoriesMock: vi.fn(),
+  getPinnedMemoriesMock: vi.fn(),
   searchMemoriesMock: vi.fn(),
   listActivityEntriesMock: vi.fn(),
   searchActivityEntriesMock: vi.fn(),
@@ -117,7 +117,7 @@ vi.mock('@main/services/knowledgebase/KnowledgebaseService', () => ({
 
 vi.mock('@main/services/memory/MemoryService', () => ({
   default: {
-    getAllMemories: getAllMemoriesMock,
+    getPinnedMemories: getPinnedMemoriesMock,
     searchMemories: searchMemoriesMock
   }
 }))
@@ -222,7 +222,7 @@ describe('ChatPreparationPipeline', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     knowledgebaseSearchMock.mockResolvedValue([])
-    getAllMemoriesMock.mockResolvedValue([])
+    getPinnedMemoriesMock.mockResolvedValue([])
     searchMemoriesMock.mockResolvedValue([])
     listActivityEntriesMock.mockResolvedValue([])
     searchActivityEntriesMock.mockResolvedValue([])

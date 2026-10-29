@@ -214,7 +214,15 @@ server-side 生成上下文化检索 query。输入信号包括：
 - work_context-focused query
 - extracted identifiers query
 
-第一版可以先实现 raw query + contextualized query 两路。
+当前实现使用 raw query + contextualized query 两路。普通问候/确认等弱输入不作为 raw query；
+缺少有效标题、work context、压缩摘要时只用有效 raw query，避免生成重复 query。
+两者都不存在时跳过语义搜索，仍提供固定偏好和近期活动。固定偏好由 MemoryService
+通过部分索引筛选并 LIMIT 3，宿主不再读取或排序完整 memory 表。
+
+各路自动检索等待上限为 2 秒，失败/超时返回该路空结果并保留其他成功结果。
+显式 Stop 传播取消，不能降级成空结果继续请求。自动知识库检索采用同一等待策略；
+显式模型工具调用保留原执行语义。已经启动的本地 embedding 可能继续完成并进入有界缓存，
+取消后不会继续执行相应 memory/activity/knowledgebase 查询。
 
 ### 4. rerank
 

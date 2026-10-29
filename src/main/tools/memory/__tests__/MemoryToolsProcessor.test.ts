@@ -192,6 +192,11 @@ describe('MemoryToolsProcessor', () => {
       }
     })
 
+    it('preserves an explicit zero similarity threshold', async () => {
+      await processMemoryRetrieval({ query: 'query', threshold: 0 })
+      expect(MemoryService.searchMemories).toHaveBeenLastCalledWith('query', expect.objectContaining({ threshold: 0 }))
+    })
+
     it('应该成功检索相关记忆', async () => {
       const args = {
         query: 'TypeScript',

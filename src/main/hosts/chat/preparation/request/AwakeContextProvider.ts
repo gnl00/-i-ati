@@ -7,6 +7,7 @@ export class AwakeContextProvider {
   ) {}
 
   async build(input: {
+    signal?: AbortSignal
     emotionEnabled?: boolean
     chat: ChatEntity
     workspacePath?: string
@@ -15,6 +16,7 @@ export class AwakeContextProvider {
   }): Promise<ChatMessage | null> {
     const snapshot = await this.snapshotService.build({
       emotionEnabled: input.emotionEnabled,
+      signal: input.signal,
       chat: input.chat,
       workspacePath: input.workspacePath,
       currentQuery: input.currentQuery,

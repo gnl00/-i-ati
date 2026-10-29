@@ -1,3 +1,4 @@
+import { AWAKE_PINNED_MEMORY_CATEGORIES } from '@shared/awake'
 /**
  * MemoryService - 对话记忆与上下文检索服务
  * 基于向量相似度实现长期记忆和上下文检索
@@ -11,6 +12,11 @@ import { app } from 'electron'
 import path from 'path'
 import Database from 'better-sqlite3'
 import { loadSqliteVecExtension } from '@main/db/sqlite/loadSqliteVec'
+
+const PINNED_MEMORY_PREDICATE = `
+  trim(json_extract(CASE WHEN json_valid(metadata) THEN metadata ELSE '{}' END, '$.importance')) = 'high'
+  AND trim(json_extract(CASE WHEN json_valid(metadata) THEN metadata ELSE '{}' END, '$.category'))
+    IN (${AWAKE_PINNED_MEMORY_CATEGORIES.map(category => `'${category}'`).join(',')})`
 
 /**
  * 记忆条目接口
@@ -51,6 +57,7 @@ interface SearchResult {
  * 搜索选项接口
  */
 interface SearchOptions {
+  signal?: AbortSignal
   chatId?: number // 限定聊天 ID
   topK?: number // 返回前 K 个结果
   threshold?: number // 相似度阈值
@@ -204,6 +211,8 @@ class MemoryService {
       CREATE INDEX IF NOT EXISTS idx_role ON memories(role);
     `)
 
+    this.db.exec(`CREATE INDEX IF NOT EXISTS idx_pinned_memories
+      ON memories(timestamp DESC) WHERE ${PINNED_MEMORY_PREDICATE}`)
     this.logger.debug('schema.indexes_ready')
   }
 
@@ -445,11 +454,15 @@ class MemoryService {
     query: string,
     options: SearchOptions = {}
   ): Promise<SearchResult[]> {
+    options.signal?.throwIfAborted()
     await this.initialize()
+    options.signal?.throwIfAborted()
+    if (!query.trim()) return []
 
     const {
       chatId,
       topK = 5,
+      threshold = 0.6,
       excludeIds = [],
       timeRange,
     } = options
@@ -457,6 +470,7 @@ class MemoryService {
     try {
       // 生成查询的 embedding
       const { embedding: queryEmbedding } = await EmbeddingServiceInstance.generateEmbedding(query)
+      options.signal?.throwIfAborted()
       // 将 embedding 转换为 Buffer（sqlite-vec 需要 Blob 格式）
       const queryVector = new Float32Array(queryEmbedding)
       // 从底层 ArrayBuffer 创建 Buffer，保持 Float32 的二进制格式
@@ -515,8 +529,7 @@ class MemoryService {
       const rows = stmt.all(...finalParams) as Array<MemoryRow & { distance: number }>
 
       // 构建结果，将 distance 转换为 similarity
-      // 暂时移除阈值过滤，返回所有结果
-      const results: SearchResult[] = rows.map((row, index) => ({
+      const results: SearchResult[] = rows.filter(row => 1 - row.distance >= threshold).map((row, index) => ({
         entry: this.rowToEntry(row),
         similarity: 1 - row.distance,  // distance 转换为 similarity
         rank: index + 1
@@ -544,9 +557,17 @@ class MemoryService {
     }
   }
 
-  /**
-   * 获取所有记忆（不包含 embedding）
-   */
+  /** Read the bounded global preference set without materializing all memories. */
+  public async getPinnedMemories(limit = 3, signal?: AbortSignal): Promise<MemoryListEntry[]> {
+    signal?.throwIfAborted()
+    await this.initialize()
+    signal?.throwIfAborted()
+    const rows = this.db!.prepare(`SELECT * FROM memories
+      WHERE ${PINNED_MEMORY_PREDICATE} ORDER BY timestamp DESC LIMIT ?`)
+      .all(Math.min(100, Math.max(1, Math.floor(limit)))) as MemoryRow[]
+    return rows.map(row => this.rowToListEntry(row))
+  }
+
   public async getAllMemories(): Promise<MemoryListEntry[]> {
     await this.initialize()
 
